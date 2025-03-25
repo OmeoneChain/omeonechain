@@ -225,6 +225,14 @@ app.get('/api/v1/users/:id', (req, res) => {
 });
 
 // Add some sample data
+addSampleData();
+
+// Start server
+app.listen(port, () => {
+  console.log(`OmeoneChain API POC running on port ${port}`);
+});
+
+// Add some sample data
 function addSampleData() {
   // Add services
   const restaurantId = generateId({ name: 'Mama\'s Kitchen', category: 'restaurant' });
@@ -310,4 +318,19 @@ function addSampleData() {
   };
   
   db.recommendations.push(rec1);
-  db.recommendations.push(
+  db.recommendations.push(rec2);
+  
+  // Update service stats
+  db.services[restaurantId].totalRecommendations += 1;
+  db.services[restaurantId].averageRating = 5;
+  
+  db.services[hotelId].totalRecommendations += 1;
+  db.services[hotelId].averageRating = 4;
+  
+  // Update user stats
+  db.users[user1].totalRecommendations += 1;
+  db.users[user1].reputation = 3;
+  
+  db.users[user2].totalRecommendations += 1;
+  db.users[user2].reputation = 2;
+}
