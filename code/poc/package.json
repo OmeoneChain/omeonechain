@@ -1,0 +1,23 @@
+{
+  "name": "omeonechain-ipfs-poc",
+  "version": "0.1.0",
+  "description": "IPFS integration proof of concept for OmeoneChain",
+  "main": "ipfs-poc.js",
+  "scripts": {
+    "start": "node ipfs-poc.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ipfs",
+    "blockchain",
+    "dag",
+    "recommendations",
+    "decentralized",
+    "storage"
+  ],
+  "author": "OmeoneChain Team",
+  "license": "MIT",
+  "dependencies": {
+    "ipfs-http-client": "^56.0.3"
+  }
+}
