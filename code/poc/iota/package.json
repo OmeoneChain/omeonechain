@@ -1,0 +1,23 @@
+{
+  "name": "omeonechain-iota-poc",
+  "version": "0.1.0",
+  "description": "IOTA Tangle integration proof of concept for OmeoneChain",
+  "main": "iota-poc.js",
+  "scripts": {
+    "start": "node iota-poc.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "iota",
+    "tangle",
+    "blockchain",
+    "dag",
+    "recommendations",
+    "decentralized"
+  ],
+  "author": "OmeoneChain Team",
+  "license": "MIT",
+  "dependencies": {
+    "@iota/client": "^2.3.1"
+  }
+}
