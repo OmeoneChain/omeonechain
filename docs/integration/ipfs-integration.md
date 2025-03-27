@@ -106,4 +106,29 @@ The IPFS and IOTA integrations are designed to work together:
 
 1. Store recommendation content on IPFS to get a CID
 2. Create metadata including the IPFS CID and content hash
+3. Store the metadata on the IOTA Tangle
+4. To retrieve a recommendation, first get the metadata from IOTA
+5. Use the IPFS CID from the metadata to retrieve the full content
+6. Verify the content against the stored hash
+
+## Technical Resources
+
+- [IPFS Documentation](https://docs.ipfs.io/)
+- [IPFS HTTP Client Library](https://github.com/ipfs/js-ipfs-http-client)
+- [IPFS Web UI](https://github.com/ipfs/ipfs-webui)
+- [Infura IPFS](https://infura.io/docs/ipfs)
+- [Pinata IPFS Pinning Service](https://pinata.cloud/)
+
+## Conclusion
+
+This IPFS integration provides OmeoneChain with a scalable, decentralized storage solution for recommendation content. When combined with the IOTA Tangle for metadata and verification, it creates a powerful hybrid architecture that maintains the benefits of both systems.
+- Retrieve it using the CID
+- Verify the content integrity
+
+## Integration with IOTA
+
+The IPFS and IOTA integrations are designed to work together:
+
+1. Store recommendation content on IPFS to get a CID
+2. Create metadata including the IPFS CID and content hash
 3. Store the metadata on the I
