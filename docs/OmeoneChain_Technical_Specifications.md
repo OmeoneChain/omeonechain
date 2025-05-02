@@ -1,52 +1,48 @@
 # Technical Specifications
 
-*Note: This technical specification document contains placeholders for diagrams and certain technical details that will be refined as development progresses. Contributors interested in helping with these areas are encouraged to open an issue or discussion.*
+*Note: This technical specification document contains placeholders for diagrams and certain technical details that will be refined as development progresses. Contributors interested in helping with these areas are encouraged to open an issue or discussion. This file merges v0.2 with all approved copy‑edits to complete the migration from Chrysalis/Tangle to the Rebased object‑DAG.*
 
 ## A.1. System Architecture Overview
 
 ### A.1.1. High-Level Architecture
 
-The OmeoneChain platform consists of several interconnected components organized in a layered architecture:
+The OmeoneChain platform is organized in five layers:
 
-1. **Base Layer**: IOTA Tangle implementation for transactions and metadata storage
-2. **Storage Layer**: Hybrid on-chain/off-chain storage model with IPFS integration
-3. **Protocol Layer**: Core logic for recommendations, token rewards, and reputation
-4. **API Layer**: Interfaces for client applications and third-party integrations
-5. **Application Layer**: Web and mobile interfaces, dApp ecosystem
+| **Layer** | **Purpose** | **Key Technology** |
+|-----------|-------------|-------------------|
+| **Base** | Settlement & metadata | **IOTA Rebased object‑DAG (MoveVM)** -- low‑fee, DAG‑based ledger with Mysticeti DPoS & fee‑burn mechanism |
+| **Storage** | Persistent content | Hybrid on‑chain/off‑chain model: IPFS + optional Aleph.im pin‑service |
+| **Protocol** | Core business logic | Recommendations, token rewards, reputation, governance |
+| **API / Adapter** | Chain abstraction | RebasedAdapter, EVMAdapter, MockAdapter -- provide identical trait: (submitTx, queryState, watchEvents) |
+| **Application** | End‑user & dApp UX | Web, mobile, Move‑script entry points, third‑party dApps |
 
 ![System Architecture Diagram] **[PLACEHOLDER: Architecture diagram showing component interactions]**
 
-### A.1.2. IOTA Tangle Integration
+### A.1.2. IOTA Rebased Integration
 
-OmeoneChain will leverage IOTA's Tangle as its foundational infrastructure due to its feeless transactions, parallel processing capabilities, and scalability advantages over traditional blockchains.
+- **Network Type:** IOTA Rebased test‑net → main‑net
+- **Node Roles:** iotacore **validators** / **full‑nodes**; optional legacy-snapshot read‑only pool for archival Chrysalis data.
+- **Fee Model:** Micro‑fee + burn; dApps may use a **sponsor wallet** (gas‑station) so end‑users experience a feeless interface.
+- **MoveVM:** Level-1 Move smart‑contracts; on‑chain objects reference IPFS CIDs and governance hashes.
 
-**Implementation Details:**
+### A.1.3. Modular Design
 
-- **Network Type**: IOTA 1.5 Chrysalis (with planned migration path to IOTA 2.0/Coordicide)
-- **Node Configuration**: Hornet nodes with permanode capabilities for historical data
-- **Message Structure**: Custom message types for recommendations, votes, and reputation events
-- **Tip Selection**: Modified algorithm optimized for recommendation data validation
+- **Blockchain Abstraction Layer (BAL)**
 
-**Transaction Flow:**
+| Adapter | Language | RPC | Status |
+|---------|----------|-----|--------|
+| `RebasedAdapter` | Move | gRPC / WS | primary |
+| `EVMAdapter` | Solidity | JSON‑RPC | parity build |
+| `MockAdapter` | SQLite | local | unit tests |
 
-1. User actions (recommendations, votes, etc.) are submitted to network
-2. Actions are validated by validating 2+ previous transactions in the Tangle
-3. Metadata and verification hashes are stored directly on Tangle
-4. Full content references are stored on IPFS with hashes recorded on Tangle
-5. Token rewards are calculated and distributed based on action type and quality metrics
+Other modular facets:
 
-**[PLACEHOLDER: More specific details on IOTA libraries/frameworks to be used and custom message formats]**
+- **Storage Abstraction:** Filecoin/Arweave/S3 pluggable behind common interface.
+- **Pluggable Consensus:** protocol layer is chain‑agnostic.
 
-### A.1.3. Modular Design Philosophy
+## A.2. Data Structures and Models (delta-friendly)
 
-To ensure adaptability and future-proofing, the architecture follows strict modularity principles:
-
-1. **Blockchain Abstraction Layer**: Core platform logic is separated from the specific DAG implementation
-2. **Storage Abstraction**: Content persistence mechanisms can be swapped or upgraded
-3. **Pluggable Consensus**: Components can be modified as IOTA evolves from coordinator to fully decentralized consensus
-4. **API Versioning**: All external interfaces follow semantic versioning to ensure backward compatibility
-
-## A.2. Data Structures and Models
+Below are the canonical objects; only updated fields are shown---unchanged fields remain as in v0.1.
 
 ### A.2.1. Recommendation Data Structure
 
@@ -80,9 +76,10 @@ Each recommendation in the system consists of:
   "verificationStatus": "string", // "verified", "unverified"
   "contentHash": "string", // Hash of the content for verification
   "tangle": {
-    "messageId": "string", // IOTA message ID
-    "milestone": "string" // Reference milestone
-  }
+    "objectId": "string", // on-chain object ID
+    "commitNumber": "integer" // ledger commit height
+  },
+  "chainID": "string" // Indicates originating chain
 }
 ```
 
@@ -92,6 +89,7 @@ The reputation system tracks user contributions and overall trustworthiness:
 
 ```json
 {
+  "chainID": "string", // Rebased-testnet-001
   "userId": "string", // Public key or identifier
   "totalRecommendations": "integer",
   "upvotesReceived": "integer",
@@ -102,7 +100,8 @@ The reputation system tracks user contributions and overall trustworthiness:
   "activeSince": "ISO8601 string",
   "tokenRewardsEarned": "integer",
   "followers": "integer",
-  "following": "integer"
+  "following": "integer",
+  "ledger": { "objectID": "string", "commitNumber": "integer" }
 }
 ```
 
@@ -120,8 +119,8 @@ Token transfers and rewards are structured as:
   "type": "string", // "reward", "transfer", "fee", etc.
   "actionReference": "string", // Related recommendation/action ID
   "tangle": {
-    "messageId": "string", // IOTA message ID
-    "milestone": "string" // Reference milestone
+    "objectId": "string", // Rebased object ID
+    "commitNumber": "integer" // Reference commit number
   }
 }
 ```
@@ -164,7 +163,7 @@ The recommendation engine is responsible for processing, storing, and retrieving
    - Content validation (spam detection, content policy checking)
    - Metadata extraction and categorization
    - IPFS storage of full content
-   - Tangle transaction creation for metadata and verification
+   - Rebased DAG transaction creation for metadata and verification
 
 2. **Retrieval and Search**:
    - Multi-faceted search capabilities (location, category, rating)
@@ -183,8 +182,8 @@ The recommendation engine is responsible for processing, storing, and retrieving
 The token system manages incentives for platform participation:
 
 1. **Reward Calculation Logic**:
-   - Base rewards for content creation
-   - Quality multipliers based on engagement metrics
+   - Creating a recommendation: Tokens mint only after the tip's Trust Score reaches 0.25 (Formula: Reward = 1 TOK × Σ Trust-weights (cap 3 ×).
+   - Trusted Up-Votes
    - Reputation factors for reward adjustment
    - Halving implementation based on distribution milestones
 
@@ -195,7 +194,8 @@ The token system manages incentives for platform participation:
 
 3. **Token Utility Functions**:
    - NFT purchase integration
-   - Tipping mechanism
+   - Sponsor-wallet flow: On fee‑based DAGs, the sponsor wallet prepays baseFeeµIOTA; the reward contract refunds in batched settlement.
+   - Reward formula: baseReward × qualityMultiplier × reputationFactor -- baseFeeµIOTA
    - Governance staking
    - Service provider revenue share processing
 
@@ -227,21 +227,22 @@ The reputation system assigns trust levels to users based on history and contrib
 
 The platform implements a two-tiered storage approach:
 
-1. **On-Chain Storage (IOTA Tangle)**:
+1. **On-Chain Storage (Base Ledger -- Rebased DAG)**:
    - Transaction metadata
    - Verification hashes
    - User reputation updates
    - Token transfers
    - Governance actions
 
-2. **Off-Chain Storage (IPFS)**:
+2. **Off-Chain Storage: IPFS (+ optional Aleph.im auto-pin).**
    - Full recommendation content
    - Media attachments (images, videos)
    - Historical data archives
    - Service details and extended information
+   - Funding: storage_pool = 2 % of Service‑Provider share for pin‑cost governance.
 
 3. **Data Synchronization**:
-   - Content addressing via IPFS hashes stored on Tangle
+   - Content addressing via IPFS hashes stored on the base ledger
    - Verification mechanisms to ensure data consistency
    - Redundancy protocols for critical data
 
@@ -299,6 +300,11 @@ GET /api/v1/nfts/{id} # Get NFT details
 POST /api/v1/nfts/{id}/purchase # Purchase NFT
 ```
 
+**Move-script entrypoints (gas-optimized)**
+- post_recommendation(author, cid)
+- vote(recommendationId, up)
+- claim_reward(txId)
+
 ### A.4.2. Developer API for dApps
 
 The platform provides additional endpoints for third-party developers:
@@ -318,7 +324,7 @@ For third-party integrations, the platform supports:
 
 1. **REST API Access**: Standard authenticated REST endpoints for web and mobile applications
 2. **Event Streams**: Webhook notifications for real-time updates
-3. **IOTA Tangle Direct Access**: For advanced applications with direct Tangle interaction needs
+3. **Ledger Direct Access (Rebased DAG object streaming)**: For advanced applications with direct Rebased interaction needs
 4. **IPFS Gateway**: Direct content access for distributed applications
 
 ## A.5. Security Specifications
@@ -326,7 +332,7 @@ For third-party integrations, the platform supports:
 ### A.5.1. Authentication and Authorization
 
 1. **User Authentication Methods**:
-   - Seed-based cryptographic authentication (IOTA compatible)
+   - Ed5519/Ed448 seed-based cryptographic authentication (ledger compatible)
    - Optional email/password with strong encryption
    - Multi-factor authentication for sensitive operations
    - Social authentication providers (optional, for mainstream adoption)
@@ -367,8 +373,8 @@ For token operations and governance functions:
 The minimum infrastructure requirements for running platform nodes:
 
 1. **IOTA Nodes**:
-   - Hornet node implementation
-   - Minimum 8 CPU cores, 16GB RAM, 500GB SSD
+   - *iotacore* validadator / full-node
+   - Minimum 24 CPU cores, 128 GB RAM, 1 TB NVMe (production)
    - High-bandwidth network connection (100+ Mbps)
    - Geographic distribution for network resilience
 
@@ -396,7 +402,7 @@ The infrastructure is designed to scale with adoption:
 The technical implementation will follow this phased approach:
 
 **Phase 1: Core Protocol Development (Q1-Q2 2025)**
-- IOTA integration and basic transaction handling
+- RebasedAdapter integration and basic transaction handling
 - Core data structures and validation logic
 - Basic recommendation submission and retrieval
 
@@ -413,7 +419,7 @@ The technical implementation will follow this phased approach:
 - Public testnet launch
 
 **Phase 4: Mainnet and Ecosystem (Q3 2026+)**
-- Production deployment on IOTA mainnet
+- Production deployment on Rebased mainnet
 - Developer tools and documentation
 - Third-party integration support
 - dApp ecosystem development
@@ -489,7 +495,7 @@ The technical implementation will accommodate:
 The platform will adhere to relevant technical standards:
 
 1. **W3C Standards**: For web interfaces and accessibility
-2. **IOTA Protocol Standards**: For Tangle integration
+2. **Rebased object-DAG Standards**: IOTA Rebased specification set
 3. **IPFS Standards**: For distributed content storage
 4. **JSON Schema**: For API contracts and data validation
 5. **OAuth 2.0**: For authentication flows
