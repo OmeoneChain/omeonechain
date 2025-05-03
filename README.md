@@ -2,14 +2,14 @@
 
 > A decentralized approach to transparent, incentivized recommendations
 
-OmeoneChain is an open-source platform that leverages IOTA's Tangle technology to create a transparent and fair recommendation ecosystem. By combining DAG-based infrastructure with tokenized incentives, OmeoneChain addresses the fundamental problems of trust, transparency, and fair compensation that plague traditional recommendation platforms.
+OmeoneChain is an open-source platform that leverages IOTA's Rebased technology to transform word-of-mouth recommendations into a verifiable, searchable social network. OmeoneChain is a social network for personal recommendations, not another review site. Built on a high‑throughput DAG ledger, it turns every recommendation from a friend, or a friend-of-a-friend, into a verifiable on-chain event. A Trust Score replaces the blunt five-star average, while a token-reward loop pays contributors in proportion to the real impact their advice has along the social graph.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 ![Status: In Development](https://img.shields.io/badge/Status-In%20Development-yellow)
 
 ## 🌟 Project Overview
 
-Traditional recommendation platforms suffer from fundamentally flawed incentive structures where businesses must pay for visibility and prominence, creating an inherently biased system. These "pay-to-play" models prioritize revenue over recommendation quality, while users creating valuable content receive no compensation for their contributions.
+OmeoneChain reimagines online recommendations by connecting trusted word-of-mouth directly to a social graph, making every recommendation verifiable and searchable on-chain. Unlike traditional review platforms plagued by paid placements and AI-generated content, OmeoneChain employs a Trust Score system based on your social connections, ensuring recommendations come from people you actually trust.
 
 OmeoneChain solves these problems by:
 
