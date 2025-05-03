@@ -11,35 +11,53 @@ OmeoneChain is an open-source platform that leverages IOTA's Rebased technology 
 
 OmeoneChain reimagines online recommendations by connecting trusted word-of-mouth directly to a social graph, making every recommendation verifiable and searchable on-chain. Unlike traditional review platforms plagued by paid placements and AI-generated content, OmeoneChain employs a Trust Score system based on your social connections, ensuring recommendations come from people you actually trust.
 
-OmeoneChain solves these problems by:
+OmeoneChain's key features include:
 
-- **Ensuring transparency** through immutable, DAG-based record-keeping
-- **Rewarding contributions** with tokens for quality recommendations and curation
-- **Removing pay-for-visibility** by implementing purely merit-based discovery
-- **Creating fair monetization** through NFT-based experiences and direct value exchange
-- **Enabling personalization** without compromising user privacy or platform integrity
+- **Verifiable Social Graph**: Every recommendation is time-stamped on the IOTA Rebased DAG and ranked by personal Trust Score
+- **Impact-First Rewards**: Contributors earn tokens (TOK) proportional to the actual impact their recommendations have within their social network  
+- **No Pay-to-Play**: Rankings are determined by trust and quality, not advertising budgets
+- **High-Performance DAG**: Near-instantaneous confirmations with micro-fees to enable real-time social interactions
+- **Hybrid Storage**: On-chain metadata with off-chain content storage (IPFS/Arweave) for scalability
+- **NFT Experiences**: Service providers can offer tokenized experiences and loyalty programs
+- **Open dApp Ecosystem**: Developers can build specialized recommendation engines on top of the open API
+
+### Token Economics
+
+- Fixed supply: 10 billion TOK
+- Distribution: 52% community rewards, 20% development, 16% ecosystem, 12% team
+- Halving mechanism ensures long-term sustainability
+- Multiple token sinks including service provider fees, NFT minting, and governance staking
 
 ## 🏗️ System Architecture
 
-OmeoneChain consists of several interconnected layers:
+OmeoneChain is organized in five distinct layers:
 
-1. **Base Layer**: IOTA Tangle implementation for transactions and metadata
-2. **Storage Layer**: Hybrid on-chain/off-chain storage with IPFS integration
-3. **Protocol Layer**: Core logic for recommendations, token rewards, and reputation
-4. **API Layer**: Interfaces for client applications and third-party integrations
-5. **Application Layer**: Web and mobile interfaces, dApp ecosystem
+| Layer | Purpose | Key Technology |
+|-------|---------|----------------|
+| **Base** | Settlement & metadata | IOTA Rebased object-DAG (MoveVM) with Mysticeti DPoS & fee-burn mechanism |
+| **Storage** | Persistent content | Hybrid on-chain/off-chain model: IPFS + optional Aleph.im pin-service |
+| **Protocol** | Core business logic | Recommendations, token rewards, reputation, governance |
+| **API/Adapter** | Chain abstraction | RebasedAdapter, EVMAdapter, MockAdapter |
+| **Application** | End-user & dApp UX | Web, mobile, Move-script entry points, third-party dApps |
 
 ![Architecture Diagram](./docs/images/architecture.png)
 <!-- Note: This is a placeholder for future diagram -->
+
+### Core Components
+
+- **Recommendation Engine**: Processes submissions, handles search/retrieval, manages voting
+- **Token Reward System**: Calculates and distributes rewards based on trust-weighted impact
+- **Reputation System**: Assigns trust levels based on contribution quality and history
+- **Hybrid Storage**: On-chain metadata with off-chain content storage
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v16+)
-- [Docker](https://www.docker.com/) and Docker Compose
-- [IPFS](https://ipfs.io/) (for local development)
-- [Hornet Node](https://wiki.iota.org/hornet/welcome/) (for IOTA Tangle interaction)
+- Node.js 18+ and pnpm
+- Rust toolchain (for Move development)
+- Docker (optional, for local development)
+- Access to IOTA Rebased testnet
 
 ### Development Environment Setup
 
@@ -53,136 +71,184 @@ cd omeonechain
 2. **Install dependencies**
 
 ```bash
-npm install
+pnpm install
 ```
 
-3. **Configure environment**
+3. **Set-up environment variables**
 
 ```bash
 cp .env.example .env
-# Edit .env with your configuration details
+# Edit .env. Local with your configuration
 ```
 
 4. **Start the development environment**
 
 ```bash
-docker-compose up -d
-npm run dev
+pnpm dev
 ```
-
-5. **Run tests**
-
-```bash
-npm test
-```
+For detailed setup instructions, see docs/development-setup.md. 
 
 ## 📚 Documentation
 
-- [White Paper](./docs/whitepaper.pdf) - Conceptual overview and vision
-- [Technical Specifications](./docs/technical-specs.md) - Detailed implementation guidelines
-- [API Documentation](./docs/api/README.md) - API endpoints and integration details
-- [Development Guide](./docs/development-guide.md) - Detailed development instructions
+Technical Specifications - Detailed architecture and data models
+API Documentation - REST and WebSocket APIs
+Smart Contract Documentation - Move contracts reference
+Integration Guide - Building dApps on OmeoneChain
 
 ## 🛣️ Roadmap
 
-OmeoneChain is being developed in four major phases:
+Phase 1: Core Protocol Development (Q1-Q2 2025)
 
-### Phase 1: Core Protocol Development (Q1-Q2 2025)
-- IOTA integration and basic transaction handling
-- Core data structures and validation logic
-- Basic recommendation submission and retrieval
+RebasedAdapter integration
+Core data structures and validation
+Basic recommendation submission/retrieval
 
-### Phase 2: MVP and Testing (Q3-Q4 2025)
-- Token reward system implementation
-- Reputation system core functionality
-- Basic web interface for testing
-- Private testnet deployment
+Phase 2: MVP & Testing (Q3-Q4 2025)
 
-### Phase 3: Beta Release (Q1-Q2 2026)
-- Complete API implementation
-- Mobile app development
-- Security audits and optimizations
-- Public testnet launch
+Token reward system implementation
+Reputation system core functionality
+Web interface for testing
+Private testnet deployment
 
-### Phase 4: Mainnet and Ecosystem (Q3 2026+)
-- Production deployment on IOTA mainnet
-- Developer tools and documentation
-- Third-party integration support
-- dApp ecosystem development
+Phase 3: Beta Release (Q1-Q2 2026)
+
+Complete API implementation
+Mobile app development
+Security audits
+Public testnet launch
+
+Phase 4: Mainnet & Ecosystem (Q3 2026+)
+
+Production deployment on Rebased mainnet
+Developer tools and documentation
+Third-party integration support
+dApp ecosystem development
+
+For full roadmap details, see ROADMAP.md.
 
 ## 📜 Code of Conduct
 
-We are committed to fostering an open and welcoming environment in the OmeoneChain community. All contributors, maintainers, and participants are expected to adhere to our [Code of Conduct](./CODE_OF_CONDUCT.md).
+We are committed to providing a welcoming and inclusive environment. Please read our Code of Conduct before participating.
+Key principles:
+
+Be respectful and inclusive
+Welcome newcomers and help them get started
+Focus on constructive criticism
+Report unacceptable behavior to the project maintainers
 
 ## 🤝 Contributing
 
-We welcome contributions from developers of all skill levels! Here's how to get involved:
+We welcome contributions! Please see our Contributing Guidelines for details.
 
-### Contribution Process
+How to Contribute
 
-1. **Find an issue** to work on from our [issue tracker](https://github.com/omeonechain/omeonechain/issues) or create a new one
-2. **Fork the repository** and create a branch for your feature or fix
-3. **Implement your changes** following our coding standards
-4. **Write or update tests** for the changes made
-5. **Submit a pull request** with a clear description of the changes and any special considerations
-6. **Participate in the review process** by responding to feedback
+Fork the repository
+Create your feature branch (git checkout -b feature/amazing-feature)
+Commit your changes (git commit -m 'Add some amazing feature')
+Push to the branch (git push origin feature/amazing-feature)
+Open a Pull Request
 
 ### Coding Standards
 
-- Follow the established code style (enforced by ESLint/Prettier)
-- Maintain test coverage (minimum 80%)
-- Document new features or API changes
-- Keep commits focused and atomic
-- Write clear commit messages following conventional commits format
+Follow the JavaScript Standard Style for JavaScript/TypeScript
+Use Rust formatting conventions for Move/Rust code
+Write meaningful commit messages
+Include tests for new functionality
+Update documentation as needed
 
-For more details, see our [CONTRIBUTING.md](./CONTRIBUTING.md) file.
+See CODING_STANDARDS.md for detailed guidelines.
 
 ## 🧪 Testing
 
-OmeoneChain uses a comprehensive testing strategy:
+Running Tests
 
-```bash
-# Run unit tests
-npm run test:unit
+# Run all tests
+pnpm test
 
-# Run integration tests
-npm run test:integration
+# Run specific test suites
+pnpm test:unit
+pnpm test:integration
+pnpm test:e2e
 
-# Run all tests with coverage
-npm run test:coverage
-```
+# Run tests with coverage
+pnpm test:coverage
 
-We aim for high test coverage and require tests for all new features.
+Test Categories
+
+Unit Tests: Test individual functions and components
+Integration Tests: Test interactions between modules
+E2E Tests: Test complete user workflows
+Smart Contract Tests: Test Move contracts
 
 ## 🔒 Security
 
-Security is paramount for blockchain projects. If you discover a security vulnerability, please do NOT open an issue. Email [security@omeonechain.org](mailto:security@omeonechain.org) instead.
+Security is our top priority. If you discover a security vulnerability, please follow our Security Policy.
+Reporting Security Issues
 
-We have a responsible disclosure process and will work with you to address any findings.
+DO NOT create public GitHub issues for security vulnerabilities
+Email security@omeonechain.net with:
+
+Description of the vulnerability
+Steps to reproduce
+Possible impact
+Suggested fix (if any)
+
+Security Measures
+
+Regular smart contract audits
+Bug bounty program (coming soon)
+Secure development practices
+Encrypted communications
 
 ## 🌐 Community
 
-- [Discord](https://discord.gg/omeonechain) - For development discussions
-- [Telegram](https://t.me/omeonechain) - Community chat
-- [Twitter](https://twitter.com/omeonechain) - Project announcements
-- [Blog](https://blog.omeonechain.org) - Development updates and articles
+Join our growing community:
 
+Discord - For developers and community discussions
+Twitter - Latest updates and announcements
+Forum - Long-form discussions and proposals
+Blog - Technical deep-dives and updates
 
+Developer Resources
 
+Developer Portal
+API Reference
+Example dApps
+SDK Documentation
 ---
 
 ## 📊 Project Status
 
-OmeoneChain is currently in the early development stage. We are actively seeking contributors and partners to help build the foundation of this revolutionary recommendation platform.
+Product Status
+Current Status: White Paper Published / Early Development
 
-Join us in creating a more transparent, fair, and rewarding recommendation ecosystem!
-
----
+ White Paper (✓ Complete)
+ Technical Specifications (✓ Complete)
+ Core Protocol Development (In Progress)
+ MVP Launch (Q3 2025)
+ Beta Release (Q1 2026)
+ Mainnet Launch (Q3 2026)
 
 ## 📄 License
 
 OmeoneChain is released under the [Apache 2.0 License](./LICENSE).
 
-OmeoneChain is currently in the early development stage. We are actively seeking contributors and partners to help build the foundation of this revolutionary recommendation platform.
+Copyright 2025 OmeoneChain Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 Join us in creating a more transparent, fair, and rewarding recommendation ecosystem!
+
+Built with ❤️ by the OmeoneChain community
+
+This README provides a comprehensive overview of your project while maintaining a professional and welcoming tone. It includes all the sections you requested and draws directly from your White Paper and Technical Specifications to ensure accuracy. The structure makes it easy for developers to understand the project, get started with development, and find the resources they need.
