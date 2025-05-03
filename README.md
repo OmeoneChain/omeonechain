@@ -1,6 +1,6 @@
 # omeonechain
 
-> A decentralized approach to transparent, incentivized recommendations
+> The Personal Recommendations Network. Powered by a Decentralized DAG
 
 OmeoneChain is an open-source platform that leverages IOTA's Rebased technology to transform word-of-mouth recommendations into a verifiable, searchable social network. OmeoneChain is a social network for personal recommendations, not another review site. Built on a high‑throughput DAG ledger, it turns every recommendation from a friend, or a friend-of-a-friend, into a verifiable on-chain event. A Trust Score replaces the blunt five-star average, while a token-reward loop pays contributors in proportion to the real impact their advice has along the social graph.
 
