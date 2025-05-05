@@ -153,4 +153,87 @@ export interface ServiceExperience {
   startTime?: string;
   
   /**
-   * End date/time (
+   * End date/time (if applicable)
+   */
+  endTime?: string;
+  
+  /**
+   * IPFS hash of media content
+   */
+  mediaHash?: string;
+  
+  /**
+   * Whether the experience is active
+   */
+  isActive: boolean;
+  
+  /**
+   * ISO8601 timestamp of creation
+   */
+  createdAt: string;
+}
+
+/**
+ * Filter parameters for retrieving services
+ */
+export interface ServiceFilter {
+  /**
+   * Optional name search term
+   */
+  nameSearch?: string;
+  
+  /**
+   * Optional category to filter by
+   */
+  category?: string;
+  
+  /**
+   * Optional subcategories to filter by
+   */
+  subcategories?: string[];
+  
+  /**
+   * Optional minimum rating threshold
+   */
+  minRating?: number;
+  
+  /**
+   * Optional verification status
+   */
+  verificationStatus?: VerificationStatus;
+  
+  /**
+   * Optional location to search near
+   */
+  nearLocation?: {
+    latitude: number;
+    longitude: number;
+    radiusKm: number;
+  };
+  
+  /**
+   * Optional city search
+   */
+  city?: string;
+  
+  /**
+   * Optional country search
+   */
+  country?: string;
+  
+  /**
+   * Pagination parameters
+   */
+  pagination?: {
+    offset: number;
+    limit: number;
+  };
+  
+  /**
+   * Sorting parameters
+   */
+  sort?: {
+    field: string;
+    direction: 'asc' | 'desc';
+  };
+}
