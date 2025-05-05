@@ -1,230 +1,198 @@
 # Contributing to OmeoneChain
 
-First off, thank you for considering contributing to OmeoneChain! It's people like you that will help build a more transparent, fair, and user-driven recommendation ecosystem.
-
-Following these guidelines helps to communicate that you respect the time of the developers managing and developing this open source project. In return, they should reciprocate that respect in addressing your issue, assessing changes, and helping you finalize your pull requests.
+Thank you for your interest in contributing to OmeoneChain! This document provides guidelines and instructions for contributing to our project.
 
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
-  - [Issues](#issues)
-  - [Pull Requests](#pull-requests)
-- [Development Process](#development-process)
-  - [Branching Strategy](#branching-strategy)
-  - [Commit Guidelines](#commit-guidelines)
+- [Development Workflow](#development-workflow)
 - [Coding Standards](#coding-standards)
-  - [Code Style](#code-style)
-  - [Documentation](#documentation)
-  - [Testing](#testing)
-- [Review Process](#review-process)
+- [Submitting Changes](#submitting-changes)
+- [Pull Request Process](#pull-request-process)
+- [Testing Guidelines](#testing-guidelines)
+- [Documentation](#documentation)
 - [Community](#community)
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the OmeoneChain Code of Conduct. By participating, you are expected to uphold this code. Please report unacceptable behavior to [conduct@omeonechain.org](mailto:conduct@omeonechain.org).
+By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md). Please read it before contributing.
 
 ## Getting Started
 
-### Issues
+### Prerequisites
 
-Issues are a great way to contribute to OmeoneChain without writing code. We use GitHub issues to track public bugs, feature requests, and tasks. If you're reporting a bug, please follow the bug report template when opening an issue. Similarly, use the feature request template for new feature ideas.
+- Node.js 18+
+- pnpm
+- Rust toolchain (for Move development)
+- Docker (optional, for local development)
+- Access to IOTA Rebased testnet (for blockchain integration)
 
-#### Good Bug Reports
+### Setting Up Your Development Environment
 
-- **Use a clear and descriptive title** for the issue to identify the problem
-- **Describe the exact steps which reproduce the problem** in as much detail as possible
-- **Provide specific examples** to demonstrate the steps
-- **Describe the behavior you observed** after following the steps
-- **Explain which behavior you expected to see** instead and why
-- **Include screenshots or animated GIFs** if they help illustrate the issue
-- **Include your environment details** (OS, browser, Node.js version, etc.)
+1. Fork the repository on GitHub
+2. Clone your fork locally:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/omeonechain.git
+   cd omeonechain
+   ```
+3. Add the original repository as a remote:
+   ```bash
+   git remote add upstream https://github.com/ORIGINAL_OWNER/omeonechain.git
+   ```
+4. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+5. Set up environment variables:
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your configuration
+   ```
+6. Start the development server:
+   ```bash
+   pnpm dev
+   ```
 
-#### Good Feature Requests
+## Development Workflow
 
-- **Use a clear and descriptive title** for the issue
-- **Provide a detailed description** of the suggested enhancement
-- **Explain why this enhancement would be useful** to OmeoneChain users
-- **List some other applications where this enhancement exists**, if applicable
-- **Specify which version of OmeoneChain you're using**
-- **Specify the name and version of the OS you're using**
+We use a simplified Git workflow:
 
-### Pull Requests
+1. Create a new branch for your feature or bugfix:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+   or
+   ```bash
+   git checkout -b fix/issue-description
+   ```
 
-If you want to contribute code directly, you can do so through Pull Requests:
+2. Make your changes, following our coding standards
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes following our [commit guidelines](#commit-guidelines)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request against the `develop` branch
+3. Commit your changes with clear, descriptive messages:
+   ```bash
+   git commit -m "Add feature: detailed description of what was added"
+   ```
 
-#### Pull Request Template
+4. Push your branch to your fork:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
 
-When you open a pull request, please use the provided template which asks for:
-
-- A reference to a related issue
-- A description of the changes proposed
-- Any breaking changes
-- Screenshots or examples (if applicable)
-- Checklist of tasks completed
-
-## Development Process
-
-We follow a streamlined development process to ensure quality and consistency.
-
-### Branching Strategy
-
-We follow a modified Git Flow workflow:
-
-- `main` - Production-ready code that has been released
-- `develop` - Integration branch for features that are ready for testing
-- `feature/*` - New features or enhancements (branched from and merged back into `develop`)
-- `bugfix/*` - Bug fixes for issues in `develop`
-- `hotfix/*` - Critical fixes for production issues (branched from `main`, merged to both `main` and `develop`)
-- `release/*` - Preparation for a new production release
-
-### Commit Guidelines
-
-We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages:
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-Types include:
-- `feat`: A new feature
-- `fix`: A bug fix
-- `docs`: Documentation only changes
-- `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc)
-- `refactor`: A code change that neither fixes a bug nor adds a feature
-- `perf`: A code change that improves performance
-- `test`: Adding missing or correcting existing tests
-- `chore`: Changes to the build process or auxiliary tools and libraries
-
-Example:
-```
-feat(recommendation): add upvote functionality
-
-- Add API endpoint for upvoting
-- Implement token reward for upvotes
-- Update reputation calculation
-
-Closes #123
-```
-
-### Pull Request Merge Strategies
-
-OmeoneChain supports multiple merge strategies to accommodate different types of contributions. When submitting or reviewing pull requests, please follow these guidelines:
-
-1. **Merge Commits** (default): Use for significant feature additions or changes that represent a distinct development effort. This preserves the full history of the feature branch.
-   - Example: New component implementations, major feature additions
-
-2. **Squash Merging**: Use for bug fixes, small enhancements, or pull requests with multiple small commits. This combines all changes into a single, clean commit.
-   - Example: Bug fixes, documentation updates, minor enhancements
-
-3. **Rebase Merging**: Use for changes where preserving the detailed commit history is important, but a linear project history is desired.
-   - Example: Complex refactoring with multiple logical steps
-
-When submitting your pull request, please indicate your preferred merge strategy in the description if you have a preference. Otherwise, maintainers will use their judgment based on these guidelines.
+5. Create a Pull Request against the `main` branch of the original repository
 
 ## Coding Standards
 
-### Code Style
+### General Guidelines
 
-We use automated tools to enforce code style:
+- Write clean, readable, and maintainable code
+- Follow existing patterns and conventions
+- Include appropriate comments and documentation
+- Keep functions small and focused
+- Use meaningful variable and function names
+- Ensure proper error handling
 
-- **JavaScript/TypeScript**: ESLint and Prettier
-- **Python**: Black and Flake8
-- **Go**: gofmt and golint
+### Language-Specific Standards
 
-To ensure your code meets our style requirements, run:
+#### JavaScript/TypeScript
+- Follow the [JavaScript Standard Style](https://standardjs.com/)
+- Use TypeScript for all new code
+- Use async/await instead of Promises where possible
+- Use ES6+ features
+
+#### Move/Rust
+- Follow [Rust formatting conventions](https://doc.rust-lang.org/beta/style-guide/)
+- Document all public functions with appropriate comments
+- Follow Move best practices for memory safety and resource handling
+
+### Commit Messages
+
+- Use the present tense ("Add feature" not "Added feature")
+- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
+- Reference issues and pull requests where appropriate
+- Keep first line under 72 characters
+- Describe what was changed and why
+
+## Submitting Changes
+
+### Before Submitting
+
+- Make sure your code builds without errors or warnings
+- Run the test suite and ensure all tests pass
+- Update documentation if necessary
+- Add tests for new functionality
+- Ensure your code adheres to our coding standards
+
+### Pull Request Process
+
+1. Create a pull request (PR) from your branch to the main repository's `main` branch
+2. Fill out the PR template with all required information
+3. Request review from maintainers
+4. Address any feedback from code reviews
+5. Once approved, a maintainer will merge your changes
+
+## Testing Guidelines
+
+### Writing Tests
+
+- All new features should include tests
+- Update existing tests when modifying features
+- Write unit tests for individual functions
+- Write integration tests for interactions between components
+- End-to-end tests for user workflows are appreciated
+
+### Running Tests
 
 ```bash
-npm run lint
+# Run all tests
+pnpm test
+
+# Run specific test suites
+pnpm test:unit
+pnpm test:integration
+
+# Run tests with coverage
+pnpm test:coverage
 ```
 
-The CI pipeline will also check these standards automatically.
+## Documentation
 
-### Documentation
+### Code Documentation
 
-All code should be documented:
+- Document all public APIs, classes, and functions
+- Use JSDoc, TSDoc, or Rustdoc as appropriate
+- Explain the purpose, parameters, and return values
 
-- **Functions/Methods**: Document parameters, return values, and behavior
-- **Classes**: Document purpose, usage, and public API
-- **Modules**: Document purpose and usage examples
-- **API Endpoints**: Document request/response formats and status codes
+### Project Documentation
 
-We use JSDoc for JavaScript/TypeScript code:
-
-```javascript
-/**
- * Calculates the reputation score based on user activity
- * @param {string} userId - The user's unique identifier
- * @param {Object} activities - User activities to consider in calculation
- * @param {number} activities.recommendations - Number of recommendations created
- * @param {number} activities.upvotesReceived - Number of upvotes received
- * @returns {number} The calculated reputation score
- */
-function calculateReputationScore(userId, activities) {
-  // Implementation
-}
-```
-
-### Testing
-
-All new code should include appropriate tests:
-
-- **Unit Tests**: For individual functions and components
-- **Integration Tests**: For interactions between components
-- **API Tests**: For testing API endpoints
-- **End-to-End Tests**: For critical user flows
-
-We use:
-- Jest for JavaScript/TypeScript testing
-- Pytest for Python testing
-- Standard testing packages for other languages
-
-Tests should be located in a `tests` or `__tests__` directory close to the code they test.
-
-Code coverage should be maintained or improved with each pull request. Our target coverage is 80% at minimum.
-
-## Review Process
-
-All contributions go through a review process:
-
-1. **Automated Checks**: CI pipeline verifies that tests pass, code meets style guidelines, and coverage thresholds are met
-2. **Peer Review**: At least one team member reviews the changes for quality, correctness, and adherence to project standards
-3. **Maintainer Review**: A project maintainer performs final review and merges the contribution
-
-Reviewers will look for:
-- Correct and efficient implementation
-- Comprehensive test coverage
-- Clear documentation
-- Adherence to coding standards
-- Potential security issues
-- Performance implications
+- Update README.md with new features or changes in usage
+- Add examples for significant new functionality
+- Update API documentation when endpoints change
+- Maintain comprehensive documentation in the `/docs` directory
 
 ## Community
 
-We encourage active participation in the OmeoneChain community through asynchronous communication channels:
+We're building a community around OmeoneChain and appreciate all forms of contribution:
 
-- **GitHub Discussions**: Use [GitHub Discussions](https://github.com/omeonechain/omeonechain/discussions) for questions, ideas, and community interaction
-- **Discord**: Join our [developer Discord server](https://discord.gg/omeonechain) for real-time chat and collaboration
-- **Developer Forum**: Participate in our [developer forum](https://forum.omeonechain.org) for longer technical discussions and proposals
-- **Issue Comments**: Engage directly on GitHub issues to discuss specific features or bugs
+- Answer questions in issues
+- Review pull requests
+- Improve documentation
+- Share your experiences using the project
+- Spread the word about OmeoneChain
 
-As the project grows, community members may organize additional events or communication channels. We believe in community-driven collaboration where anyone can step up to help coordinate and grow the project.
+## Architecture Overview
 
-## Recognition
+OmeoneChain is organized in five distinct layers:
 
-We believe in recognizing contributions. All contributors will be:
-- Listed in our [CONTRIBUTORS.md](CONTRIBUTORS.md) file
-- Eligible to receive token rewards for significant contributions (subject to governance approval)
-- Considered for maintainer roles based on consistent quality contributions
+1. **Base Layer**: IOTA Rebased object-DAG (MoveVM) with Mysticeti DPoS
+2. **Storage Layer**: Hybrid on-chain/off-chain model (IPFS + Aleph.im)
+3. **Protocol Layer**: Core business logic for recommendations, rewards, and reputation
+4. **API/Adapter Layer**: Chain abstraction (RebasedAdapter, EVMAdapter, MockAdapter)
+5. **Application Layer**: End-user interfaces and dApp integration points
 
-Thank you for contributing to OmeoneChain and helping us build a more transparent recommendation ecosystem!
+When contributing, please consider which layer your changes affect and ensure they integrate properly with adjacent layers.
+
+---
+
+Thank you for contributing to OmeoneChain! Your efforts help us build a more transparent, fair recommendation ecosystem.
+
