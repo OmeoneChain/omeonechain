@@ -261,4 +261,381 @@ export class RecommendationEngine {
           if (media.ipfsHash && !media.data && this.storage.supportsRetrieval) {
             try {
               const data = await this.storage.retrieveFile(media.ipfsHash);
-              rec.content.
+              rec.content.media[i] = {
+                ...media,
+                data
+              };
+            } catch (error) {
+              console.warn(`Failed to load media ${media.ipfsHash}: ${error}`);
+            }
+          }
+        }
+        return rec;
+      })
+    );
+    
+    return {
+      recommendations,
+      total: result.total,
+      pagination: result.pagination
+    };
+  }
+  
+  /**
+   * Vote on a recommendation (upvote or downvote)
+   * 
+   * @param userId User's public key or identifier
+   * @param recommendationId ID of the recommendation to vote on
+   * @param isUpvote Whether the vote is an upvote (true) or downvote (false)
+   * @returns Result of the vote action
+   */
+  async voteOnRecommendation(
+    userId: string,
+    recommendationId: string,
+    isUpvote: boolean
+  ): Promise<{ success: boolean; action: RecommendationAction }> {
+    // Create action
+    const actionType = isUpvote 
+      ? RecommendationActionType.UPVOTE 
+      : RecommendationActionType.DOWNVOTE;
+    
+    const action: RecommendationAction = {
+      type: actionType,
+      recommendationId,
+      userId,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Submit transaction
+    const txResult = await this.adapter.submitTx({
+      sender: userId,
+      payload: {
+        objectType: 'recommendation_vote',
+        action: actionType.toLowerCase(),
+        data: {
+          recommendationId,
+          vote: isUpvote ? 1 : -1
+        }
+      },
+      feeOptions: {
+        sponsorWallet: this.options.sponsorWallet
+      }
+    });
+    
+    return {
+      success: txResult.status === 'confirmed',
+      action
+    };
+  }
+  
+  /**
+   * Update an existing recommendation
+   * 
+   * @param author Author's public key or identifier
+   * @param recommendationId ID of the recommendation to update
+   * @param updates Fields to update
+   * @returns Updated recommendation
+   */
+  async updateRecommendation(
+    author: string,
+    recommendationId: string,
+    updates: Partial<Omit<Recommendation, 'id' | 'author' | 'timestamp' | 'contentHash' | 'tangle' | 'chainID'>>
+  ): Promise<Recommendation> {
+    // Get the existing recommendation
+    const existing = await this.getRecommendationById(recommendationId);
+    
+    // Verify author is allowed to update
+    if (existing.author !== author) {
+      throw new Error('Only the author can update a recommendation');
+    }
+    
+    // Prepare content updates
+    let updatedContent: Content | undefined;
+    if (updates.content) {
+      // Process new media items
+      const updatedMedia: MediaItem[] = [];
+      
+      // Start with existing media that isn't being replaced
+      const existingMedia = existing.content.media || [];
+      
+      // Add new media items
+      for (const media of updates.content.media || []) {
+        // If media already has IPFS hash, use it
+        if (media.ipfsHash) {
+          updatedMedia.push(media);
+          continue;
+        }
+        
+        // Otherwise, upload to IPFS
+        if (media.data) {
+          const ipfsHash = await this.storage.storeFile(
+            media.data, 
+            media.type, 
+            media.caption
+          );
+          
+          updatedMedia.push({
+            type: media.type,
+            ipfsHash,
+            caption: media.caption
+          });
+        }
+      }
+      
+      // Create content with updated fields
+      updatedContent = {
+        title: updates.content.title || existing.content.title,
+        body: updates.content.body || existing.content.body,
+        media: updatedMedia.length > 0 ? updatedMedia : existing.content.media
+      };
+      
+      // Validate updated content
+      if (this.options.validateContent) {
+        const validationResult = await this.validateContent(updatedContent);
+        if (!validationResult.valid) {
+          throw new Error(`Content validation failed: ${validationResult.error}`);
+        }
+        
+        if (this.options.spamDetection && validationResult.isSpam) {
+          throw new Error('Updated content appears to be spam');
+        }
+      }
+    }
+    
+    // Create updated recommendation
+    const updatedRecommendation: Omit<Recommendation, 'tangle'> = {
+      ...existing,
+      content: updatedContent || existing.content,
+      serviceId: updates.serviceId || existing.serviceId,
+      category: updates.category || existing.category,
+      location: updates.location || existing.location,
+      rating: updates.rating !== undefined ? updates.rating : existing.rating,
+      tags: updates.tags || existing.tags,
+      contentHash: updatedContent ? this.hashContent(updatedContent) : existing.contentHash
+    };
+    
+    // Submit transaction
+    const txResult = await this.adapter.submitTx({
+      sender: author,
+      payload: {
+        objectType: 'recommendation',
+        action: 'update',
+        data: updatedRecommendation
+      },
+      feeOptions: {
+        sponsorWallet: this.options.sponsorWallet
+      }
+    });
+    
+    // Return updated recommendation with new tangle reference
+    return {
+      ...updatedRecommendation,
+      tangle: {
+        objectId: txResult.objectId || existing.tangle.objectId,
+        commitNumber: txResult.commitNumber || 0
+      }
+    };
+  }
+  
+  /**
+   * Delete a recommendation (mark as deleted)
+   * 
+   * @param author Author's public key or identifier
+   * @param recommendationId ID of the recommendation to delete
+   * @returns Result of the delete action
+   */
+  async deleteRecommendation(
+    author: string,
+    recommendationId: string
+  ): Promise<{ success: boolean }> {
+    // Get the existing recommendation
+    const existing = await this.getRecommendationById(recommendationId);
+    
+    // Verify author is allowed to delete
+    if (existing.author !== author) {
+      throw new Error('Only the author can delete a recommendation');
+    }
+    
+    // Submit transaction
+    const txResult = await this.adapter.submitTx({
+      sender: author,
+      payload: {
+        objectType: 'recommendation',
+        action: 'delete',
+        data: {
+          recommendationId
+        }
+      },
+      feeOptions: {
+        sponsorWallet: this.options.sponsorWallet
+      }
+    });
+    
+    return {
+      success: txResult.status === 'confirmed'
+    };
+  }
+  
+  /**
+   * Get a recommendation by ID
+   * 
+   * @param recommendationId ID of the recommendation to retrieve
+   * @returns Recommendation with the specified ID
+   */
+  async getRecommendationById(recommendationId: string): Promise<Recommendation> {
+    const result = await this.adapter.queryState<Recommendation>({
+      objectType: 'recommendation',
+      filter: {
+        id: recommendationId
+      }
+    });
+    
+    if (result.results.length === 0) {
+      throw new Error(`Recommendation not found: ${recommendationId}`);
+    }
+    
+    const recommendation = result.results[0];
+    
+    // Load media content if needed
+    for (let i = 0; i < recommendation.content.media.length; i++) {
+      const media = recommendation.content.media[i];
+      if (media.ipfsHash && !media.data && this.storage.supportsRetrieval) {
+        try {
+          const data = await this.storage.retrieveFile(media.ipfsHash);
+          recommendation.content.media[i] = {
+            ...media,
+            data
+          };
+        } catch (error) {
+          console.warn(`Failed to load media ${media.ipfsHash}: ${error}`);
+        }
+      }
+    }
+    
+    return recommendation;
+  }
+  
+  /**
+   * Search for recommendations with full-text search
+   * 
+   * @param query Search query
+   * @param filter Additional filter criteria
+   * @returns Recommendations matching the search query
+   */
+  async searchRecommendations(
+    query: string,
+    filter: Omit<RecommendationFilter, 'pagination'> = {},
+    pagination: { offset: number; limit: number } = { offset: 0, limit: 20 }
+  ): Promise<{
+    recommendations: Recommendation[];
+    total: number;
+    pagination: {
+      offset: number;
+      limit: number;
+      hasMore: boolean;
+    };
+  }> {
+    // Create search filter
+    const searchFilter: RecommendationFilter = {
+      ...filter,
+      searchQuery: query,
+      pagination
+    };
+    
+    // Use the adapter's query state method
+    const result = await this.adapter.queryState<Recommendation>({
+      objectType: 'recommendation',
+      filter: {
+        ...searchFilter,
+        searchQuery: query
+      },
+      pagination
+    });
+    
+    // Load media content if needed
+    const recommendations = await Promise.all(
+      result.results.map(async (rec) => {
+        for (let i = 0; i < rec.content.media.length; i++) {
+          const media = rec.content.media[i];
+          if (media.ipfsHash && !media.data && this.storage.supportsRetrieval) {
+            try {
+              const data = await this.storage.retrieveFile(media.ipfsHash);
+              rec.content.media[i] = {
+                ...media,
+                data
+              };
+            } catch (error) {
+              console.warn(`Failed to load media ${media.ipfsHash}: ${error}`);
+            }
+          }
+        }
+        return rec;
+      })
+    );
+    
+    return {
+      recommendations,
+      total: result.total,
+      pagination: {
+        offset: pagination.offset,
+        limit: pagination.limit,
+        hasMore: pagination.offset + recommendations.length < result.total
+      }
+    };
+  }
+  
+  /**
+   * Options for the sponsorWallet
+   */
+  private get options.sponsorWallet(): string | undefined {
+    return this.options.sponsorWallet;
+  }
+  
+  /**
+   * Validate recommendation content
+   * 
+   * @private
+   * @param content Content to validate
+   * @returns Validation result
+   */
+  private async validateContent(content: Content): Promise<ContentValidationResult> {
+    // Simple validation for now - check required fields
+    if (!content.title || content.title.trim().length === 0) {
+      return { valid: false, error: 'Title is required' };
+    }
+    
+    if (!content.body || content.body.trim().length === 0) {
+      return { valid: false, error: 'Body is required' };
+    }
+    
+    // TODO: Implement more sophisticated validation such as:
+    // - Language detection
+    // - Spam detection
+    // - Toxicity detection
+    // - Content policy checking
+    
+    return {
+      valid: true,
+      qualityScore: 0.8,
+      detectedLanguage: 'en',
+      isSpam: false
+    };
+  }
+  
+  /**
+   * Hash content for verification
+   * 
+   * @private
+   * @param content Content to hash
+   * @returns SHA-256 hash of the content
+   */
+  private hashContent(content: Content): string {
+    const contentStr = JSON.stringify({
+      title: content.title,
+      body: content.body,
+      media: content.media.map(m => ({ type: m.type, ipfsHash: m.ipfsHash, caption: m.caption }))
+    });
+    
+    return createHash('sha256').update(contentStr).digest('hex');
+  }
+}
