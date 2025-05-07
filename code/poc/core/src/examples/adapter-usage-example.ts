@@ -1,5 +1,5 @@
 /**
- * Example usage of the OmeoneChain adapters
+ * Example usage of the OmeoneChain adapters (v2 - Updated with adapter-specific types)
  * 
  * This file demonstrates how to use the adapter factory and different adapters
  * to interact with different blockchain networks.
@@ -7,9 +7,13 @@
 
 import { 
   AdapterFactory, 
-  AdapterType,
-  ChainTransaction
+  AdapterType
 } from '../adapters';
+
+// Import adapter-specific types
+import { ChainTransaction } from '../types/chain';
+import { RecommendationData } from '../types/recommendation-adapters';
+import { AdapterConnectionOptions } from '../types/chain';
 
 // Example async function to demonstrate adapter usage
 async function adapterUsageExample() {
@@ -23,14 +27,14 @@ async function adapterUsageExample() {
     adapterFactory.createAdapter(AdapterType.MOCK, {
       simulateLatency: true,
       failureRate: 5 // 5% chance of random failures
-    });
+    } as AdapterConnectionOptions);
     
     // 2. For production with IOTA Rebased
     adapterFactory.createAdapter(AdapterType.REBASED, {
       nodeUrl: 'https://api.rebased.iota.org',
       apiKey: 'your-api-key',
       seed: 'your-seed-phrase' // In production, this would be securely stored
-    });
+    } as AdapterConnectionOptions);
     
     // 3. For fallback with EVM (e.g., Fantom Sonic)
     adapterFactory.createAdapter(AdapterType.EVM, {
@@ -42,7 +46,7 @@ async function adapterUsageExample() {
       },
       privateKey: 'your-private-key', // In production, this would be securely stored
       chainId: 250 // Fantom chain ID
-    });
+    } as AdapterConnectionOptions);
     
     // Set the active adapter to REBASED for this example
     console.log('Setting active adapter to REBASED...');
@@ -57,23 +61,25 @@ async function adapterUsageExample() {
     
     // Submit a recommendation
     console.log('Submitting a recommendation...');
+    const recommendationData: RecommendationData = {
+      author: await adapter.getWalletAddress(),
+      serviceId: 'restaurant-123',
+      category: 'restaurant',
+      location: {
+        latitude: 37.7749,
+        longitude: -122.4194,
+        address: '123 Main St, San Francisco, CA'
+      },
+      rating: 5,
+      contentHash: 'QmXzHzUqgDZBfqVqy7Bwx5Qbtpw7ZKu8Z8UTMJ2Fvhd2Cz',
+      tags: ['italian', 'pasta', 'romantic']
+    };
+    
     const recommendationTransaction: ChainTransaction = {
       type: 'recommendation',
       action: 'create',
       requiresSignature: true,
-      data: {
-        author: await adapter.getWalletAddress(),
-        serviceId: 'restaurant-123',
-        category: 'restaurant',
-        location: {
-          latitude: 37.7749,
-          longitude: -122.4194,
-          address: '123 Main St, San Francisco, CA'
-        },
-        rating: 5,
-        contentHash: 'QmXzHzUqgDZBfqVqy7Bwx5Qbtpw7ZKu8Z8UTMJ2Fvhd2Cz',
-        tags: ['italian', 'pasta', 'romantic']
-      }
+      data: recommendationData
     };
     
     const result = await adapter.submitTransaction(recommendationTransaction);
@@ -154,19 +160,22 @@ async function createRecommendation(
   
   const authorAddress = await adapter.getWalletAddress();
   
+  // Use adapter-specific types for recommendation data
+  const recommendationData: RecommendationData = {
+    author: authorAddress,
+    serviceId,
+    category,
+    location,
+    rating,
+    contentHash,
+    timestamp: new Date().toISOString()
+  };
+  
   const transaction: ChainTransaction = {
     type: 'recommendation',
     action: 'create',
     requiresSignature: true,
-    data: {
-      author: authorAddress,
-      serviceId,
-      category,
-      location,
-      rating,
-      contentHash,
-      timestamp: new Date().toISOString()
-    }
+    data: recommendationData
   };
   
   return adapter.submitTransaction(transaction);
