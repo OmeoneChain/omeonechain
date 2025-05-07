@@ -1,5 +1,5 @@
 /**
- * Users API Routes
+ * Users API Routes (v2 - Updated with adapter-specific types)
  * 
  * API endpoints for user management and reputation
  * Based on Technical Specifications A.4.1
@@ -9,6 +9,15 @@ import express, { Request, Response, NextFunction } from 'express';
 import { ReputationEngine } from '../../reputation/engine';
 import { ApiError } from '../middleware/error-handler';
 import { authenticate, requireRoles } from '../middleware/auth';
+// Import adapter-specific types
+import {
+  UserReputationUpdate,
+  FollowResult,
+  UnfollowResult,
+  FollowRelationship,
+  PaginationOptions,
+  RelationshipResult
+} from '../../types/reputation-adapters';
 
 /**
  * Create user routes
@@ -32,11 +41,11 @@ export function createUserRoutes(engine: ReputationEngine) {
         throw ApiError.badRequest('User ID and wallet address are required');
       }
       
-      // Create or update user reputation
+      // Create or update user reputation with adapter-specific type
       const userReputation = await engine.updateUserReputation(userId, {
         activeSince: new Date().toISOString(),
         // Other fields get default values
-      });
+      } as UserReputationUpdate);
       
       // Return created user reputation
       res.status(201).json({
@@ -105,8 +114,8 @@ export function createUserRoutes(engine: ReputationEngine) {
       
       const { pseudonym, specializations } = req.body;
       
-      // Create updates object with only provided fields
-      const updates: any = {};
+      // Create updates object with adapter-specific type
+      const updates: UserReputationUpdate = {};
       
       if (specializations !== undefined) updates.specializations = specializations;
       
@@ -207,7 +216,7 @@ export function createUserRoutes(engine: ReputationEngine) {
       }
       
       // Follow user
-      const relationship = await engine.followUser(req.user.id, id);
+      const relationship: FollowRelationship = await engine.followUser(req.user.id, id);
       
       // Return result
       res.json({
@@ -236,7 +245,7 @@ export function createUserRoutes(engine: ReputationEngine) {
       const { id } = req.params;
       
       // Unfollow user
-      const result = await engine.unfollowUser(req.user.id, id);
+      const result: UnfollowResult = await engine.unfollowUser(req.user.id, id);
       
       // Return result
       res.json({
@@ -257,14 +266,14 @@ export function createUserRoutes(engine: ReputationEngine) {
       const { id } = req.params;
       const { offset, limit } = req.query;
       
-      // Parse pagination
-      const pagination = {
+      // Parse pagination with adapter-specific type
+      const pagination: PaginationOptions = {
         offset: offset ? parseInt(offset as string, 10) : 0,
         limit: limit ? parseInt(limit as string, 10) : 20
       };
       
       // Get following
-      const result = await engine.getFollowing(id, pagination);
+      const result: RelationshipResult = await engine.getFollowing(id, pagination);
       
       // Return following
       res.json({
@@ -286,14 +295,14 @@ export function createUserRoutes(engine: ReputationEngine) {
       const { id } = req.params;
       const { offset, limit } = req.query;
       
-      // Parse pagination
-      const pagination = {
+      // Parse pagination with adapter-specific type
+      const pagination: PaginationOptions = {
         offset: offset ? parseInt(offset as string, 10) : 0,
         limit: limit ? parseInt(limit as string, 10) : 20
       };
       
       // Get followers
-      const result = await engine.getFollowers(id, pagination);
+      const result: RelationshipResult = await engine.getFollowers(id, pagination);
       
       // Return followers
       res.json({
