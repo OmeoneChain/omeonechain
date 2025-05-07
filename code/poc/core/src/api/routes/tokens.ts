@@ -1,5 +1,5 @@
 /**
- * Token API Routes
+ * Token API Routes (v2 - Updated with adapter-specific types)
  * 
  * API endpoints for token operations and wallet management
  * Based on Technical Specifications A.4.1
@@ -9,6 +9,15 @@ import express, { Request, Response, NextFunction } from 'express';
 import { TokenEngine } from '../../token/engine';
 import { ApiError } from '../middleware/error-handler';
 import { authenticate, requireRoles } from '../middleware/auth';
+// Import adapter-specific types
+import {
+  TokenBalance,
+  TokenTransaction,
+  ServiceFeeResult,
+  TransactionType,
+  PaginationOptions,
+  TransactionResult
+} from '../../types/token-adapters';
 
 /**
  * Create token routes
@@ -31,7 +40,7 @@ export function createTokenRoutes(engine: TokenEngine) {
       }
       
       // Get token balance
-      const balance = await engine.getTokenBalance(req.user.id);
+      const balance: TokenBalance = await engine.getTokenBalance(req.user.id);
       
       // Return balance
       res.json({
@@ -60,14 +69,14 @@ export function createTokenRoutes(engine: TokenEngine) {
       // Parse query parameters
       const { type, offset, limit } = req.query;
       
-      // Get transactions
-      const result = await engine.getUserTransactions(
+      // Get transactions with adapter-specific types
+      const result: TransactionResult = await engine.getUserTransactions(
         req.user.id,
-        type as any,
+        type as TransactionType,
         {
           offset: offset ? parseInt(offset as string, 10) : 0,
           limit: limit ? parseInt(limit as string, 10) : 20
-        }
+        } as PaginationOptions
       );
       
       // Return transactions
@@ -104,7 +113,7 @@ export function createTokenRoutes(engine: TokenEngine) {
       }
       
       // Transfer tokens
-      const transaction = await engine.transferTokens(
+      const transaction: TokenTransaction = await engine.transferTokens(
         req.user.id,
         recipient,
         amount,
@@ -149,14 +158,14 @@ export function createTokenRoutes(engine: TokenEngine) {
       }
       
       // Stake tokens
-      const transaction = await engine.stakeTokens(
+      const transaction: TokenTransaction = await engine.stakeTokens(
         req.user.id,
         amount,
         duration
       );
       
       // Get updated balance
-      const balance = await engine.getTokenBalance(req.user.id);
+      const balance: TokenBalance = await engine.getTokenBalance(req.user.id);
       
       // Return result
       res.json({
@@ -202,14 +211,14 @@ export function createTokenRoutes(engine: TokenEngine) {
       }
       
       // Unstake tokens
-      const transaction = await engine.unstakeTokens(
+      const transaction: TokenTransaction = await engine.unstakeTokens(
         req.user.id,
         amount,
         stakingId
       );
       
       // Get updated balance
-      const balance = await engine.getTokenBalance(req.user.id);
+      const balance: TokenBalance = await engine.getTokenBalance(req.user.id);
       
       // Return result
       res.json({
@@ -243,14 +252,14 @@ export function createTokenRoutes(engine: TokenEngine) {
         throw ApiError.unauthorized('Authentication required to view rewards');
       }
       
-      // Get transactions of type REWARD
-      const result = await engine.getUserTransactions(
+      // Get transactions of type REWARD with adapter-specific types
+      const result: TransactionResult = await engine.getUserTransactions(
         req.user.id,
-        'reward',
+        'reward' as TransactionType,
         {
           offset: 0,
           limit: 100
-        }
+        } as PaginationOptions
       );
       
       // Calculate total rewards
@@ -292,7 +301,7 @@ export function createTokenRoutes(engine: TokenEngine) {
       const { id } = req.params;
       
       // Get transaction
-      const transaction = await engine.getTransaction(id);
+      const transaction: TokenTransaction | null = await engine.getTransaction(id);
       
       if (!transaction) {
         throw ApiError.notFound(`Transaction not found: ${id}`);
@@ -331,7 +340,7 @@ export function createTokenRoutes(engine: TokenEngine) {
       }
       
       // Process service fee
-      const result = await engine.processServiceFee(amount, reference);
+      const result: ServiceFeeResult = await engine.processServiceFee(amount, reference);
       
       // Return result
       res.json({
