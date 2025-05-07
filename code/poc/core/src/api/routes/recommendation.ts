@@ -1,5 +1,5 @@
 /**
- * Recommendations API Routes
+ * Recommendations API Routes (v2 - Updated with adapter-specific types)
  * 
  * API endpoints for recommendations management
  * Based on Technical Specifications A.4.1
@@ -9,6 +9,8 @@ import express, { Request, Response, NextFunction } from 'express';
 import { RecommendationEngine } from '../../recommendation/engine';
 import { ApiError } from '../middleware/error-handler';
 import { authenticate, requireRoles } from '../middleware/auth';
+// Import adapter-specific types
+import { RecommendationSubmission, RecommendationFilter, RecommendationUpdate, VoteResult } from '../../types/recommendation-adapters';
 
 /**
  * Create recommendation routes
@@ -41,8 +43,8 @@ export function createRecommendationRoutes(engine: RecommendationEngine) {
         direction
       } = req.query;
       
-      // Create filter
-      const filter: any = {};
+      // Create filter with adapter-specific type
+      const filter: RecommendationFilter = {};
       
       if (author) filter.author = author as string;
       if (category) filter.category = category as string;
@@ -152,7 +154,7 @@ export function createRecommendationRoutes(engine: RecommendationEngine) {
         throw ApiError.badRequest('Content is required with title and body');
       }
       
-      // Create recommendation
+      // Create recommendation with adapter-specific type
       const recommendation = await engine.submitRecommendation(
         req.user.id,
         {
@@ -162,7 +164,7 @@ export function createRecommendationRoutes(engine: RecommendationEngine) {
           rating,
           content,
           tags: tags || []
-        }
+        } as RecommendationSubmission
       );
       
       // Return created recommendation
@@ -208,8 +210,8 @@ export function createRecommendationRoutes(engine: RecommendationEngine) {
         throw error;
       }
       
-      // Create updates object with only provided fields
-      const updates: any = {};
+      // Create updates object with adapter-specific type
+      const updates: RecommendationUpdate = {};
       
       if (serviceId !== undefined) updates.serviceId = serviceId;
       if (category !== undefined) updates.category = category;
@@ -287,7 +289,7 @@ export function createRecommendationRoutes(engine: RecommendationEngine) {
       const { id } = req.params;
       
       // Upvote recommendation
-      const result = await engine.voteOnRecommendation(
+      const result: VoteResult = await engine.voteOnRecommendation(
         req.user.id,
         id,
         true // isUpvote
@@ -318,7 +320,7 @@ export function createRecommendationRoutes(engine: RecommendationEngine) {
       const { id } = req.params;
       
       // Downvote recommendation
-      const result = await engine.voteOnRecommendation(
+      const result: VoteResult = await engine.voteOnRecommendation(
         req.user.id,
         id,
         false // isUpvote
@@ -347,8 +349,8 @@ export function createRecommendationRoutes(engine: RecommendationEngine) {
         throw ApiError.badRequest('Search query is required');
       }
       
-      // Create filter
-      const filter: any = {};
+      // Create filter with adapter-specific type
+      const filter: RecommendationFilter = {};
       
       if (category) filter.category = category as string;
       if (minRating) filter.minRating = parseInt(minRating as string, 10);
@@ -386,8 +388,8 @@ export function createRecommendationRoutes(engine: RecommendationEngine) {
       const { serviceId } = req.params;
       const { offset, limit } = req.query;
       
-      // Create filter
-      const filter: any = {
+      // Create filter with adapter-specific type
+      const filter: RecommendationFilter = {
         serviceId
       };
       
