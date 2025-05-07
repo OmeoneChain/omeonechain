@@ -1,5 +1,5 @@
 /**
- * Services API Routes
+ * Services API Routes (v2 - Updated with adapter-specific types)
  * 
  * API endpoints for service management
  * Based on Technical Specifications A.4.1
@@ -9,6 +9,17 @@ import express, { Request, Response, NextFunction } from 'express';
 import { ServiceEngine } from '../../service/engine';
 import { ApiError } from '../middleware/error-handler';
 import { authenticate, requireRoles } from '../middleware/auth';
+// Import adapter-specific types
+import {
+  ServiceEntity,
+  ServiceFilter,
+  ServiceUpdate,
+  VerificationRequest,
+  ServiceExperience,
+  PaginationOptions,
+  ExperienceOptions,
+  ExperienceResult
+} from '../../types/service-adapters';
 
 /**
  * Create service routes
@@ -43,8 +54,8 @@ export function createServiceRoutes(engine: ServiceEngine) {
         direction
       } = req.query;
       
-      // Create filter
-      const filter: any = {};
+      // Create filter with adapter-specific type
+      const filter: ServiceFilter = {};
       
       if (nameSearch) filter.nameSearch = nameSearch as string;
       if (category) filter.category = category as string;
@@ -64,7 +75,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
       }
       
       // Add pagination
-      const pagination = {
+      const pagination: PaginationOptions = {
         offset: offset ? parseInt(offset as string, 10) : 0,
         limit: limit ? parseInt(limit as string, 10) : 20
       };
@@ -102,7 +113,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
       const { id } = req.params;
       
       // Get service
-      const service = await engine.getServiceById(id);
+      const service: ServiceEntity = await engine.getServiceById(id);
       
       // Return service
       res.json(service);
@@ -148,8 +159,8 @@ export function createServiceRoutes(engine: ServiceEngine) {
         throw ApiError.badRequest('Location is required with latitude and longitude');
       }
       
-      // Create service
-      const service = await engine.createOrUpdateService(
+      // Create service with adapter-specific type
+      const service: ServiceEntity = await engine.createOrUpdateService(
         req.user.id,
         {
           serviceId: undefined, // Generate new ID
@@ -159,7 +170,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
           location,
           website,
           contact
-        }
+        } as ServiceUpdate
       );
       
       // Return created service
@@ -200,8 +211,8 @@ export function createServiceRoutes(engine: ServiceEngine) {
         throw error;
       }
       
-      // Create updates object with only provided fields
-      const updates: any = {
+      // Create updates object with adapter-specific type
+      const updates: ServiceUpdate = {
         serviceId: id
       };
       
@@ -213,7 +224,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
       if (contact !== undefined) updates.contact = contact;
       
       // Update service
-      const service = await engine.createOrUpdateService(req.user.id, updates);
+      const service: ServiceEntity = await engine.createOrUpdateService(req.user.id, updates);
       
       // Return updated service
       res.json(service);
@@ -267,7 +278,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
       }
       
       // Request verification
-      const verificationRequest = await engine.requestServiceVerification(
+      const verificationRequest: VerificationRequest = await engine.requestServiceVerification(
         req.user.id,
         id,
         documents
@@ -304,7 +315,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
       const maxResults = limit ? parseInt(limit as string, 10) : 10;
       
       // Get nearby services
-      const services = await engine.getNearbyServices(
+      const services: ServiceEntity[] = await engine.getNearbyServices(
         latitude,
         longitude,
         radiusKm,
@@ -338,7 +349,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
       const maxResults = limit ? parseInt(limit as string, 10) : 10;
       
       // Get popular services
-      const services = await engine.getPopularServices(
+      const services: ServiceEntity[] = await engine.getPopularServices(
         category as string | undefined,
         maxResults
       );
@@ -393,7 +404,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
       }
       
       // Create experience
-      const experience = await engine.createServiceExperience(
+      const experience: ServiceExperience = await engine.createServiceExperience(
         req.user.id,
         id,
         title,
@@ -404,7 +415,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
           startTime,
           endTime,
           mediaHash
-        }
+        } as ExperienceOptions
       );
       
       // Return created experience
@@ -425,13 +436,13 @@ export function createServiceRoutes(engine: ServiceEngine) {
       
       // Parse parameters
       const showActiveOnly = activeOnly !== 'false';
-      const pagination = {
+      const pagination: PaginationOptions = {
         offset: offset ? parseInt(offset as string, 10) : 0,
         limit: limit ? parseInt(limit as string, 10) : 20
       };
       
       // Get experiences
-      const result = await engine.getServiceExperiences(
+      const result: ExperienceResult = await engine.getServiceExperiences(
         id,
         showActiveOnly,
         pagination
@@ -462,7 +473,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
       const { experienceId } = req.params;
       
       // Purchase experience
-      const experience = await engine.purchaseExperience(
+      const experience: ServiceExperience = await engine.purchaseExperience(
         req.user.id,
         experienceId
       );
@@ -505,7 +516,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
         }
         
         // Review verification request
-        const verificationRequest = await engine.reviewVerificationRequest(
+        const verificationRequest: VerificationRequest = await engine.reviewVerificationRequest(
           req.user!.id,
           requestId,
           approved === true,
