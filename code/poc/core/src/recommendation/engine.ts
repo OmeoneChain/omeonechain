@@ -5,7 +5,12 @@
  * Based on Technical Specifications A.3.1
  */
 
-import { ChainAdapter, Transaction } from '../adapters/chain-adapter';
+// Updated imports to use new adapter structure
+import { ChainAdapter, ChainTransaction } from '../types/chain';
+import { 
+  toTransactionData, 
+  getActionDetail 
+} from '../adapters/types/recommendation-adapters';
 import { StorageProvider } from '../storage/storage-provider';
 import { 
   Recommendation, 
@@ -41,6 +46,11 @@ export interface RecommendationEngineOptions {
    * Chain ID
    */
   chainId?: string;
+  
+  /**
+   * Sponsor wallet for fee payments
+   */
+  sponsorWallet?: string;
 }
 
 /**
@@ -116,7 +126,7 @@ export class RecommendationEngine {
    */
   async initialize(): Promise<void> {
     // Get chain ID from adapter or options
-    this.chainId = this.options.chainId || await this.adapter.getChainId();
+    this.chainId = this.options.chainId || await this.adapter.getWalletAddress();
   }
   
   /**
@@ -197,27 +207,22 @@ export class RecommendationEngine {
       chainID: this.chainId || 'unknown'
     };
     
-    // Create transaction payload
-    const txPayload = {
-      objectType: 'recommendation',
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'recommendation',
       action: 'create',
-      data: newRecommendation
+      requiresSignature: true,
+      data: toTransactionData(newRecommendation)
     };
     
     // Submit transaction to the blockchain
-    const txResult = await this.adapter.submitTx({
-      sender: author,
-      payload: txPayload,
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    const txResult = await this.adapter.submitTransaction(txPayload);
     
     // Return complete recommendation with tangle reference
     return {
       ...newRecommendation,
       tangle: {
-        objectId: txResult.objectId || txResult.id,
+        objectId: txResult.objectId || txResult.transactionId,
         commitNumber: txResult.commitNumber || 0
       }
     };
@@ -239,22 +244,21 @@ export class RecommendationEngine {
     };
   }> {
     // Query the blockchain for recommendations
-    const result = await this.adapter.queryState<Recommendation>({
-      objectType: 'recommendation',
-      filter: {
-        ...(filter.author && { author: filter.author }),
-        ...(filter.category && { category: filter.category }),
-        ...(filter.serviceId && { serviceId: filter.serviceId }),
-        ...(filter.minRating && { minRating: filter.minRating }),
-        // Location-based filtering is handled by the adapter
-      },
-      sort: filter.sort,
-      pagination: filter.pagination
-    });
+    const result = await this.adapter.queryObjects('recommendation', {
+      ...(filter.author && { author: filter.author }),
+      ...(filter.category && { category: filter.category }),
+      ...(filter.serviceId && { serviceId: filter.serviceId }),
+      ...(filter.minRating && { minRating: filter.minRating }),
+      // Location-based filtering is handled by the adapter
+    }, filter.pagination);
+    
+    // Transform results to expected format
+    const recommendations: Recommendation[] = result.map(state => state.data);
+    const total = result.length;
     
     // For each recommendation, load full content from IPFS if needed
-    const recommendations = await Promise.all(
-      result.results.map(async (rec) => {
+    const recommendationsWithContent = await Promise.all(
+      recommendations.map(async (rec) => {
         // If media items exist, ensure full content is loaded
         for (let i = 0; i < rec.content.media.length; i++) {
           const media = rec.content.media[i];
@@ -274,10 +278,17 @@ export class RecommendationEngine {
       })
     );
     
+    // Calculate pagination
+    const pagination = filter.pagination ? {
+      offset: filter.pagination.offset,
+      limit: filter.pagination.limit,
+      hasMore: filter.pagination.offset + recommendationsWithContent.length < total
+    } : undefined;
+    
     return {
-      recommendations,
-      total: result.total,
-      pagination: result.pagination
+      recommendations: recommendationsWithContent,
+      total,
+      pagination
     };
   }
   
@@ -306,24 +317,23 @@ export class RecommendationEngine {
       timestamp: new Date().toISOString()
     };
     
-    // Submit transaction
-    const txResult = await this.adapter.submitTx({
-      sender: userId,
-      payload: {
-        objectType: 'recommendation_vote',
-        action: actionType.toLowerCase(),
-        data: {
-          recommendationId,
-          vote: isUpvote ? 1 : -1
-        }
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'recommendation',
+      action: 'vote',
+      actionDetail: isUpvote ? 'upvote' : 'downvote',
+      requiresSignature: true,
+      data: {
+        id: recommendationId,
+        author: userId
       }
-    });
+    };
+    
+    // Submit transaction
+    const txResult = await this.adapter.submitTransaction(txPayload);
     
     return {
-      success: txResult.status === 'confirmed',
+      success: true,
       action
     };
   }
@@ -414,18 +424,16 @@ export class RecommendationEngine {
       contentHash: updatedContent ? this.hashContent(updatedContent) : existing.contentHash
     };
     
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'recommendation',
+      action: 'update',
+      requiresSignature: true,
+      data: toTransactionData(updatedRecommendation)
+    };
+    
     // Submit transaction
-    const txResult = await this.adapter.submitTx({
-      sender: author,
-      payload: {
-        objectType: 'recommendation',
-        action: 'update',
-        data: updatedRecommendation
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    const txResult = await this.adapter.submitTransaction(txPayload);
     
     // Return updated recommendation with new tangle reference
     return {
@@ -456,23 +464,22 @@ export class RecommendationEngine {
       throw new Error('Only the author can delete a recommendation');
     }
     
-    // Submit transaction
-    const txResult = await this.adapter.submitTx({
-      sender: author,
-      payload: {
-        objectType: 'recommendation',
-        action: 'delete',
-        data: {
-          recommendationId
-        }
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'recommendation',
+      action: 'delete',
+      requiresSignature: true,
+      data: {
+        id: recommendationId,
+        author
       }
-    });
+    };
+    
+    // Submit transaction
+    const txResult = await this.adapter.submitTransaction(txPayload);
     
     return {
-      success: txResult.status === 'confirmed'
+      success: true
     };
   }
   
@@ -483,36 +490,30 @@ export class RecommendationEngine {
    * @returns Recommendation with the specified ID
    */
   async getRecommendationById(recommendationId: string): Promise<Recommendation> {
-    const result = await this.adapter.queryState<Recommendation>({
-      objectType: 'recommendation',
-      filter: {
-        id: recommendationId
-      }
-    });
-    
-    if (result.results.length === 0) {
-      throw new Error(`Recommendation not found: ${recommendationId}`);
-    }
-    
-    const recommendation = result.results[0];
-    
-    // Load media content if needed
-    for (let i = 0; i < recommendation.content.media.length; i++) {
-      const media = recommendation.content.media[i];
-      if (media.ipfsHash && !media.data && this.storage.supportsRetrieval) {
-        try {
-          const data = await this.storage.retrieveFile(media.ipfsHash);
-          recommendation.content.media[i] = {
-            ...media,
-            data
-          };
-        } catch (error) {
-          console.warn(`Failed to load media ${media.ipfsHash}: ${error}`);
+    try {
+      const result = await this.adapter.queryState('recommendation', recommendationId);
+      const recommendation = result.data as Recommendation;
+      
+      // Load media content if needed
+      for (let i = 0; i < recommendation.content.media.length; i++) {
+        const media = recommendation.content.media[i];
+        if (media.ipfsHash && !media.data && this.storage.supportsRetrieval) {
+          try {
+            const data = await this.storage.retrieveFile(media.ipfsHash);
+            recommendation.content.media[i] = {
+              ...media,
+              data
+            };
+          } catch (error) {
+            console.warn(`Failed to load media ${media.ipfsHash}: ${error}`);
+          }
         }
       }
+      
+      return recommendation;
+    } catch (error) {
+      throw new Error(`Recommendation not found: ${recommendationId}`);
     }
-    
-    return recommendation;
   }
   
   /**
@@ -535,26 +536,22 @@ export class RecommendationEngine {
       hasMore: boolean;
     };
   }> {
-    // Create search filter
-    const searchFilter: RecommendationFilter = {
+    // Create search filter with query
+    const searchFilter = {
       ...filter,
-      searchQuery: query,
-      pagination
+      searchQuery: query
     };
     
-    // Use the adapter's query state method
-    const result = await this.adapter.queryState<Recommendation>({
-      objectType: 'recommendation',
-      filter: {
-        ...searchFilter,
-        searchQuery: query
-      },
-      pagination
-    });
+    // Query objects with the combined filter
+    const result = await this.adapter.queryObjects('recommendation', searchFilter, pagination);
+    
+    // Transform results to expected format
+    const recommendations: Recommendation[] = result.map(state => state.data);
+    const total = result.length;
     
     // Load media content if needed
-    const recommendations = await Promise.all(
-      result.results.map(async (rec) => {
+    const recommendationsWithContent = await Promise.all(
+      recommendations.map(async (rec) => {
         for (let i = 0; i < rec.content.media.length; i++) {
           const media = rec.content.media[i];
           if (media.ipfsHash && !media.data && this.storage.supportsRetrieval) {
@@ -574,21 +571,14 @@ export class RecommendationEngine {
     );
     
     return {
-      recommendations,
-      total: result.total,
+      recommendations: recommendationsWithContent,
+      total,
       pagination: {
         offset: pagination.offset,
         limit: pagination.limit,
-        hasMore: pagination.offset + recommendations.length < result.total
+        hasMore: pagination.offset + recommendationsWithContent.length < total
       }
     };
-  }
-  
-  /**
-   * Options for the sponsorWallet
-   */
-  private get options.sponsorWallet(): string | undefined {
-    return this.options.sponsorWallet;
   }
   
   /**
