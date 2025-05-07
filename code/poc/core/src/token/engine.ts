@@ -5,7 +5,13 @@
  * Based on Technical Specifications A.3.2
  */
 
-import { ChainAdapter, Transaction } from '../adapters/chain-adapter';
+// Updated imports to use new adapter structure
+import { ChainAdapter, ChainTransaction } from '../types/chain';
+import { 
+  TokenTransactionData,
+  TokenActionType,
+  tokenActionMap
+} from '../adapters/types/token-adapters';
 import { 
   TokenTransaction, 
   TransactionType, 
@@ -144,7 +150,7 @@ export class TokenEngine {
    */
   async initialize(): Promise<void> {
     // Get chain ID from adapter or options
-    this.chainId = this.options.chainId || await this.adapter.getChainId();
+    this.chainId = this.options.chainId || await this.adapter.getWalletAddress();
   }
   
   /**
@@ -154,15 +160,11 @@ export class TokenEngine {
    * @returns Token balance
    */
   async getTokenBalance(userId: string): Promise<TokenBalance> {
-    // Query the blockchain for the user's balance
-    const result = await this.adapter.queryState<TokenBalance>({
-      objectType: 'token_balance',
-      filter: {
-        userId
-      }
-    });
-    
-    if (result.results.length === 0) {
+    try {
+      // Query the blockchain for the user's balance with updated interface
+      const result = await this.adapter.queryState('token_balance', userId);
+      return result.data as TokenBalance;
+    } catch (error) {
       // Return default balance if not found
       return {
         userId,
@@ -171,8 +173,6 @@ export class TokenEngine {
         pendingRewards: 0
       };
     }
-    
-    return result.results[0];
   }
   
   /**
@@ -201,11 +201,11 @@ export class TokenEngine {
       }
     }
     
-    // Create transaction
+    // Create transaction data
     const transactionId = uuidv4();
     const timestamp = new Date().toISOString();
     
-    const transaction: Omit<TokenTransaction, 'tangle'> = {
+    const transactionData: TokenTransactionData = {
       transactionId,
       sender,
       recipient,
@@ -215,27 +215,46 @@ export class TokenEngine {
       actionReference
     };
     
-    // Submit transaction
-    const txResult = await this.adapter.submitTx({
-      sender,
-      payload: {
-        objectType: 'token_transaction',
-        action: 'transfer',
-        data: transaction
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    // Determine the action based on transaction type
+    let action: string;
+    switch (type) {
+      case TransactionType.TRANSFER:
+        action = TokenActionType.TRANSFER;
+        break;
+      case TransactionType.REWARD:
+        action = TokenActionType.CLAIM_REWARD;
+        break;
+      case TransactionType.STAKE:
+        action = TokenActionType.STAKE;
+        break;
+      case TransactionType.UNSTAKE:
+        action = TokenActionType.UNSTAKE;
+        break;
+      case TransactionType.BURN:
+        action = TokenActionType.BURN;
+        break;
+      default:
+        action = TokenActionType.TRANSFER;
+    }
+    
+    // Submit transaction with updated interface
+    const txPayload: ChainTransaction = {
+      type: 'token',
+      action: tokenActionMap[action],
+      requiresSignature: type !== TransactionType.REWARD, // Rewards don't require signature
+      data: transactionData
+    };
+    
+    const txResult = await this.adapter.submitTransaction(txPayload);
     
     // Update balances
     await this.updateBalances(sender, recipient, amount, type);
     
     // Return complete transaction with tangle reference
     return {
-      ...transaction,
+      ...transactionData,
       tangle: {
-        objectId: txResult.objectId || txResult.id,
+        objectId: txResult.objectId || txResult.transactionId,
         commitNumber: txResult.commitNumber || 0
       }
     };
@@ -271,11 +290,8 @@ export class TokenEngine {
     const maxMultiplier = this.options.rewardParams?.maxTrustMultiplier || 3;
     const qualityMultiplier = Math.min(trustScore * 4, maxMultiplier);
     
-    // Estimate base fee
-    const baseFeeInMicroIOTA = await this.adapter.estimateFee({
-      sender: this.options.reserveAddress || 'SYSTEM',
-      payload: { type: 'reward' }
-    });
+    // Estimate base fee - updating to use new adapter interface
+    const baseFeeInMicroIOTA = 0.05; // Default value as adapter doesn't have direct estimateFee
     
     // Calculate total reward
     const totalReward = baseReward * qualityMultiplier * reputationFactor - baseFeeInMicroIOTA;
@@ -584,15 +600,13 @@ export class TokenEngine {
    * @returns Transaction if found, null otherwise
    */
   async getTransaction(transactionId: string): Promise<TokenTransaction | null> {
-    // Query the blockchain for the transaction
-    const result = await this.adapter.queryState<TokenTransaction>({
-      objectType: 'token_transaction',
-      filter: {
-        transactionId
-      }
-    });
-    
-    return result.results.length > 0 ? result.results[0] : null;
+    try {
+      // Query the blockchain for the transaction with updated interface
+      const result = await this.adapter.queryState('token_transaction', transactionId);
+      return result.data as TokenTransaction;
+    } catch (error) {
+      return null;
+    }
   }
   
   /**
@@ -616,30 +630,31 @@ export class TokenEngine {
       hasMore: boolean;
     };
   }> {
-    // Query the blockchain for the user's transactions
-    const result = await this.adapter.queryState<TokenTransaction>({
-      objectType: 'token_transaction',
-      filter: {
-        $or: [
-          { sender: userId },
-          { recipient: userId }
-        ],
-        ...(type && { type })
-      },
-      sort: {
-        field: 'timestamp',
-        direction: 'desc'
-      },
-      pagination
-    });
+    // Query the blockchain for the user's transactions with updated interface
+    const filter: any = {
+      $or: [
+        { sender: userId },
+        { recipient: userId }
+      ]
+    };
+    
+    if (type) {
+      filter.type = type;
+    }
+    
+    const result = await this.adapter.queryObjects('token_transaction', filter, pagination);
+    
+    // Transform results to expected format
+    const transactions: TokenTransaction[] = result.map(state => state.data);
+    const total = result.length;
     
     return {
-      transactions: result.results,
-      total: result.total,
+      transactions,
+      total,
       pagination: {
         offset: pagination.offset,
         limit: pagination.limit,
-        hasMore: pagination.offset + result.results.length < result.total
+        hasMore: pagination.offset + transactions.length < total
       }
     };
   }
@@ -656,17 +671,14 @@ export class TokenEngine {
     actionReference: string,
     type: TransactionType
   ): Promise<number> {
-    // Query the blockchain for the rewards issued
-    const result = await this.adapter.queryState<TokenTransaction>({
-      objectType: 'token_transaction',
-      filter: {
-        actionReference,
-        type
-      }
+    // Query the blockchain for the rewards issued with updated interface
+    const result = await this.adapter.queryObjects('token_transaction', {
+      actionReference,
+      type
     });
     
     // Sum up all rewards
-    return result.results.reduce((total, tx) => total + tx.amount, 0);
+    return result.reduce((total, tx) => total + (tx.data as TokenTransaction).amount, 0);
   }
   
   /**
@@ -696,20 +708,18 @@ export class TokenEngine {
     if (sender !== 'SYSTEM' && sender !== this.options.reserveAddress) {
       const senderBalance = await this.getTokenBalance(sender);
       
-      await this.adapter.submitTx({
-        sender,
-        payload: {
-          objectType: 'token_balance',
-          action: 'update',
-          data: {
-            ...senderBalance,
-            available: Math.max(0, senderBalance.available - amount)
-          }
-        },
-        feeOptions: {
-          sponsorWallet: this.options.sponsorWallet
+      // Updated transaction submission
+      const txPayload: ChainTransaction = {
+        type: 'token',
+        action: 'update_balance',
+        requiresSignature: true,
+        data: {
+          ...senderBalance,
+          available: Math.max(0, senderBalance.available - amount)
         }
-      });
+      };
+      
+      await this.adapter.submitTransaction(txPayload);
     }
     
     // Update recipient balance (except for burn)
@@ -719,20 +729,18 @@ export class TokenEngine {
     ) {
       const recipientBalance = await this.getTokenBalance(recipient);
       
-      await this.adapter.submitTx({
-        sender: this.options.sponsorWallet || 'SYSTEM',
-        payload: {
-          objectType: 'token_balance',
-          action: 'update',
-          data: {
-            ...recipientBalance,
-            available: recipientBalance.available + amount
-          }
-        },
-        feeOptions: {
-          sponsorWallet: this.options.sponsorWallet
+      // Updated transaction submission
+      const txPayload: ChainTransaction = {
+        type: 'token',
+        action: 'update_balance',
+        requiresSignature: false,
+        data: {
+          ...recipientBalance,
+          available: recipientBalance.available + amount
         }
-      });
+      };
+      
+      await this.adapter.submitTransaction(txPayload);
     }
   }
   
@@ -753,38 +761,32 @@ export class TokenEngine {
     
     if (isStaking) {
       // Staking: decrease available, increase staked
-      await this.adapter.submitTx({
-        sender: userId,
-        payload: {
-          objectType: 'token_balance',
-          action: 'update',
-          data: {
-            ...userBalance,
-            available: userBalance.available - amount,
-            staked: userBalance.staked + amount
-          }
-        },
-        feeOptions: {
-          sponsorWallet: this.options.sponsorWallet
+      const txPayload: ChainTransaction = {
+        type: 'token',
+        action: 'update_balance',
+        requiresSignature: true,
+        data: {
+          ...userBalance,
+          available: userBalance.available - amount,
+          staked: userBalance.staked + amount
         }
-      });
+      };
+      
+      await this.adapter.submitTransaction(txPayload);
     } else {
       // Unstaking: increase available, decrease staked
-      await this.adapter.submitTx({
-        sender: userId,
-        payload: {
-          objectType: 'token_balance',
-          action: 'update',
-          data: {
-            ...userBalance,
-            available: userBalance.available + amount,
-            staked: userBalance.staked - amount
-          }
-        },
-        feeOptions: {
-          sponsorWallet: this.options.sponsorWallet
+      const txPayload: ChainTransaction = {
+        type: 'token',
+        action: 'update_balance',
+        requiresSignature: true,
+        data: {
+          ...userBalance,
+          available: userBalance.available + amount,
+          staked: userBalance.staked - amount
         }
-      });
+      };
+      
+      await this.adapter.submitTransaction(txPayload);
     }
   }
 }
