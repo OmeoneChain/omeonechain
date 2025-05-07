@@ -2,10 +2,11 @@
  * Service Engine
  * 
  * Core business logic for managing service entities and experiences
- * Based on Technical Specifications A.2.4
+ * Based on Technical Specifications A.3.4
  */
 
-import { ChainAdapter, Transaction } from '../adapters/chain-adapter';
+// Updated imports to use new adapter structure
+import { ChainAdapter, ChainTransaction } from '../types/chain';
 import { StorageProvider } from '../storage/storage-provider';
 import { 
   Service, 
@@ -148,7 +149,7 @@ export class ServiceEngine {
    */
   async initialize(): Promise<void> {
     // Get chain ID from adapter or options
-    this.chainId = this.options.chainId || await this.adapter.getChainId();
+    this.chainId = this.options.chainId || await this.adapter.getWalletAddress();
   }
   
   /**
@@ -224,18 +225,15 @@ export class ServiceEngine {
       };
     }
     
-    // Submit transaction
-    const txResult = await this.adapter.submitTx({
-      sender: requesterId,
-      payload: {
-        objectType: 'service',
-        action: isUpdate ? 'update' : 'create',
-        data: updatedService
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'service',
+      action: isUpdate ? 'update' : 'create',
+      requiresSignature: true,
+      data: updatedService
+    };
+    
+    await this.adapter.submitTransaction(txPayload);
     
     return updatedService;
   }
@@ -247,19 +245,12 @@ export class ServiceEngine {
    * @returns Service with the specified ID
    */
   async getServiceById(serviceId: string): Promise<Service> {
-    // Query the blockchain for the service
-    const result = await this.adapter.queryState<Service>({
-      objectType: 'service',
-      filter: {
-        serviceId
-      }
-    });
-    
-    if (result.results.length === 0) {
+    try {
+      const result = await this.adapter.queryState('service', serviceId);
+      return result.data as Service;
+    } catch (error) {
       throw new Error(`Service not found: ${serviceId}`);
     }
-    
-    return result.results[0];
   }
   
   /**
@@ -277,27 +268,33 @@ export class ServiceEngine {
       hasMore: boolean;
     };
   }> {
-    // Query the blockchain for services
-    const result = await this.adapter.queryState<Service>({
-      objectType: 'service',
-      filter: {
-        ...(filter.nameSearch && { nameSearch: filter.nameSearch }),
-        ...(filter.category && { category: filter.category }),
-        ...(filter.subcategories && { subcategories: filter.subcategories }),
-        ...(filter.minRating && { minRating: filter.minRating }),
-        ...(filter.verificationStatus && { verificationStatus: filter.verificationStatus }),
-        ...(filter.city && { city: filter.city }),
-        ...(filter.country && { country: filter.country })
-        // Note: nearLocation filter is handled by the adapter
-      },
-      sort: filter.sort,
-      pagination: filter.pagination
-    });
+    // Query the blockchain for services with updated interface
+    const result = await this.adapter.queryObjects('service', {
+      ...(filter.nameSearch && { nameSearch: filter.nameSearch }),
+      ...(filter.category && { category: filter.category }),
+      ...(filter.subcategories && { subcategories: filter.subcategories }),
+      ...(filter.minRating && { minRating: filter.minRating }),
+      ...(filter.verificationStatus && { verificationStatus: filter.verificationStatus }),
+      ...(filter.city && { city: filter.city }),
+      ...(filter.country && { country: filter.country }),
+      ...(filter.nearLocation && { nearLocation: filter.nearLocation })
+    }, filter.pagination);
+
+    // Transform results
+    const services: Service[] = result.map(state => state.data);
+    const total = result.length;
+    
+    // Calculate pagination
+    const pagination = filter.pagination ? {
+      offset: filter.pagination.offset,
+      limit: filter.pagination.limit,
+      hasMore: filter.pagination.offset + services.length < total
+    } : undefined;
     
     return {
-      services: result.results,
-      total: result.total,
-      pagination: result.pagination
+      services,
+      total,
+      pagination
     };
   }
   
@@ -376,18 +373,15 @@ export class ServiceEngine {
       updatedService.totalUpvotes += 1;
     }
     
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: this.options.sponsorWallet || 'SYSTEM',
-      payload: {
-        objectType: 'service',
-        action: 'update',
-        data: updatedService
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'service',
+      action: 'update',
+      requiresSignature: false,
+      data: updatedService
+    };
+    
+    await this.adapter.submitTransaction(txPayload);
     
     return updatedService;
   }
@@ -428,18 +422,15 @@ export class ServiceEngine {
       timestamp
     };
     
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: requesterId,
-      payload: {
-        objectType: 'verification_request',
-        action: 'create',
-        data: request
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'verification_request',
+      action: 'create',
+      requiresSignature: true,
+      data: request
+    };
+    
+    await this.adapter.submitTransaction(txPayload);
     
     // Update service status to claimed
     const service = await this.getServiceById(serviceId);
@@ -461,23 +452,19 @@ export class ServiceEngine {
    * @returns Most recent verification request for the service
    */
   async getVerificationRequestByServiceId(serviceId: string): Promise<VerificationRequest | null> {
-    // Query the blockchain for verification requests
-    const result = await this.adapter.queryState<VerificationRequest>({
-      objectType: 'verification_request',
-      filter: {
+    try {
+      // Query the blockchain for verification requests with updated interface
+      const result = await this.adapter.queryObjects('verification_request', {
         serviceId
-      },
-      sort: {
-        field: 'timestamp',
-        direction: 'desc'
-      },
-      pagination: {
+      }, {
         offset: 0,
         limit: 1
-      }
-    });
-    
-    return result.results.length > 0 ? result.results[0] : null;
+      });
+      
+      return result.length > 0 ? result[0].data as VerificationRequest : null;
+    } catch (error) {
+      return null;
+    }
   }
   
   /**
@@ -495,57 +482,48 @@ export class ServiceEngine {
     approved: boolean,
     notes?: string
   ): Promise<VerificationRequest> {
-    // Get verification request
-    const result = await this.adapter.queryState<VerificationRequest>({
-      objectType: 'verification_request',
-      filter: {
-        requestId
+    try {
+      // Get verification request with updated interface
+      const result = await this.adapter.queryState('verification_request', requestId);
+      const request = result.data as VerificationRequest;
+      
+      // Validate request is pending
+      if (request.status !== 'pending') {
+        throw new Error(`Verification request already processed: ${requestId}`);
       }
-    });
-    
-    if (result.results.length === 0) {
+      
+      // Update request
+      const updatedRequest: VerificationRequest = {
+        ...request,
+        status: approved ? 'approved' : 'rejected',
+        reviewerId,
+        reviewNotes: notes
+      };
+      
+      // Updated transaction submission
+      const txPayload: ChainTransaction = {
+        type: 'verification_request',
+        action: 'update',
+        requiresSignature: true,
+        data: updatedRequest
+      };
+      
+      await this.adapter.submitTransaction(txPayload);
+      
+      // Update service status if approved
+      if (approved) {
+        const service = await this.getServiceById(request.serviceId);
+        
+        await this.createOrUpdateService(reviewerId, {
+          ...service,
+          verificationStatus: VerificationStatus.VERIFIED
+        });
+      }
+      
+      return updatedRequest;
+    } catch (error) {
       throw new Error(`Verification request not found: ${requestId}`);
     }
-    
-    const request = result.results[0];
-    
-    // Validate request is pending
-    if (request.status !== 'pending') {
-      throw new Error(`Verification request already processed: ${requestId}`);
-    }
-    
-    // Update request
-    const updatedRequest: VerificationRequest = {
-      ...request,
-      status: approved ? 'approved' : 'rejected',
-      reviewerId,
-      reviewNotes: notes
-    };
-    
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: reviewerId,
-      payload: {
-        objectType: 'verification_request',
-        action: 'update',
-        data: updatedRequest
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
-    
-    // Update service status if approved
-    if (approved) {
-      const service = await this.getServiceById(request.serviceId);
-      
-      await this.createOrUpdateService(reviewerId, {
-        ...service,
-        verificationStatus: VerificationStatus.VERIFIED
-      });
-    }
-    
-    return updatedRequest;
   }
   
   /**
@@ -603,18 +581,15 @@ export class ServiceEngine {
       createdAt: timestamp
     };
     
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: requesterId,
-      payload: {
-        objectType: 'service_experience',
-        action: 'create',
-        data: experience
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'service_experience',
+      action: 'create',
+      requiresSignature: true,
+      data: experience
+    };
+    
+    await this.adapter.submitTransaction(txPayload);
     
     return experience;
   }
@@ -640,27 +615,23 @@ export class ServiceEngine {
       hasMore: boolean;
     };
   }> {
-    // Query the blockchain for experiences
-    const result = await this.adapter.queryState<ServiceExperience>({
-      objectType: 'service_experience',
-      filter: {
-        serviceId,
-        ...(activeOnly && { isActive: true })
-      },
-      sort: {
-        field: 'createdAt',
-        direction: 'desc'
-      },
-      pagination
-    });
+    // Query the blockchain for experiences with updated interface
+    const result = await this.adapter.queryObjects('service_experience', {
+      serviceId,
+      ...(activeOnly && { isActive: true })
+    }, pagination);
+    
+    // Transform results
+    const experiences: ServiceExperience[] = result.map(state => state.data);
+    const total = result.length;
     
     return {
-      experiences: result.results,
-      total: result.total,
+      experiences,
+      total,
       pagination: {
         offset: pagination.offset,
         limit: pagination.limit,
-        hasMore: pagination.offset + result.results.length < result.total
+        hasMore: pagination.offset + experiences.length < total
       }
     };
   }
@@ -672,19 +643,12 @@ export class ServiceEngine {
    * @returns Experience with the specified ID
    */
   async getExperienceById(experienceId: string): Promise<ServiceExperience> {
-    // Query the blockchain for the experience
-    const result = await this.adapter.queryState<ServiceExperience>({
-      objectType: 'service_experience',
-      filter: {
-        experienceId
-      }
-    });
-    
-    if (result.results.length === 0) {
+    try {
+      const result = await this.adapter.queryState('service_experience', experienceId);
+      return result.data as ServiceExperience;
+    } catch (error) {
       throw new Error(`Experience not found: ${experienceId}`);
     }
-    
-    return result.results[0];
   }
   
   /**
@@ -727,35 +691,29 @@ export class ServiceEngine {
       purchased: experience.purchased + 1
     };
     
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: userId,
-      payload: {
-        objectType: 'service_experience',
-        action: 'update',
-        data: updatedExperience
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'service_experience',
+      action: 'update',
+      requiresSignature: true,
+      data: updatedExperience
+    };
+    
+    await this.adapter.submitTransaction(txPayload);
     
     // If the experience is now sold out, update isActive
     if (updatedExperience.purchased >= updatedExperience.supply) {
       updatedExperience.isActive = false;
       
       // Submit another transaction to update status
-      await this.adapter.submitTx({
-        sender: this.options.sponsorWallet || 'SYSTEM',
-        payload: {
-          objectType: 'service_experience',
-          action: 'update',
-          data: updatedExperience
-        },
-        feeOptions: {
-          sponsorWallet: this.options.sponsorWallet
-        }
-      });
+      const statusUpdatePayload: ChainTransaction = {
+        type: 'service_experience',
+        action: 'update',
+        requiresSignature: false,
+        data: updatedExperience
+      };
+      
+      await this.adapter.submitTransaction(statusUpdatePayload);
     }
     
     return updatedExperience;
@@ -807,18 +765,15 @@ export class ServiceEngine {
       throw new Error(`Supply cannot be less than purchased amount: ${updatedExperience.purchased}`);
     }
     
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: requesterId,
-      payload: {
-        objectType: 'service_experience',
-        action: 'update',
-        data: updatedExperience
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'service_experience',
+      action: 'update',
+      requiresSignature: true,
+      data: updatedExperience
+    };
+    
+    await this.adapter.submitTransaction(txPayload);
     
     return updatedExperience;
   }
@@ -834,23 +789,18 @@ export class ServiceEngine {
     category?: string,
     limit: number = 10
   ): Promise<Service[]> {
-    // Query the blockchain for services
-    const result = await this.adapter.queryState<Service>({
-      objectType: 'service',
-      filter: {
-        ...(category && { category })
-      },
-      sort: {
-        field: 'totalUpvotes',
-        direction: 'desc'
-      },
-      pagination: {
-        offset: 0,
-        limit
-      }
+    // Query the blockchain for services with updated interface
+    const result = await this.adapter.queryObjects('service', {
+      ...(category && { category })
+    }, {
+      offset: 0,
+      limit
     });
     
-    return result.results;
+    // Transform results and sort by upvotes
+    const services: Service[] = result.map(state => state.data);
+    
+    return services.sort((a, b) => b.totalUpvotes - a.totalUpvotes);
   }
   
   /**
