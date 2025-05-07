@@ -1,5 +1,5 @@
 /**
- * Developer API Routes
+ * Developer API Routes (v2 - Updated with adapter-specific types)
  * 
  * API endpoints for third-party developers
  * Based on Technical Specifications A.4.2
@@ -11,6 +11,10 @@ import { ReputationEngine } from '../../reputation/engine';
 import { ServiceEngine } from '../../service/engine';
 import { ApiError } from '../middleware/error-handler';
 import { authenticate, requireRoles } from '../middleware/auth';
+// Import adapter-specific types
+import { RecommendationFilter, PaginationOptions as RecPaginationOptions } from '../../types/recommendation-adapters';
+import { PaginationOptions as RepPaginationOptions, RelationshipResult } from '../../types/reputation-adapters';
+import { ServiceEntity, ServiceFilter } from '../../types/service-adapters';
 
 /**
  * Developer engines interface
@@ -152,8 +156,8 @@ export function createDeveloperRoutes(engines: DeveloperEngines) {
       const maxResults = limit ? parseInt(limit as string, 10) : 10;
       
       if (entityType === 'services') {
-        // Get popular services
-        const services = await engines.serviceEngine.getPopularServices(
+        // Get popular services with adapter-specific type
+        const services: ServiceEntity[] = await engines.serviceEngine.getPopularServices(
           category as string | undefined,
           maxResults
         );
@@ -168,8 +172,12 @@ export function createDeveloperRoutes(engines: DeveloperEngines) {
       } else {
         // For recommendations, we'd implement a trending algorithm
         // For now, return a simple query with highest upvote count
+        // Use adapter-specific types
+        const filter: RecommendationFilter = {};
+        if (category) filter.category = category as string;
+        
         const result = await engines.recommendationEngine.getRecommendations({
-          ...(category && { category: category as string }),
+          ...filter,
           sort: {
             field: 'upvotesReceived',
             direction: 'desc'
@@ -177,7 +185,7 @@ export function createDeveloperRoutes(engines: DeveloperEngines) {
           pagination: {
             offset: 0,
             limit: maxResults
-          }
+          } as RecPaginationOptions
         });
         
         // Return trending recommendations
@@ -432,10 +440,10 @@ export function createDeveloperRoutes(engines: DeveloperEngines) {
       // This would be implemented with a more efficient graph traversal in production
       // For now, we'll fetch direct followers and build a simple graph
       
-      // Get user's followers
-      const followingResult = await engines.reputationEngine.getFollowing(
+      // Get user's followers with adapter-specific types
+      const followingResult: RelationshipResult = await engines.reputationEngine.getFollowing(
         userId as string,
-        { offset: 0, limit: 100 }
+        { offset: 0, limit: 100 } as RepPaginationOptions
       );
       
       // Build graph nodes and edges
@@ -455,9 +463,9 @@ export function createDeveloperRoutes(engines: DeveloperEngines) {
         // If depth > 1, get second-degree connections
         if (depth > 1) {
           try {
-            const secondaryFollowing = await engines.reputationEngine.getFollowing(
+            const secondaryFollowing: RelationshipResult = await engines.reputationEngine.getFollowing(
               rel.followedId,
-              { offset: 0, limit: 20 }
+              { offset: 0, limit: 20 } as RepPaginationOptions
             );
             
             for (const secondRel of secondaryFollowing.relationships) {
