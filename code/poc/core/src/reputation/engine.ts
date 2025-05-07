@@ -5,7 +5,9 @@
  * Based on Technical Specifications A.3.3
  */
 
-import { ChainAdapter, Transaction } from '../adapters/chain-adapter';
+// Updated imports to use new adapter structure
+import { ChainAdapter, ChainTransaction } from '../types/chain';
+import { formatReputationForChain } from '../adapters/types/reputation-adapters';
 import { 
   UserReputation, 
   VerificationLevel, 
@@ -97,7 +99,7 @@ export class ReputationEngine {
    */
   async initialize(): Promise<void> {
     // Get chain ID from adapter or options
-    this.chainId = this.options.chainId || await this.adapter.getChainId();
+    this.chainId = this.options.chainId || await this.adapter.getWalletAddress();
   }
   
   /**
@@ -173,24 +175,22 @@ export class ReputationEngine {
       };
     }
     
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'reputation',
+      action: existingProfile ? 'update' : 'create',
+      requiresSignature: true,
+      data: formatReputationForChain(profile)
+    };
+    
     // Submit transaction
-    const txResult = await this.adapter.submitTx({
-      sender: userId,
-      payload: {
-        objectType: 'user_reputation',
-        action: existingProfile ? 'update' : 'create',
-        data: profile
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    const txResult = await this.adapter.submitTransaction(txPayload);
     
     // Return complete reputation profile with ledger reference
     return {
       ...profile,
       ledger: {
-        objectID: txResult.objectId || txResult.id,
+        objectID: txResult.objectId || txResult.transactionId,
         commitNumber: txResult.commitNumber || 0
       }
     };
@@ -203,19 +203,12 @@ export class ReputationEngine {
    * @returns User's reputation profile
    */
   async getUserReputation(userId: string): Promise<UserReputation> {
-    // Query the blockchain for the user's reputation
-    const result = await this.adapter.queryState<UserReputation>({
-      objectType: 'user_reputation',
-      filter: {
-        userId
-      }
-    });
-    
-    if (result.results.length === 0) {
+    try {
+      const result = await this.adapter.queryState('reputation', userId);
+      return result.data as UserReputation;
+    } catch (error) {
       throw new Error(`User reputation not found: ${userId}`);
     }
-    
-    return result.results[0];
   }
   
   /**
@@ -233,23 +226,29 @@ export class ReputationEngine {
       hasMore: boolean;
     };
   }> {
-    // Query the blockchain for reputation profiles
-    const result = await this.adapter.queryState<UserReputation>({
-      objectType: 'user_reputation',
-      filter: {
-        ...(filter.userId && { userId: filter.userId }),
-        ...(filter.minReputationScore && { minReputationScore: filter.minReputationScore }),
-        ...(filter.verificationLevel && { verificationLevel: filter.verificationLevel }),
-        ...(filter.specialization && { specialization: filter.specialization })
-      },
-      sort: filter.sort,
-      pagination: filter.pagination
-    });
+    // Query the blockchain for reputation profiles with updated interface
+    const result = await this.adapter.queryObjects('reputation', {
+      ...(filter.userId && { userId: filter.userId }),
+      ...(filter.minReputationScore && { minReputationScore: filter.minReputationScore }),
+      ...(filter.verificationLevel && { verificationLevel: filter.verificationLevel }),
+      ...(filter.specialization && { specialization: filter.specialization })
+    }, filter.pagination);
+    
+    // Transform results
+    const reputations: UserReputation[] = result.map(state => state.data);
+    const total = result.length;
+    
+    // Calculate pagination
+    const pagination = filter.pagination ? {
+      offset: filter.pagination.offset,
+      limit: filter.pagination.limit,
+      hasMore: filter.pagination.offset + reputations.length < total
+    } : undefined;
     
     return {
-      reputations: result.results,
-      total: result.total,
-      pagination: result.pagination
+      reputations,
+      total,
+      pagination
     };
   }
   
@@ -280,18 +279,15 @@ export class ReputationEngine {
       trustWeight: this.options.trustScoreParams?.directFollowerWeight || 0.75
     };
     
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: followerId,
-      payload: {
-        objectType: 'user_relationship',
-        action: 'follow',
-        data: relationship
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'reputation',
+      action: 'follow',
+      requiresSignature: true,
+      data: relationship
+    };
+    
+    await this.adapter.submitTransaction(txPayload);
     
     // Update follower counts
     await this.updateFollowerCounts(followerId, followedId, true);
@@ -316,27 +312,24 @@ export class ReputationEngine {
       throw new Error(`User ${followerId} is not following ${followedId}`);
     }
     
-    // Submit transaction
-    const txResult = await this.adapter.submitTx({
-      sender: followerId,
-      payload: {
-        objectType: 'user_relationship',
-        action: 'unfollow',
-        data: {
-          followerId,
-          followedId
-        }
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
+    // Updated transaction submission
+    const txPayload: ChainTransaction = {
+      type: 'reputation',
+      action: 'unfollow',
+      requiresSignature: true,
+      data: {
+        followerId,
+        followedId
       }
-    });
+    };
+    
+    const txResult = await this.adapter.submitTransaction(txPayload);
     
     // Update follower counts
     await this.updateFollowerCounts(followerId, followedId, false);
     
     return {
-      success: txResult.status === 'confirmed'
+      success: true
     };
   }
   
@@ -351,16 +344,17 @@ export class ReputationEngine {
     followerId: string,
     followedId: string
   ): Promise<UserRelationship | null> {
-    // Query the blockchain for the relationship
-    const result = await this.adapter.queryState<UserRelationship>({
-      objectType: 'user_relationship',
-      filter: {
+    try {
+      // Query the blockchain for the relationship with the updated interface
+      const result = await this.adapter.queryObjects('reputation_relationship', {
         followerId,
         followedId
-      }
-    });
-    
-    return result.results.length > 0 ? result.results[0] : null;
+      }, { limit: 1, offset: 0 });
+      
+      return result.length > 0 ? result[0].data as UserRelationship : null;
+    } catch (error) {
+      return null;
+    }
   }
   
   /**
@@ -382,26 +376,22 @@ export class ReputationEngine {
       hasMore: boolean;
     };
   }> {
-    // Query the blockchain for relationships
-    const result = await this.adapter.queryState<UserRelationship>({
-      objectType: 'user_relationship',
-      filter: {
-        followerId: userId
-      },
-      sort: {
-        field: 'timestamp',
-        direction: 'desc'
-      },
-      pagination
-    });
+    // Query the blockchain for relationships with updated interface
+    const result = await this.adapter.queryObjects('reputation_relationship', {
+      followerId: userId
+    }, pagination);
+    
+    // Transform results
+    const relationships: UserRelationship[] = result.map(state => state.data);
+    const total = result.length;
     
     return {
-      relationships: result.results,
-      total: result.total,
+      relationships,
+      total,
       pagination: {
         offset: pagination.offset,
         limit: pagination.limit,
-        hasMore: pagination.offset + result.results.length < result.total
+        hasMore: pagination.offset + relationships.length < total
       }
     };
   }
@@ -425,26 +415,22 @@ export class ReputationEngine {
       hasMore: boolean;
     };
   }> {
-    // Query the blockchain for relationships
-    const result = await this.adapter.queryState<UserRelationship>({
-      objectType: 'user_relationship',
-      filter: {
-        followedId: userId
-      },
-      sort: {
-        field: 'timestamp',
-        direction: 'desc'
-      },
-      pagination
-    });
+    // Query the blockchain for relationships with updated interface
+    const result = await this.adapter.queryObjects('reputation_relationship', {
+      followedId: userId
+    }, pagination);
+    
+    // Transform results
+    const relationships: UserRelationship[] = result.map(state => state.data);
+    const total = result.length;
     
     return {
-      relationships: result.results,
-      total: result.total,
+      relationships,
+      total,
       pagination: {
         offset: pagination.offset,
         limit: pagination.limit,
-        hasMore: pagination.offset + result.results.length < result.total
+        hasMore: pagination.offset + relationships.length < total
       }
     };
   }
