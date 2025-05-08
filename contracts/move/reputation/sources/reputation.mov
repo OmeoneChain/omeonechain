@@ -1,0 +1,438 @@
+module omeonechain::reputation {
+    use std::error;
+    use std::signer;
+    use std::vector;
+    
+    use omeonechain::common::{Self, TimeStamp};
+    
+    /// Error codes
+    const E_NOT_INITIALIZED: u64 = 201;
+    const E_ALREADY_FOLLOWING: u64 = 202;
+    const E_NOT_FOLLOWING: u64 = 203;
+    const E_CANNOT_FOLLOW_SELF: u64 = 204;
+    const E_REPUTATION_ALREADY_EXISTS: u64 = 205;
+    
+    /// Constants
+    const VERIFICATION_LEVEL_NONE: u8 = 0;
+    const VERIFICATION_LEVEL_BASIC: u8 = 1;
+    const VERIFICATION_LEVEL_VERIFIED: u8 = 2;
+    const VERIFICATION_LEVEL_EXPERT: u8 = 3;
+    
+    const MAX_REPUTATION_SCORE: u64 = 1000; // 10.00 with 2 decimal precision
+    const INITIAL_REPUTATION_SCORE: u64 = 50; // 0.50 with 2 decimal precision
+    
+    /// Reputation score for a user
+    public struct ReputationScore has key, store {
+        score: u64, // 0-1000 (0.00-10.00 with 2 decimal precision)
+        verification_level: u8,
+        specializations: vector<u8>, // Category codes user is specialized in
+        total_recommendations: u64,
+        upvotes_received: u64,
+        downvotes_received: u64,
+        timestamp: TimeStamp,
+    }
+    
+    /// Social graph for a user (followers and following)
+    struct SocialGraph has key {
+        followers: vector<address>,
+        following: vector<address>,
+        timestamp: TimeStamp,
+    }
+    
+    /// Global registry for reputation scores
+    struct GlobalReputationRegistry has key {
+        registered_users: vector<address>,
+    }
+    
+    /// Initialize the reputation module
+    public entry fun initialize(admin: &signer) {
+        let admin_addr = signer::address_of(admin);
+        assert!(common::is_admin(admin_addr), error::permission_denied(1));
+        
+        // Create global registry if it doesn't exist
+        if (!exists<GlobalReputationRegistry>(admin_addr)) {
+            move_to(admin, GlobalReputationRegistry {
+                registered_users: vector::empty<address>(),
+            });
+        };
+    }
+    
+    /// Initialize reputation for a new user
+    public entry fun initialize_user_reputation(user: &signer) acquires GlobalReputationRegistry {
+        let user_addr = signer::address_of(user);
+        
+        // Check if reputation already exists
+        assert!(!exists<ReputationScore>(user_addr), error::already_exists(E_REPUTATION_ALREADY_EXISTS));
+        
+        // Create reputation score
+        let reputation = ReputationScore {
+            score: INITIAL_REPUTATION_SCORE,
+            verification_level: VERIFICATION_LEVEL_BASIC,
+            specializations: vector::empty<u8>(),
+            total_recommendations: 0,
+            upvotes_received: 0,
+            downvotes_received: 0,
+            timestamp: common::create_timestamp(),
+        };
+        
+        // Create social graph
+        let social_graph = SocialGraph {
+            followers: vector::empty<address>(),
+            following: vector::empty<address>(),
+            timestamp: common::create_timestamp(),
+        };
+        
+        // Store reputation and social graph
+        move_to(user, reputation);
+        move_to(user, social_graph);
+        
+        // Add to global registry
+        let global_registry = borrow_global_mut<GlobalReputationRegistry>(@omeonechain);
+        vector::push_back(&mut global_registry.registered_users, user_addr);
+    }
+    
+    /// Follow another user
+    public entry fun follow(follower: &signer, followed: address) acquires SocialGraph {
+        let follower_addr = signer::address_of(follower);
+        
+        // Cannot follow self
+        assert!(follower_addr != followed, error::invalid_argument(E_CANNOT_FOLLOW_SELF));
+        
+        // Ensure both users have social graphs
+        assert!(exists<SocialGraph>(follower_addr), error::not_found(E_NOT_INITIALIZED));
+        assert!(exists<SocialGraph>(followed), error::not_found(E_NOT_INITIALIZED));
+        
+        // Get social graphs
+        let follower_graph = borrow_global_mut<SocialGraph>(follower_addr);
+        let followed_graph = borrow_global_mut<SocialGraph>(followed);
+        
+        // Check if already following
+        assert!(!vector::contains(&follower_graph.following, &followed), error::already_exists(E_ALREADY_FOLLOWING));
+        
+        // Update following list for follower
+        vector::push_back(&mut follower_graph.following, followed);
+        common::update_timestamp(&mut follower_graph.timestamp);
+        
+        // Update followers list for followed
+        vector::push_back(&mut followed_graph.followers, follower_addr);
+        common::update_timestamp(&mut followed_graph.timestamp);
+    }
+    
+    /// Unfollow a user
+    public entry fun unfollow(follower: &signer, followed: address) acquires SocialGraph {
+        let follower_addr = signer::address_of(follower);
+        
+        // Cannot unfollow self
+        assert!(follower_addr != followed, error::invalid_argument(E_CANNOT_FOLLOW_SELF));
+        
+        // Ensure both users have social graphs
+        assert!(exists<SocialGraph>(follower_addr), error::not_found(E_NOT_INITIALIZED));
+        assert!(exists<SocialGraph>(followed), error::not_found(E_NOT_INITIALIZED));
+        
+        // Get social graphs
+        let follower_graph = borrow_global_mut<SocialGraph>(follower_addr);
+        let followed_graph = borrow_global_mut<SocialGraph>(followed);
+        
+        // Check if following
+        assert!(vector::contains(&follower_graph.following, &followed), error::invalid_state(E_NOT_FOLLOWING));
+        
+        // Remove from following list
+        let (found, index) = vector_index_of(&follower_graph.following, &followed);
+        if (found) {
+            vector::remove(&mut follower_graph.following, index);
+            common::update_timestamp(&mut follower_graph.timestamp);
+        };
+        
+        // Remove from followers list
+        let (found, index) = vector_index_of(&followed_graph.followers, &follower_addr);
+        if (found) {
+            vector::remove(&mut followed_graph.followers, index);
+            common::update_timestamp(&mut followed_graph.timestamp);
+        };
+    }
+    
+    /// Update reputation score for recommendation activity
+    public entry fun update_reputation_for_recommendation(
+        admin: &signer,
+        user: address,
+        upvotes: u64,
+        downvotes: u64
+    ) acquires ReputationScore {
+        let admin_addr = signer::address_of(admin);
+        assert!(common::is_admin(admin_addr), error::permission_denied(1));
+        
+        // Ensure user has a reputation score
+        assert!(exists<ReputationScore>(user), error::not_found(E_NOT_INITIALIZED));
+        
+        // Get reputation score
+        let reputation = borrow_global_mut<ReputationScore>(user);
+        
+        // Update stats
+        reputation.total_recommendations = reputation.total_recommendations + 1;
+        reputation.upvotes_received = reputation.upvotes_received + upvotes;
+        reputation.downvotes_received = reputation.downvotes_received + downvotes;
+        
+        // Update score based on vote ratio
+        if (upvotes > 0 || downvotes > 0) {
+            let total_votes = upvotes + downvotes;
+            
+            if (upvotes > downvotes) {
+                // Positive adjustment
+                let ratio = (upvotes * 100) / total_votes;
+                let adjustment = ratio / 10; // Scale ratio to a smaller adjustment
+                
+                // Cap the score at MAX_REPUTATION_SCORE
+                if (reputation.score + adjustment > MAX_REPUTATION_SCORE) {
+                    reputation.score = MAX_REPUTATION_SCORE;
+                } else {
+                    reputation.score = reputation.score + adjustment;
+                }
+            } else if (downvotes > upvotes) {
+                // Negative adjustment
+                let ratio = (downvotes * 100) / total_votes;
+                let adjustment = ratio / 10; // Scale ratio to a smaller adjustment
+                
+                // Ensure score doesn't go below 0
+                if (adjustment > reputation.score) {
+                    reputation.score = 0;
+                } else {
+                    reputation.score = reputation.score - adjustment;
+                }
+            }
+        };
+        
+        // Update timestamp
+        common::update_timestamp(&mut reputation.timestamp);
+    }
+    
+    /// Set user verification level
+    public entry fun set_verification_level(
+        admin: &signer,
+        user: address,
+        level: u8
+    ) acquires ReputationScore {
+        let admin_addr = signer::address_of(admin);
+        assert!(common::is_admin(admin_addr), error::permission_denied(1));
+        
+        // Ensure user has a reputation score
+        assert!(exists<ReputationScore>(user), error::not_found(E_NOT_INITIALIZED));
+        
+        // Validate level
+        assert!(level <= VERIFICATION_LEVEL_EXPERT, error::invalid_argument(0));
+        
+        // Get reputation score and update level
+        let reputation = borrow_global_mut<ReputationScore>(user);
+        reputation.verification_level = level;
+        
+        // Update timestamp
+        common::update_timestamp(&mut reputation.timestamp);
+    }
+    
+    /// Add specialization for a user
+    public entry fun add_specialization(
+        admin: &signer,
+        user: address,
+        category_code: u8
+    ) acquires ReputationScore {
+        let admin_addr = signer::address_of(admin);
+        assert!(common::is_admin(admin_addr), error::permission_denied(1));
+        
+        // Ensure user has a reputation score
+        assert!(exists<ReputationScore>(user), error::not_found(E_NOT_INITIALIZED));
+        
+        // Validate category
+        let _ = common::create_category(category_code); // Will abort if invalid
+        
+        // Get reputation score
+        let reputation = borrow_global_mut<ReputationScore>(user);
+        
+        // Add specialization if not already present
+        if (!vector::contains(&reputation.specializations, &category_code)) {
+            vector::push_back(&mut reputation.specializations, category_code);
+            
+            // Update timestamp
+            common::update_timestamp(&mut reputation.timestamp);
+        }
+    }
+    
+    /// Get social distance between two users (public view)
+    public fun social_distance(user1: address, user2: address): u8 acquires SocialGraph {
+        if (user1 == user2) {
+            return 0 // Same user
+        };
+        
+        if (!exists<SocialGraph>(user1) || !exists<SocialGraph>(user2)) {
+            return 255 // Max distance if either user is not initialized
+        };
+        
+        let user1_graph = borrow_global<SocialGraph>(user1);
+        
+        // Check if direct following
+        if (vector::contains(&user1_graph.following, &user2)) {
+            return 1 // Direct following
+        };
+        
+        // Check for indirect (2-hop) following
+        let i = 0;
+        let len = vector::length(&user1_graph.following);
+        
+        while (i < len) {
+            let intermediate = *vector::borrow(&user1_graph.following, i);
+            
+            if (exists<SocialGraph>(intermediate)) {
+                let intermediate_graph = borrow_global<SocialGraph>(intermediate);
+                
+                if (vector::contains(&intermediate_graph.following, &user2)) {
+                    return 2 // Found 2-hop path
+                };
+            };
+            
+            i = i + 1;
+        };
+        
+        // No path found within 2 hops
+        return 3 // Beyond 2 hops
+    }
+    
+    /// Get reputation score for a user (public view)
+    public fun get_reputation_score(user: address): &ReputationScore acquires ReputationScore {
+        assert!(exists<ReputationScore>(user), error::not_found(E_NOT_INITIALIZED));
+        borrow_global<ReputationScore>(user)
+    }
+    
+    /// Get reputation score value (public view)
+    public fun get_reputation_value(user: address): u64 acquires ReputationScore {
+        if (!exists<ReputationScore>(user)) {
+            return 0
+        };
+        
+        let reputation = borrow_global<ReputationScore>(user);
+        reputation.score
+    }
+    
+    /// Get trust modifier based on reputation (public view)
+    public fun get_trust_modifier(reputation: &ReputationScore): u64 {
+        // Base modifier is 100 (1.0x)
+        let base_modifier = 100;
+        
+        // Adjust based on verification level
+        let verification_bonus = if (reputation.verification_level == VERIFICATION_LEVEL_VERIFIED) {
+            10 // +0.1x for verified
+        } else if (reputation.verification_level == VERIFICATION_LEVEL_EXPERT) {
+            25 // +0.25x for expert
+        } else {
+            0
+        };
+        
+        // Adjust based on reputation score
+        let reputation_factor = reputation.score / 100; // Convert to 0-10 scale
+        let reputation_bonus = reputation_factor * 5; // Each full point adds 0.05x
+        
+        // Combine modifiers
+        base_modifier + verification_bonus + reputation_bonus
+    }
+    
+    /// Check if user follows another user (public view)
+    public fun is_following(follower: address, followed: address): bool acquires SocialGraph {
+        if (!exists<SocialGraph>(follower)) {
+            return false
+        };
+        
+        let graph = borrow_global<SocialGraph>(follower);
+        vector::contains(&graph.following, &followed)
+    }
+    
+    /// Get follower count (public view)
+    public fun get_follower_count(user: address): u64 acquires SocialGraph {
+        if (!exists<SocialGraph>(user)) {
+            return 0
+        };
+        
+        let graph = borrow_global<SocialGraph>(user);
+        vector::length(&graph.followers)
+    }
+    
+    /// Get following count (public view)
+    public fun get_following_count(user: address): u64 acquires SocialGraph {
+        if (!exists<SocialGraph>(user)) {
+            return 0
+        };
+        
+        let graph = borrow_global<SocialGraph>(user);
+        vector::length(&graph.following)
+    }
+    
+    /// Find the index of an element in a vector
+    fun vector_index_of<T: copy + drop>(v: &vector<T>, e: &T): (bool, u64) {
+        let i = 0;
+        let len = vector::length(v);
+        
+        while (i < len) {
+            if (vector::borrow(v, i) == e) {
+                return (true, i)
+            };
+            i = i + 1;
+        };
+        
+        (false, 0)
+    }
+    
+    #[test_only]
+    public fun setup_test(ctx: &signer) {
+        initialize(ctx);
+    }
+    
+    #[test]
+    public fun test_initialize_reputation() acquires GlobalReputationRegistry {
+        use std::unit_test;
+        
+        // Create test accounts
+        let scenario = unit_test::begin(@0x1);
+        let admin = unit_test::get_signer_for(@0x42);
+        let user = unit_test::get_signer_for(@0x100);
+        
+        // Initialize module
+        setup_test(&admin);
+        
+        // Initialize user reputation
+        initialize_user_reputation(&user);
+        
+        // Verify user was added to registry
+        let global_registry = borrow_global<GlobalReputationRegistry>(@omeonechain);
+        assert!(vector::contains(&global_registry.registered_users, &@0x100), 0);
+        
+        unit_test::end(scenario);
+    }
+    
+    #[test]
+    public fun test_follow_unfollow() acquires SocialGraph, GlobalReputationRegistry {
+        use std::unit_test;
+        
+        // Create test accounts
+        let scenario = unit_test::begin(@0x1);
+        let admin = unit_test::get_signer_for(@0x42);
+        let user1 = unit_test::get_signer_for(@0x100);
+        let user2 = unit_test::get_signer_for(@0x101);
+        
+        // Initialize module
+        setup_test(&admin);
+        
+        // Initialize user reputations
+        initialize_user_reputation(&user1);
+        initialize_user_reputation(&user2);
+        
+        // Test follow
+        follow(&user1, @0x101);
+        assert!(is_following(@0x100, @0x101), 0);
+        assert!(get_following_count(@0x100) == 1, 0);
+        assert!(get_follower_count(@0x101) == 1, 0);
+        
+        // Test unfollow
+        unfollow(&user1, @0x101);
+        assert!(!is_following(@0x100, @0x101), 0);
+        assert!(get_following_count(@0x100) == 0, 0);
+        assert!(get_follower_count(@0x101) == 0, 0);
+        
+        unit_test::end(scenario);
+    }
+}
