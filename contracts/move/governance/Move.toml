@@ -1,0 +1,15 @@
+[package]
+name = "OmeoneChainGovernance"
+version = "0.1.0"
+authors = ["OmeoneChain Team"]
+
+[dependencies]
+MoveStdlib = { git = "https://github.com/iota-foundation/move-stdlib.git", rev = "main" }
+OmeoneChainShared = { local = "../shared" }
+OmeoneChainToken = { local = "../token" }
+OmeoneChainReputation = { local = "../reputation" }
+OmeoneChainRecommendation = { local = "../recommendation" }
+
+[addresses]
+std = "0x1"
+omeonechain = "0x42"
