@@ -1,0 +1,812 @@
+module omeonechain::governance {
+    use std::error;
+    use std::signer;
+    use std::string::{Self, String};
+    use std::vector;
+    
+    use omeonechain::common::{Self, TimeStamp};
+    use omeonechain::token::{Self};
+    use omeonechain::reputation::{Self};
+    
+    /// Error codes
+    const E_NOT_AUTHORIZED: u64 = 501;
+    const E_INSUFFICIENT_STAKE: u64 = 502;
+    const E_ALREADY_VOTED: u64 = 503;
+    const E_PROPOSAL_NOT_ACTIVE: u64 = 504;
+    const E_INVALID_PROPOSAL_STATE: u64 = 505;
+    const E_EARLY_UNSTAKE: u64 = 506;
+    const E_PROPOSAL_EXECUTION_FAILED: u64 = 507;
+    const E_UNKNOWN_PROPOSAL: u64 = 508;
+    const E_INSUFFICIENT_REPUTATION: u64 = 509;
+    
+    /// Constants
+    // Proposal states
+    const PROPOSAL_STATE_DRAFT: u8 = 0;
+    const PROPOSAL_STATE_ACTIVE: u8 = 1;
+    const PROPOSAL_STATE_PASSED: u8 = 2;
+    const PROPOSAL_STATE_FAILED: u8 = 3;
+    const PROPOSAL_STATE_EXECUTED: u8 = 4;
+    const PROPOSAL_STATE_CANCELED: u8 = 5;
+    
+    // Proposal types
+    const PROPOSAL_TYPE_PARAMETER: u8 = 1;
+    const PROPOSAL_TYPE_UPGRADE: u8 = 2;
+    const PROPOSAL_TYPE_TREASURY: u8 = 3;
+    const PROPOSAL_TYPE_CONTENT_POLICY: u8 = 4;
+    
+    // Voting options
+    const VOTE_FOR: bool = true;
+    const VOTE_AGAINST: bool = false;
+    
+    // Stake tiers
+    const STAKE_TIER_EXPLORER: u8 = 1;
+    const STAKE_TIER_CURATOR: u8 = 2;
+    const STAKE_TIER_VALIDATOR: u8 = 3;
+    
+    // Stake tier requirements
+    const EXPLORER_STAKE_AMOUNT: u64 = 2500000000; // 25 TOK
+    const CURATOR_STAKE_AMOUNT: u64 = 10000000000; // 100 TOK
+    const VALIDATOR_STAKE_AMOUNT: u64 = 100000000000; // 1000 TOK
+    
+    // Stake tier minimum durations (in seconds)
+    const EXPLORER_STAKE_DURATION: u64 = 2592000; // 30 days
+    const CURATOR_STAKE_DURATION: u64 = 7776000; // 90 days
+    const VALIDATOR_STAKE_DURATION: u64 = 31536000; // 365 days
+    
+    // Reputation requirements
+    const EXPLORER_REPUTATION: u64 = 30; // Trust score 0.3
+    const CURATOR_REPUTATION: u64 = 40; // Trust score 0.4
+    const VALIDATOR_REPUTATION: u64 = 60; // Trust score 0.6
+    
+    // Voting weights
+    const VALIDATOR_VOTE_WEIGHT_MULTIPLIER: u64 = 150; // 1.5x voting power
+    
+    // Timelock durations
+    const STANDARD_TIMELOCK: u64 = 604800; // 7 days
+    const CRITICAL_TIMELOCK: u64 = 7776000; // 90 days
+    
+    // Quorum requirements
+    const STANDARD_QUORUM_PERCENTAGE: u64 = 20; // 20% of staked tokens
+    const CRITICAL_QUORUM_PERCENTAGE: u64 = 30; // 30% of staked tokens
+    const MINIMUM_VOTER_COUNT: u64 = 1000; // At least 1000 unique voters for critical proposals
+    
+    // Early unstake penalty
+    const EARLY_UNSTAKE_PENALTY_PERCENTAGE: u64 = 5; // 5% penalty
+    
+    /// Governance parameters
+    struct GovernanceParameters has key {
+        // Fee parameters
+        fee_burn_percentage: u64, // Percentage of fees that are burned (75%)
+        service_provider_commission: u64, // Commission for service providers (10%)
+        expert_content_fee: u64, // Fee for expert content (10-15%)
+        nft_ticket_fee: u64, // Fee for NFT tickets (3-5%)
+        taste_passport_fee: u64, // Fee for taste passport (1 TOK)
+        
+        // Reward parameters
+        base_reward: u64, // Base reward for recommendations (1 TOK)
+        trust_multiplier_cap: u64, // Cap for trust multiplier (3x)
+        
+        // Trust score parameters
+        direct_follower_weight: u64, // Weight for direct followers (0.75)
+        indirect_follower_weight: u64, // Weight for indirect followers (0.25)
+        trust_score_threshold: u64, // Threshold for rewards (0.25)
+        
+        // Governance parameters
+        proposal_fee: u64, // Fee to create a proposal
+        vote_quorum: u64, // Quorum required for proposals
+        vote_threshold: u64, // Threshold required to pass proposals
+        
+        // Last updated timestamp
+        timestamp: TimeStamp,
+    }
+    
+    /// Governance registry
+    struct GovernanceRegistry has key {
+        proposals: vector<ProposalId>,
+        next_proposal_id: u64,
+        total_staked: u64,
+        staked_accounts: vector<address>,
+        timestamp: TimeStamp,
+    }
+    
+    /// Proposal identifier
+    struct ProposalId has copy, drop, store {
+        id: u64,
+    }
+    
+    /// Proposal
+    struct Proposal has key {
+        id: ProposalId,
+        proposer: address,
+        proposal_type: u8,
+        title: String,
+        description: String,
+        execution_hash: vector<u8>, // Hash of the execution payload
+        parameters: vector<Parameter>, // For parameter change proposals
+        state: u8,
+        votes_for: u64,
+        votes_against: u64,
+        unique_voters: vector<address>,
+        voting_start_time: u64,
+        voting_end_time: u64,
+        execution_time: u64,
+        created_at: u64,
+        last_updated: u64,
+    }
+    
+    /// Parameter for proposal
+    struct Parameter has copy, drop, store {
+        name: String,
+        value: u64,
+    }
+    
+    /// Vote record
+    struct VoteRecord has key {
+        voted_proposals: vector<ProposalId>,
+        votes: vector<Vote>,
+    }
+    
+    /// Vote
+    struct Vote has copy, drop, store {
+        proposal_id: ProposalId,
+        support: bool,
+        voting_power: u64,
+        timestamp: u64,
+    }
+    
+    /// Staked tokens
+    struct StakedTokens has key {
+        amount: u64,
+        tier: u8,
+        locked_until: u64,
+        timestamp: TimeStamp,
+    }
+    
+    /// Initialize the governance module
+    public entry fun initialize(admin: &signer) {
+        let admin_addr = signer::address_of(admin);
+        assert!(common::is_admin(admin_addr), error::permission_denied(E_NOT_AUTHORIZED));
+        
+        // Check if already initialized
+        if (!exists<GovernanceParameters>(admin_addr)) {
+            // Create governance parameters
+            let parameters = GovernanceParameters {
+                fee_burn_percentage: 75,
+                service_provider_commission: 10,
+                expert_content_fee: 15,
+                nft_ticket_fee: 5,
+                taste_passport_fee: 100000000, // 1 TOK
+                
+                base_reward: 100000000, // 1 TOK
+                trust_multiplier_cap: 300, // 3x
+                
+                direct_follower_weight: 75, // 0.75
+                indirect_follower_weight: 25, // 0.25
+                trust_score_threshold: 25, // 0.25
+                
+                proposal_fee: 10000000000, // 100 TOK
+                vote_quorum: 20, // 20%
+                vote_threshold: 51, // 51%
+                
+                timestamp: common::create_timestamp(),
+            };
+            
+            // Create governance registry
+            let registry = GovernanceRegistry {
+                proposals: vector::empty<ProposalId>(),
+                next_proposal_id: 1,
+                total_staked: 0,
+                staked_accounts: vector::empty<address>(),
+                timestamp: common::create_timestamp(),
+            };
+            
+            // Store governance structures
+            move_to(admin, parameters);
+            move_to(admin, registry);
+        };
+    }
+    
+    /// Stake tokens for governance participation
+    public entry fun stake_tokens(
+        user: &signer,
+        amount: u64,
+        tier: u8,
+        duration_days: u64
+    ) acquires GovernanceRegistry {
+        let user_addr = signer::address_of(user);
+        
+        // Validate tier
+        assert!(tier >= STAKE_TIER_EXPLORER && tier <= STAKE_TIER_VALIDATOR, error::invalid_argument(0));
+        
+        // Get minimum stake amount for the tier
+        let min_amount = if (tier == STAKE_TIER_EXPLORER) {
+            EXPLORER_STAKE_AMOUNT
+        } else if (tier == STAKE_TIER_CURATOR) {
+            CURATOR_STAKE_AMOUNT
+        } else { // STAKE_TIER_VALIDATOR
+            VALIDATOR_STAKE_AMOUNT
+        };
+        
+        // Validate stake amount
+        assert!(amount >= min_amount, error::invalid_argument(E_INSUFFICIENT_STAKE));
+        
+        // Get minimum duration in days
+        let min_duration = if (tier == STAKE_TIER_EXPLORER) {
+            EXPLORER_STAKE_DURATION / 86400 // Convert seconds to days
+        } else if (tier == STAKE_TIER_CURATOR) {
+            CURATOR_STAKE_DURATION / 86400
+        } else { // STAKE_TIER_VALIDATOR
+            VALIDATOR_STAKE_DURATION / 86400
+        };
+        
+        // Validate duration
+        assert!(duration_days >= min_duration, error::invalid_argument(0));
+        
+        // Calculate lock end time
+        let now = common::current_timestamp();
+        let lock_until = now + (duration_days * 86400); // Convert days to seconds
+        
+        // Create or update staked tokens
+        if (exists<StakedTokens>(user_addr)) {
+            // Update existing stake
+            let staked = borrow_global_mut<StakedTokens>(user_addr);
+            
+            // Transfer additional tokens from user balance
+            token::transfer(user, @omeonechain, amount, string::utf8(b"governance_stake"));
+            
+            // Update stake amount and tier
+            staked.amount = staked.amount + amount;
+            staked.tier = tier;
+            staked.locked_until = lock_until;
+            common::update_timestamp(&mut staked.timestamp);
+        } else {
+            // Create new stake
+            let staked = StakedTokens {
+                amount,
+                tier,
+                locked_until: lock_until,
+                timestamp: common::create_timestamp(),
+            };
+            
+            // Transfer tokens from user balance
+            token::transfer(user, @omeonechain, amount, string::utf8(b"governance_stake"));
+            
+            // Store staked tokens
+            move_to(user, staked);
+            
+            // Add to staked accounts
+            let registry = borrow_global_mut<GovernanceRegistry>(@omeonechain);
+            vector::push_back(&mut registry.staked_accounts, user_addr);
+        };
+        
+        // Update total staked
+        let registry = borrow_global_mut<GovernanceRegistry>(@omeonechain);
+        registry.total_staked = registry.total_staked + amount;
+        common::update_timestamp(&mut registry.timestamp);
+    }
+    
+    /// Unstake tokens
+    public entry fun unstake_tokens(
+        user: &signer,
+        amount: u64
+    ) acquires StakedTokens, GovernanceRegistry {
+        let user_addr = signer::address_of(user);
+        
+        // Ensure user has staked tokens
+        assert!(exists<StakedTokens>(user_addr), error::not_found(0));
+        
+        // Get staked tokens
+        let staked = borrow_global_mut<StakedTokens>(user_addr);
+        
+        // Ensure amount is valid
+        assert!(amount > 0 && amount <= staked.amount, error::invalid_argument(0));
+        
+        // Check if lock period has ended
+        let now = common::current_timestamp();
+        let early_unstake = now < staked.locked_until;
+        
+        // Calculate penalty for early unstake
+        let penalty_amount = if (early_unstake) {
+            amount * EARLY_UNSTAKE_PENALTY_PERCENTAGE / 100
+        } else {
+            0
+        };
+        
+        // Calculate amount to return to user
+        let return_amount = amount - penalty_amount;
+        
+        // Update staked tokens
+        staked.amount = staked.amount - amount;
+        common::update_timestamp(&mut staked.timestamp);
+        
+        // Update total staked
+        let registry = borrow_global_mut<GovernanceRegistry>(@omeonechain);
+        registry.total_staked = registry.total_staked - amount;
+        common::update_timestamp(&mut registry.timestamp);
+        
+        // Return tokens to user
+        if (return_amount > 0) {
+            // Use admin signer for testing - in production this would be handled by a resource account
+            let admin_signer = create_signer_for_testing(@omeonechain);
+            token::transfer(&admin_signer, user_addr, return_amount, string::utf8(b"governance_unstake"));
+        };
+        
+        // Burn penalty if applicable
+        if (penalty_amount > 0) {
+            // Use admin signer for testing - in production this would be handled by a resource account
+            let admin_signer = create_signer_for_testing(@omeonechain);
+            token::burn(&admin_signer, penalty_amount, string::utf8(b"governance_unstake_penalty"));
+        };
+        
+        // If all tokens unstaked, remove from staked accounts
+        if (staked.amount == 0) {
+            let (found, index) = vector_index_of(&registry.staked_accounts, &user_addr);
+            if (found) {
+                vector::remove(&mut registry.staked_accounts, index);
+            };
+        };
+    }
+    
+    /// Create a proposal
+    public entry fun create_proposal(
+        proposer: &signer,
+        proposal_type: u8,
+        title: String,
+        description: String,
+        execution_hash: vector<u8>,
+        parameter_names: vector<String>,
+        parameter_values: vector<u64>,
+        voting_duration_days: u64
+    ) acquires GovernanceRegistry, StakedTokens {
+        let proposer_addr = signer::address_of(proposer);
+        
+        // Validate proposal type
+        assert!(proposal_type >= PROPOSAL_TYPE_PARAMETER && proposal_type <= PROPOSAL_TYPE_CONTENT_POLICY, 
+                error::invalid_argument(0));
+        
+        // Check if proposer has sufficient stake
+        assert!(exists<StakedTokens>(proposer_addr), error::not_found(E_INSUFFICIENT_STAKE));
+        let staked = borrow_global<StakedTokens>(proposer_addr);
+        
+        // Check stake tier - must be CURATOR or higher
+        assert!(staked.tier >= STAKE_TIER_CURATOR, error::permission_denied(E_INSUFFICIENT_STAKE));
+        
+        // Check reputation
+        let reputation = reputation::get_reputation_value(proposer_addr);
+        assert!(reputation >= CURATOR_REPUTATION, error::permission_denied(E_INSUFFICIENT_REPUTATION));
+        
+        // Ensure parameter arrays have same length
+        assert!(vector::length(&parameter_names) == vector::length(&parameter_values), error::invalid_argument(0));
+        
+        // Get registry
+        let registry = borrow_global_mut<GovernanceRegistry>(@omeonechain);
+        
+        // Generate proposal ID
+        let proposal_id = ProposalId { id: registry.next_proposal_id };
+        registry.next_proposal_id = registry.next_proposal_id + 1;
+        
+        // Calculate voting period
+        let now = common::current_timestamp();
+        let voting_end = now + (voting_duration_days * 86400); // Convert days to seconds
+        
+        // Build parameters vector
+        let parameters = vector::empty<Parameter>();
+        let i = 0;
+        let num_params = vector::length(&parameter_names);
+        
+        while (i < num_params) {
+            let name = *vector::borrow(&parameter_names, i);
+            let value = *vector::borrow(&parameter_values, i);
+            
+            let param = Parameter {
+                name,
+                value,
+            };
+            
+            vector::push_back(&mut parameters, param);
+            i = i + 1;
+        };
+        
+        // Create proposal
+        let proposal = Proposal {
+            id: proposal_id,
+            proposer: proposer_addr,
+            proposal_type,
+            title,
+            description,
+            execution_hash,
+            parameters,
+            state: PROPOSAL_STATE_ACTIVE,
+            votes_for: 0,
+            votes_against: 0,
+            unique_voters: vector::empty<address>(),
+            voting_start_time: now,
+            voting_end_time: voting_end,
+            execution_time: voting_end + STANDARD_TIMELOCK,
+            created_at: now,
+            last_updated: now,
+        };
+        
+        // Add to proposals list
+        vector::push_back(&mut registry.proposals, proposal_id);
+        common::update_timestamp(&mut registry.timestamp);
+        
+        // Store proposal
+        move_to(proposer, proposal);
+        
+        // Pay proposal fee (in real implementation)
+        // token::transfer(proposer, @omeonechain, PROPOSAL_FEE, string::utf8(b"proposal_fee"));
+    }
+    
+    /// Vote on a proposal
+    public entry fun vote_on_proposal(
+        voter: &signer,
+        proposal_id: u64,
+        support: bool
+    ) acquires Proposal, VoteRecord, StakedTokens, GovernanceRegistry {
+        let voter_addr = signer::address_of(voter);
+        
+        // Check if voter has staked tokens
+        assert!(exists<StakedTokens>(voter_addr), error::not_found(E_INSUFFICIENT_STAKE));
+        let staked = borrow_global<StakedTokens>(voter_addr);
+        
+        // Check stake tier - must be EXPLORER or higher
+        assert!(staked.tier >= STAKE_TIER_EXPLORER, error::permission_denied(E_INSUFFICIENT_STAKE));
+        
+        // Find proposal owner
+        let (found, owner) = find_proposal_owner(proposal_id);
+        assert!(found, error::not_found(E_UNKNOWN_PROPOSAL));
+        
+        // Get proposal
+        let proposal = borrow_global_mut<Proposal>(owner);
+        
+        // Check if proposal is active
+        assert!(proposal.state == PROPOSAL_STATE_ACTIVE, error::invalid_state(E_PROPOSAL_NOT_ACTIVE));
+        
+        // Check if voting period is still open
+        let now = common::current_timestamp();
+        assert!(now <= proposal.voting_end_time, error::invalid_state(E_PROPOSAL_NOT_ACTIVE));
+        
+        // Initialize vote record if it doesn't exist
+        if (!exists<VoteRecord>(voter_addr)) {
+            move_to(voter, VoteRecord {
+                voted_proposals: vector::empty<ProposalId>(),
+                votes: vector::empty<Vote>(),
+            });
+        };
+        
+        // Get vote record
+        let vote_record = borrow_global_mut<VoteRecord>(voter_addr);
+        
+        // Check if voter has already voted
+        let proposal_id_obj = ProposalId { id: proposal_id };
+        assert!(!vector::contains(&vote_record.voted_proposals, &proposal_id_obj), error::invalid_state(E_ALREADY_VOTED));
+        
+        // Calculate voting power based on stake and reputation
+        let base_power = staked.amount;
+        
+        // Apply validator tier multiplier if applicable
+        let voting_power = if (staked.tier == STAKE_TIER_VALIDATOR) {
+            base_power * VALIDATOR_VOTE_WEIGHT_MULTIPLIER / 100
+        } else {
+            base_power
+        };
+        
+        // Create vote
+        let vote = Vote {
+            proposal_id: proposal_id_obj,
+            support,
+            voting_power,
+            timestamp: now,
+        };
+        
+        // Update proposal vote counts
+        if (support) {
+            proposal.votes_for = proposal.votes_for + voting_power;
+        } else {
+            proposal.votes_against = proposal.votes_against + voting_power;
+        };
+        
+        // Add voter to unique voters if not already present
+        if (!vector::contains(&proposal.unique_voters, &voter_addr)) {
+            vector::push_back(&mut proposal.unique_voters, voter_addr);
+        };
+        
+        // Update proposal timestamp
+        proposal.last_updated = now;
+        
+        // Add vote to record
+        vector::push_back(&mut vote_record.voted_proposals, proposal_id_obj);
+        vector::push_back(&mut vote_record.votes, vote);
+        
+        // Check if proposal should be updated
+        check_proposal_status(proposal);
+    }
+    
+    /// Execute a passed proposal
+    public entry fun execute_proposal(
+        executor: &signer,
+        proposal_id: u64
+    ) acquires Proposal, GovernanceParameters {
+        let executor_addr = signer::address_of(executor);
+        assert!(common::is_admin(executor_addr), error::permission_denied(E_NOT_AUTHORIZED));
+        
+        // Find proposal owner
+        let (found, owner) = find_proposal_owner(proposal_id);
+        assert!(found, error::not_found(E_UNKNOWN_PROPOSAL));
+        
+        // Get proposal
+        let proposal = borrow_global_mut<Proposal>(owner);
+        
+        // Check if proposal is passed
+        assert!(proposal.state == PROPOSAL_STATE_PASSED, error::invalid_state(E_INVALID_PROPOSAL_STATE));
+        
+        // Check if timelock period has elapsed
+        let now = common::current_timestamp();
+        assert!(now >= proposal.execution_time, error::invalid_state(0));
+        
+        // Execute proposal based on type
+        if (proposal.proposal_type == PROPOSAL_TYPE_PARAMETER) {
+            execute_parameter_change(proposal);
+        } else if (proposal.proposal_type == PROPOSAL_TYPE_UPGRADE) {
+            // Upgrade execution would be handled by module-specific code
+            // Not implemented in this example
+        } else if (proposal.proposal_type == PROPOSAL_TYPE_TREASURY) {
+            // Treasury operations would be implemented separately
+            // Not implemented in this example
+        } else if (proposal.proposal_type == PROPOSAL_TYPE_CONTENT_POLICY) {
+            // Content policy changes would be implemented separately
+            // Not implemented in this example
+        } else {
+            abort error::invalid_state(0)
+        };
+        
+        // Update proposal state
+        proposal.state = PROPOSAL_STATE_EXECUTED;
+        proposal.last_updated = now;
+    }
+    
+    /// Cancel a proposal
+    public entry fun cancel_proposal(
+        proposer: &signer,
+        proposal_id: u64
+    ) acquires Proposal {
+        let proposer_addr = signer::address_of(proposer);
+        
+        // Find proposal owner
+        let (found, owner) = find_proposal_owner(proposal_id);
+        assert!(found, error::not_found(E_UNKNOWN_PROPOSAL));
+        
+        // Get proposal
+        let proposal = borrow_global_mut<Proposal>(owner);
+        
+        // Check if caller is the proposer or an admin
+        assert!(proposal.proposer == proposer_addr || common::is_admin(proposer_addr), 
+                error::permission_denied(E_NOT_AUTHORIZED));
+        
+        // Check if proposal is in a cancellable state
+        assert!(proposal.state == PROPOSAL_STATE_DRAFT || proposal.state == PROPOSAL_STATE_ACTIVE, 
+                error::invalid_state(E_INVALID_PROPOSAL_STATE));
+        
+        // Update proposal state
+        proposal.state = PROPOSAL_STATE_CANCELED;
+        proposal.last_updated = common::current_timestamp();
+    }
+    
+    /// Execute parameter change proposal
+    fun execute_parameter_change(proposal: &Proposal) acquires GovernanceParameters {
+        let parameters = borrow_global_mut<GovernanceParameters>(@omeonechain);
+        
+        // Update parameters based on proposal
+        let i = 0;
+        let num_params = vector::length(&proposal.parameters);
+        
+        while (i < num_params) {
+            let param = vector::borrow(&proposal.parameters, i);
+            let name = &param.name;
+            let value = param.value;
+            
+            // Apply parameter change based on name
+            if (string::utf8(b"fee_burn_percentage") == *name) {
+                parameters.fee_burn_percentage = value;
+            } else if (string::utf8(b"service_provider_commission") == *name) {
+                parameters.service_provider_commission = value;
+            } else if (string::utf8(b"expert_content_fee") == *name) {
+                parameters.expert_content_fee = value;
+            } else if (string::utf8(b"nft_ticket_fee") == *name) {
+                parameters.nft_ticket_fee = value;
+            } else if (string::utf8(b"taste_passport_fee") == *name) {
+                parameters.taste_passport_fee = value;
+            } else if (string::utf8(b"base_reward") == *name) {
+                parameters.base_reward = value;
+            } else if (string::utf8(b"trust_multiplier_cap") == *name) {
+                parameters.trust_multiplier_cap = value;
+            } else if (string::utf8(b"direct_follower_weight") == *name) {
+                parameters.direct_follower_weight = value;
+            } else if (string::utf8(b"indirect_follower_weight") == *name) {
+                parameters.indirect_follower_weight = value;
+            } else if (string::utf8(b"trust_score_threshold") == *name) {
+                parameters.trust_score_threshold = value;
+            } else if (string::utf8(b"proposal_fee") == *name) {
+                parameters.proposal_fee = value;
+            } else if (string::utf8(b"vote_quorum") == *name) {
+                parameters.vote_quorum = value;
+            } else if (string::utf8(b"vote_threshold") == *name) {
+                parameters.vote_threshold = value;
+            };
+            
+            i = i + 1;
+        };
+        
+        // Update timestamp
+        common::update_timestamp(&mut parameters.timestamp);
+    }
+    
+    /// Check and update proposal status
+    fun check_proposal_status(proposal: &mut Proposal) {
+        // Check if voting period has ended
+        let now = common::current_timestamp();
+        if (now > proposal.voting_end_time && proposal.state == PROPOSAL_STATE_ACTIVE) {
+            // Calculate total votes
+            let total_votes = proposal.votes_for + proposal.votes_against;
+            
+            // Check if quorum is reached (assuming 20% quorum for this example)
+            // In a real implementation, this would be calculated based on total staked tokens
+            let quorum_reached = total_votes > 0; // Simplification for example
+            
+            // Check if vote threshold is reached (assuming simple majority)
+            let threshold_reached = proposal.votes_for > proposal.votes_against;
+            
+            // Update proposal state
+            if (quorum_reached && threshold_reached) {
+                proposal.state = PROPOSAL_STATE_PASSED;
+            } else {
+                proposal.state = PROPOSAL_STATE_FAILED;
+            };
+            
+            proposal.last_updated = now;
+        };
+    }
+    
+    /// Find the owner of a proposal
+    fun find_proposal_owner(proposal_id: u64): (bool, address) {
+        // In a real implementation, this would use a global index to look up the owner
+        // For simplicity, we assume the owner is the same as the protocol address
+        (true, @omeonechain)
+    }
+    
+    /// Get proposal details
+    public fun get_proposal(proposal_id: u64): (bool, u8, u64, u64, u64, u64, u64) acquires Proposal {
+        let (found, owner) = find_proposal_owner(proposal_id);
+        
+        if (!found) {
+            return (false, 0, 0, 0, 0, 0, 0)
+        };
+        
+        let proposal = borrow_global<Proposal>(owner);
+        
+        (
+            true,
+            proposal.state,
+            proposal.votes_for,
+            proposal.votes_against,
+            vector::length(&proposal.unique_voters),
+            proposal.voting_start_time,
+            proposal.voting_end_time
+        )
+    }
+    
+    /// Get stake details
+    public fun get_stake(user: address): (bool, u64, u8, u64) acquires StakedTokens {
+        if (!exists<StakedTokens>(user)) {
+            return (false, 0, 0, 0)
+        };
+        
+        let staked = borrow_global<StakedTokens>(user);
+        
+        (
+            true,
+            staked.amount,
+            staked.tier,
+            staked.locked_until
+        )
+    }
+    
+    /// Get total staked tokens
+    public fun get_total_staked(): u64 acquires GovernanceRegistry {
+        let registry = borrow_global<GovernanceRegistry>(@omeonechain);
+        registry.total_staked
+    }
+    
+    /// Get governance parameters
+    public fun get_governance_parameters(): (u64, u64, u64, u64, u64) acquires GovernanceParameters {
+        let parameters = borrow_global<GovernanceParameters>(@omeonechain);
+        
+        (
+            parameters.fee_burn_percentage,
+            parameters.trust_multiplier_cap,
+            parameters.trust_score_threshold,
+            parameters.vote_quorum,
+            parameters.vote_threshold
+        )
+    }
+    
+    /// Find the index of an element in a vector
+    fun vector_index_of<T: copy + drop>(v: &vector<T>, e: &T): (bool, u64) {
+        let i = 0;
+        let len = vector::length(v);
+        
+        while (i < len) {
+            if (vector::borrow(v, i) == e) {
+                return (true, i)
+            };
+            i = i + 1;
+        };
+        
+        (false, 0)
+    }
+    
+    /// Create a signer for testing purposes only
+    #[test_only]
+    public fun create_signer_for_testing(addr: address): signer {
+        // In a real implementation, this would not be possible
+        // This is only for testing
+        @0x1
+    }
+    
+    #[test_only]
+    public fun setup_test(ctx: &signer) {
+        // Initialize governance module
+        initialize(ctx);
+    }
+    
+    #[test]
+    public fun test_initialize() acquires GovernanceParameters {
+        use std::unit_test;
+        
+        // Create test account
+        let scenario = unit_test::begin(@0x1);
+        let admin = unit_test::get_signer_for(@0x42);
+        
+        // Initialize module
+        setup_test(&admin);
+        
+        // Verify parameters were initialized
+        let (fee_burn, trust_cap, trust_threshold, quorum, threshold) = get_governance_parameters();
+        assert!(fee_burn == 75, 0); // Default fee burn percentage is 75%
+        assert!(trust_cap == 300, 0); // Default trust multiplier cap is 3.00x
+        
+        unit_test::end(scenario);
+    }
+    
+    #[test]
+    public fun test_stake_tokens() acquires GovernanceRegistry, StakedTokens {
+        use std::unit_test;
+        
+        // Create test accounts
+        let scenario = unit_test::begin(@0x1);
+        let admin = unit_test::get_signer_for(@0x42);
+        let user = unit_test::get_signer_for(@0x100);
+        
+        // Initialize module
+        setup_test(&admin);
+        
+        // Set up token balance for user (would be done by token module)
+        // In real implementation, this would require token minting
+        
+        // Stake tokens
+        stake_tokens(&user, EXPLORER_STAKE_AMOUNT, STAKE_TIER_EXPLORER, 30);
+        
+        // Verify stake
+        let (exists, amount, tier, _) = get_stake(@0x100);
+        assert!(exists, 0);
+        assert!(amount == EXPLORER_STAKE_AMOUNT, 0);
+        assert!(tier == STAKE_TIER_EXPLORER, 0);
+        
+        // Check total staked
+        let total_staked = get_total_staked();
+        assert!(total_staked == EXPLORER_STAKE_AMOUNT, 0);
+        
+        unit_test::end(scenario);
+    }
+}
