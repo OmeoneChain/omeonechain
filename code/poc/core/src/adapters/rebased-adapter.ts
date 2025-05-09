@@ -1,21 +1,15 @@
 // code/poc/core/src/adapters/rebased-adapter.ts
 
-import { ChainAdapter, ChainEvent, ChainTransaction, ChainState } from '../types/chain';
-import { RecommendationData } from '../types/recommendation';
-import { UserReputationData } from '../types/reputation';
-import { TokenTransaction } from '../types/token';
-import { GovernanceProposal } from '../types/governance';
-import { ServiceEntity } from '../types/service';
+import { ChainAdapter, Transaction, TransactionResult, StateQuery, EventFilter, Event } from '../types/chain';
 import axios from 'axios';
 import { IotaWallet } from '@iota/wallet';
 import { Ed25519Seed } from '@iota/crypto.js';
-import { Buffer } from 'buffer';
 import * as crypto from 'crypto';
 
 /**
  * Configuration interface for the RebasedAdapter
  */
-interface RebasedConfig {
+export interface RebasedConfig {
   network: 'testnet' | 'mainnet' | 'local';
   nodeUrl: string;
   account: {
@@ -58,6 +52,8 @@ export class RebasedAdapter implements ChainAdapter {
   private lastCommitNumber: number = 0;
   private config: RebasedConfig;
   private client: any; // API client
+  private currentChainId: string = '';
+  private eventIterator: AsyncIterator<Event> | null = null;
   
   private readonly DEFAULT_OPTIONS = {
     retryAttempts: 3,
@@ -67,7 +63,7 @@ export class RebasedAdapter implements ChainAdapter {
   
   /**
    * Constructor
-   * @param config Configuration for the adapter or nodeUrl
+   * @param configOrNodeUrl Configuration for the adapter or nodeUrl
    * @param apiKey Optional API key for authenticated access
    * @param seed Optional seed for wallet initialization
    */
@@ -190,9 +186,363 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Connect to the Rebased network
+   * Get the chain ID
    */
-  public async connect(): Promise<boolean> {
+  async getChainId(): Promise<string> {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+    
+    if (!this.currentChainId) {
+      try {
+        const info = await this.client.getNodeInfo();
+        this.currentChainId = info.network || `rebased-${this.config.network}`;
+      } catch (error) {
+        console.error('Failed to get chain ID:', error);
+        throw new Error('Could not retrieve chain ID');
+      }
+    }
+    
+    return this.currentChainId;
+  }
+
+  /**
+   * Submit a transaction to the blockchain
+   * 
+   * @param tx Transaction to submit
+   * @returns Transaction result
+   */
+  async submitTx(tx: Transaction): Promise<TransactionResult> {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+    
+    const retryAttempts = this.config.options?.retryAttempts || 3;
+    
+    for (let attempt = 1; attempt <= retryAttempts; attempt++) {
+      try {
+        // Determine which contract to call based on tx payload type
+        const contractType = this.getContractTypeFromPayload(tx.payload);
+        const contractAddress = this.config.contractAddresses[contractType];
+        
+        // Build the transaction
+        const builtTx = await this.buildNativeTransaction(tx, contractAddress);
+        
+        // Sign the transaction
+        const signedTx = await this.signTransaction(builtTx, tx.sender);
+        
+        // Submit the transaction
+        const result = await this.client.submitTransaction(signedTx);
+        
+        // Check if we need to wait for confirmation
+        if (result.status === 'pending') {
+          await this.waitForTransactionConfirmation(result.id);
+          result.status = 'confirmed';
+        }
+        
+        return {
+          id: result.id,
+          status: result.status as 'pending' | 'confirmed' | 'failed',
+          timestamp: result.timestamp || new Date().toISOString(),
+          commitNumber: result.commitNumber,
+          objectId: result.objectId,
+          details: result
+        };
+      } catch (error) {
+        if (attempt === retryAttempts) {
+          console.error(`Failed to submit transaction after ${retryAttempts} attempts:`, error);
+          return {
+            id: '',
+            status: 'failed',
+            timestamp: new Date().toISOString(),
+            error: error.message
+          };
+        }
+        
+        // Exponential backoff before retry
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        console.warn(`Attempt ${attempt} failed, retrying in ${backoffMs}ms:`, error.message);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+      }
+    }
+    
+    // This should never be reached due to the return in the loop
+    return {
+      id: '',
+      status: 'failed',
+      timestamp: new Date().toISOString(),
+      error: 'Failed to submit transaction after exhausting retry attempts'
+    };
+  }
+
+  /**
+   * Query the current state
+   * 
+   * @param query Query parameters
+   * @returns Query results
+   */
+  async queryState<T>(query: StateQuery): Promise<{
+    results: T[];
+    total: number;
+    pagination?: {
+      offset: number;
+      limit: number;
+      hasMore: boolean;
+    };
+  }> {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+    
+    try {
+      // Determine which contract to query based on objectType
+      const contractType = this.getContractTypeFromObjectType(query.objectType);
+      const contractAddress = this.config.contractAddresses[contractType];
+      
+      // Determine the method to call
+      let method = 'get';
+      if (query.filter && query.filter.id) {
+        method = `get_${query.objectType}`;
+      } else {
+        method = `list_${query.objectType}s`;
+      }
+      
+      // Format arguments based on the query
+      const args = this.formatQueryArgs(query);
+      
+      // Execute the query
+      const result = await this.client.queryContract(contractAddress, method, args);
+      
+      // Process the result
+      const items = Array.isArray(result) ? result : [result];
+      const deserializedItems = items.map(item => this.deserializeFromMoveVM(item)) as T[];
+      
+      // Calculate pagination if provided
+      const pagination = query.pagination ? {
+        offset: query.pagination.offset,
+        limit: query.pagination.limit,
+        hasMore: deserializedItems.length >= query.pagination.limit
+      } : undefined;
+      
+      return {
+        results: deserializedItems,
+        total: pagination ? items.length + pagination.offset : items.length,
+        pagination
+      };
+    } catch (error) {
+      console.error('Failed to query state:', error);
+      throw new Error(`State query failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Watch for events on the blockchain
+   * 
+   * @param filter Event filter
+   * @returns Async iterator of events
+   */
+  async *watchEvents(filter: EventFilter): AsyncIterator<Event> {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+    
+    // If an existing iterator is active, close it
+    if (this.eventIterator) {
+      try {
+        await this.eventIterator.return?.();
+      } catch (error) {
+        console.warn('Error closing previous event iterator:', error);
+      }
+    }
+    
+    // Create a new event queue and promise resolver mechanism
+    const eventQueue: Event[] = [];
+    let resolveNext: ((value: IteratorResult<Event>) => void) | null = null;
+    let isActive = true;
+    
+    // Set up event handlers for each type
+    const unsubscribeFunctions: (() => void)[] = [];
+    
+    for (const eventType of filter.eventTypes) {
+      try {
+        // Determine which contract to watch based on eventType
+        const contractType = this.getContractTypeFromEventType(eventType);
+        const contractAddress = this.config.contractAddresses[contractType];
+        
+        // Set up the event subscription
+        const unsubscribe = await this.client.watchEvents(
+          contractAddress,
+          eventType,
+          (eventData: any) => {
+            if (!isActive) return;
+            
+            // Skip events before the fromCommit if specified
+            if (filter.fromCommit && eventData.commitNumber < filter.fromCommit) {
+              return;
+            }
+            
+            // Skip events not matching the address filter if specified
+            if (filter.address && eventData.address !== filter.address) {
+              return;
+            }
+            
+            // Apply additional filters if specified
+            if (filter.filter) {
+              for (const key in filter.filter) {
+                if (eventData.data[key] !== filter.filter[key]) {
+                  return;
+                }
+              }
+            }
+            
+            // Create event object
+            const event: Event = {
+              type: eventType,
+              commitNumber: eventData.commitNumber,
+              timestamp: eventData.timestamp,
+              address: eventData.address || contractAddress,
+              data: this.deserializeFromMoveVM(eventData.data)
+            };
+            
+            // Add to queue or resolve immediately
+            if (resolveNext) {
+              const resolver = resolveNext;
+              resolveNext = null;
+              resolver({
+                done: false,
+                value: event
+              });
+            } else {
+              eventQueue.push(event);
+            }
+          }
+        );
+        
+        unsubscribeFunctions.push(unsubscribe);
+      } catch (error) {
+        console.error(`Failed to watch events for type ${eventType}:`, error);
+      }
+    }
+    
+    // Create the async iterator
+    this.eventIterator = {
+      next: async (): Promise<IteratorResult<Event>> => {
+        if (!isActive) {
+          return { done: true, value: undefined };
+        }
+        
+        if (eventQueue.length > 0) {
+          return {
+            done: false,
+            value: eventQueue.shift()!
+          };
+        }
+        
+        // No events in queue, wait for the next one
+        return new Promise<IteratorResult<Event>>(resolve => {
+          resolveNext = resolve;
+        });
+      },
+      
+      return: async (): Promise<IteratorResult<Event>> => {
+        // Clean up resources
+        isActive = false;
+        
+        // Unsubscribe from all event subscriptions
+        for (const unsubscribe of unsubscribeFunctions) {
+          unsubscribe();
+        }
+        
+        // Resolve any pending next() calls
+        if (resolveNext) {
+          resolveNext({ done: true, value: undefined });
+          resolveNext = null;
+        }
+        
+        return { done: true, value: undefined };
+      }
+    };
+    
+    // Return the iterator
+    return this.eventIterator;
+  }
+
+  /**
+   * Get the current commit/block number
+   * 
+   * @returns Current commit number
+   */
+  async getCurrentCommit(): Promise<number> {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+    
+    try {
+      const info = await this.client.getNodeInfo();
+      return info.latestCommitNumber || 0;
+    } catch (error) {
+      console.error('Failed to get current commit number:', error);
+      throw new Error('Could not retrieve current commit number');
+    }
+  }
+
+  /**
+   * Calculate the estimated fee for a transaction
+   * 
+   * @param tx Transaction to estimate fee for
+   * @returns Estimated fee in smallest units (e.g., µIOTA)
+   */
+  async estimateFee(tx: Transaction): Promise<number> {
+    // In a real implementation, this would use the IOTA Rebased SDK
+    // to estimate the fee based on the transaction size and gas cost
+    
+    // For now, we'll use a simple estimation based on transaction type
+    const baseFee = 5; // 5 μMIOTA
+    
+    let complexityMultiplier = 1;
+    
+    // Determine transaction type from payload
+    const txType = this.getTxTypeFromPayload(tx.payload);
+    
+    // Adjust based on transaction type
+    switch (txType) {
+      case 'createRecommendation':
+        // More complex due to media handling
+        complexityMultiplier = 2;
+        break;
+      case 'submitProposal':
+        // Governance transactions are more expensive
+        complexityMultiplier = 3;
+        break;
+      case 'registerService':
+        // Service registration is also more complex
+        complexityMultiplier = 2;
+        break;
+      default:
+        complexityMultiplier = 1;
+    }
+    
+    // Additional adjustment based on payload size
+    const payloadSize = JSON.stringify(tx.payload).length;
+    const sizeMultiplier = Math.ceil(payloadSize / 1024); // Per KB
+    
+    // Calculate the estimated fee
+    let estimatedFee = baseFee * complexityMultiplier * sizeMultiplier;
+    
+    // Ensure the fee doesn't exceed the maximum
+    const maxFee = this.config.options?.maxFeePerTransaction || 50;
+    estimatedFee = Math.min(estimatedFee, maxFee);
+    
+    return estimatedFee;
+  }
+
+  /**
+   * Connect to the blockchain network
+   * 
+   * @param options Connection options
+   * @returns Promise resolving when connected
+   */
+  async connect(options?: Record<string, any>): Promise<void> {
     try {
       // Test connection to node
       const nodeInfo = await this.client.getNodeInfo();
@@ -200,28 +550,41 @@ export class RebasedAdapter implements ChainAdapter {
       console.log(`Connected to IOTA Rebased ${this.config.network} node:`, nodeInfo.version);
       console.log(`Network: ${nodeInfo.network}`);
       
+      // Set chain ID
+      this.currentChainId = nodeInfo.network || `rebased-${this.config.network}`;
+      
       // Start event listener
-      this.startEventListener();
+      this.pollForEvents();
       
       this.isConnected = true;
-      return true;
     } catch (error) {
       console.error('Failed to connect to IOTA Rebased node:', error);
       this.isConnected = false;
-      return false;
+      throw new Error(`Connection failed: ${error.message}`);
     }
   }
 
   /**
-   * Disconnect from the Rebased network
+   * Disconnect from the blockchain network
+   * 
+   * @returns Promise resolving when disconnected
    */
-  public async disconnect(): Promise<void> {
-    // Stop event listener
-    this.stopEventListener();
+  async disconnect(): Promise<void> {
+    // Close any event subscriptions
+    if (this.eventIterator) {
+      try {
+        await this.eventIterator.return?.();
+      } catch (error) {
+        console.warn('Error closing event iterator:', error);
+      }
+      this.eventIterator = null;
+    }
     
     this.isConnected = false;
     console.log('Disconnected from IOTA Rebased node');
   }
+
+  // Legacy methods and helper functions
 
   /**
    * Initialize wallet with seed
@@ -261,154 +624,43 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Submit a transaction to the IOTA Rebased blockchain
-   * @param txType The type of transaction to submit
-   * @param payload The payload of the transaction
-   * @returns Promise with the transaction ID
-   */
-  async submitTx(txType: string, payload: any): Promise<string> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    const retryAttempts = this.config.options?.retryAttempts || 3;
-    
-    for (let attempt = 1; attempt <= retryAttempts; attempt++) {
-      try {
-        // Determine which contract to call based on txType
-        const contractAddress = this.getContractAddressForTxType(txType);
-        
-        // Build the transaction
-        const transaction = await this.buildTransaction(txType, payload, contractAddress);
-        
-        // Sign the transaction
-        const signedTx = await this.signTransaction(transaction);
-        
-        // Submit the transaction
-        const result = await this.client.submitTransaction(signedTx);
-        
-        // Check if we need to wait for confirmation
-        if (result.status === 'pending') {
-          await this.waitForTransactionConfirmation(result.id);
-        }
-        
-        return result.id;
-      } catch (error) {
-        if (attempt === retryAttempts) {
-          console.error(`Failed to submit transaction after ${retryAttempts} attempts:`, error);
-          throw new Error(`Transaction submission failed: ${error.message}`);
-        }
-        
-        // Exponential backoff before retry
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        console.warn(`Attempt ${attempt} failed, retrying in ${backoffMs}ms:`, error.message);
-        await new Promise(resolve => setTimeout(resolve, backoffMs));
-      }
-    }
-    
-    throw new Error('Failed to submit transaction');
-  }
-
-  /**
    * Legacy method for submitting transactions
    * @param transaction Transaction data to submit
    * @returns Transaction ID and metadata
    */
-  public async submitTransaction(transaction: ChainTransaction): Promise<any> {
+  public async submitTransaction(transaction: any): Promise<any> {
     if (!this.isConnected) {
       await this.connect();
     }
     
     try {
-      const payload = this.formatTransactionPayload(transaction);
+      // Convert to Transaction format
+      const tx: Transaction = {
+        sender: transaction.sender,
+        payload: {
+          type: transaction.type,
+          action: transaction.action,
+          actionDetail: transaction.actionDetail,
+          data: transaction.data
+        },
+        feeOptions: {
+          maxFee: transaction.fee
+        }
+      };
       
-      // For transactions requiring a wallet, use wallet methods
-      if (transaction.requiresSignature) {
-        return this.submitSignedTransaction(transaction);
-      } else {
-        // For transactions that don't require signatures
-        const response = await this.client.submitTransaction(payload);
-        
-        return {
-          transactionId: response.transactionId,
-          objectId: response.objectId,
-          commitNumber: response.commitNumber,
-          timestamp: response.timestamp
-        };
-      }
+      // Use the standard submitTx method
+      const result = await this.submitTx(tx);
+      
+      // Convert back to legacy format
+      return {
+        transactionId: result.id,
+        objectId: result.objectId,
+        commitNumber: result.commitNumber,
+        timestamp: result.timestamp
+      };
     } catch (error) {
       console.error('Transaction submission failed:', error);
       throw new Error(`Failed to submit transaction: ${error.message}`);
-    }
-  }
-  
-  /**
-   * Submit a transaction that requires a signature using the wallet
-   * @param transaction Transaction data to submit
-   * @returns Transaction ID and metadata
-   */
-  private async submitSignedTransaction(transaction: ChainTransaction): Promise<any> {
-    if (!this.wallet) {
-      throw new Error('Wallet is not initialized. Cannot sign transaction.');
-    }
-    
-    try {
-      const account = await this.wallet.getAccount('OmeoneChain');
-      
-      // Format the transaction for the specific Move smart contract call
-      const moveCallPayload = this.formatMoveCallPayload(transaction);
-      
-      // Prepare transaction
-      const preparedTransaction = await account.prepareTransaction({
-        type: 'MoveVM',
-        callData: moveCallPayload,
-        gasBudget: 1000, // Adjust based on transaction complexity
-      });
-      
-      // Sign and submit transaction
-      const submittedTransaction = await account.signAndSubmitTransaction(preparedTransaction);
-      
-      return {
-        transactionId: submittedTransaction.transactionId,
-        objectId: submittedTransaction.objectId,
-        commitNumber: submittedTransaction.commitNumber,
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      console.error('Signed transaction submission failed:', error);
-      throw new Error(`Failed to submit signed transaction: ${error.message}`);
-    }
-  }
-
-  /**
-   * Query the state of the IOTA Rebased blockchain
-   * @param queryType The type of query to execute
-   * @param params The parameters for the query
-   * @returns Promise with the query result
-   */
-  async queryState(queryType: string, params: any): Promise<any> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    try {
-      // Determine which contract to query based on queryType
-      const contractAddress = this.getContractAddressForTxType(queryType);
-      
-      // Determine the method to call based on queryType
-      const method = this.getMethodForQueryType(queryType);
-      
-      // Format the parameters for the Move VM
-      const args = this.formatArgsForMove(queryType, params);
-      
-      // Execute the query
-      const result = await this.client.queryContract(contractAddress, method, args);
-      
-      // Parse the result back to TypeScript structures
-      return this.deserializeFromMoveVM(result);
-    } catch (error) {
-      console.error('Failed to query state:', error);
-      throw new Error(`State query failed: ${error.message}`);
     }
   }
 
@@ -418,23 +670,29 @@ export class RebasedAdapter implements ChainAdapter {
    * @param objectId ID of the object
    * @returns Current state of the object
    */
-  public async queryObjectState(objectType: string, objectId: string): Promise<ChainState> {
+  public async queryObjectState(objectType: string, objectId: string): Promise<any> {
     if (!this.isConnected) {
       await this.connect();
     }
     
     try {
-      const response = await axios.get(
-        `${this.nodeUrl}/api/v1/objects/${objectType}/${objectId}`,
-        { headers: this.apiKey ? { 'X-API-Key': this.apiKey } : {} }
-      );
+      // Use standard queryState method
+      const result = await this.queryState<any>({
+        objectType,
+        filter: { id: objectId }
+      });
       
+      if (result.results.length === 0) {
+        throw new Error(`Object ${objectId} of type ${objectType} not found`);
+      }
+      
+      // Convert to legacy format
       return {
-        objectId: response.data.objectId,
-        objectType: response.data.objectType,
-        data: response.data.content,
-        commitNumber: response.data.commitNumber,
-        timestamp: response.data.timestamp
+        objectId,
+        objectType,
+        data: result.results[0],
+        commitNumber: result.results[0].tangle?.commitNumber,
+        timestamp: result.results[0].timestamp
       };
     } catch (error) {
       console.error('State query failed:', error);
@@ -453,80 +711,30 @@ export class RebasedAdapter implements ChainAdapter {
     objectType: string, 
     filters?: any, 
     pagination?: { limit: number; offset: number }
-  ): Promise<ChainState[]> {
+  ): Promise<any[]> {
     if (!this.isConnected) {
       await this.connect();
     }
     
     try {
-      // Construct query parameters
-      const params: any = { type: objectType };
+      // Use standard queryState method
+      const result = await this.queryState<any>({
+        objectType,
+        filter: filters,
+        pagination
+      });
       
-      // Add filters if provided
-      if (filters) {
-        Object.keys(filters).forEach(key => {
-          params[key] = filters[key];
-        });
-      }
-      
-      // Add pagination if provided
-      if (pagination) {
-        params.limit = pagination.limit;
-        params.offset = pagination.offset;
-      }
-      
-      const response = await axios.get(
-        `${this.nodeUrl}/api/v1/objects`,
-        { 
-          params,
-          headers: this.apiKey ? { 'X-API-Key': this.apiKey } : {} 
-        }
-      );
-      
-      return response.data.objects.map(obj => ({
-        objectId: obj.objectId,
-        objectType: obj.objectType,
-        data: obj.content,
-        commitNumber: obj.commitNumber,
-        timestamp: obj.timestamp
+      // Convert to legacy format
+      return result.results.map(item => ({
+        objectId: item.id,
+        objectType,
+        data: item,
+        commitNumber: item.tangle?.commitNumber,
+        timestamp: item.timestamp
       }));
     } catch (error) {
       console.error('Objects query failed:', error);
       throw new Error(`Failed to query objects: ${error.message}`);
-    }
-  }
-
-  /**
-   * Watch for events from the IOTA Rebased blockchain
-   * @param eventType The type of event to watch for
-   * @param callback The callback to execute when an event is received
-   * @returns Promise that resolves when the subscription is set up
-   */
-  async watchEvents(eventType: string, callback: (event: any) => void): Promise<() => void> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    try {
-      // Determine which contract to watch based on eventType
-      const contractAddress = this.getContractAddressForTxType(eventType);
-      
-      // Determine the event name based on eventType
-      const eventName = this.getEventNameForEventType(eventType);
-      
-      // Set up the event subscription
-      const unsubscribe = await this.client.watchEvents(contractAddress, eventName, (event: any) => {
-        // Parse the event data
-        const parsedEvent = this.deserializeFromMoveVM(event);
-        
-        // Call the callback with the parsed event
-        callback(parsedEvent);
-      });
-      
-      return unsubscribe;
-    } catch (error) {
-      console.error('Failed to watch events:', error);
-      throw new Error(`Event watching failed: ${error.message}`);
     }
   }
 
@@ -536,7 +744,7 @@ export class RebasedAdapter implements ChainAdapter {
    * @param callback Function to call when events occur
    * @returns Subscription ID
    */
-  public subscribeToEvents(eventType: string, callback: (event: ChainEvent) => void): string {
+  public subscribeToEvents(eventType: string, callback: (event: any) => void): string {
     const subscriptionId = crypto.randomUUID();
     
     if (!this.eventSubscribers.has(eventType)) {
@@ -544,6 +752,11 @@ export class RebasedAdapter implements ChainAdapter {
     }
     
     this.eventSubscribers.get(eventType).push(callback);
+    
+    // Start event polling if not already started
+    if (this.isConnected && this.eventSubscribers.size === 1) {
+      this.pollForEvents();
+    }
     
     return subscriptionId;
   }
@@ -558,25 +771,13 @@ export class RebasedAdapter implements ChainAdapter {
   }
   
   /**
-   * Start event listener to monitor the DAG for new events
-   */
-  private async startEventListener(): Promise<void> {
-    // Set up continuous polling for events
-    this.pollForEvents();
-  }
-  
-  /**
-   * Stop event listener
-   */
-  private stopEventListener(): void {
-    // Implementation would stop the polling interval
-    console.log('Event listener stopped');
-  }
-  
-  /**
    * Poll for new events on the DAG
    */
   private async pollForEvents(): Promise<void> {
+    if (!this.isConnected || this.eventSubscribers.size === 0) {
+      return;
+    }
+    
     try {
       const response = await axios.get(
         `${this.nodeUrl}/api/v1/events`,
@@ -596,7 +797,7 @@ export class RebasedAdapter implements ChainAdapter {
         
         // Process each event
         events.forEach(event => {
-          const chainEvent: ChainEvent = {
+          const chainEvent = {
             eventId: event.eventId,
             eventType: event.eventType,
             objectId: event.objectId,
@@ -630,92 +831,7 @@ export class RebasedAdapter implements ChainAdapter {
       setTimeout(() => this.pollForEvents(), 10000); // Retry after 10 seconds
     }
   }
-
-  /**
-   * Submit a recommendation to the blockchain
-   * @param recommendation The recommendation to submit
-   * @returns Promise with the transaction ID
-   */
-  async submitRecommendation(recommendation: RecommendationData): Promise<string> {
-    return this.submitTx('createRecommendation', recommendation);
-  }
-
-  /**
-   * Update user reputation
-   * @param update The reputation update
-   * @returns Promise with the transaction ID
-   */
-  async updateReputation(update: UserReputationData): Promise<string> {
-    return this.submitTx('updateReputation', update);
-  }
-
-  /**
-   * Transfer tokens between accounts
-   * @param transaction The token transaction
-   * @returns Promise with the transaction ID
-   */
-  async transferTokens(transaction: TokenTransaction): Promise<string> {
-    return this.submitTx('transferTokens', transaction);
-  }
-
-  /**
-   * Submit a governance proposal
-   * @param proposal The governance proposal
-   * @returns Promise with the transaction ID
-   */
-  async submitProposal(proposal: GovernanceProposal): Promise<string> {
-    return this.submitTx('submitProposal', proposal);
-  }
-
-  /**
-   * Vote on a governance proposal
-   * @param proposalId The ID of the proposal
-   * @param vote The vote (true for yes, false for no)
-   * @returns Promise with the transaction ID
-   */
-  async voteOnProposal(proposalId: string, vote: boolean): Promise<string> {
-    return this.submitTx('voteOnProposal', { proposalId, vote });
-  }
-
-  /**
-   * Register a service entity
-   * @param service The service entity to register
-   * @returns Promise with the transaction ID
-   */
-  async registerService(service: ServiceEntity): Promise<string> {
-    return this.submitTx('registerService', service);
-  }
-
-  /**
-   * Get recommendations for a specific service
-   * @param serviceId The ID of the service
-   * @returns Promise with the recommendations
-   */
-  async getServiceRecommendations(serviceId: string): Promise<RecommendationData[]> {
-    const result = await this.queryState('getServiceRecommendations', { serviceId });
-    return result as RecommendationData[];
-  }
-
-  /**
-   * Get user profile data
-   * @param userId The ID of the user
-   * @returns Promise with the user profile
-   */
-  async getUserProfile(userId: string): Promise<UserReputationData> {
-    const result = await this.queryState('getUserProfile', { userId });
-    return result as UserReputationData;
-  }
-
-  /**
-   * Get the token balance for a user
-   * @param userId The ID of the user
-   * @returns Promise with the token balance
-   */
-  async getTokenBalance(userId: string): Promise<number> {
-    const result = await this.queryState('getTokenBalance', { userId });
-    return result as number;
-  }
-
+  
   /**
    * Call a Move smart contract function
    * @param contractAddress Address of the contract
@@ -733,17 +849,8 @@ export class RebasedAdapter implements ChainAdapter {
     }
     
     try {
-      const response = await axios.post(
-        `${this.nodeUrl}/api/v1/move/call`,
-        {
-          contractAddress,
-          functionName,
-          arguments: args
-        },
-        { headers: this.apiKey ? { 'X-API-Key': this.apiKey } : {} }
-      );
-      
-      return response.data.result;
+      const response = await this.client.queryContract(contractAddress, functionName, args);
+      return this.deserializeFromMoveVM(response);
     } catch (error) {
       console.error('Contract function call failed:', error);
       throw new Error(`Failed to call contract function: ${error.message}`);
@@ -778,452 +885,181 @@ export class RebasedAdapter implements ChainAdapter {
     return this.isConnected;
   }
 
-  // Private helper methods for the new implementation
+  // Helper methods for the new implementation
 
   /**
-   * Get the contract address for a transaction type
-   * @param txType The transaction type
-   * @returns The contract address
+   * Get the contract type from the payload
+   * @param payload Transaction payload
+   * @returns Contract type key
    */
-  private getContractAddressForTxType(txType: string): string {
-    // Map transaction type to contract
-    const txTypeToContractMap: Record<string, keyof RebasedConfig['contractAddresses']> = {
-      // Recommendation transactions
-      'createRecommendation': 'recommendation',
-      'updateRecommendation': 'recommendation',
-      'deleteRecommendation': 'recommendation',
-      'getRecommendation': 'recommendation',
-      'getServiceRecommendations': 'recommendation',
-      
-      // Reputation transactions
-      'updateReputation': 'reputation',
-      'getUserReputation': 'reputation',
-      'getUserProfile': 'reputation',
-      
-      // Token transactions
-      'transferTokens': 'token',
-      'getTokenBalance': 'token',
-      'claimReward': 'token',
-      
-      // Governance transactions
-      'submitProposal': 'governance',
-      'voteOnProposal': 'governance',
-      'getProposal': 'governance',
-      'getActiveProposals': 'governance',
-      
-      // Service transactions
-      'registerService': 'service',
-      'updateService': 'service',
-      'getService': 'service',
-    };
-    
-    const contractKey = txTypeToContractMap[txType];
-    if (!contractKey) {
-      throw new Error(`Unknown transaction type: ${txType}`);
+  private getContractTypeFromPayload(payload: any): keyof RebasedConfig['contractAddresses'] {
+    // Determine the contract based on payload fields
+    if (payload.recommendation || payload.type === 'recommendation') {
+      return 'recommendation';
+    } else if (payload.reputation || payload.type === 'reputation') {
+      return 'reputation';
+    } else if (payload.token || payload.type === 'token') {
+      return 'token';
+    } else if (payload.governance || payload.type === 'governance') {
+      return 'governance';
+    } else if (payload.service || payload.type === 'service') {
+      return 'service';
     }
     
-    return this.config.contractAddresses[contractKey];
+    // Default to recommendation if unknown
+    return 'recommendation';
   }
 
   /**
-   * Get the method name for a query type
-   * @param queryType The query type
-   * @returns The method name
+   * Get the contract type from an object type
+   * @param objectType Object type
+   * @returns Contract type key
    */
-  private getMethodForQueryType(queryType: string): string {
-    // Map query type to method name
-    const queryTypeToMethodMap: Record<string, string> = {
-      'getRecommendation': 'get_recommendation',
-      'getServiceRecommendations': 'get_service_recommendations',
-      'getUserReputation': 'get_user_reputation',
-      'getUserProfile': 'get_user_profile',
-      'getTokenBalance': 'get_token_balance',
-      'getProposal': 'get_proposal',
-      'getActiveProposals': 'get_active_proposals',
-      'getService': 'get_service',
-    };
-    
-    const method = queryTypeToMethodMap[queryType];
-    if (!method) {
-      throw new Error(`Unknown query type: ${queryType}`);
+  private getContractTypeFromObjectType(objectType: string): keyof RebasedConfig['contractAddresses'] {
+    switch (objectType.toLowerCase()) {
+      case 'recommendation':
+        return 'recommendation';
+      case 'reputation':
+      case 'user':
+      case 'profile':
+        return 'reputation';
+      case 'token':
+      case 'transaction':
+        return 'token';
+      case 'governance':
+      case 'proposal':
+        return 'governance';
+      case 'service':
+        return 'service';
+      default:
+        throw new Error(`Unknown object type: ${objectType}`);
     }
-    
-    return method;
   }
 
   /**
-   * Get the event name for an event type
-   * @param eventType The event type
-   * @returns The event name
+   * Get the contract type from an event type
+   * @param eventType Event type
+   * @returns Contract type key
    */
-  private getEventNameForEventType(eventType: string): string {
-    // Map event type to event name
-    const eventTypeToNameMap: Record<string, string> = {
-      'recommendationCreated': 'recommendation_created',
-      'reputationUpdated': 'reputation_updated',
-      'tokenTransferred': 'token_transferred',
-      'proposalSubmitted': 'proposal_submitted',
-      'proposalVoted': 'proposal_voted',
-      'serviceRegistered': 'service_registered',
-    };
-    
-    const eventName = eventTypeToNameMap[eventType];
-    if (!eventName) {
+  private getContractTypeFromEventType(eventType: string): keyof RebasedConfig['contractAddresses'] {
+    if (eventType.includes('recommendation')) {
+      return 'recommendation';
+    } else if (eventType.includes('reputation') || eventType.includes('user')) {
+      return 'reputation';
+    } else if (eventType.includes('token') || eventType.includes('transfer')) {
+      return 'token';
+    } else if (eventType.includes('governance') || eventType.includes('proposal')) {
+      return 'governance';
+    } else if (eventType.includes('service')) {
+      return 'service';
+    } else {
       throw new Error(`Unknown event type: ${eventType}`);
     }
+  }
+
+  /**
+   * Format query arguments based on the query
+   * @param query State query
+   * @returns Formatted arguments
+   */
+  private formatQueryArgs(query: StateQuery): any[] {
+    const args: any[] = [];
     
-    return eventName;
-  }
-
-  /**
-   * Format arguments for Move VM
-   * @param txType The transaction type
-   * @param params The parameters
-   * @returns Formatted arguments for Move VM
-   */
-  private formatArgsForMove(txType: string, params: any): any[] {
-    // Different transaction types require different argument formats
-    switch (txType) {
-      case 'createRecommendation':
-        return this.formatRecommendationArgs(params);
-      case 'updateReputation':
-        return this.formatReputationArgs(params);
-      case 'transferTokens':
-        return this.formatTokenTransferArgs(params);
-      case 'submitProposal':
-        return this.formatProposalArgs(params);
-      case 'voteOnProposal':
-        return [params.proposalId, params.vote];
-      case 'registerService':
-        return this.formatServiceArgs(params);
-      case 'getRecommendation':
-      case 'getServiceRecommendations':
-      case 'getUserReputation':
-      case 'getUserProfile':
-      case 'getTokenBalance':
-      case 'getProposal':
-        return [params.id || params.userId || params.serviceId || params.proposalId];
-      case 'getActiveProposals':
-        return [];
-      default:
-        throw new Error(`Unknown transaction type for arg formatting: ${txType}`);
-    }
-  }
-
-  /**
-   * Format recommendation arguments for Move VM
-   * @param recommendation The recommendation
-   * @returns Formatted arguments
-   */
-  private formatRecommendationArgs(recommendation: RecommendationData): any[] {
-    return [
-      recommendation.author,
-      recommendation.serviceId,
-      recommendation.category,
-      recommendation.rating,
-      JSON.stringify(recommendation.location),
-      recommendation.content?.title || '',
-      recommendation.content?.body || '',
-      JSON.stringify(recommendation.content?.media || []),
-      recommendation.tags || [],
-    ];
-  }
-
-  /**
-   * Format reputation arguments for Move VM
-   * @param update The reputation update
-   * @returns Formatted arguments
-   */
-  private formatReputationArgs(update: UserReputationData): any[] {
-    return [
-      update.userId,
-      update.reputationScore.toString(),
-      update.verificationLevel || 'basic',
-      JSON.stringify(update.specializations || []),
-    ];
-  }
-
-  /**
-   * Format token transfer arguments for Move VM
-   * @param transaction The token transaction
-   * @returns Formatted arguments
-   */
-  private formatTokenTransferArgs(transaction: TokenTransaction): any[] {
-    return [
-      transaction.recipient,
-      transaction.amount.toString(), // Convert to string for large integers
-      transaction.type || 'transfer',
-      transaction.actionReference || '',
-    ];
-  }
-
-  /**
-   * Format proposal arguments for Move VM
-   * @param proposal The governance proposal
-   * @returns Formatted arguments
-   */
-  private formatProposalArgs(proposal: GovernanceProposal): any[] {
-    return [
-      proposal.title,
-      proposal.description,
-      proposal.type,
-      JSON.stringify(proposal.params), // Serialize params to JSON string
-      proposal.votingEndTime ? new Date(proposal.votingEndTime).toISOString() : '',
-    ];
-  }
-
-  /**
-   * Format service arguments for Move VM
-   * @param service The service entity
-   * @returns Formatted arguments
-   */
-  private formatServiceArgs(service: ServiceEntity): any[] {
-    return [
-      service.name,
-      service.category,
-      JSON.stringify(service.subcategories || []),
-      JSON.stringify(service.location),
-      service.website || '',
-      service.contact || '',
-    ];
-  }
-
-  /**
-   * Format transaction payload for the IOTA Rebased API
-   * Legacy method for backward compatibility
-   * @param transaction Transaction data
-   * @returns Formatted payload
-   */
-  private formatTransactionPayload(transaction: ChainTransaction): any {
-    // Format based on transaction type
-    switch (transaction.type) {
-      case 'recommendation':
-        return this.formatRecommendationPayload(transaction.data as RecommendationData);
-      
-      case 'reputation':
-        return this.formatReputationPayload(transaction.data as UserReputationData);
-      
-      case 'token':
-        return this.formatTokenPayload(transaction.data as TokenTransaction);
-      
-      case 'governance':
-        return this.formatGovernancePayload(transaction.data);
-      
-      default:
-        throw new Error(`Unsupported transaction type: ${transaction.type}`);
-    }
-  }
-
-  /**
-   * Format recommendation payload
-   * Legacy method for backward compatibility
-   * @param data Recommendation data
-   * @returns Formatted payload
-   */
-  private formatRecommendationPayload(data: RecommendationData): any {
-    return {
-      objectType: 'recommendation',
-      content: {
-        id: data.id,
-        author: data.author,
-        serviceId: data.serviceId,
-        category: data.category,
-        location: data.location,
-        rating: data.rating,
-        contentHash: data.contentHash,
-        timestamp: data.timestamp || new Date().toISOString()
-      }
-    };
-  }
-  
-  /**
-   * Format reputation payload
-   * Legacy method for backward compatibility
-   * @param data Reputation data
-   * @returns Formatted payload
-   */
-  private formatReputationPayload(data: UserReputationData): any {
-    return {
-      objectType: 'reputation',
-      content: {
-        userId: data.userId,
-        reputationScore: data.reputationScore,
-        verificationLevel: data.verificationLevel,
-        totalRecommendations: data.totalRecommendations,
-        upvotesReceived: data.upvotesReceived,
-        downvotesReceived: data.downvotesReceived,
-        specializations: data.specializations,
-        updatedAt: new Date().toISOString()
-      }
-    };
-  }
-  
-  /**
-   * Format token payload
-   * Legacy method for backward compatibility
-   * @param data Token transaction data
-   * @returns Formatted payload
-   */
-  private formatTokenPayload(data: TokenTransaction): any {
-    return {
-      objectType: 'token',
-      content: {
-        sender: data.sender,
-        recipient: data.recipient,
-        amount: data.amount,
-        type: data.type,
-        actionReference: data.actionReference,
-        timestamp: data.timestamp || new Date().toISOString()
-      }
-    };
-  }
-  
-  /**
-   * Format governance payload
-   * Legacy method for backward compatibility
-   * @param data Governance data
-   * @returns Formatted payload
-   */
-  private formatGovernancePayload(data: any): any {
-    return {
-      objectType: 'governance',
-      content: {
-        ...data,
-        timestamp: data.timestamp || new Date().toISOString()
-      }
-    };
-  }
-  
-  /**
-   * Format payload for Move VM smart contract calls
-   * Legacy method for backward compatibility
-   * @param transaction Transaction data
-   * @returns Formatted Move contract call payload
-   */
-  private formatMoveCallPayload(transaction: ChainTransaction): any {
-    const contractAddresses = this.config.contractAddresses;
-    
-    let contractAddress: string;
-    let functionName: string;
-    let typeArguments: string[] = [];
-    let arguments: any[] = [];
-    
-    switch (transaction.type) {
-      case 'recommendation':
-        contractAddress = contractAddresses.recommendation;
-        const recData = transaction.data as RecommendationData;
-        
-        if (transaction.action === 'create') {
-          functionName = 'post_recommendation';
-          arguments = [
-            recData.author,
-            recData.contentHash,
-            JSON.stringify({
-              category: recData.category,
-              serviceId: recData.serviceId,
-              timestamp: recData.timestamp,
-              location: {
-                latitude: recData.location.latitude,
-                longitude: recData.location.longitude
-              }
-            })
-          ];
-        } else if (transaction.action === 'vote') {
-          functionName = 'vote';
-          arguments = [
-            recData.id,
-            transaction.actionDetail === 'upvote' // true for upvote, false for downvote
-          ];
-        }
-        break;
-      
-      case 'token':
-        contractAddress = contractAddresses.token;
-        const tokenData = transaction.data as TokenTransaction;
-        
-        if (transaction.action === 'transfer') {
-          functionName = 'transfer';
-          arguments = [
-            tokenData.recipient,
-            tokenData.amount.toString()
-          ];
-        } else if (transaction.action === 'claim_reward') {
-          functionName = 'claim_reward';
-          arguments = [
-            tokenData.actionReference
-          ];
-        }
-        break;
-      
-      case 'governance':
-        contractAddress = contractAddresses.governance;
-        
-        if (transaction.action === 'propose') {
-          functionName = 'create_proposal';
-          arguments = [
-            transaction.data.title,
-            transaction.data.description,
-            transaction.data.parameters,
-            transaction.data.votingDuration
-          ];
-        } else if (transaction.action === 'vote') {
-          functionName = 'cast_vote';
-          arguments = [
-            transaction.data.proposalId,
-            transaction.data.vote // true for yes, false for no
-          ];
-        }
-        break;
-      
-      default:
-        throw new Error(`Unsupported transaction type: ${transaction.type}`);
+    // Add ID if specified
+    if (query.filter && query.filter.id) {
+      args.push(query.filter.id);
     }
     
-    return {
-      contractAddress,
-      functionName,
-      typeArguments,
-      arguments
-    };
+    // Add other filters
+    if (query.filter) {
+      const filterObj = { ...query.filter };
+      delete filterObj.id; // Remove ID since it's already handled
+      
+      if (Object.keys(filterObj).length > 0) {
+        args.push(JSON.stringify(filterObj));
+      }
+    }
+    
+    // Add pagination
+    if (query.pagination) {
+      args.push(query.pagination.limit);
+      args.push(query.pagination.offset);
+    }
+    
+    // Add sorting
+    if (query.sort) {
+      args.push(JSON.stringify({
+        field: query.sort.field,
+        direction: query.sort.direction
+      }));
+    }
+    
+    return args;
   }
 
   /**
-   * Build a transaction for the IOTA Rebased blockchain
-   * @param txType The type of transaction to build
-   * @param payload The payload of the transaction
+   * Get transaction type from payload
+   * @param payload Transaction payload
+   * @returns Transaction type
+   */
+  private getTxTypeFromPayload(payload: any): string {
+    if (payload.type) {
+      return payload.type;
+    }
+    
+    // Infer type from payload structure
+    if (payload.recommendation || payload.serviceId) {
+      return 'createRecommendation';
+    } else if (payload.reputationScore || payload.userId) {
+      return 'updateReputation';
+    } else if (payload.amount || payload.recipient) {
+      return 'transferTokens';
+    } else if (payload.title || payload.proposalId) {
+      return 'submitProposal';
+    } else if (payload.name && payload.category) {
+      return 'registerService';
+    }
+    
+    // Default
+    return 'unknown';
+  }
+
+  /**
+   * Build a native transaction for the IOTA Rebased blockchain
+   * @param tx Transaction in standard format
    * @param contractAddress The contract address to call
-   * @returns The built transaction
+   * @returns The built transaction in native format
    */
-  private async buildTransaction(txType: string, payload: any, contractAddress: string): Promise<ChainTransaction> {
+  private async buildNativeTransaction(tx: Transaction, contractAddress: string): Promise<any> {
+    // Get the tx type
+    const txType = this.getTxTypeFromPayload(tx.payload);
+    
     // Get the method name based on txType
     const method = this.getTxMethodName(txType);
     
-    // Format the arguments for the Move VM
-    const args = this.formatArgsForMove(txType, payload);
+    // Format the arguments
+    const args = this.formatTxArgs(txType, tx.payload);
     
-    // Estimate the transaction fee
-    const fee = await this.estimateFee(txType, payload);
+    // Estimate the fee
+    const fee = await this.estimateFee(tx);
     
-    // Use sponsor wallet if available, otherwise use the account
-    const sender = this.config.sponsorWallet?.address || this.config.account.address;
+    // Use sponsor wallet if available and requested
+    const sender = (tx.feeOptions?.sponsorWallet && this.config.sponsorWallet?.address) ? 
+                  this.config.sponsorWallet.address : 
+                  tx.sender || this.config.account.address;
     
     // Build the transaction
-    const transaction: ChainTransaction = {
-      id: this.generateTxId(),
-      type: txType.includes('Recommendation') ? 'recommendation' : 
-            txType.includes('Token') ? 'token' : 
-            txType.includes('Reputation') ? 'reputation' : 
-            txType.includes('Proposal') ? 'governance' : 
-            txType.includes('Service') ? 'service' : 'unknown',
-      action: method,
-      requiresSignature: true,
+    return {
+      id: crypto.randomBytes(32).toString('hex'),
+      type: 'contract_call',
       sender,
+      contract: contractAddress,
+      method,
+      args,
       fee,
-      data: payload,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      payload: tx.payload
     };
-    
-    return transaction;
   }
 
   /**
@@ -1246,38 +1082,89 @@ export class RebasedAdapter implements ChainAdapter {
       'updateService': 'update_service',
     };
     
-    const method = txTypeToMethodMap[txType];
-    if (!method) {
-      throw new Error(`Unknown transaction type: ${txType}`);
-    }
-    
-    return method;
+    return txTypeToMethodMap[txType] || txType;
   }
 
   /**
-   * Generate a transaction ID
-   * @returns The generated transaction ID
+   * Format transaction arguments based on type
+   * @param txType Transaction type
+   * @param payload Transaction payload
+   * @returns Formatted arguments
    */
-  private generateTxId(): string {
-    const randomBytes = Buffer.from(Math.random().toString());
-    const timestamp = Buffer.from(Date.now().toString());
-    const hash = crypto.createHash('sha256')
-      .update(Buffer.concat([randomBytes, timestamp]))
-      .digest('hex');
-    return hash;
+  private formatTxArgs(txType: string, payload: any): any[] {
+    // Extract the actual data from the payload
+    const data = payload.data || payload;
+    
+    switch (txType) {
+      case 'createRecommendation':
+        return [
+          data.author,
+          data.serviceId,
+          data.category,
+          data.rating,
+          JSON.stringify(data.location),
+          data.content?.title || '',
+          data.content?.body || '',
+          JSON.stringify(data.content?.media || []),
+          data.tags || [],
+        ];
+      
+      case 'updateReputation':
+        return [
+          data.userId,
+          data.reputationScore.toString(),
+          data.verificationLevel || 'basic',
+          JSON.stringify(data.specializations || []),
+        ];
+      
+      case 'transferTokens':
+        return [
+          data.recipient,
+          data.amount.toString(),
+          data.type || 'transfer',
+          data.actionReference || '',
+        ];
+      
+      case 'submitProposal':
+        return [
+          data.title,
+          data.description,
+          data.type,
+          JSON.stringify(data.params),
+          data.votingEndTime ? new Date(data.votingEndTime).toISOString() : '',
+        ];
+      
+      case 'voteOnProposal':
+        return [
+          data.proposalId,
+          data.vote,
+        ];
+      
+      case 'registerService':
+        return [
+          data.name,
+          data.category,
+          JSON.stringify(data.subcategories || []),
+          JSON.stringify(data.location),
+          data.website || '',
+          data.contact || '',
+        ];
+      
+      default:
+        return Object.values(data);
+    }
   }
 
   /**
    * Sign a transaction
    * @param transaction The transaction to sign
+   * @param senderOverride Override the sender address
    * @returns The signed transaction
    */
-  private async signTransaction(transaction: ChainTransaction): Promise<ChainTransaction> {
-    // In a real implementation, this would use the IOTA Rebased SDK
-    // to sign the transaction with the appropriate private key
-    
+  private async signTransaction(transaction: any, senderOverride?: string): Promise<any> {
     // Determine which private key to use
-    const privateKey = transaction.sender === this.config.sponsorWallet?.address
+    const sender = senderOverride || transaction.sender;
+    const privateKey = sender === this.config.sponsorWallet?.address
       ? this.config.sponsorWallet.privateKey
       : this.config.account.privateKey;
     
@@ -1332,85 +1219,11 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Estimate the fee for a transaction
-   * @param txType The type of transaction
-   * @param payload The payload of the transaction
-   * @returns The estimated fee
-   */
-  private async estimateFee(txType: string, payload: any): Promise<number> {
-    // In a real implementation, this would use the IOTA Rebased SDK
-    // to estimate the fee based on the transaction size and gas cost
-    
-    // For now, we'll use a simple estimation based on transaction type
-    const baseFee = 5; // 5 μMIOTA
-    
-    let complexityMultiplier = 1;
-    
-    // Adjust based on transaction type
-    switch (txType) {
-      case 'createRecommendation':
-        // More complex due to media handling
-        complexityMultiplier = 2;
-        break;
-      case 'submitProposal':
-        // Governance transactions are more expensive
-        complexityMultiplier = 3;
-        break;
-      case 'registerService':
-        // Service registration is also more complex
-        complexityMultiplier = 2;
-        break;
-      default:
-        complexityMultiplier = 1;
-    }
-    
-    // Additional adjustment based on payload size
-    const payloadSize = JSON.stringify(payload).length;
-    const sizeMultiplier = Math.ceil(payloadSize / 1024); // Per KB
-    
-    // Calculate the estimated fee
-    let estimatedFee = baseFee * complexityMultiplier * sizeMultiplier;
-    
-    // Ensure the fee doesn't exceed the maximum
-    const maxFee = this.config.options?.maxFeePerTransaction || 50;
-    estimatedFee = Math.min(estimatedFee, maxFee);
-    
-    return estimatedFee;
-  }
-
-  /**
-   * Serialize data for Move VM
-   * @param data The data to serialize
-   * @returns Serialized data
-   */
-  private serializeForMoveVM(data: any): any {
-    // This would be a more complex implementation in a real adapter
-    // For now, we'll just convert to JSON and handle basic type conversions
-    if (typeof data === 'bigint') {
-      return data.toString();
-    } else if (data instanceof Date) {
-      return data.toISOString();
-    } else if (Array.isArray(data)) {
-      return data.map(item => this.serializeForMoveVM(item));
-    } else if (data !== null && typeof data === 'object') {
-      const result: Record<string, any> = {};
-      for (const key in data) {
-        result[key] = this.serializeForMoveVM(data[key]);
-      }
-      return result;
-    } else {
-      return data;
-    }
-  }
-
-  /**
    * Deserialize data from Move VM
    * @param data The data to deserialize
    * @returns Deserialized data
    */
   private deserializeFromMoveVM(data: any): any {
-    // This would be a more complex implementation in a real adapter
-    // For now, we'll just handle basic type conversions
     if (typeof data === 'string') {
       // Try to parse as JSON if it looks like JSON
       if (data.startsWith('{') || data.startsWith('[')) {
@@ -1445,6 +1258,9 @@ export class RebasedAdapter implements ChainAdapter {
       return result;
     } else {
       return data;
+    }
+  }
+}
     }
   }
 }
