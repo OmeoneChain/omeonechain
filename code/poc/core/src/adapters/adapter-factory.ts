@@ -1,7 +1,9 @@
+// code/poc/core/src/adapters/adapter-factory.ts
+
 import { ChainAdapter } from '../types/chain';
 import { RebasedAdapter } from './rebased-adapter';
 import { EVMAdapter } from './evm-adapter';
-import { MockAdapter } from './mock-adapter'; // Assuming this exists for testing
+import { MockAdapter } from './mock-adapter';
 
 /**
  * AdapterType enum defines the available adapter types
@@ -19,6 +21,26 @@ export interface RebasedAdapterConfig {
   nodeUrl: string;
   apiKey?: string;
   seed?: string;
+  account?: {
+    address: string;
+    privateKey: string;
+  };
+  sponsorWallet?: {
+    address: string;
+    privateKey: string;
+  };
+  contractAddresses?: {
+    recommendation: string;
+    reputation: string;
+    token: string;
+    governance: string;
+    service: string;
+  };
+  options?: {
+    retryAttempts?: number;
+    maxFeePerTransaction?: number;
+    timeoutMs?: number;
+  };
 }
 
 /**
@@ -42,14 +64,16 @@ export interface MockAdapterConfig {
 /**
  * Combined adapter configuration
  */
-export type AdapterConfig = RebasedAdapterConfig | EVMAdapterConfig | MockAdapterConfig;
+export type AdapterConfig = {
+  type: AdapterType;
+} & (RebasedAdapterConfig | EVMAdapterConfig | MockAdapterConfig);
 
 /**
  * AdapterFactory class provides methods to create and manage chain adapters
  */
 export class AdapterFactory {
   private static instance: AdapterFactory;
-  private adapters: Map<string, ChainAdapter> = new Map();
+  private adapters: Map<AdapterType, ChainAdapter> = new Map();
   private activeAdapter: ChainAdapter | null = null;
   private activeAdapterType: AdapterType | null = null;
   
@@ -72,21 +96,43 @@ export class AdapterFactory {
   
   /**
    * Create a new adapter instance
-   * @param type Adapter type
    * @param config Adapter configuration
    * @returns Created adapter
    */
-  public createAdapter(type: AdapterType, config: AdapterConfig): ChainAdapter {
+  public createAdapter(config: AdapterConfig): ChainAdapter {
     let adapter: ChainAdapter;
     
-    switch (type) {
+    switch (config.type) {
       case AdapterType.REBASED:
         const rebasedConfig = config as RebasedAdapterConfig;
-        adapter = new RebasedAdapter(
-          rebasedConfig.nodeUrl,
-          rebasedConfig.apiKey,
-          rebasedConfig.seed
-        );
+        
+        // If we have account, sponsorWallet or contractAddresses, use the new constructor
+        if (rebasedConfig.account || rebasedConfig.sponsorWallet || rebasedConfig.contractAddresses) {
+          adapter = new RebasedAdapter({
+            network: 'testnet', // Default to testnet
+            nodeUrl: rebasedConfig.nodeUrl,
+            account: rebasedConfig.account || {
+              address: '',
+              privateKey: rebasedConfig.seed || '',
+            },
+            sponsorWallet: rebasedConfig.sponsorWallet,
+            contractAddresses: rebasedConfig.contractAddresses || {
+              recommendation: '0x4f6d656f6e654368e4b8bce8a18de6bd8a8e5ddb',
+              reputation: '0x4f6d656f6e655265e4b8bce8a18de6bd8a8e5dda',
+              token: '0x4f6d656f6e6554e4b8bce8a18de6bd8a8e5dcc1',
+              governance: '0x4f6d656f6e65476f7665726e616e63655ddc7',
+              service: '0x4f6d656f6e65536572766963655ddc8',
+            },
+            options: rebasedConfig.options
+          });
+        } else {
+          // Legacy constructor
+          adapter = new RebasedAdapter(
+            rebasedConfig.nodeUrl,
+            rebasedConfig.apiKey,
+            rebasedConfig.seed
+          );
+        }
         break;
       
       case AdapterType.EVM:
@@ -108,11 +154,11 @@ export class AdapterFactory {
         break;
       
       default:
-        throw new Error(`Unsupported adapter type: ${type}`);
+        throw new Error(`Unsupported adapter type: ${config.type}`);
     }
     
     // Store the adapter by type
-    this.adapters.set(type, adapter);
+    this.adapters.set(config.type, adapter);
     
     return adapter;
   }
@@ -139,17 +185,21 @@ export class AdapterFactory {
     }
     
     // Connect to the adapter if not already connected
-    if (!adapter.isConnectedToNode()) {
-      const connected = await adapter.connect();
-      
-      if (!connected) {
-        throw new Error(`Failed to connect to ${type} adapter.`);
+    if (adapter.isConnectedToNode && !adapter.isConnectedToNode()) {
+      try {
+        await adapter.connect();
+      } catch (error) {
+        throw new Error(`Failed to connect to ${type} adapter: ${error.message}`);
       }
     }
     
     // Disconnect from previous active adapter if different
     if (this.activeAdapter && this.activeAdapterType !== type) {
-      await this.activeAdapter.disconnect();
+      try {
+        await this.activeAdapter.disconnect();
+      } catch (error) {
+        console.warn(`Warning: Failed to disconnect from previous adapter: ${error.message}`);
+      }
     }
     
     this.activeAdapter = adapter;
@@ -194,12 +244,20 @@ export class AdapterFactory {
     }
     
     // Ensure both adapters are connected
-    if (!sourceAdapter.isConnectedToNode()) {
-      await sourceAdapter.connect();
+    if (sourceAdapter.isConnectedToNode && !sourceAdapter.isConnectedToNode()) {
+      try {
+        await sourceAdapter.connect();
+      } catch (error) {
+        throw new Error(`Failed to connect to source adapter: ${error.message}`);
+      }
     }
     
-    if (!targetAdapter.isConnectedToNode()) {
-      await targetAdapter.connect();
+    if (targetAdapter.isConnectedToNode && !targetAdapter.isConnectedToNode()) {
+      try {
+        await targetAdapter.connect();
+      } catch (error) {
+        throw new Error(`Failed to connect to target adapter: ${error.message}`);
+      }
     }
     
     try {
@@ -232,8 +290,12 @@ export class AdapterFactory {
   public async reset(): Promise<void> {
     // Disconnect all adapters
     for (const adapter of this.adapters.values()) {
-      if (adapter.isConnectedToNode()) {
-        await adapter.disconnect();
+      if (adapter.isConnectedToNode && adapter.isConnectedToNode()) {
+        try {
+          await adapter.disconnect();
+        } catch (error) {
+          console.warn(`Warning: Failed to disconnect adapter: ${error.message}`);
+        }
       }
     }
     
@@ -241,5 +303,43 @@ export class AdapterFactory {
     this.adapters.clear();
     this.activeAdapter = null;
     this.activeAdapterType = null;
+  }
+  
+  /**
+   * Create a specific adapter instance using simple parameters
+   * @param type Adapter type
+   * @param options Simple options object
+   * @returns Created adapter
+   * @deprecated Use createAdapter with full configuration instead
+   */
+  public createAdapterSimple(type: AdapterType, options: Record<string, any> = {}): ChainAdapter {
+    switch (type) {
+      case AdapterType.REBASED:
+        return this.createAdapter({
+          type,
+          nodeUrl: options.nodeUrl || 'https://api.testnet.rebased.iota.org',
+          apiKey: options.apiKey,
+          seed: options.seed
+        });
+      
+      case AdapterType.EVM:
+        return this.createAdapter({
+          type,
+          rpcUrl: options.rpcUrl || 'http://localhost:8545',
+          contractAddresses: options.contractAddresses || {},
+          privateKey: options.privateKey,
+          chainId: options.chainId || 1
+        });
+      
+      case AdapterType.MOCK:
+        return this.createAdapter({
+          type,
+          simulateLatency: options.simulateLatency,
+          failureRate: options.failureRate
+        });
+      
+      default:
+        throw new Error(`Unsupported adapter type: ${type}`);
+    }
   }
 }
