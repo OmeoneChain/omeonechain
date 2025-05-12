@@ -8,6 +8,26 @@ import * as crypto from 'crypto';
 
 /**
  * Configuration interface for the RebasedAdapter
+ * 
+ * @interface RebasedConfig
+ * @property {('testnet'|'mainnet'|'local')} network - The IOTA Rebased network to connect to
+ * @property {string} nodeUrl - URL of the IOTA Rebased node
+ * @property {Object} account - Account information for transaction signing
+ * @property {string} account.address - Account address
+ * @property {string} account.privateKey - Private key for transaction signing
+ * @property {Object} [sponsorWallet] - Optional sponsor wallet for fee subsidization
+ * @property {string} sponsorWallet.address - Sponsor wallet address
+ * @property {string} sponsorWallet.privateKey - Sponsor wallet private key
+ * @property {Object} contractAddresses - Addresses of deployed smart contracts
+ * @property {string} contractAddresses.recommendation - Recommendation contract address
+ * @property {string} contractAddresses.reputation - Reputation contract address
+ * @property {string} contractAddresses.token - Token contract address
+ * @property {string} contractAddresses.governance - Governance contract address
+ * @property {string} contractAddresses.service - Service contract address
+ * @property {Object} [options] - Optional configuration settings
+ * @property {number} [options.retryAttempts=3] - Number of retry attempts for failed transactions
+ * @property {number} [options.maxFeePerTransaction=50] - Maximum fee per transaction in μMIOTA
+ * @property {number} [options.timeoutMs=30000] - Request timeout in milliseconds
  */
 export interface RebasedConfig {
   network: 'testnet' | 'mainnet' | 'local';
@@ -37,11 +57,16 @@ export interface RebasedConfig {
 /**
  * RebasedAdapter - Implementation of the ChainAdapter interface for IOTA Rebased
  * 
- * This adapter connects the OmeoneChain core to the IOTA Rebased DAG, handling:
- * - Transaction submissions
- * - State queries
- * - Event monitoring
+ * This adapter connects OmeoneChain core to the IOTA Rebased DAG, handling:
+ * - Transaction submissions and signing
+ * - State queries and data retrieval
+ * - Event monitoring and subscriptions
  * - Smart contract interactions
+ * 
+ * The adapter supports both a modern configuration-based constructor and a legacy
+ * constructor for backward compatibility.
+ * 
+ * @implements {ChainAdapter}
  */
 export class RebasedAdapter implements ChainAdapter {
   private nodeUrl: string;
@@ -62,10 +87,11 @@ export class RebasedAdapter implements ChainAdapter {
   };
   
   /**
-   * Constructor
-   * @param configOrNodeUrl Configuration for the adapter or nodeUrl
-   * @param apiKey Optional API key for authenticated access
-   * @param seed Optional seed for wallet initialization
+   * Constructor for RebasedAdapter
+   * 
+   * @param {RebasedConfig|string} configOrNodeUrl - Configuration object or node URL (legacy)
+   * @param {string} [apiKey] - Optional API key for authenticated access (legacy)
+   * @param {string} [seed] - Optional seed for wallet initialization (legacy)
    */
   constructor(configOrNodeUrl: RebasedConfig | string, apiKey?: string, seed?: string) {
     if (typeof configOrNodeUrl === 'string') {
@@ -121,6 +147,10 @@ export class RebasedAdapter implements ChainAdapter {
   /**
    * Initialize the IOTA Rebased client
    * This method sets up the connection to the Rebased node
+   * 
+   * @private
+   * @returns {Promise<void>}
+   * @throws {Error} If client initialization fails
    */
   private async initializeClient(): Promise<void> {
     try {
@@ -186,7 +216,10 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Get the chain ID
+   * Get the chain ID of the connected IOTA Rebased network
+   * 
+   * @returns {Promise<string>} Promise that resolves to the chain ID
+   * @throws {Error} If unable to retrieve chain ID
    */
   async getChainId(): Promise<string> {
     if (!this.isConnected) {
@@ -207,10 +240,26 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Submit a transaction to the blockchain
+   * Submit a transaction to the IOTA Rebased blockchain
    * 
-   * @param tx Transaction to submit
-   * @returns Transaction result
+   * @param {Transaction} tx - Transaction to submit
+   * @returns {Promise<TransactionResult>} Transaction result containing ID, status, and metadata
+   * @throws {Error} If transaction submission fails
+   * 
+   * @example
+   * // Submit a recommendation transaction
+   * const result = await adapter.submitTx({
+   *   sender: "userAddress",
+   *   payload: {
+   *     type: "recommendation",
+   *     data: {
+   *       author: "userId",
+   *       serviceId: "restaurantId",
+   *       category: "restaurant",
+   *       rating: 5
+   *     }
+   *   }
+   * });
    */
   async submitTx(tx: Transaction): Promise<TransactionResult> {
     if (!this.isConnected) {
@@ -276,10 +325,22 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Query the current state
+   * Query the state of the IOTA Rebased blockchain
    * 
-   * @param query Query parameters
-   * @returns Query results
+   * @param {StateQuery} query - Query parameters
+   * @returns {Promise<{results: T[], total: number, pagination?: {offset: number, limit: number, hasMore: boolean}}>} 
+   *          Query results with pagination info
+   * @throws {Error} If state query fails
+   * 
+   * @template T - Type of the result items
+   * 
+   * @example
+   * // Query recommendations by category
+   * const result = await adapter.queryState<Recommendation>({
+   *   objectType: "recommendation",
+   *   filter: { category: "restaurant" },
+   *   pagination: { offset: 0, limit: 10 }
+   * });
    */
   async queryState<T>(query: StateQuery): Promise<{
     results: T[];
@@ -336,10 +397,23 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Watch for events on the blockchain
+   * Watch for events on the IOTA Rebased blockchain
    * 
-   * @param filter Event filter
-   * @returns Async iterator of events
+   * @param {EventFilter} filter - Event filter parameters
+   * @returns {AsyncIterator<Event>} Async iterator for event stream
+   * @throws {Error} If event watching fails
+   * 
+   * @example
+   * // Watch for recommendation creation events
+   * const eventIterator = await adapter.watchEvents({
+   *   eventTypes: ["recommendation_created"],
+   *   fromCommit: 12345
+   * });
+   * 
+   * // Process events
+   * for await (const event of eventIterator) {
+   *   console.log("New event:", event);
+   * }
    */
   async *watchEvents(filter: EventFilter): AsyncIterator<Event> {
     if (!this.isConnected) {
@@ -470,7 +544,8 @@ export class RebasedAdapter implements ChainAdapter {
   /**
    * Get the current commit/block number
    * 
-   * @returns Current commit number
+   * @returns {Promise<number>} Current commit number
+   * @throws {Error} If unable to retrieve current commit
    */
   async getCurrentCommit(): Promise<number> {
     if (!this.isConnected) {
@@ -489,8 +564,8 @@ export class RebasedAdapter implements ChainAdapter {
   /**
    * Calculate the estimated fee for a transaction
    * 
-   * @param tx Transaction to estimate fee for
-   * @returns Estimated fee in smallest units (e.g., µIOTA)
+   * @param {Transaction} tx - Transaction to estimate fee for
+   * @returns {Promise<number>} Estimated fee in μMIOTA
    */
   async estimateFee(tx: Transaction): Promise<number> {
     // In a real implementation, this would use the IOTA Rebased SDK
@@ -537,10 +612,11 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Connect to the blockchain network
+   * Connect to the IOTA Rebased blockchain network
    * 
-   * @param options Connection options
-   * @returns Promise resolving when connected
+   * @param {Record<string, any>} [options] - Optional connection options
+   * @returns {Promise<void>} Promise that resolves when connected
+   * @throws {Error} If connection fails
    */
   async connect(options?: Record<string, any>): Promise<void> {
     try {
@@ -565,9 +641,9 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Disconnect from the blockchain network
+   * Disconnect from the IOTA Rebased blockchain network
    * 
-   * @returns Promise resolving when disconnected
+   * @returns {Promise<void>} Promise that resolves when disconnected
    */
   async disconnect(): Promise<void> {
     // Close any event subscriptions
@@ -588,7 +664,11 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Initialize wallet with seed
-   * @param seed Seed for wallet initialization
+   * 
+   * @private
+   * @param {string} seed - Seed for wallet initialization
+   * @returns {Promise<void>}
+   * @throws {Error} If wallet initialization fails
    */
   private async initializeWallet(seed: string): Promise<void> {
     try {
@@ -624,9 +704,12 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Legacy method for submitting transactions
-   * @param transaction Transaction data to submit
-   * @returns Transaction ID and metadata
+   * Submit a transaction to the IOTA Rebased blockchain (legacy method)
+   * 
+   * @param {any} transaction - Transaction data to submit
+   * @returns {Promise<any>} Transaction result
+   * @throws {Error} If transaction submission fails
+   * @deprecated Use submitTx() instead
    */
   public async submitTransaction(transaction: any): Promise<any> {
     if (!this.isConnected) {
@@ -665,10 +748,13 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Legacy method to query the current state for a given object type and ID
-   * @param objectType Type of object to query
-   * @param objectId ID of the object
-   * @returns Current state of the object
+   * Query the current state for a given object type and ID (legacy method)
+   * 
+   * @param {string} objectType - Type of object to query
+   * @param {string} objectId - ID of the object
+   * @returns {Promise<any>} Current state of the object
+   * @throws {Error} If state query fails
+   * @deprecated Use queryState() instead
    */
   public async queryObjectState(objectType: string, objectId: string): Promise<any> {
     if (!this.isConnected) {
@@ -701,11 +787,14 @@ export class RebasedAdapter implements ChainAdapter {
   }
   
   /**
-   * Query objects by type with optional filters
-   * @param objectType Type of objects to query
-   * @param filters Optional filters to apply
-   * @param pagination Pagination options
-   * @returns Array of matching objects
+   * Query objects by type with optional filters (legacy method)
+   * 
+   * @param {string} objectType - Type of objects to query
+   * @param {any} [filters] - Optional filters to apply
+   * @param {{ limit: number; offset: number }} [pagination] - Pagination options
+   * @returns {Promise<any[]>} Array of matching objects
+   * @throws {Error} If objects query fails
+   * @deprecated Use queryState() instead
    */
   public async queryObjects(
     objectType: string, 
@@ -739,10 +828,12 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Legacy method to subscribe to events
-   * @param eventType Type of events to subscribe to
-   * @param callback Function to call when events occur
-   * @returns Subscription ID
+   * Subscribe to events of a specific type (legacy method)
+   * 
+   * @param {string} eventType - Type of events to subscribe to
+   * @param {(event: any) => void} callback - Function to call when events occur
+   * @returns {string} Subscription ID
+   * @deprecated Use watchEvents() instead
    */
   public subscribeToEvents(eventType: string, callback: (event: any) => void): string {
     const subscriptionId = crypto.randomUUID();
@@ -762,8 +853,10 @@ export class RebasedAdapter implements ChainAdapter {
   }
   
   /**
-   * Unsubscribe from events
-   * @param subscriptionId ID of the subscription to cancel
+   * Unsubscribe from events (legacy method)
+   * 
+   * @param {string} subscriptionId - ID of the subscription to cancel
+   * @deprecated Use watchEvents() iterator.return() instead
    */
   public unsubscribeFromEvents(subscriptionId: string): void {
     // Implementation would remove the specific callback
@@ -772,6 +865,9 @@ export class RebasedAdapter implements ChainAdapter {
   
   /**
    * Poll for new events on the DAG
+   * 
+   * @private
+   * @returns {Promise<void>}
    */
   private async pollForEvents(): Promise<void> {
     if (!this.isConnected || this.eventSubscribers.size === 0) {
@@ -834,10 +930,12 @@ export class RebasedAdapter implements ChainAdapter {
   
   /**
    * Call a Move smart contract function
-   * @param contractAddress Address of the contract
-   * @param functionName Name of the function to call
-   * @param args Arguments for the function
-   * @returns Result of the function call
+   * 
+   * @param {string} contractAddress - Address of the contract
+   * @param {string} functionName - Name of the function to call
+   * @param {any[]} args - Arguments for the function
+   * @returns {Promise<any>} Result of the function call
+   * @throws {Error} If contract function call fails
    */
   public async callContractFunction(
     contractAddress: string,
@@ -859,7 +957,9 @@ export class RebasedAdapter implements ChainAdapter {
   
   /**
    * Get the address of the wallet account
-   * @returns Wallet address
+   * 
+   * @returns {Promise<string>} Wallet address
+   * @throws {Error} If wallet is not initialized
    */
   public async getWalletAddress(): Promise<string> {
     if (!this.wallet) {
@@ -879,7 +979,8 @@ export class RebasedAdapter implements ChainAdapter {
   
   /**
    * Check the connection status
-   * @returns Connection status
+   * 
+   * @returns {boolean} Connection status
    */
   public isConnectedToNode(): boolean {
     return this.isConnected;
@@ -889,8 +990,10 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Get the contract type from the payload
-   * @param payload Transaction payload
-   * @returns Contract type key
+   * 
+   * @private
+   * @param {any} payload - Transaction payload
+   * @returns {keyof RebasedConfig['contractAddresses']} Contract type key
    */
   private getContractTypeFromPayload(payload: any): keyof RebasedConfig['contractAddresses'] {
     // Determine the contract based on payload fields
@@ -912,8 +1015,11 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Get the contract type from an object type
-   * @param objectType Object type
-   * @returns Contract type key
+   * 
+   * @private
+   * @param {string} objectType - Object type
+   * @returns {keyof RebasedConfig['contractAddresses']} Contract type key
+   * @throws {Error} If object type is unknown
    */
   private getContractTypeFromObjectType(objectType: string): keyof RebasedConfig['contractAddresses'] {
     switch (objectType.toLowerCase()) {
@@ -938,8 +1044,11 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Get the contract type from an event type
-   * @param eventType Event type
-   * @returns Contract type key
+   * 
+   * @private
+   * @param {string} eventType - Event type
+   * @returns {keyof RebasedConfig['contractAddresses']} Contract type key
+   * @throws {Error} If event type is unknown
    */
   private getContractTypeFromEventType(eventType: string): keyof RebasedConfig['contractAddresses'] {
     if (eventType.includes('recommendation')) {
@@ -959,8 +1068,10 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Format query arguments based on the query
-   * @param query State query
-   * @returns Formatted arguments
+   * 
+   * @private
+   * @param {StateQuery} query - State query
+   * @returns {any[]} Formatted arguments
    */
   private formatQueryArgs(query: StateQuery): any[] {
     const args: any[] = [];
@@ -999,8 +1110,10 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Get transaction type from payload
-   * @param payload Transaction payload
-   * @returns Transaction type
+   * 
+   * @private
+   * @param {any} payload - Transaction payload
+   * @returns {string} Transaction type
    */
   private getTxTypeFromPayload(payload: any): string {
     if (payload.type) {
@@ -1026,9 +1139,11 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Build a native transaction for the IOTA Rebased blockchain
-   * @param tx Transaction in standard format
-   * @param contractAddress The contract address to call
-   * @returns The built transaction in native format
+   * 
+   * @private
+   * @param {Transaction} tx - Transaction in standard format
+   * @param {string} contractAddress - The contract address to call
+   * @returns {Promise<any>} The built transaction in native format
    */
   private async buildNativeTransaction(tx: Transaction, contractAddress: string): Promise<any> {
     // Get the tx type
@@ -1064,8 +1179,10 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Get the method name for a transaction type
-   * @param txType The transaction type
-   * @returns The method name
+   * 
+   * @private
+   * @param {string} txType - The transaction type
+   * @returns {string} The method name
    */
   private getTxMethodName(txType: string): string {
     // Map transaction type to method name
@@ -1087,9 +1204,11 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Format transaction arguments based on type
-   * @param txType Transaction type
-   * @param payload Transaction payload
-   * @returns Formatted arguments
+   * 
+   * @private
+   * @param {string} txType - Transaction type
+   * @param {any} payload - Transaction payload
+   * @returns {any[]} Formatted arguments
    */
   private formatTxArgs(txType: string, payload: any): any[] {
     // Extract the actual data from the payload
@@ -1157,9 +1276,11 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Sign a transaction
-   * @param transaction The transaction to sign
-   * @param senderOverride Override the sender address
-   * @returns The signed transaction
+   * 
+   * @private
+   * @param {any} transaction - The transaction to sign
+   * @param {string} [senderOverride] - Override the sender address
+   * @returns {Promise<any>} The signed transaction
    */
   private async signTransaction(transaction: any, senderOverride?: string): Promise<any> {
     // Determine which private key to use
@@ -1184,8 +1305,11 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Wait for a transaction to be confirmed
-   * @param txId The transaction ID
-   * @returns Promise that resolves when the transaction is confirmed
+   * 
+   * @private
+   * @param {string} txId - The transaction ID
+   * @returns {Promise<void>} Promise that resolves when the transaction is confirmed
+   * @throws {Error} If confirmation fails or times out
    */
   private async waitForTransactionConfirmation(txId: string): Promise<void> {
     const maxAttempts = 10;
@@ -1220,8 +1344,10 @@ export class RebasedAdapter implements ChainAdapter {
 
   /**
    * Deserialize data from Move VM
-   * @param data The data to deserialize
-   * @returns Deserialized data
+   * 
+   * @private
+   * @param {any} data - The data to deserialize
+   * @returns {any} Deserialized data
    */
   private deserializeFromMoveVM(data: any): any {
     if (typeof data === 'string') {
@@ -1258,9 +1384,6 @@ export class RebasedAdapter implements ChainAdapter {
       return result;
     } else {
       return data;
-    }
-  }
-}
     }
   }
 }
