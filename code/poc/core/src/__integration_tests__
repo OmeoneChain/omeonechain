@@ -1,0 +1,10 @@
+code/poc/core/src/__integration_tests__/
+├── rebased-adapter/
+│   ├── recommendation-flow.test.ts
+│   ├── token-flow.test.ts
+│   ├── reputation-flow.test.ts
+│   ├── governance-flow.test.ts
+│   └── setup.ts
+└── test-utils/
+    ├── mock-data.ts
+    └── test-helpers.ts
