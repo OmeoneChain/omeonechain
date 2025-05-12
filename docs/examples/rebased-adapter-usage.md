@@ -39,6 +39,9 @@ const adapter = new RebasedAdapter({
     timeoutMs: 30000
   }
 });
+
+### Using the Legacy Constructor
+
 import { RebasedAdapter } from '../adapters/rebased-adapter';
 
 // Create adapter with simple parameters (legacy)
@@ -47,6 +50,9 @@ const adapter = new RebasedAdapter(
   'your-api-key', // optional
   'your-seed' // optional
 );
+
+### Using the Adapter Factory
+
 import { AdapterFactory, AdapterType } from '../adapters/adapter-factory';
 
 // Get the singleton instance
@@ -65,6 +71,10 @@ const adapter = factory.createAdapter({
 // Set as active adapter
 await factory.setActiveAdapter(AdapterType.REBASED);
 
+### Connecting and Disconnecting
+
+Always connect before using the adapter:
+
 // Connect to the blockchain
 await adapter.connect();
 
@@ -78,6 +88,10 @@ console.log('Chain ID:', chainId);
 
 // When done, disconnect
 await adapter.disconnect();
+
+### Submitting Transactions
+
+##Submitting a Recommendation
 
 const result = await adapter.submitTx({
   sender: 'your-address',
@@ -114,6 +128,8 @@ const result = await adapter.submitTx({
 console.log('Transaction submitted:', result.id);
 console.log('Status:', result.status);
 
+## Transferring Tokens
+
 const result = await adapter.submitTx({
   sender: 'your-address',
   payload: {
@@ -128,6 +144,8 @@ const result = await adapter.submitTx({
 });
 
 console.log('Token transfer:', result.id);
+
+## Submitting a Governance Proposal
 
 const result = await adapter.submitTx({
   sender: 'your-address',
@@ -148,6 +166,10 @@ const result = await adapter.submitTx({
 
 console.log('Proposal submitted:', result.id);
 
+### Querying State
+
+## Querying Recommendations
+
 // Query recommendations by category
 const restaurantRecommendations = await adapter.queryState({
   objectType: 'recommendation',
@@ -167,6 +189,8 @@ const restaurantRecommendations = await adapter.queryState({
 console.log(`Found ${restaurantRecommendations.total} restaurant recommendations:`);
 console.log(restaurantRecommendations.results);
 
+## Querying User Reputation
+
 // Query a specific user's reputation
 const userReputation = await adapter.queryState({
   objectType: 'reputation',
@@ -181,8 +205,14 @@ if (userReputation.results.length > 0) {
   console.log('User not found');
 }
 
+## Getting Current Commit
+
 const currentCommit = await adapter.getCurrentCommit();
 console.log('Current commit number:', currentCommit);
+
+### Working with Events
+
+## Watching for Events with Async Iterator
 
 // Watch for recommendation creation events
 const eventIterator = await adapter.watchEvents({
@@ -217,6 +247,8 @@ processEvents();
 // Later, when you want to stop watching events
 await eventIterator.return?.();
 
+## Legacy Event Subscription
+
 // Subscribe to recommendation creation events (legacy method)
 const subscriptionId = adapter.subscribeToEvents('recommendation_created', (event) => {
   console.log('Event received:', event);
@@ -224,6 +256,10 @@ const subscriptionId = adapter.subscribeToEvents('recommendation_created', (even
 
 // Later, unsubscribe
 adapter.unsubscribeFromEvents(subscriptionId);
+
+### Advanced Usage
+
+## Esimating Transaction Fees
 
 const tx = {
   sender: 'your-address',
@@ -238,6 +274,8 @@ const tx = {
 const estimatedFee = await adapter.estimateFee(tx);
 console.log('Estimated fee:', estimatedFee, 'µMIOTA');
 
+## Calling Contract Functions Directly
+
 const result = await adapter.callContractFunction(
   '0x4f6d656f6e654368e4b8bce8a18de6bd8a8e5ddb', // contract address
   'get_recommendation_count',                    // function name
@@ -245,6 +283,8 @@ const result = await adapter.callContractFunction(
 );
 
 console.log('Restaurant recommendation count:', result);
+
+## Using Sponsor Wallet for Fee Subsidization
 
 // Create adapter with sponsor wallet configuration
 const adapter = new RebasedAdapter({
@@ -270,6 +310,9 @@ const result = await adapter.submitTx({
     sponsorWallet: 'sponsor-address' // This will trigger use of the sponsor wallet
   }
 });
+
+## Error Handling
+
 try {
   const result = await adapter.submitTx({
     // ... transaction data
