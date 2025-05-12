@@ -205,3 +205,136 @@ if (migrationSuccess) {
 } else {
   console.error('Migration failed');
 }
+
+### Data Migration Considerations
+
+When migrating between adapters, consider how to handle existing data:
+
+1. State Snapshot
+Create a snapshot of the current state from the source adapter:
+
+// Capture state from EVM adapter
+const recommendations = await evmAdapter.queryState({
+  objectType: 'recommendation'
+});
+
+const reputations = await evmAdapter.queryState({
+  objectType: 'reputation'
+});
+
+// Store snapshots
+const stateSnapshot = {
+  timestamp: Date.now(),
+  recommendations: recommendations.results,
+  reputations: reputations.results
+};
+
+// Optionally, export to file
+const fs = require('fs');
+fs.writeFileSync(
+  'state_snapshot.json',
+  JSON.stringify(stateSnapshot, null, 2)
+);
+
+2. Merkle Proofs
+For verifiable migrations, consider creating Merkle proofs of the state:
+
+import { MerkleTree } from 'merkletreejs';
+import { keccak256 } from 'ethereumjs-util';
+
+// Create leaves from recommendation IDs and hashes
+const leaves = recommendations.results.map(rec => 
+  keccak256(Buffer.from(rec.id + rec.contentHash))
+);
+
+// Create Merkle tree
+const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+const root = tree.getHexRoot();
+
+console.log('State Merkle root:', root);
+
+3. Progressive Migration
+Consider a phased migration approach:
+
+Deploy contracts on both chains
+Run both adapters in parallel
+Write to both chains during a transition period
+Validate state consistency between chains
+Switch reading from old to new chain
+Complete the migration by stopping writes to the old chain
+
+### Troubleshooting
+##Connection Issues
+If you encounter connection problems:
+
+try {
+  await adapter.connect();
+} catch (error) {
+  console.error('Connection error:', error.message);
+  
+  // Check node URL
+  console.log('Using node URL:', adapter.nodeUrl);
+  
+  // Try alternative node
+  adapter = new RebasedAdapter({
+    ...config,
+    nodeUrl: 'https://alternative-node.rebased.iota.org'
+  });
+  
+  await adapter.connect();
+}
+## Transaction Failures
+For transaction failures:
+const result = await adapter.submitTx(tx);
+
+if (result.status === 'failed') {
+  console.error('Transaction failed:', result.error);
+  
+  // Retry with higher fee if appropriate
+  if (result.error.includes('insufficient fee')) {
+    const newTx = {
+      ...tx,
+      feeOptions: {
+        maxFee: tx.feeOptions?.maxFee * 2 || 100
+      }
+    };
+    
+    const retryResult = await adapter.submitTx(newTx);
+    console.log('Retry result:', retryResult.status);
+  }
+}
+## Event Handling Issues
+For event subscription issues:
+
+// If the event iterator is not receiving events
+const eventIterator = await adapter.watchEvents({
+  eventTypes: ['recommendation_created']
+});
+
+// Create a timeout for event checking
+let eventReceived = false;
+setTimeout(() => {
+  if (!eventReceived) {
+    console.warn('No events received after 60 seconds');
+    
+    // Check current commit
+    adapter.getCurrentCommit().then(commit => {
+      console.log('Current commit:', commit);
+      
+      // Adjust event filter to start from earlier commit
+      adapter.watchEvents({
+        eventTypes: ['recommendation_created'],
+        fromCommit: Math.max(0, commit - 100) // Go back 100 commits
+      });
+    });
+  }
+}, 60000);
+
+// Process events
+for await (const event of eventIterator) {
+  eventReceived = true;
+  console.log('Event received:', event);
+}
+
+For more assistance with migration issues, please contact the development team or refer to the IOTA Rebased documentation.
+
