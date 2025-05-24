@@ -15,14 +15,24 @@
     "clean": "rm -rf dist coverage"
   },
   "dependencies": {
+    "axios": "^1.9.0",
+    "decimal.js": "^10.5.0",
     "ipfs-http-client": "^60.0.0",
     "multiformats": "^11.0.0",
+    "uuid": "^11.1.0",
     "zod": "^3.21.4"
   },
   "devDependencies": {
+    "@iota/crypto.js": "^1.8.6",
+    "@iota/wallet": "^2.0.3-rc.47",
     "@types/jest": "^29.5.3",
+    "@types/nock": "^10.0.3",
     "@types/node": "^18.17.1",
+    "@types/supertest": "^6.0.3",
+    "@types/uuid": "^10.0.0",
     "jest": "^29.6.2",
+    "nock": "^14.0.4",
+    "supertest": "^7.1.1",
     "ts-jest": "^29.1.1"
   },
   "author": "OmeoneChain Contributors",
