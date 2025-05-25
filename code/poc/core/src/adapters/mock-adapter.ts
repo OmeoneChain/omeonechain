@@ -13,6 +13,7 @@ import {
   EventFilter, 
   Event 
 } from './chain-adapter';
+import { ChainTransaction } from '../types/chain'; // Add this import
 import { Database } from 'better-sqlite3';
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
@@ -74,6 +75,9 @@ export class MockAdapter implements ChainAdapter {
   private eventEmitter: EventEmitter;
   private connected: boolean = false;
   
+  // Storage for the new transaction format
+  private chainTransactions: ChainTransaction[] = [];
+  
   /**
    * Create a new MockAdapter instance
    * 
@@ -118,6 +122,15 @@ export class MockAdapter implements ChainAdapter {
         details TEXT
       );
       
+      -- Chain transactions table (new format)
+      CREATE TABLE IF NOT EXISTS chain_transactions (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        data TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        status TEXT NOT NULL
+      );
+      
       -- Objects table
       CREATE TABLE IF NOT EXISTS objects (
         id TEXT PRIMARY KEY,
@@ -153,6 +166,95 @@ export class MockAdapter implements ChainAdapter {
   }
   
   /**
+   * NEW METHOD: Submit a transaction (required by GovernanceEngine)
+   * 
+   * @param transaction Transaction data to submit
+   * @returns Transaction ID
+   */
+  async submitTransaction(transaction: Partial<ChainTransaction>): Promise<string> {
+    this.ensureConnected();
+    
+    // Generate complete transaction
+    const fullTransaction: ChainTransaction = {
+      id: transaction.id || `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: transaction.type || 'unknown',
+      data: transaction.data || {},
+      timestamp: transaction.timestamp || new Date(),
+      status: 'confirmed'
+    };
+
+    // Store in memory
+    this.chainTransactions.push(fullTransaction);
+    
+    // Store in database
+    const stmt = this.db!.prepare(`
+      INSERT INTO chain_transactions (id, type, data, timestamp, status) 
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    
+    stmt.run(
+      fullTransaction.id,
+      fullTransaction.type,
+      JSON.stringify(fullTransaction.data),
+      fullTransaction.timestamp.toISOString(),
+      fullTransaction.status
+    );
+    
+    // Emit event for listeners
+    const event: Event = {
+      type: `transaction_${fullTransaction.type}`,
+      commitNumber: this.currentCommit++,
+      timestamp: fullTransaction.timestamp.toISOString(),
+      address: 'system',
+      data: fullTransaction.data
+    };
+    
+    this.eventEmitter.emit('event', event);
+    
+    // Record the event
+    const eventStmt = this.db!.prepare(`
+      INSERT INTO events (id, type, commit_number, timestamp, address, data) 
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    
+    eventStmt.run(
+      uuidv4(),
+      event.type,
+      event.commitNumber,
+      event.timestamp,
+      event.address,
+      JSON.stringify(event.data)
+    );
+
+    return fullTransaction.id;
+  }
+  
+  /**
+   * Get chain transactions (helper method for testing)
+   */
+  getChainTransactions(): ChainTransaction[] {
+    return [...this.chainTransactions];
+  }
+  
+  /**
+   * Get transactions by type (helper method for testing)
+   */
+  getTransactionsByType(type: string): ChainTransaction[] {
+    return this.chainTransactions.filter(tx => tx.type === type);
+  }
+  
+  /**
+   * Clear all chain transactions (helper method for testing)
+   */
+  clearChainTransactions(): void {
+    this.chainTransactions = [];
+    if (this.db) {
+      const stmt = this.db.prepare('DELETE FROM chain_transactions');
+      stmt.run();
+    }
+  }
+  
+  /**
    * Get the chain ID
    */
   async getChainId(): Promise<string> {
@@ -163,7 +265,7 @@ export class MockAdapter implements ChainAdapter {
   }
   
   /**
-   * Submit a transaction to the mock blockchain
+   * Submit a transaction to the mock blockchain (original method)
    * 
    * @param tx Transaction to submit
    * @returns Transaction result
