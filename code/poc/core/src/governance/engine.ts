@@ -1,1138 +1,830 @@
-/**
- * Governance Engine
- * 
- * Core business logic for platform governance
- * Based on Technical Specifications A.8
- */
+import { ChainAdapter } from '../adapters/chain-adapter';
+import { StorageProvider } from '../storage/storage-provider';
+import { ReputationEngine } from '../reputation/engine'; // Add this
+import { TokenEngine } from '../token/engine';           // Add this
 
-import { ChainAdapter, Transaction } from '../adapters/chain-adapter';
-import { UserReputation } from '../types/reputation';
-import { TokenBalance } from '../types/token';
-import { v4 as uuidv4 } from 'uuid';
+// ============================================================================
+// CORE GOVERNANCE TYPES & INTERFACES
+// ============================================================================
 
-/**
- * Governance proposal status
- */
+export enum ProposalType {
+  PARAMETER_CHANGE = 'parameter_change',
+  TREASURY_SPEND = 'treasury_spend',
+  PROTOCOL_UPGRADE = 'protocol_upgrade',
+  GOVERNANCE_CHANGE = 'governance_change',
+  EMERGENCY_ACTION = 'emergency_action'
+}
+
 export enum ProposalStatus {
   DRAFT = 'draft',
   ACTIVE = 'active',
   VOTING = 'voting',
-  ACCEPTED = 'accepted',
+  PASSED = 'passed',
   REJECTED = 'rejected',
-  IMPLEMENTED = 'implemented',
-  CANCELLED = 'cancelled'
+  EXECUTED = 'executed',
+  EXPIRED = 'expired',
+  VETOED = 'vetoed'
 }
 
-/**
- * Governance proposal type
- */
-export enum ProposalType {
-  PARAMETER_CHANGE = 'parameter_change',
-  FEATURE_REQUEST = 'feature_request',
-  PROTOCOL_UPGRADE = 'protocol_upgrade',
-  TREASURY_SPEND = 'treasury_spend',
-  COMMUNITY_FUND = 'community_fund',
-  OTHER = 'other'
+export enum VoteType {
+  YES = 'yes',
+  NO = 'no',
+  ABSTAIN = 'abstain'
 }
 
-/**
- * Proposal vote
- */
-export interface ProposalVote {
-  /**
-   * Proposal ID
-   */
-  proposalId: string;
-  
-  /**
-   * Voter's user ID
-   */
-  voterId: string;
-  
-  /**
-   * Vote direction (true = for, false = against)
-   */
-  voteFor: boolean;
-  
-  /**
-   * Voting weight
-   */
-  weight: number;
-  
-  /**
-   * ISO8601 timestamp
-   */
-  timestamp: string;
-  
-  /**
-   * Optional comment
-   */
-  comment?: string;
+// ============================================================================
+// ENHANCED GOVERNANCE FEATURES
+// ============================================================================
+
+export enum StakingTier {
+  EXPLORER = 'explorer',           // 25 TOK, 1 month
+  CURATOR = 'curator',             // 100 TOK, 3 months  
+  PASSPORT = 'passport',           // 500 TOK, 6 months
+  VALIDATOR_DELEGATE = 'validator_delegate' // 1000 TOK, 12 months
 }
 
-/**
- * Governance proposal
- */
-export interface Proposal {
-  /**
-   * Unique identifier
-   */
-  proposalId: string;
-  
-  /**
-   * Title of the proposal
-   */
+export interface StakingRequirement {
+  minTokens: number;
+  minDuration: number; // in days
+  trustScoreMinimum: number;
+  privileges: string[];
+}
+
+export interface GovernanceStake {
+  userId: string;
+  amount: number;
+  tier: StakingTier;
+  stakedAt: Date;
+  lockDuration: number;
+  isActive: boolean;
+}
+
+// ============================================================================
+// PROPOSAL INTERFACES
+// ============================================================================
+
+export interface BaseProposal {
+  id: string;
   title: string;
-  
-  /**
-   * Author's user ID
-   */
-  authorId: string;
-  
-  /**
-   * Proposal type
-   */
-  type: ProposalType;
-  
-  /**
-   * Detailed description
-   */
   description: string;
-  
-  /**
-   * Technical implementation details
-   */
-  implementation?: string;
-  
-  /**
-   * Current status
-   */
+  type: ProposalType;
+  author: string;
+  authorReputationAtCreation: number;
+  createdAt: Date;
+  votingStartTime: Date;
+  votingEndTime: Date;
+  executionDelay: number; // days
   status: ProposalStatus;
-  
-  /**
-   * Tokens staked to create the proposal
-   */
-  stakedAmount: number;
-  
-  /**
-   * Creation timestamp (ISO8601)
-   */
-  createdAt: string;
-  
-  /**
-   * Last update timestamp (ISO8601)
-   */
-  updatedAt: string;
-  
-  /**
-   * Voting start time (ISO8601)
-   */
-  votingStartTime?: string;
-  
-  /**
-   * Voting end time (ISO8601)
-   */
-  votingEndTime?: string;
-  
-  /**
-   * Implementation time (ISO8601)
-   */
-  implementationTime?: string;
-  
-  /**
-   * Current votes for the proposal
-   */
-  votesFor: number;
-  
-  /**
-   * Current votes against the proposal
-   */
-  votesAgainst: number;
-  
-  /**
-   * Unique voters count
-   */
-  voterCount: number;
-  
-  /**
-   * Threshold for proposal to pass (percent)
-   */
-  passThreshold: number;
-  
-  /**
-   * Tags for categorization
-   */
+  requiredQuorum: number;
+  requiredMajority: number;
+  ipfsHash?: string;
+}
+
+export interface EnhancedProposal extends BaseProposal {
+  stakingRequirements: {
+    minStakeToPropose: number;
+    minTrustScore: number;
+    requiredTier: StakingTier;
+  };
+  executionParameters: {
+    timelock: number;
+    vetoWindow: number;
+    requiresMultisig: boolean;
+    multisigThreshold: number;
+  };
+  impact: 'low' | 'medium' | 'high' | 'critical';
   tags: string[];
-  
-  /**
-   * Parameter changes for PARAMETER_CHANGE type
-   */
-  parameterChanges?: {
-    name: string;
-    currentValue: any;
-    proposedValue: any;
-  }[];
-  
-  /**
-   * Treasury spend amount for TREASURY_SPEND type
-   */
-  treasurySpendAmount?: number;
-  
-  /**
-   * Treasury spend recipient for TREASURY_SPEND type
-   */
-  treasurySpendRecipient?: string;
-  
-  /**
-   * Required multisig approvals
-   */
-  requiredApprovals: number;
-  
-  /**
-   * Current multisig approvals
-   */
-  currentApprovals: number;
-  
-  /**
-   * Multisig signers who approved
-   */
-  approvedBy: string[];
 }
 
-/**
- * Options for the governance engine
- */
-export interface GovernanceEngineOptions {
-  /**
-   * Chain ID
-   */
-  chainId?: string;
-  
-  /**
-   * Sponsor wallet for fee payments
-   */
-  sponsorWallet?: string;
-  
-  /**
-   * Multisig addresses (core developers)
-   */
-  multisigAddresses?: string[];
-  
-  /**
-   * Required multisig approvals for different proposal types
-   */
-  requiredApprovals?: Record<ProposalType, number>;
-  
-  /**
-   * Vote weight calculation method
-   */
-  voteWeightMethod?: 'geometric' | 'linear' | 'quadratic';
-  
-  /**
-   * Minimum stake required to create a proposal
-   */
-  minimumProposalStake?: number;
-  
-  /**
-   * Minimum reputation required to create a proposal
-   */
-  minimumProposalReputation?: number;
-  
-  /**
-   * Minimum voting period in days
-   */
-  minimumVotingPeriod?: number;
-  
-  /**
-   * Default pass threshold percentage
-   */
-  defaultPassThreshold?: number;
-  
-  /**
-   * Time delay before implementation in days
-   */
-  implementationTimeDelay?: number;
-  
-  /**
-   * Quorum requirement (percentage of total stake)
-   */
-  quorumRequirement?: number;
-  
-  /**
-   * Limited governance mode
-   * If true, only certain proposal types allowed
-   */
-  limitedMode?: boolean;
-  
-  /**
-   * Allowed proposal types in limited mode
-   */
-  allowedProposalTypes?: ProposalType[];
+// ============================================================================
+// VOTING INTERFACES  
+// ============================================================================
+
+export interface Vote {
+  id: string;
+  proposalId: string;
+  voter: string;
+  voteType: VoteType;
+  votingPower: number;
+  reputationAtVote: number;
+  stakeAmount: number;
+  stakingTier: StakingTier;
+  timestamp: Date;
+  reason?: string;
+  ipfsHash?: string;
 }
 
-/**
- * Default governance engine options
- */
-const DEFAULT_OPTIONS: GovernanceEngineOptions = {
-  multisigAddresses: [],
-  requiredApprovals: {
-    [ProposalType.PARAMETER_CHANGE]: 2,
-    [ProposalType.FEATURE_REQUEST]: 2,
-    [ProposalType.PROTOCOL_UPGRADE]: 3,
-    [ProposalType.TREASURY_SPEND]: 3,
-    [ProposalType.COMMUNITY_FUND]: 2,
-    [ProposalType.OTHER]: 2
-  },
-  voteWeightMethod: 'geometric',
-  minimumProposalStake: 100,
-  minimumProposalReputation: 0.4,
-  minimumVotingPeriod: 7,
-  defaultPassThreshold: 60,
-  implementationTimeDelay: 3,
-  quorumRequirement: 10,
-  limitedMode: false,
-  allowedProposalTypes: [
-    ProposalType.PARAMETER_CHANGE,
-    ProposalType.FEATURE_REQUEST,
-    ProposalType.COMMUNITY_FUND
-  ]
-};
+export interface VotingResult {
+  proposalId: string;
+  totalVotingPower: number;
+  yesVotes: number;
+  noVotes: number;
+  abstainVotes: number;
+  participationRate: number;
+  quorumReached: boolean;
+  majorityAchieved: boolean;
+  passed: boolean;
+  voterBreakdown: {
+    byTier: Record<StakingTier, { count: number; power: number }>;
+    byReputation: { high: number; medium: number; low: number };
+  };
+}
 
-/**
- * Implementation of the Governance Engine
- * Handles proposals, voting, and governance execution
- */
+// ============================================================================
+// GOVERNANCE MILESTONES
+// ============================================================================
+
+export interface GovernanceMilestone {
+  name: string;
+  description: string;
+  requirements: {
+    totalStaked?: number;
+    uniqueVoters?: number;
+    dailyActiveUsers?: number;
+    exchangeLiquidity?: number;
+    independentDApps?: number;
+    securityAudits?: number;
+  };
+  unlocks: string[];
+  achieved: boolean;
+  achievedAt?: Date;
+}
+
+// ============================================================================
+// MAIN GOVERNANCE ENGINE CLASS
+// ============================================================================
+
 export class GovernanceEngine {
-  private adapter: ChainAdapter;
-  private options: GovernanceEngineOptions;
-  private chainId: string | null = null;
+  private proposals: Map<string, EnhancedProposal> = new Map();
+  private votes: Map<string, Vote[]> = new Map(); // proposalId -> votes
+  private stakes: Map<string, GovernanceStake> = new Map(); // userId -> stake
+  private milestones: GovernanceMilestone[] = [];
   
-  /**
-   * Create a new GovernanceEngine instance
-   * 
-   * @param adapter Chain adapter for blockchain interactions
-   * @param options Engine options
-   */
-  constructor(
-    adapter: ChainAdapter,
-    options: GovernanceEngineOptions = {}
-  ) {
-    this.adapter = adapter;
-    this.options = { ...DEFAULT_OPTIONS, ...options };
-    
-    // Merge required approvals
-    if (options.requiredApprovals) {
-      this.options.requiredApprovals = {
-        ...DEFAULT_OPTIONS.requiredApprovals,
-        ...options.requiredApprovals
-      };
+  // Governance parameters
+  private readonly STAKING_TIERS: Record<StakingTier, StakingRequirement> = {
+    [StakingTier.EXPLORER]: {
+      minTokens: 25,
+      minDuration: 30,
+      trustScoreMinimum: 0.3,
+      privileges: ['comment', 'vote_basic']
+    },
+    [StakingTier.CURATOR]: {
+      minTokens: 100, 
+      minDuration: 90,
+      trustScoreMinimum: 0.4,
+      privileges: ['comment', 'vote_basic', 'propose_basic', 'list_royalties']
+    },
+    [StakingTier.PASSPORT]: {
+      minTokens: 500,
+      minDuration: 180,
+      trustScoreMinimum: 0.5,
+      privileges: ['comment', 'vote_basic', 'propose_basic', 'ai_discount']
+    },
+    [StakingTier.VALIDATOR_DELEGATE]: {
+      minTokens: 1000,
+      minDuration: 365,
+      trustScoreMinimum: 0.6,
+      privileges: ['comment', 'vote_enhanced', 'propose_advanced', 'run_indexer', 'multisig_candidate']
     }
+  };
+
+constructor(
+  private chainAdapter: ChainAdapter,
+  private storageProvider: StorageProvider,
+  private reputationEngine: ReputationEngine, // Remove 'any'
+  private tokenEngine: TokenEngine             // Remove 'any'
+) {
+    this.initializeGovernanceMilestones();
   }
-  
-  /**
-   * Initialize the engine
-   * 
-   * @returns Promise resolving when initialized
-   */
-  async initialize(): Promise<void> {
-    // Get chain ID from adapter or options
-    this.chainId = this.options.chainId || await this.adapter.getChainId();
-  }
-  
-  /**
-   * Create a new governance proposal
-   * 
-   * @param authorId Author's user ID
-   * @param title Proposal title
-   * @param type Proposal type
-   * @param description Detailed description
-   * @param implementation Technical implementation details
-   * @param options Additional proposal options
-   * @returns Created proposal
-   */
-  async createProposal(
-    authorId: string,
-    title: string,
-    type: ProposalType,
-    description: string,
-    implementation?: string,
-    options?: {
-      tags?: string[];
-      parameterChanges?: {
-        name: string;
-        currentValue: any;
-        proposedValue: any;
-      }[];
-      treasurySpendAmount?: number;
-      treasurySpendRecipient?: string;
-      votingPeriod?: number;
-      passThreshold?: number;
-    }
-  ): Promise<Proposal> {
-    // Check if governance is in limited mode
-    if (
-      this.options.limitedMode &&
-      this.options.allowedProposalTypes &&
-      !this.options.allowedProposalTypes.includes(type)
-    ) {
-      throw new Error(`Proposal type ${type} not allowed in limited governance mode`);
-    }
-    
-    // Validate author has sufficient reputation
-    const authorReputation = await this.getAuthorReputation(authorId);
-    
-    if (authorReputation.reputationScore < (this.options.minimumProposalReputation || 0.4)) {
-      throw new Error(`Insufficient reputation to create proposal: ${authorReputation.reputationScore} < ${this.options.minimumProposalReputation}`);
-    }
-    
-    // Validate author has sufficient stake
-    const authorBalance = await this.getAuthorBalance(authorId);
-    const minimumStake = this.options.minimumProposalStake || 100;
-    
-    if (authorBalance.available < minimumStake) {
-      throw new Error(`Insufficient token balance to create proposal: ${authorBalance.available} < ${minimumStake}`);
-    }
-    
-    // Set up proposal parameters
-    const proposalId = uuidv4();
-    const timestamp = new Date().toISOString();
-    const minimumVotingPeriod = this.options.minimumVotingPeriod || 7;
-    const votingPeriod = Math.max(options?.votingPeriod || minimumVotingPeriod, minimumVotingPeriod);
-    
-    // Calculate voting times
-    const votingStartTime = new Date();
-    votingStartTime.setDate(votingStartTime.getDate() + 1); // 1 day for discussion
-    
-    const votingEndTime = new Date(votingStartTime);
-    votingEndTime.setDate(votingEndTime.getDate() + votingPeriod);
-    
-    // Determine required approvals
-    const requiredApprovals = this.options.requiredApprovals?.[type] || 2;
-    
-    // Create proposal
-    const proposal: Proposal = {
-      proposalId,
-      title,
-      authorId,
-      type,
-      description,
-      implementation,
-      status: ProposalStatus.DRAFT,
-      stakedAmount: minimumStake,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      votingStartTime: votingStartTime.toISOString(),
-      votingEndTime: votingEndTime.toISOString(),
-      votesFor: 0,
-      votesAgainst: 0,
-      voterCount: 0,
-      passThreshold: options?.passThreshold || (this.options.defaultPassThreshold || 60),
-      tags: options?.tags || [],
-      parameterChanges: options?.parameterChanges,
-      treasurySpendAmount: options?.treasurySpendAmount,
-      treasurySpendRecipient: options?.treasurySpendRecipient,
-      requiredApprovals,
-      currentApprovals: 0,
-      approvedBy: []
-    };
-    
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: authorId,
-      payload: {
-        objectType: 'governance_proposal',
-        action: 'create',
-        data: proposal
+
+  // ============================================================================
+  // INITIALIZATION & SETUP
+  // ============================================================================
+
+  private initializeGovernanceMilestones(): void {
+    this.milestones = [
+      {
+        name: 'Economic Stake',
+        description: '10% of total supply staked and 5,000 distinct voters',
+        requirements: {
+          totalStaked: 1_000_000_000, // 10% of 10B tokens
+          uniqueVoters: 5000
+        },
+        unlocks: ['Full treasury spend authority'],
+        achieved: false
       },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
-    
-    // Stake tokens
-    await this.stakeProposalTokens(authorId, proposalId, minimumStake);
-    
-    return proposal;
-  }
-  
-  /**
-   * Get a proposal by ID
-   * 
-   * @param proposalId Proposal ID
-   * @returns Proposal with the specified ID
-   */
-  async getProposalById(proposalId: string): Promise<Proposal> {
-    // Query the blockchain for the proposal
-    const result = await this.adapter.queryState<Proposal>({
-      objectType: 'governance_proposal',
-      filter: {
-        proposalId
-      }
-    });
-    
-    if (result.results.length === 0) {
-      throw new Error(`Proposal not found: ${proposalId}`);
-    }
-    
-    return result.results[0];
-  }
-  
-  /**
-   * Query proposals based on filters
-   * 
-   * @param filter Filter criteria
-   * @param pagination Pagination options
-   * @returns Proposals matching the filter
-   */
-  async queryProposals(
-    filter: {
-      status?: ProposalStatus;
-      type?: ProposalType;
-      authorId?: string;
-      tags?: string[];
-    } = {},
-    pagination: { offset: number; limit: number } = { offset: 0, limit: 20 }
-  ): Promise<{
-    proposals: Proposal[];
-    total: number;
-    pagination: {
-      offset: number;
-      limit: number;
-      hasMore: boolean;
-    };
-  }> {
-    // Query the blockchain for proposals
-    const result = await this.adapter.queryState<Proposal>({
-      objectType: 'governance_proposal',
-      filter: {
-        ...(filter.status && { status: filter.status }),
-        ...(filter.type && { type: filter.type }),
-        ...(filter.authorId && { authorId: filter.authorId }),
-        ...(filter.tags && { tags: filter.tags })
+      {
+        name: 'Network Scale', 
+        description: '100k daily active wallets and $10M exchange liquidity',
+        requirements: {
+          dailyActiveUsers: 100_000,
+          exchangeLiquidity: 10_000_000
+        },
+        unlocks: ['Fee parameters control', 'Burn split adjustment'],
+        achieved: false
       },
-      sort: {
-        field: 'updatedAt',
-        direction: 'desc'
-      },
-      pagination
-    });
-    
-    return {
-      proposals: result.results,
-      total: result.total,
-      pagination: {
-        offset: pagination.offset,
-        limit: pagination.limit,
-        hasMore: pagination.offset + result.results.length < result.total
+      {
+        name: 'Ecosystem Maturity',
+        description: '5 independent dApps live and 2 external audits completed',
+        requirements: {
+          independentDApps: 5,
+          securityAudits: 2
+        },
+        unlocks: ['Multisig signer management', 'Protocol parameter control'],
+        achieved: false
       }
-    };
+    ];
   }
-  
-  /**
-   * Update a proposal's status
-   * 
-   * @param proposalId Proposal ID
-   * @param newStatus New status
-   * @param updaterId User making the update
-   * @returns Updated proposal
-   */
-  async updateProposalStatus(
-    proposalId: string,
-    newStatus: ProposalStatus,
-    updaterId: string
-  ): Promise<Proposal> {
-    // Get existing proposal
-    const proposal = await this.getProposalById(proposalId);
-    
-    // Validate status transition
-    this.validateStatusTransition(proposal.status, newStatus, updaterId, proposal);
-    
-    // Update proposal
-    const updatedProposal: Proposal = {
-      ...proposal,
-      status: newStatus,
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Add implementation time if moving to ACCEPTED
-    if (newStatus === ProposalStatus.ACCEPTED) {
-      const implementationDelay = this.options.implementationTimeDelay || 3;
-      const implementationTime = new Date();
-      implementationTime.setDate(implementationTime.getDate() + implementationDelay);
-      updatedProposal.implementationTime = implementationTime.toISOString();
+
+  // ============================================================================
+  // STAKING MANAGEMENT
+  // ============================================================================
+
+  async stakeForGovernance(
+    userId: string, 
+    amount: number, 
+    lockDuration: number
+  ): Promise<GovernanceStake> {
+    // Validate user has sufficient tokens
+    const userBalance = await this.tokenEngine.getBalance(userId);
+    if (userBalance < amount) {
+      throw new Error('Insufficient token balance for staking');
     }
+
+    // Validate user's trust score
+    const trustScore = await this.reputationEngine.getTrustScore(userId);
     
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: updaterId,
-      payload: {
-        objectType: 'governance_proposal',
-        action: 'update',
-        data: updatedProposal
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
+    // Determine tier based on amount and duration
+    const tier = this.determineTier(amount, lockDuration, trustScore);
+    const tierRequirements = this.STAKING_TIERS[tier];
+    
+    if (trustScore < tierRequirements.trustScoreMinimum) {
+      throw new Error(`Trust score ${trustScore} insufficient for ${tier} tier`);
+    }
+
+    // Create stake
+    const stake: GovernanceStake = {
+      userId,
+      amount,
+      tier,
+      stakedAt: new Date(),
+      lockDuration,
+      isActive: true
+    };
+
+    // Lock tokens via token engine
+    await this.tokenEngine.lockTokens(userId, amount, lockDuration);
+    
+    // Store stake
+    this.stakes.set(userId, stake);
+    
+    // Record on-chain
+    await this.chainAdapter.submitTransaction({
+      type: 'governance_stake',
+      data: stake
     });
-    
-    return updatedProposal;
+
+    return stake;
   }
-  
-  /**
-   * Vote on a proposal
-   * 
-   * @param proposalId Proposal ID
-   * @param voterId Voter's user ID
-   * @param voteFor Whether to vote for (true) or against (false)
-   * @param comment Optional comment
-   * @returns Recorded vote and updated proposal
-   */
-  async voteOnProposal(
-    proposalId: string,
-    voterId: string,
-    voteFor: boolean,
-    comment?: string
-  ): Promise<{ vote: ProposalVote; proposal: Proposal }> {
-    // Get existing proposal
-    const proposal = await this.getProposalById(proposalId);
-    
-    // Validate proposal is in voting state
-    if (proposal.status !== ProposalStatus.VOTING) {
-      throw new Error(`Cannot vote on proposal with status: ${proposal.status}`);
+
+  private determineTier(amount: number, duration: number, trustScore: number): StakingTier {
+    // Check in descending order of requirements
+    for (const [tier, requirements] of Object.entries(this.STAKING_TIERS).reverse()) {
+      if (amount >= requirements.minTokens && 
+          duration >= requirements.minDuration && 
+          trustScore >= requirements.trustScoreMinimum) {
+        return tier as StakingTier;
+      }
     }
-    
-    // Check if voting period is active
+    return StakingTier.EXPLORER;
+  }
+
+  async unstakeTokens(userId: string): Promise<void> {
+    const stake = this.stakes.get(userId);
+    if (!stake) {
+      throw new Error('No active stake found');
+    }
+
+    const lockEndTime = new Date(stake.stakedAt.getTime() + stake.lockDuration * 24 * 60 * 60 * 1000);
     const now = new Date();
-    const votingStart = new Date(proposal.votingStartTime || now);
-    const votingEnd = new Date(proposal.votingEndTime || now);
     
-    if (now < votingStart) {
-      throw new Error(`Voting has not started yet. Starts at: ${proposal.votingStartTime}`);
-    }
-    
-    if (now > votingEnd) {
-      throw new Error(`Voting has ended. Ended at: ${proposal.votingEndTime}`);
-    }
-    
-    // Check if user has already voted
-    const existingVote = await this.getUserVote(proposalId, voterId);
-    if (existingVote) {
-      throw new Error(`User has already voted on this proposal`);
-    }
-    
-    // Calculate vote weight
-    const voteWeight = await this.calculateVoteWeight(voterId);
-    
-    // Create vote
-    const timestamp = new Date().toISOString();
-    const vote: ProposalVote = {
-      proposalId,
-      voterId,
-      voteFor,
-      weight: voteWeight,
-      timestamp,
-      comment
-    };
-    
-    // Submit vote transaction
-    await this.adapter.submitTx({
-      sender: voterId,
-      payload: {
-        objectType: 'proposal_vote',
-        action: 'vote',
-        data: vote
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
-    
-    // Update proposal vote counts
-    const updatedProposal: Proposal = {
-      ...proposal,
-      votesFor: voteFor ? proposal.votesFor + voteWeight : proposal.votesFor,
-      votesAgainst: voteFor ? proposal.votesAgainst : proposal.votesAgainst + voteWeight,
-      voterCount: proposal.voterCount + 1,
-      updatedAt: timestamp
-    };
-    
-    // Submit proposal update transaction
-    await this.adapter.submitTx({
-      sender: this.options.sponsorWallet || 'SYSTEM',
-      payload: {
-        objectType: 'governance_proposal',
-        action: 'update',
-        data: updatedProposal
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
-    
-    return { vote, proposal: updatedProposal };
-  }
-  
-  /**
-   * Get a user's vote on a proposal
-   * 
-   * @param proposalId Proposal ID
-   * @param voterId Voter's user ID
-   * @returns Vote if found, null otherwise
-   */
-  async getUserVote(
-    proposalId: string,
-    voterId: string
-  ): Promise<ProposalVote | null> {
-    // Query the blockchain for the vote
-    const result = await this.adapter.queryState<ProposalVote>({
-      objectType: 'proposal_vote',
-      filter: {
-        proposalId,
-        voterId
-      }
-    });
-    
-    return result.results.length > 0 ? result.results[0] : null;
-  }
-  
-  /**
-   * Get all votes for a proposal
-   * 
-   * @param proposalId Proposal ID
-   * @param pagination Pagination options
-   * @returns Votes for the proposal
-   */
-  async getProposalVotes(
-    proposalId: string,
-    pagination: { offset: number; limit: number } = { offset: 0, limit: 50 }
-  ): Promise<{
-    votes: ProposalVote[];
-    total: number;
-    pagination: {
-      offset: number;
-      limit: number;
-      hasMore: boolean;
-    };
-  }> {
-    // Query the blockchain for votes
-    const result = await this.adapter.queryState<ProposalVote>({
-      objectType: 'proposal_vote',
-      filter: {
-        proposalId
-      },
-      sort: {
-        field: 'timestamp',
-        direction: 'desc'
-      },
-      pagination
-    });
-    
-    return {
-      votes: result.results,
-      total: result.total,
-      pagination: {
-        offset: pagination.offset,
-        limit: pagination.limit,
-        hasMore: pagination.offset + result.results.length < result.total
-      }
-    };
-  }
-  
-  /**
-   * Add a multisig approval to a proposal
-   * 
-   * @param proposalId Proposal ID
-   * @param signerId Signer's user ID
-   * @returns Updated proposal
-   */
-  async approveProposal(
-    proposalId: string,
-    signerId: string
-  ): Promise<Proposal> {
-    // Get existing proposal
-    const proposal = await this.getProposalById(proposalId);
-    
-    // Validate signer is in multisig list
-    if (!this.options.multisigAddresses?.includes(signerId)) {
-      throw new Error(`Signer is not authorized for multisig approvals`);
-    }
-    
-    // Check if signer has already approved
-    if (proposal.approvedBy.includes(signerId)) {
-      throw new Error(`Signer has already approved this proposal`);
-    }
-    
-    // Update proposal
-    const updatedProposal: Proposal = {
-      ...proposal,
-      currentApprovals: proposal.currentApprovals + 1,
-      approvedBy: [...proposal.approvedBy, signerId],
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Submit transaction
-    await this.adapter.submitTx({
-      sender: signerId,
-      payload: {
-        objectType: 'governance_proposal',
-        action: 'approve',
-        data: updatedProposal
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
-    
-    // If all required approvals met, move to implementation
-    if (updatedProposal.currentApprovals >= updatedProposal.requiredApprovals &&
-        updatedProposal.status === ProposalStatus.ACCEPTED) {
-      return this.updateProposalStatus(proposalId, ProposalStatus.IMPLEMENTED, signerId);
-    }
-    
-    return updatedProposal;
-  }
-  
-  /**
-   * Check if a proposal has passed voting and update status accordingly
-   * 
-   * @param proposalId Proposal ID
-   * @param checkerId User ID triggering the check
-   * @returns Updated proposal
-   */
-  async checkProposalVotingResults(
-    proposalId: string,
-    checkerId: string
-  ): Promise<Proposal> {
-    // Get existing proposal
-    const proposal = await this.getProposalById(proposalId);
-    
-    // Validate proposal is in voting state
-    if (proposal.status !== ProposalStatus.VOTING) {
-      throw new Error(`Cannot check results for proposal with status: ${proposal.status}`);
-    }
-    
-    // Check if voting period has ended
-    const now = new Date();
-    const votingEnd = new Date(proposal.votingEndTime || now);
-    
-    if (now < votingEnd) {
-      throw new Error(`Voting is still in progress. Ends at: ${proposal.votingEndTime}`);
-    }
-    
-    // Calculate result
-    const totalVotes = proposal.votesFor + proposal.votesAgainst;
-    const forPercentage = totalVotes > 0 ? (proposal.votesFor / totalVotes) * 100 : 0;
-    
-    // Check quorum
-    const totalStake = await this.getTotalStake();
-    const quorumPercentage = totalVotes / totalStake * 100;
-    const quorumMet = quorumPercentage >= (this.options.quorumRequirement || 10);
-    
-    // Determine new status
-    let newStatus: ProposalStatus;
-    if (!quorumMet) {
-      newStatus = ProposalStatus.REJECTED;
-    } else if (forPercentage >= proposal.passThreshold) {
-      newStatus = ProposalStatus.ACCEPTED;
+    if (now < lockEndTime) {
+      // Early exit penalty (5% burn)
+      const penalty = Math.floor(stake.amount * 0.05);
+      await this.tokenEngine.burnTokens(penalty);
+      await this.tokenEngine.unlockTokens(userId, stake.amount - penalty);
     } else {
-      newStatus = ProposalStatus.REJECTED;
+      // Normal unlock
+      await this.tokenEngine.unlockTokens(userId, stake.amount);
     }
-    
-    // Update proposal status
-    return this.updateProposalStatus(proposalId, newStatus, checkerId);
+
+    stake.isActive = false;
+    await this.chainAdapter.submitTransaction({
+      type: 'governance_unstake',
+      data: { userId, amount: stake.amount }
+    });
   }
-  
-  /**
-   * Get active proposal count by type
-   * 
-   * @param type Proposal type
-   * @returns Number of active proposals
-   */
-  async getActiveProposalCount(type?: ProposalType): Promise<number> {
-    // Query the blockchain for active proposals
-    const result = await this.adapter.queryState<Proposal>({
-      objectType: 'governance_proposal',
-      filter: {
-        status: ProposalStatus.ACTIVE,
-        ...(type && { type })
-      }
-    });
+
+  // ============================================================================
+  // PROPOSAL MANAGEMENT
+  // ============================================================================
+
+  async createProposal(proposal: Omit<EnhancedProposal, 'id' | 'createdAt' | 'status'>): Promise<string> {
+    // Validate proposer eligibility
+    const stake = this.stakes.get(proposal.author);
+    if (!stake || !stake.isActive) {
+      throw new Error('Must have active stake to create proposals');
+    }
+
+    const trustScore = await this.reputationEngine.getTrustScore(proposal.author);
+    if (trustScore < proposal.stakingRequirements.minTrustScore) {
+      throw new Error('Insufficient trust score for proposal creation');
+    }
+
+    // Generate proposal ID
+    const proposalId = this.generateProposalId();
     
-    return result.total;
-  }
-  
-  /**
-   * Retrieve recent governance activity
-   * 
-   * @param limit Maximum number of activities to return
-   * @returns Recent governance activities
-   */
-  async getRecentActivity(limit: number = 10): Promise<{
-    proposals: Proposal[];
-    votes: ProposalVote[];
-  }> {
-    // Query recent proposals
-    const proposalsResult = await this.adapter.queryState<Proposal>({
-      objectType: 'governance_proposal',
-      sort: {
-        field: 'updatedAt',
-        direction: 'desc'
-      },
-      pagination: {
-        offset: 0,
-        limit
-      }
-    });
-    
-    // Query recent votes
-    const votesResult = await this.adapter.queryState<ProposalVote>({
-      objectType: 'proposal_vote',
-      sort: {
-        field: 'timestamp',
-        direction: 'desc'
-      },
-      pagination: {
-        offset: 0,
-        limit
-      }
-    });
-    
-    return {
-      proposals: proposalsResult.results,
-      votes: votesResult.results
+    // Create full proposal
+    const fullProposal: EnhancedProposal = {
+      ...proposal,
+      id: proposalId,
+      createdAt: new Date(),
+      status: ProposalStatus.DRAFT,
+      authorReputationAtCreation: trustScore
     };
-  }
-  
-  /**
-   * Calculate a user's voting weight
-   * 
-   * @private
-   * @param userId User ID
-   * @returns Calculated voting weight
-   */
-  private async calculateVoteWeight(userId: string): Promise<number> {
-    // Get user's reputation and token balance
-    const reputation = await this.getAuthorReputation(userId);
-    const balance = await this.getAuthorBalance(userId);
-    
-    // Apply selected weight calculation method
-    const weightMethod = this.options.voteWeightMethod || 'geometric';
-    let weight: number;
-    
-    switch (weightMethod) {
-      case 'geometric':
-        // Geometric mean of reputation and stake
-        weight = Math.sqrt(reputation.reputationScore * (balance.staked + 1));
-        break;
-      
-      case 'linear':
-        // Linear combination
-        weight = (0.5 * reputation.reputationScore) + (0.5 * (balance.staked / 100));
-        break;
-      
-      case 'quadratic':
-        // Quadratic voting (square root of stake)
-        weight = Math.sqrt(balance.staked) * reputation.reputationScore;
-        break;
-      
-      default:
-        weight = 1; // Default weight
+
+    // Store proposal
+    this.proposals.set(proposalId, fullProposal);
+    this.votes.set(proposalId, []);
+
+    // Store content in IPFS if large
+    if (fullProposal.description.length > 1000) {
+      const ipfsHash = await this.storageProvider.store({
+        title: fullProposal.title,
+        description: fullProposal.description,
+        metadata: fullProposal
+      });
+      fullProposal.ipfsHash = ipfsHash;
     }
-    
-    // Apply a cap of 3% of total
-    const maxWeight = 3;
-    return Math.min(weight, maxWeight);
-  }
-  
-  /**
-   * Get author's reputation
-   * 
-   * @private
-   * @param authorId Author's user ID
-   * @returns User reputation
-   */
-  private async getAuthorReputation(authorId: string): Promise<UserReputation> {
-    // Query the blockchain for the user's reputation
-    const result = await this.adapter.queryState<UserReputation>({
-      objectType: 'user_reputation',
-      filter: {
-        userId: authorId
+
+    // Record on-chain
+    await this.chainAdapter.submitTransaction({
+      type: 'governance_proposal',
+      data: {
+        id: proposalId,
+        author: proposal.author,
+        type: proposal.type,
+        ipfsHash: fullProposal.ipfsHash
       }
     });
-    
-    if (result.results.length === 0) {
-      // Return default reputation if not found
-      return {
-        chainID: this.chainId || 'unknown',
-        userId: authorId,
-        totalRecommendations: 0,
-        upvotesReceived: 0,
-        downvotesReceived: 0,
-        reputationScore: 0,
-        verificationLevel: 'basic',
-        specializations: [],
-        activeSince: new Date().toISOString(),
-        tokenRewardsEarned: 0,
-        followers: 0,
-        following: 0,
-        ledger: {
-          objectID: '',
-          commitNumber: 0
-        }
-      };
+
+    return proposalId;
+  }
+
+  async activateProposal(proposalId: string): Promise<void> {
+    const proposal = this.proposals.get(proposalId);
+    if (!proposal) {
+      throw new Error('Proposal not found');
     }
-    
-    return result.results[0];
-  }
-  
-  /**
-   * Get author's token balance
-   * 
-   * @private
-   * @param authorId Author's user ID
-   * @returns Token balance
-   */
-  private async getAuthorBalance(authorId: string): Promise<TokenBalance> {
-    // Query the blockchain for the user's balance
-    const result = await this.adapter.queryState<TokenBalance>({
-      objectType: 'token_balance',
-      filter: {
-        userId: authorId
-      }
-    });
-    
-    if (result.results.length === 0) {
-      // Return default balance if not found
-      return {
-        userId: authorId,
-        available: 0,
-        staked: 0,
-        pendingRewards: 0
-      };
+
+    if (proposal.status !== ProposalStatus.DRAFT) {
+      throw new Error('Can only activate draft proposals');
     }
-    
-    return result.results[0];
-  }
-  
-  /**
-   * Get total staked tokens
-   * 
-   * @private
-   * @returns Total staked tokens
-   */
-  private async getTotalStake(): Promise<number> {
-    // Query the blockchain for all token balances
-    const result = await this.adapter.queryState<TokenBalance>({
-      objectType: 'token_balance'
+
+    // Set voting period
+    proposal.votingStartTime = new Date();
+    proposal.votingEndTime = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    proposal.status = ProposalStatus.ACTIVE;
+
+    await this.chainAdapter.submitTransaction({
+      type: 'governance_activate',
+      data: { proposalId, votingStartTime: proposal.votingStartTime }
     });
-    
-    // Sum all staked tokens
-    return result.results.reduce((total, balance) => total + balance.staked, 0);
   }
-  
-  /**
-   * Stake tokens for a proposal
-   * 
-   * @private
-   * @param userId User ID
-   * @param proposalId Proposal ID
-   * @param amount Amount to stake
-   */
-  private async stakeProposalTokens(
-    userId: string,
-    proposalId: string,
-    amount: number
+
+  // ============================================================================
+  // ENHANCED VOTING SYSTEM
+  // ============================================================================
+
+  async voteOnProposal(
+    proposalId: string, 
+    userId: string, 
+    voteType: VoteType,
+    reason?: string
   ): Promise<void> {
-    // Create staking transaction
-    await this.adapter.submitTx({
-      sender: userId,
-      payload: {
-        objectType: 'token_transaction',
-        action: 'stake',
-        data: {
-          sender: userId,
-          recipient: userId,
-          amount,
-          type: 'stake',
-          actionReference: `proposal:${proposalId}`,
-          timestamp: new Date().toISOString()
-        }
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
-      }
-    });
-    
-    // Update user balance
-    const balance = await this.getAuthorBalance(userId);
-    
-    await this.adapter.submitTx({
-      sender: userId,
-      payload: {
-        objectType: 'token_balance',
-        action: 'update',
-        data: {
-          ...balance,
-          available: balance.available - amount,
-          staked: balance.staked + amount
-        }
-      },
-      feeOptions: {
-        sponsorWallet: this.options.sponsorWallet
+    const proposal = this.proposals.get(proposalId);
+    if (!proposal) {
+      throw new Error('Proposal not found');
+    }
+
+    if (proposal.status !== ProposalStatus.ACTIVE) {
+      throw new Error('Proposal is not in voting phase');
+    }
+
+    // Check if user already voted
+    const existingVotes = this.votes.get(proposalId) || [];
+    if (existingVotes.some(v => v.voter === userId)) {
+      throw new Error('User has already voted on this proposal');
+    }
+
+    // Calculate voting power
+    const votingPower = await this.calculateVotingPower(userId);
+    const stake = this.stakes.get(userId);
+    const trustScore = await this.reputationEngine.getTrustScore(userId);
+
+    const vote: Vote = {
+      id: this.generateVoteId(),
+      proposalId,
+      voter: userId,
+      voteType,
+      votingPower,
+      reputationAtVote: trustScore,
+      stakeAmount: stake?.amount || 0,
+      stakingTier: stake?.tier || StakingTier.EXPLORER,
+      timestamp: new Date(),
+      reason
+    };
+
+    // Store vote
+    existingVotes.push(vote);
+    this.votes.set(proposalId, existingVotes);
+
+    // Record on-chain
+    await this.chainAdapter.submitTransaction({
+      type: 'governance_vote',
+      data: {
+        proposalId,
+        voter: userId,
+        voteType,
+        votingPower
       }
     });
   }
-  
-  /**
-   * Validate a status transition
-   * 
-   * @private
-   * @param currentStatus Current proposal status
-   * @param newStatus New proposal status
-   * @param updaterId User making the update
-   * @param proposal Proposal being updated
-   */
-  private validateStatusTransition(
-    currentStatus: ProposalStatus,
-    newStatus: ProposalStatus,
-    updaterId: string,
-    proposal: Proposal
-  ): void {
-    // Define valid transitions
-    const validTransitions: Record<ProposalStatus, ProposalStatus[]> = {
-      [ProposalStatus.DRAFT]: [ProposalStatus.ACTIVE, ProposalStatus.CANCELLED],
-      [ProposalStatus.ACTIVE]: [ProposalStatus.VOTING, ProposalStatus.CANCELLED],
-      [ProposalStatus.VOTING]: [ProposalStatus.ACCEPTED, ProposalStatus.REJECTED, ProposalStatus.CANCELLED],
-      [ProposalStatus.ACCEPTED]: [ProposalStatus.IMPLEMENTED, ProposalStatus.CANCELLED],
-      [ProposalStatus.REJECTED]: [ProposalStatus.CANCELLED],
-      [ProposalStatus.IMPLEMENTED]: [],
-      [ProposalStatus.CANCELLED]: []
-    };
+
+  async calculateVotingPower(userId: string): Promise<number> {
+    const stake = this.stakes.get(userId);
+    if (!stake || !stake.isActive) {
+      return 0;
+    }
+
+    const trustScore = await this.reputationEngine.getTrustScore(userId);
     
-    // Check if transition is valid
-    if (!validTransitions[currentStatus].includes(newStatus)) {
-      throw new Error(`Invalid status transition: ${currentStatus} -> ${newStatus}`);
+    // Geometric mean of staked tokens and reputation (prevents whale domination)
+    const geometricMean = Math.sqrt(stake.amount * (trustScore * 1000));
+    
+    // Apply tier multiplier
+    const tierMultipliers = {
+      [StakingTier.EXPLORER]: 1.0,
+      [StakingTier.CURATOR]: 1.2,
+      [StakingTier.PASSPORT]: 1.5,
+      [StakingTier.VALIDATOR_DELEGATE]: 1.5 // Same as passport, but other privileges
+    };
+
+    const tierMultiplier = tierMultipliers[stake.tier];
+    
+    // Cap at 3% of total voting power to prevent whale capture
+    const maxVotingPower = this.getTotalPossibleVotingPower() * 0.03;
+    
+    return Math.min(geometricMean * tierMultiplier, maxVotingPower);
+  }
+
+  private getTotalPossibleVotingPower(): number {
+    // Calculate based on all active stakes
+    let total = 0;
+    for (const stake of this.stakes.values()) {
+      if (stake.isActive) {
+        total += stake.amount;
+      }
+    }
+    return total;
+  }
+
+  // ============================================================================
+  // PROPOSAL EXECUTION & RESULTS
+  // ============================================================================
+
+  async finalizeProposal(proposalId: string): Promise<VotingResult> {
+    const proposal = this.proposals.get(proposalId);
+    if (!proposal) {
+      throw new Error('Proposal not found');
+    }
+
+    if (proposal.status !== ProposalStatus.ACTIVE) {
+      throw new Error('Proposal is not in voting phase');
+    }
+
+    if (new Date() < proposal.votingEndTime) {
+      throw new Error('Voting period has not ended');
+    }
+
+    const votes = this.votes.get(proposalId) || [];
+    const result = this.calculateVotingResult(proposal, votes);
+
+    // Update proposal status
+    if (result.quorumReached && result.majorityAchieved) {
+      proposal.status = ProposalStatus.PASSED;
+      
+      // Schedule execution with time-lock
+      setTimeout(async () => {
+        await this.executeProposal(proposalId);
+      }, proposal.executionParameters.timelock * 24 * 60 * 60 * 1000);
+      
+    } else {
+      proposal.status = ProposalStatus.REJECTED;
+    }
+
+    // Record results on-chain
+    await this.chainAdapter.submitTransaction({
+      type: 'governance_result',
+      data: { proposalId, result, newStatus: proposal.status }
+    });
+
+    return result;
+  }
+
+  private calculateVotingResult(proposal: EnhancedProposal, votes: Vote[]): VotingResult {
+    let totalVotingPower = 0;
+    let yesVotes = 0;
+    let noVotes = 0;
+    let abstainVotes = 0;
+
+    const tierBreakdown: Record<StakingTier, { count: number; power: number }> = {
+      [StakingTier.EXPLORER]: { count: 0, power: 0 },
+      [StakingTier.CURATOR]: { count: 0, power: 0 },
+      [StakingTier.PASSPORT]: { count: 0, power: 0 },
+      [StakingTier.VALIDATOR_DELEGATE]: { count: 0, power: 0 }
+    };
+
+    const reputationBreakdown = { high: 0, medium: 0, low: 0 };
+
+    for (const vote of votes) {
+      totalVotingPower += vote.votingPower;
+      
+      // Count votes by type
+      switch (vote.voteType) {
+        case VoteType.YES:
+          yesVotes += vote.votingPower;
+          break;
+        case VoteType.NO:
+          noVotes += vote.votingPower;
+          break;
+        case VoteType.ABSTAIN:
+          abstainVotes += vote.votingPower;
+          break;
+      }
+
+      // Track by tier
+      tierBreakdown[vote.stakingTier].count++;
+      tierBreakdown[vote.stakingTier].power += vote.votingPower;
+
+      // Track by reputation
+      if (vote.reputationAtVote >= 0.7) reputationBreakdown.high++;
+      else if (vote.reputationAtVote >= 0.4) reputationBreakdown.medium++;
+      else reputationBreakdown.low++;
+    }
+
+    const totalPossiblePower = this.getTotalPossibleVotingPower();
+    const participationRate = totalVotingPower / totalPossiblePower;
+    const quorumReached = participationRate >= proposal.requiredQuorum;
+    const majorityAchieved = yesVotes > (yesVotes + noVotes) * proposal.requiredMajority;
+
+    return {
+      proposalId: proposal.id,
+      totalVotingPower,
+      yesVotes,
+      noVotes,
+      abstainVotes,
+      participationRate,
+      quorumReached,
+      majorityAchieved,
+      passed: quorumReached && majorityAchieved,
+      voterBreakdown: {
+        byTier: tierBreakdown,
+        byReputation: reputationBreakdown
+      }
+    };
+  }
+
+  private async executeProposal(proposalId: string): Promise<void> {
+    const proposal = this.proposals.get(proposalId);
+    if (!proposal || proposal.status !== ProposalStatus.PASSED) {
+      throw new Error('Proposal cannot be executed');
+    }
+
+    // Check if still within veto window
+    const vetoDeadline = new Date(
+      proposal.votingEndTime.getTime() + 
+      proposal.executionParameters.vetoWindow * 24 * 60 * 60 * 1000
+    );
+    
+    if (new Date() < vetoDeadline) {
+      // Still in veto window - check for veto votes
+      const vetoVotes = await this.checkForVetoVotes(proposalId);
+      if (vetoVotes > 0.1 * this.getTotalPossibleVotingPower()) { // 10% can veto
+        proposal.status = ProposalStatus.VETOED;
+        return;
+      }
+    }
+
+    // Execute based on proposal type
+    try {
+      await this.executeProposalByType(proposal);
+      proposal.status = ProposalStatus.EXECUTED;
+      
+      await this.chainAdapter.submitTransaction({
+        type: 'governance_executed',
+        data: { proposalId, executedAt: new Date() }
+      });
+      
+    } catch (error) {
+      console.error(`Failed to execute proposal ${proposalId}:`, error);
+      // Proposal remains in PASSED state for manual intervention
+    }
+  }
+
+  private async executeProposalByType(proposal: EnhancedProposal): Promise<void> {
+    switch (proposal.type) {
+      case ProposalType.PARAMETER_CHANGE:
+        await this.executeParameterChange(proposal);
+        break;
+      case ProposalType.TREASURY_SPEND:
+        await this.executeTreasurySpend(proposal);
+        break;
+      case ProposalType.PROTOCOL_UPGRADE:
+        await this.executeProtocolUpgrade(proposal);
+        break;
+      case ProposalType.GOVERNANCE_CHANGE:
+        await this.executeGovernanceChange(proposal);
+        break;
+      case ProposalType.EMERGENCY_ACTION:
+        await this.executeEmergencyAction(proposal);
+        break;
+      default:
+        throw new Error(`Unknown proposal type: ${proposal.type}`);
+    }
+  }
+
+  // ============================================================================
+  // PROPOSAL TYPE EXECUTION HANDLERS
+  // ============================================================================
+
+  private async executeParameterChange(proposal: EnhancedProposal): Promise<void> {
+    // Implementation would depend on specific parameter being changed
+    console.log(`Executing parameter change: ${proposal.title}`);
+    // This would integrate with the specific system being modified
+  }
+
+  private async executeTreasurySpend(proposal: EnhancedProposal): Promise<void> {
+    // Implementation would transfer tokens from treasury
+    console.log(`Executing treasury spend: ${proposal.title}`);
+    // await this.tokenEngine.treasuryTransfer(recipient, amount);
+  }
+
+  private async executeProtocolUpgrade(proposal: EnhancedProposal): Promise<void> {
+    // Implementation would handle protocol upgrades
+    console.log(`Executing protocol upgrade: ${proposal.title}`);
+    // This would require careful coordination with deployment systems
+  }
+
+  private async executeGovernanceChange(proposal: EnhancedProposal): Promise<void> {
+    // Implementation would modify governance parameters
+    console.log(`Executing governance change: ${proposal.title}`);
+    // Could modify quorum requirements, voting periods, etc.
+  }
+
+  private async executeEmergencyAction(proposal: EnhancedProposal): Promise<void> {
+    // Implementation would handle emergency actions
+    console.log(`Executing emergency action: ${proposal.title}`);
+    // High-priority actions that might bypass normal timelock
+  }
+
+  // ============================================================================
+  // MILESTONE & DECENTRALIZATION TRACKING
+  // ============================================================================
+
+  async checkMilestones(): Promise<GovernanceMilestone[]> {
+    const updatedMilestones: GovernanceMilestone[] = [];
+    
+    for (const milestone of this.milestones) {
+      if (!milestone.achieved) {
+        const achieved = await this.evaluateMilestone(milestone);
+        if (achieved) {
+          milestone.achieved = true;
+          milestone.achievedAt = new Date();
+          
+          await this.chainAdapter.submitTransaction({
+            type: 'governance_milestone',
+            data: milestone
+          });
+        }
+      }
+      updatedMilestones.push(milestone);
     }
     
-    // Validate permissions
-    if (newStatus === ProposalStatus.CANCELLED) {
-      // Only author or multisig can cancel
-      if (
-        updaterId !== proposal.authorId &&
-        !this.options.multisigAddresses?.includes(updaterId)
-      ) {
-        throw new Error(`Only the author or multisig can cancel a proposal`);
-      }
-    } else if (newStatus === ProposalStatus.IMPLEMENTED) {
-      // Only multisig can implement
-      if (!this.options.multisigAddresses?.includes(updaterId)) {
-        throw new Error(`Only multisig signers can implement a proposal`);
+    this.milestones = updatedMilestones;
+    return updatedMilestones;
+  }
+
+  private async evaluateMilestone(milestone: GovernanceMilestone): Promise<boolean> {
+    const { requirements } = milestone;
+    
+    // Check total staked
+    if (requirements.totalStaked) {
+      const totalStaked = Array.from(this.stakes.values())
+        .filter(s => s.isActive)
+        .reduce((sum, s) => sum + s.amount, 0);
+      
+      if (totalStaked < requirements.totalStaked) return false;
+    }
+
+    // Check unique voters
+    if (requirements.uniqueVoters) {
+      const uniqueVoters = new Set();
+      for (const votes of this.votes.values()) {
+        votes.forEach(vote => uniqueVoters.add(vote.voter));
       }
       
-      // Check if enough approvals
-      if (proposal.currentApprovals < proposal.requiredApprovals) {
-        throw new Error(`Not enough approvals: ${proposal.currentApprovals} < ${proposal.requiredApprovals}`);
-      }
+      if (uniqueVoters.size < requirements.uniqueVoters) return false;
     }
+
+    // Additional checks would be implemented for other requirements
+    // (dailyActiveUsers, exchangeLiquidity, etc.)
+    
+    return true;
+  }
+
+  // ============================================================================
+  // QUERY & UTILITY METHODS
+  // ============================================================================
+
+  async getProposal(proposalId: string): Promise<EnhancedProposal | null> {
+    return this.proposals.get(proposalId) || null;
+  }
+
+  async getProposalsByStatus(status: ProposalStatus): Promise<EnhancedProposal[]> {
+    return Array.from(this.proposals.values())
+      .filter(p => p.status === status);
+  }
+
+  async getActiveProposals(): Promise<EnhancedProposal[]> {
+    return this.getProposalsByStatus(ProposalStatus.ACTIVE);
+  }
+
+  async getUserStake(userId: string): Promise<GovernanceStake | null> {
+    return this.stakes.get(userId) || null;
+  }
+
+  async getUserVotingPower(userId: string): Promise<number> {
+    return this.calculateVotingPower(userId);
+  }
+
+  async getProposalVotes(proposalId: string): Promise<Vote[]> {
+    return this.votes.get(proposalId) || [];
+  }
+
+  async getGovernanceStats(): Promise<{
+    totalProposals: number;
+    activeProposals: number;
+    totalStaked: number;
+    uniqueStakers: number;
+    totalVotingPower: number;
+    milestonesAchieved: number;
+  }> {
+    const totalStaked = Array.from(this.stakes.values())
+      .filter(s => s.isActive)
+      .reduce((sum, s) => sum + s.amount, 0);
+
+    const uniqueStakers = Array.from(this.stakes.values())
+      .filter(s => s.isActive).length;
+
+    const milestonesAchieved = this.milestones.filter(m => m.achieved).length;
+
+    return {
+      totalProposals: this.proposals.size,
+      activeProposals: Array.from(this.proposals.values())
+        .filter(p => p.status === ProposalStatus.ACTIVE).length,
+      totalStaked,
+      uniqueStakers,
+      totalVotingPower: this.getTotalPossibleVotingPower(),
+      milestonesAchieved
+    };
+  }
+
+  // ============================================================================
+  // PRIVATE UTILITY METHODS
+  // ============================================================================
+
+  private generateProposalId(): string {
+    return `prop_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private generateVoteId(): string {
+    return `vote_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private async checkForVetoVotes(proposalId: string): Promise<number> {
+    // Implementation would check for veto votes during execution window
+    // This is a placeholder - real implementation would track veto votes separately
+    return 0;
   }
 }
