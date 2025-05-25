@@ -83,14 +83,35 @@ describe('GovernanceEngine', () => {
       expect(validatorStake.tier).toBe(StakingTier.VALIDATOR_DELEGATE);
     });
 
-    test('should reject staking with insufficient trust score', async () => {
-      mockReputationEngine.getTrustScore.mockResolvedValueOnce(0.2);
+      test('should reject staking with insufficient trust score for curator tier', async () => {
+  mockReputationEngine.getTrustScore.mockResolvedValueOnce(0.35); // Between explorer (0.3) and curator (0.4)
 
-      await expect(
-        governanceEngine.stakeForGovernance('lowTrustUser', 100, 90)
-      ).rejects.toThrow('Trust score 0.2 insufficient for curator tier');
-    });
+  // This should fail because trust score 0.35 < curator requirement (0.4)
+  await expect(
+    governanceEngine.stakeForGovernance('mediumTrustUser', 100, 90)
+  ).rejects.toThrow('Trust score 0.35 insufficient for curator tier');
+});
+// Add test to verify tier assignment logic
+     test('should assign tiers based on combined token/duration/trust requirements', async () => {
+  // High trust score should allow higher tiers
+  mockReputationEngine.getTrustScore.mockResolvedValue(0.8);
+  
+  // Explorer tier: 25 tokens, 30 days, 0.3+ trust
+  const explorerStake = await governanceEngine.stakeForGovernance('user1', 25, 30);
+  expect(explorerStake.tier).toBe(StakingTier.EXPLORER);
 
+  // Curator tier: 100 tokens, 90 days, 0.4+ trust  
+  const curatorStake = await governanceEngine.stakeForGovernance('user2', 100, 90);
+  expect(curatorStake.tier).toBe(StakingTier.CURATOR);
+
+  // Passport tier: 500 tokens, 180 days, 0.5+ trust
+  const passportStake = await governanceEngine.stakeForGovernance('user3', 500, 180);
+  expect(passportStake.tier).toBe(StakingTier.PASSPORT);
+
+  // Validator tier: 1000 tokens, 365 days, 0.6+ trust
+  const validatorStake = await governanceEngine.stakeForGovernance('user4', 1000, 365);
+  expect(validatorStake.tier).toBe(StakingTier.VALIDATOR_DELEGATE);
+});
     test('should reject staking with insufficient balance', async () => {
       mockTokenEngine.getBalance.mockResolvedValueOnce(50);
 
