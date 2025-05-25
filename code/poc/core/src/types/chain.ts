@@ -8,6 +8,11 @@
  */
 export interface ChainTransaction {
   /**
+   * Unique transaction ID (optional for submission, generated if not provided)
+   */
+  id?: string;
+  
+  /**
    * Type of transaction (recommendation, token, reputation, governance)
    */
   type: string;
@@ -15,7 +20,7 @@ export interface ChainTransaction {
   /**
    * Specific action to perform (create, vote, transfer, etc.)
    */
-  action: string;
+  action?: string;
   
   /**
    * Additional action details (upvote, downvote, etc.)
@@ -28,9 +33,19 @@ export interface ChainTransaction {
   data: any;
   
   /**
+   * Transaction timestamp
+   */
+  timestamp?: Date;
+  
+  /**
+   * Transaction status
+   */
+  status?: 'pending' | 'confirmed' | 'failed';
+  
+  /**
    * Whether the transaction requires a signature
    */
-  requiresSignature: boolean;
+  requiresSignature?: boolean;
 }
 
 /**
@@ -103,6 +118,76 @@ export interface ChainEvent {
   timestamp: string;
 }
 
+// ============================================================================
+// LEGACY ADAPTER TYPES (for compatibility with existing MockAdapter)
+// ============================================================================
+
+/**
+ * Legacy Transaction type (used by existing MockAdapter)
+ */
+export interface Transaction {
+  id?: string;
+  sender: string;
+  payload?: {
+    objectType?: string;
+    data?: any;
+    [key: string]: any;
+  };
+  options?: any;
+}
+
+/**
+ * Legacy TransactionResult type
+ */
+export interface TransactionResult {
+  id: string;
+  status: string;
+  timestamp: string;
+  commitNumber: number;
+  objectId?: string;
+  details?: any;
+}
+
+/**
+ * Legacy StateQuery type
+ */
+export interface StateQuery {
+  objectType: string;
+  filter?: Record<string, any>;
+  sort?: {
+    field: string;
+    direction: 'asc' | 'desc';
+  };
+  pagination?: {
+    offset: number;
+    limit: number;
+  };
+}
+
+/**
+ * Legacy EventFilter type
+ */
+export interface EventFilter {
+  eventTypes: string[];
+  address?: string;
+  fromCommit?: number;
+}
+
+/**
+ * Legacy Event type
+ */
+export interface Event {
+  type: string;
+  commitNumber: number;
+  timestamp: string;
+  address: string;
+  data: any;
+}
+
+// ============================================================================
+// MAIN CHAIN ADAPTER INTERFACE
+// ============================================================================
+
 /**
  * ChainAdapter interface defines methods for interacting with a chain
  * Implementations include RebasedAdapter, EVMAdapter, and MockAdapter
@@ -110,9 +195,9 @@ export interface ChainEvent {
 export interface ChainAdapter {
   /**
    * Connect to the chain
-   * @returns Success status
+   * @returns Success status (updated to return boolean for compatibility)
    */
-  connect(): Promise<boolean>;
+  connect(): Promise<boolean | void>;
   
   /**
    * Disconnect from the chain
@@ -120,11 +205,11 @@ export interface ChainAdapter {
   disconnect(): Promise<void>;
   
   /**
-   * Submit a transaction to the chain
+   * Submit a transaction to the chain (NEW FORMAT - used by GovernanceEngine)
    * @param transaction Transaction to submit
-   * @returns Transaction result
+   * @returns Transaction ID
    */
-  submitTransaction(transaction: ChainTransaction): Promise<any>;
+  submitTransaction(transaction: Partial<ChainTransaction>): Promise<string>;
   
   /**
    * Query the current state of an object
@@ -135,11 +220,7 @@ export interface ChainAdapter {
   queryState(objectType: string, objectId: string): Promise<ChainState>;
   
   /**
-   * Query objects by type with optional filters
-   * @param objectType Type of objects to query
-   * @param filters Optional filters to apply
-   * @param pagination Pagination options
-   * @returns Array of matching objects
+   * Query objects by type with optional filters (OVERLOADED for compatibility)
    */
   queryObjects(
     objectType: string, 
@@ -172,4 +253,87 @@ export interface ChainAdapter {
    * @returns Wallet address
    */
   getWalletAddress(): Promise<string>;
+  
+  // ============================================================================
+  // LEGACY METHODS (for compatibility with existing MockAdapter)
+  // ============================================================================
+  
+  /**
+   * Legacy: Get chain ID
+   */
+  getChainId?(): Promise<string>;
+  
+  /**
+   * Legacy: Submit transaction (old format)
+   */
+  submitTx?(tx: Transaction): Promise<TransactionResult>;
+  
+  /**
+   * Legacy: Query state with different signature
+   */
+  queryState?<T>(query: StateQuery): Promise<{
+    results: T[];
+    total: number;
+    pagination?: {
+      offset: number;
+      limit: number;
+      hasMore: boolean;
+    };
+  }>;
+  
+  /**
+   * Legacy: Watch events
+   */
+  watchEvents?(filter: EventFilter): AsyncIterator<Event>;
+  
+  /**
+   * Legacy: Get current commit
+   */
+  getCurrentCommit?(): Promise<number>;
+  
+  /**
+   * Legacy: Estimate fee
+   */
+  estimateFee?(tx: Transaction): Promise<number>;
 }
+
+// ============================================================================
+// UTILITY TYPES
+// ============================================================================
+
+/**
+ * Transaction types used throughout the system
+ */
+export type TransactionType = 
+  | 'recommendation' 
+  | 'vote' 
+  | 'reputation_update' 
+  | 'token_transfer' 
+  | 'token_reward' 
+  | 'governance_stake' 
+  | 'governance_proposal' 
+  | 'governance_vote' 
+  | 'governance_execute' 
+  | 'governance_milestone';
+
+/**
+ * Object types stored on chain
+ */
+export type ObjectType = 
+  | 'recommendation' 
+  | 'user_profile' 
+  | 'service' 
+  | 'governance_proposal' 
+  | 'governance_stake';
+
+/**
+ * Event types emitted by the chain
+ */
+export type EventType = 
+  | 'recommendation_created' 
+  | 'vote_cast' 
+  | 'reputation_updated' 
+  | 'token_transferred' 
+  | 'governance_stake_created' 
+  | 'governance_proposal_created' 
+  | 'governance_vote_cast';
