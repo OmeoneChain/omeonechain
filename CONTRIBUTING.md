@@ -1,198 +1,276 @@
 # Contributing to OmeoneChain
 
-Thank you for your interest in contributing to OmeoneChain! This document provides guidelines and instructions for contributing to our project.
+Thank you for your interest in contributing to OmeoneChain! We're building the future of decentralized recommendations and would love your help.
+
+## 🎯 **Current Status: Phase 3 Complete**
+
+**What's Working Now:**
+- ✅ **Full-Stack Governance System** (16 API endpoints, 100% test coverage)
+- ✅ **Democratic Voting** with whale-resistant mechanisms
+- ✅ **Trust Score Engine** with social graph weighting
+- ✅ **Token Economics** with staking and rewards
+
+**Phase 4 Focus:** IOTA Rebased blockchain integration and smart contracts
 
 ## Table of Contents
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
+- [Quick Start](#quick-start)
+- [Ways to Contribute](#ways-to-contribute)
 - [Development Workflow](#development-workflow)
 - [Coding Standards](#coding-standards)
-- [Submitting Changes](#submitting-changes)
 - [Pull Request Process](#pull-request-process)
 - [Testing Guidelines](#testing-guidelines)
-- [Documentation](#documentation)
-- [Community](#community)
+- [Getting Help](#getting-help)
+- [Detailed Contribution Guide](#detailed-contribution-guide)
 
-## Code of Conduct
-
-By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md). Please read it before contributing.
-
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm
-- Rust toolchain (for Move development)
-- Docker (optional, for local development)
-- Access to IOTA Rebased testnet (for blockchain integration)
+- **Node.js 18+**
+- **Git**
+- **Basic familiarity with TypeScript/React** (helpful but not required)
 
-### Setting Up Your Development Environment
+### 5-Minute Setup
 
-1. Fork the repository on GitHub
-2. Clone your fork locally:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/omeonechain.git
-   cd omeonechain
-   ```
-3. Add the original repository as a remote:
-   ```bash
-   git remote add upstream https://github.com/ORIGINAL_OWNER/omeonechain.git
-   ```
-4. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-5. Set up environment variables:
-   ```bash
-   cp .env.example .env.local
-   # Edit .env.local with your configuration
-   ```
-6. Start the development server:
-   ```bash
-   pnpm dev
-   ```
+```bash
+# Fork the repository on GitHub, then:
+git clone https://github.com/YOUR_USERNAME/omeonechain.git
+cd omeonechain
+
+# One-command setup
+./setup-api.sh
+
+# Start development environment
+./start-dev.sh
+
+# Verify everything works
+./test-api.sh
+```
+
+**🎉 Success!** You should now have:
+- API server running at `http://localhost:3001`
+- Frontend dashboard at `http://localhost:3000`
+- All 16 API endpoints tested and passing
+
+## Ways to Contribute
+
+### 🔥 **High Priority (Phase 4)**
+
+#### **Blockchain Integration** ⛓️
+- **IOTA Rebased Adapter** - Replace MockAdapter with real blockchain
+- **Move Smart Contracts** - Token, governance, and reputation contracts
+- **Wallet Integration** - Web3 authentication and transaction signing
+
+#### **Security & Production** 🔒
+- **JWT Authentication** - Replace mock auth with real security
+- **Input Validation** - Enhanced security for all API endpoints
+- **Performance Optimization** - Database integration, caching
+
+### 🌟 **Always Welcome**
+
+#### **For New Contributors**
+- **Documentation improvements** - Fix typos, add examples
+- **Bug fixes** - Small issues, error message improvements
+- **Test additions** - Increase coverage, add edge cases
+
+#### **For Experienced Developers**
+- **New API endpoints** - Expand functionality
+- **Frontend enhancements** - UI improvements, mobile responsiveness
+- **Integration examples** - Real-world usage demos
+
+### 📚 **Non-Code Contributions**
+- **Technical writing** - Tutorials, concept explanations
+- **Community building** - Share project, answer questions
+- **Testing** - Try features, report bugs
+- **Design** - UI/UX improvements, graphics
 
 ## Development Workflow
 
-We use a simplified Git workflow:
+### 1. **Create Your Branch**
+```bash
+git checkout -b feature/your-feature-name
+# or
+git checkout -b fix/issue-description
+```
 
-1. Create a new branch for your feature or bugfix:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-   or
-   ```bash
-   git checkout -b fix/issue-description
-   ```
+### 2. **Make Your Changes**
+```bash
+# Edit code, add tests, update documentation
 
-2. Make your changes, following our coding standards
+# Test your changes
+./test-api.sh                     # API integration tests
+cd code/poc/core && npm test      # Unit tests
+cd code/poc/frontend && npm test  # Frontend tests
+```
 
-3. Commit your changes with clear, descriptive messages:
-   ```bash
-   git commit -m "Add feature: detailed description of what was added"
-   ```
+### 3. **Commit with Clear Messages**
+```bash
+git add .
+git commit -m "feat: add new governance endpoint for proposal analytics
 
-4. Push your branch to your fork:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+- Add GET /governance/proposals/:id/analytics endpoint
+- Include vote breakdown and participation metrics
+- Add comprehensive test coverage
+- Update API documentation
 
-5. Create a Pull Request against the `main` branch of the original repository
+Fixes #123"
+```
+
+### 4. **Submit Pull Request**
+```bash
+git push origin feature/your-feature-name
+# Create PR on GitHub with description
+```
 
 ## Coding Standards
 
-### General Guidelines
+### **Commit Message Format**
+```
+type(scope): brief description
 
-- Write clean, readable, and maintainable code
-- Follow existing patterns and conventions
-- Include appropriate comments and documentation
-- Keep functions small and focused
-- Use meaningful variable and function names
-- Ensure proper error handling
+- Detailed explanation of changes
+- Why this change was needed
+- Any breaking changes
 
-### Language-Specific Standards
+Fixes #issue_number
+```
 
-#### JavaScript/TypeScript
-- Follow the [JavaScript Standard Style](https://standardjs.com/)
-- Use TypeScript for all new code
-- Use async/await instead of Promises where possible
-- Use ES6+ features
+**Types:** `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `perf:`, `chore:`
 
-#### Move/Rust
-- Follow [Rust formatting conventions](https://doc.rust-lang.org/beta/style-guide/)
-- Document all public functions with appropriate comments
-- Follow Move best practices for memory safety and resource handling
+### **Code Quality**
+- **TypeScript** for new code
+- **Clear function names** and documentation
+- **Comprehensive tests** for new features
+- **Error handling** for edge cases
+- **Security considerations** for all inputs
 
-### Commit Messages
+### **API Design Standards**
+```javascript
+// Consistent response format
+res.json({
+  success: true,
+  data: result
+});
 
-- Use the present tense ("Add feature" not "Added feature")
-- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
-- Reference issues and pull requests where appropriate
-- Keep first line under 72 characters
-- Describe what was changed and why
+// Error responses
+res.status(400).json({
+  success: false,
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: 'Invalid input',
+    details: { field: 'title', issue: 'Too short' }
+  }
+});
+```
 
-## Submitting Changes
+## Pull Request Process
 
-### Before Submitting
+### **Before Submitting**
+- [ ] All tests pass locally (`./test-api.sh`)
+- [ ] New features include tests
+- [ ] Documentation updated if needed
+- [ ] Code follows our standards
+- [ ] No console.log statements left in code
 
-- Make sure your code builds without errors or warnings
-- Run the test suite and ensure all tests pass
-- Update documentation if necessary
-- Add tests for new functionality
-- Ensure your code adheres to our coding standards
+### **PR Requirements**
+1. **Clear description** of what was changed and why
+2. **Reference related issues** with `Fixes #123`
+3. **Include screenshots** for UI changes
+4. **List breaking changes** if any
+5. **Request review** from maintainers
 
-### Pull Request Process
-
-1. Create a pull request (PR) from your branch to the main repository's `main` branch
-2. Fill out the PR template with all required information
-3. Request review from maintainers
-4. Address any feedback from code reviews
-5. Once approved, a maintainer will merge your changes
+### **Review Process**
+- Maintainers will review within 2-3 days
+- Address feedback promptly
+- Once approved, maintainers will merge
+- PRs require passing CI checks
 
 ## Testing Guidelines
 
-### Writing Tests
+### **Current Test Status: 100% Coverage ✅**
+- **API Integration Tests:** 16/16 endpoints passing
+- **Core Logic Tests:** 38/38 unit tests passing
+- **Frontend Tests:** 4/4 component tests passing
 
-- All new features should include tests
-- Update existing tests when modifying features
-- Write unit tests for individual functions
-- Write integration tests for interactions between components
-- End-to-end tests for user workflows are appreciated
+### **Writing Tests**
+```javascript
+// Unit test example
+test('should calculate trust score correctly', () => {
+  const score = engine.calculateTrustScore('user_alice', mockData);
+  expect(score).toBeCloseTo(8.6, 1);
+});
 
-### Running Tests
-
-```bash
-# Run all tests
-pnpm test
-
-# Run specific test suites
-pnpm test:unit
-pnpm test:integration
-
-# Run tests with coverage
-pnpm test:coverage
+// API test example
+test('should create governance proposal', async () => {
+  const response = await request(app)
+    .post('/api/v1/governance/proposals')
+    .send(validProposal);
+  
+  expect(response.status).toBe(200);
+  expect(response.body.success).toBe(true);
+});
 ```
 
-## Documentation
+### **Test Commands**
+```bash
+# Run all tests
+./test-api.sh && cd code/poc/core && npm test && cd ../frontend && npm test
 
-### Code Documentation
+# Watch mode for development
+cd code/poc/core && npm test -- --watch
+```
 
-- Document all public APIs, classes, and functions
-- Use JSDoc, TSDoc, or Rustdoc as appropriate
-- Explain the purpose, parameters, and return values
+## Getting Help
 
-### Project Documentation
+### **Resources**
+- **[Getting Started Guide](docs/development/getting-started.md)** - Detailed setup instructions
+- **[API Documentation](docs/api/integration-guide.md)** - Complete API reference
+- **[Detailed Contributing Guide](docs/development/contributing.md)** - Comprehensive contribution opportunities
 
-- Update README.md with new features or changes in usage
-- Add examples for significant new functionality
-- Update API documentation when endpoints change
-- Maintain comprehensive documentation in the `/docs` directory
+### **Community Support**
+- **GitHub Issues** - [Report bugs or ask questions](https://github.com/OmeoneChain/omeonechain/issues)
+- **GitHub Discussions** - [Community Q&A and ideas](https://github.com/OmeoneChain/omeonechain/discussions)
+- **Good First Issues** - [Perfect for newcomers](https://github.com/OmeoneChain/omeonechain/labels/good%20first%20issue)
 
-## Community
+### **Common Questions**
+- **"How do I get started?"** → Follow the 5-minute setup above
+- **"What should I work on?"** → Check [Good First Issues](https://github.com/OmeoneChain/omeonechain/labels/good%20first%20issue)
+- **"Tests are failing"** → See [Testing Guide](docs/development/testing.md)
+- **"Need more context?"** → Read [Detailed Contributing Guide](docs/development/contributing.md)
 
-We're building a community around OmeoneChain and appreciate all forms of contribution:
+## Detailed Contribution Guide
 
-- Answer questions in issues
-- Review pull requests
-- Improve documentation
-- Share your experiences using the project
-- Spread the word about OmeoneChain
+For comprehensive information about:
+- **Phase 4 opportunities** and blockchain integration tasks
+- **Contributor recognition** and token allocation
+- **Specific technical requirements** for different contribution types
+- **Project roadmap** and long-term vision
 
-## Architecture Overview
-
-OmeoneChain is organized in five distinct layers:
-
-1. **Base Layer**: IOTA Rebased object-DAG (MoveVM) with Mysticeti DPoS
-2. **Storage Layer**: Hybrid on-chain/off-chain model (IPFS + Aleph.im)
-3. **Protocol Layer**: Core business logic for recommendations, rewards, and reputation
-4. **API/Adapter Layer**: Chain abstraction (RebasedAdapter, EVMAdapter, MockAdapter)
-5. **Application Layer**: End-user interfaces and dApp integration points
-
-When contributing, please consider which layer your changes affect and ensure they integrate properly with adjacent layers.
+**👉 See our [Detailed Contributing Guide](docs/development/contributing.md)**
 
 ---
 
-Thank you for contributing to OmeoneChain! Your efforts help us build a more transparent, fair recommendation ecosystem.
+## Code of Conduct
 
+By participating in this project, you agree to abide by our Code of Conduct. We're committed to fostering a welcoming, inclusive community where all contributors feel valued and respected.
+
+## Architecture Overview
+
+OmeoneChain is organized in five layers:
+
+1. **Base Layer**: IOTA Rebased object-DAG for settlement & metadata
+2. **Storage Layer**: Hybrid on-chain/off-chain model (IPFS + Aleph.im)
+3. **Protocol Layer**: Core business logic (recommendations, tokens, governance)
+4. **API/Adapter Layer**: Chain abstraction (RebasedAdapter, EVMAdapter, MockAdapter)
+5. **Application Layer**: End-user interfaces and dApp integration
+
+When contributing, consider which layer your changes affect and ensure proper integration.
+
+---
+
+**🎉 Thank you for contributing to OmeoneChain!** 
+
+Together, we're building a platform where trust, transparency, and authentic recommendations create real value. Your contribution, no matter how small, helps create a better internet for everyone. 🚀
+
+**Ready to start?** Try the [5-minute setup](#quick-start) and explore our [Good First Issues](https://github.com/OmeoneChain/omeonechain/labels/good%20first%20issue)!

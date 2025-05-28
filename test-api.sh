@@ -95,9 +95,10 @@ test_endpoint "GET" "$API_URL/governance/proposals" "" "Get Governance Proposals
 
 # Test 4: Create a Test Proposal
 proposal_data='{
-  "title": "Test API Integration Proposal",
+  "title": "Test API Integration Proposal", 
   "description": "This is a test proposal created by the API integration test script.",
   "category": "PARAMETER_CHANGE",
+  "userId": "user1",
   "executionParams": {}
 }'
 test_endpoint "POST" "$API_URL/governance/proposals" "$proposal_data" "Create Test Proposal" 201
@@ -140,7 +141,8 @@ test_endpoint "GET" "$API_URL/recommendations?limit=5" "" "Get Recommendations"
 
 # Test 12: Create a Test Recommendation
 recommendation_data='{
-  "serviceId": "restaurant_123",
+  "userId": "user1",
+  "serviceId": "restaurant_123", 
   "rating": 5,
   "content": "Great place for testing API integration!",
   "tags": ["test", "api", "integration"]
