@@ -1,9 +1,11 @@
-// code/poc/core/src/adapters/adapter-factory.ts
+// code/poc/core/src/adapters/adapter-factory.ts (UPDATED VERSION)
+// Keep all your existing functionality, add minimal enhancements
 
 import { ChainAdapter } from '../types/chain';
 import { RebasedAdapter } from './rebased-adapter';
 import { EVMAdapter } from './evm-adapter';
 import { MockAdapter } from './mock-adapter';
+import { ProductionRebasedAdapter } from './production-rebased-adapter'; // NEW
 
 /**
  * AdapterType enum defines the available adapter types
@@ -15,7 +17,7 @@ export enum AdapterType {
 }
 
 /**
- * Configuration for the Rebased adapter
+ * Configuration for the Rebased adapter (ENHANCED)
  */
 export interface RebasedAdapterConfig {
   nodeUrl: string;
@@ -41,6 +43,10 @@ export interface RebasedAdapterConfig {
     maxFeePerTransaction?: number;
     timeoutMs?: number;
   };
+  // NEW: Enhanced options
+  useProductionAdapter?: boolean; // Use ProductionRebasedAdapter vs RebasedAdapter
+  enableMetrics?: boolean;
+  enableCache?: boolean;
 }
 
 /**
@@ -70,6 +76,7 @@ export type AdapterConfig = {
 
 /**
  * AdapterFactory class provides methods to create and manage chain adapters
+ * (ENHANCED with minimal changes to your existing code)
  */
 export class AdapterFactory {
   private static instance: AdapterFactory;
@@ -95,7 +102,7 @@ export class AdapterFactory {
   }
   
   /**
-   * Create a new adapter instance
+   * Create a new adapter instance (ENHANCED)
    * @param config Adapter configuration
    * @returns Created adapter
    */
@@ -104,35 +111,7 @@ export class AdapterFactory {
     
     switch (config.type) {
       case AdapterType.REBASED:
-        const rebasedConfig = config as RebasedAdapterConfig;
-        
-        // If we have account, sponsorWallet or contractAddresses, use the new constructor
-        if (rebasedConfig.account || rebasedConfig.sponsorWallet || rebasedConfig.contractAddresses) {
-          adapter = new RebasedAdapter({
-            network: 'testnet', // Default to testnet
-            nodeUrl: rebasedConfig.nodeUrl,
-            account: rebasedConfig.account || {
-              address: '',
-              privateKey: rebasedConfig.seed || '',
-            },
-            sponsorWallet: rebasedConfig.sponsorWallet,
-            contractAddresses: rebasedConfig.contractAddresses || {
-              recommendation: '0x4f6d656f6e654368e4b8bce8a18de6bd8a8e5ddb',
-              reputation: '0x4f6d656f6e655265e4b8bce8a18de6bd8a8e5dda',
-              token: '0x4f6d656f6e6554e4b8bce8a18de6bd8a8e5dcc1',
-              governance: '0x4f6d656f6e65476f7665726e616e63655ddc7',
-              service: '0x4f6d656f6e65536572766963655ddc8',
-            },
-            options: rebasedConfig.options
-          });
-        } else {
-          // Legacy constructor
-          adapter = new RebasedAdapter(
-            rebasedConfig.nodeUrl,
-            rebasedConfig.apiKey,
-            rebasedConfig.seed
-          );
-        }
+        adapter = this.createRebasedAdapter(config as RebasedAdapterConfig);
         break;
       
       case AdapterType.EVM:
@@ -161,6 +140,46 @@ export class AdapterFactory {
     this.adapters.set(config.type, adapter);
     
     return adapter;
+  }
+
+  /**
+   * Create Rebased adapter with production option (NEW)
+   */
+  private createRebasedAdapter(config: RebasedAdapterConfig): ChainAdapter {
+    // NEW: Option to use ProductionRebasedAdapter
+    if (config.useProductionAdapter === true) {
+      console.log('⚡ Creating ProductionRebasedAdapter with enterprise features');
+      return new ProductionRebasedAdapter();
+    }
+
+    // EXISTING: Your original logic unchanged
+    console.log('⚡ Creating standard RebasedAdapter');
+    
+    if (config.account || config.sponsorWallet || config.contractAddresses) {
+      return new RebasedAdapter({
+        network: 'testnet',
+        nodeUrl: config.nodeUrl,
+        account: config.account || {
+          address: '',
+          privateKey: config.seed || '',
+        },
+        sponsorWallet: config.sponsorWallet,
+        contractAddresses: config.contractAddresses || {
+          recommendation: '0x4f6d656f6e654368e4b8bce8a18de6bd8a8e5ddb',
+          reputation: '0x4f6d656f6e655265e4b8bce8a18de6bd8a8e5dda',
+          token: '0x4f6d656f6e6554e4b8bce8a18de6bd8a8e5dcc1',
+          governance: '0x4f6d656f6e65476f7665726e616e63655ddc7',
+          service: '0x4f6d656f6e65536572766963655ddc8',
+        },
+        options: config.options
+      });
+    } else {
+      return new RebasedAdapter(
+        config.nodeUrl,
+        config.apiKey,
+        config.seed
+      );
+    }
   }
   
   /**
@@ -222,6 +241,81 @@ export class AdapterFactory {
    */
   public getActiveAdapterType(): AdapterType | null {
     return this.activeAdapterType;
+  }
+
+  /**
+   * Get adapter health status (NEW)
+   */
+  public async getAdapterHealth(): Promise<{
+    type: AdapterType | null;
+    healthy: boolean;
+    details: any;
+  }> {
+    if (!this.activeAdapter) {
+      return {
+        type: this.activeAdapterType,
+        healthy: false,
+        details: { error: 'No active adapter' },
+      };
+    }
+
+    // Enhanced health check for ProductionRebasedAdapter
+    if (this.activeAdapter instanceof ProductionRebasedAdapter) {
+      const healthStatus = await this.activeAdapter.getHealthStatus();
+      return {
+        type: this.activeAdapterType,
+        healthy: healthStatus.overall === 'healthy',
+        details: healthStatus,
+      };
+    }
+
+    // Basic health check for other adapters
+    try {
+      const isConnected = this.activeAdapter.isConnectedToNode ? 
+        this.activeAdapter.isConnectedToNode() : true;
+      
+      return {
+        type: this.activeAdapterType,
+        healthy: isConnected,
+        details: { connected: isConnected },
+      };
+    } catch (error) {
+      return {
+        type: this.activeAdapterType,
+        healthy: false,
+        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+      };
+    }
+  }
+
+  /**
+   * Get adapter metrics if available (NEW)
+   */
+  public getAdapterMetrics(): any {
+    if (this.activeAdapter instanceof ProductionRebasedAdapter) {
+      return {
+        performance: this.activeAdapter.getMetrics(),
+        connection: this.activeAdapter.getConnectionStatus(),
+        sponsorWallet: this.activeAdapter.getSponsorWalletStatus(),
+      };
+    }
+
+    return {
+      type: this.activeAdapterType,
+      note: 'Metrics only available for ProductionRebasedAdapter',
+    };
+  }
+
+  /**
+   * Refresh adapter connection (NEW)
+   */
+  public refreshConnection(): void {
+    if (this.activeAdapter instanceof ProductionRebasedAdapter) {
+      this.activeAdapter.refreshConnection();
+      console.log('🔄 Production adapter connection refreshed');
+    } else {
+      console.log('ℹ️ Connection refresh only available for ProductionRebasedAdapter');
+    }
   }
   
   /**
@@ -319,7 +413,8 @@ export class AdapterFactory {
           type,
           nodeUrl: options.nodeUrl || 'https://api.testnet.rebased.iota.org',
           apiKey: options.apiKey,
-          seed: options.seed
+          seed: options.seed,
+          useProductionAdapter: options.useProductionAdapter, // NEW
         });
       
       case AdapterType.EVM:

@@ -340,6 +340,3 @@ export function createGovernanceRoutes(engine: GovernanceEngine) {
 }
 
 export default createGovernanceRoutes;
-}
-
-export default createGovernanceRoutes;
