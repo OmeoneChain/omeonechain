@@ -41,6 +41,10 @@
     "maxWorkers": 1
   },
   "dependencies": {
+    "@mysten/bcs": "^1.6.1",
+    "@mysten/sui.js": "^0.54.1",
+    "@noble/hashes": "^1.8.0",
+    "@noble/secp256k1": "^2.2.3",
     "typescript": "^5.0.0",
     "uuid": "^9.0.0"
   },

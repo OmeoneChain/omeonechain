@@ -172,3 +172,23 @@ echo "🧪 Test the API:"
 echo "   curl http://localhost:3001/health"
 echo ""
 echo "Ready to connect your sophisticated governance system to the frontend! 🚀"
+echo ""
+echo "🚀 Phase 4: Blockchain Integration"
+echo "=================================="
+
+# Install blockchain dependencies
+cd code/poc/core
+npm install --save @mysten/sui.js @mysten/bcs @noble/hashes @noble/secp256k1
+cd ../../..
+
+# Make blockchain scripts executable
+chmod +x scripts/blockchain/*.sh
+chmod +x scripts/testing/*.sh
+
+echo "✅ Blockchain integration setup complete"
+echo ""
+echo "📋 Next steps:"
+echo "1. Run: ./scripts/blockchain/start-local-env.sh"
+echo "2. Run: ./scripts/blockchain/compile-contracts.sh" 
+echo "3. Run: ./scripts/testing/test-blockchain-integration.sh"
+echo ""

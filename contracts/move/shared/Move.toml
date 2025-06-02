@@ -1,13 +1,11 @@
 [package]
-name = "OmeoneReputation"
+name = "OmeoneShared"
 version = "0.1.0"
 published-at = "0x0"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
-OmeoneToken = { local = "../token" }
 
 [addresses]
-omeone_reputation = "0x0"
-omeone_token = "0x0"
+omeone_shared = "0x0"
 sui = "0x2"

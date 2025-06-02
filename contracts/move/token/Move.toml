@@ -1,14 +1,11 @@
 [package]
-name = "OmeoneChainToken"
+name = "OmeoneToken"
 version = "0.1.0"
-authors = ["OmeoneChain Team"]
+published-at = "0x0"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/iota-foundation/move-stdlib.git", rev = "main" }
-OmeoneChainShared = { local = "../shared" }
-OmeoneChainRecommendation = { local = "../recommendation" }
-OmeoneChainReputation = { local = "../reputation" }
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
 
 [addresses]
-std = "0x1"
-omeonechain = "0x42"
+omeone_token = "0x0"
+sui = "0x2"

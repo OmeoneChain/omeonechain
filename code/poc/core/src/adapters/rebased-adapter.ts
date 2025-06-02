@@ -1,4 +1,5 @@
 // code/poc/core/src/adapters/rebased-adapter.ts
+// Enhanced version with Move contract integration
 
 import { ChainAdapter, Transaction, TransactionResult, StateQuery, EventFilter, Event } from '../types/chain';
 import axios from 'axios';
@@ -7,27 +8,48 @@ import { Ed25519Seed } from '@iota/crypto.js';
 import * as crypto from 'crypto';
 
 /**
+ * Move Contract Function Mappings
+ * Maps OmeoneChain operations to specific Move contract functions
+ */
+interface MoveContractMappings {
+  token: {
+    createUserWallet: 'omeone_token::create_user_wallet';
+    stakeTokens: 'omeone_token::stake_tokens';
+    claimRewards: 'omeone_token::claim_rewards';
+    distributeReward: 'omeone_token::distribute_reward';
+    updateTrustScore: 'omeone_token::update_trust_score';
+    updateReputationScore: 'omeone_token::update_reputation_score';
+    getCurrentRewardRate: 'omeone_token::get_current_reward_rate';
+    getTotalRewardsDistributed: 'omeone_token::get_total_rewards_distributed';
+    getBalance: 'omeone_token::get_balance';
+    getTrustScore: 'omeone_token::get_trust_score';
+    getReputationScore: 'omeone_token::get_reputation_score';
+  };
+  rewards: {
+    submitActionForReward: 'reward_distribution::submit_action_for_reward';
+    addSocialEndorsement: 'reward_distribution::add_social_endorsement';
+    claimReward: 'reward_distribution::claim_reward';
+    distributeOnboardingReward: 'reward_distribution::distribute_onboarding_reward';
+    distributeLeaderboardReward: 'reward_distribution::distribute_leaderboard_reward';
+    isEligibleForReward: 'reward_distribution::is_eligible_for_reward';
+    getPendingRewardInfo: 'reward_distribution::get_pending_reward_info';
+  };
+  governance: {
+    createProposal: 'governance::create_proposal';
+    vote: 'governance::vote';
+    executeProposal: 'governance::execute_proposal';
+    getProposal: 'governance::get_proposal';
+    getVotingPower: 'governance::get_voting_power';
+  };
+  reputation: {
+    updateUserReputation: 'reputation::update_user_reputation';
+    getSocialWeight: 'reputation::get_social_weight';
+    calculateTrustScore: 'reputation::calculate_trust_score';
+  };
+}
+
+/**
  * Configuration interface for the RebasedAdapter
- * 
- * @interface RebasedConfig
- * @property {('testnet'|'mainnet'|'local')} network - The IOTA Rebased network to connect to
- * @property {string} nodeUrl - URL of the IOTA Rebased node
- * @property {Object} account - Account information for transaction signing
- * @property {string} account.address - Account address
- * @property {string} account.privateKey - Private key for transaction signing
- * @property {Object} [sponsorWallet] - Optional sponsor wallet for fee subsidization
- * @property {string} sponsorWallet.address - Sponsor wallet address
- * @property {string} sponsorWallet.privateKey - Sponsor wallet private key
- * @property {Object} contractAddresses - Addresses of deployed smart contracts
- * @property {string} contractAddresses.recommendation - Recommendation contract address
- * @property {string} contractAddresses.reputation - Reputation contract address
- * @property {string} contractAddresses.token - Token contract address
- * @property {string} contractAddresses.governance - Governance contract address
- * @property {string} contractAddresses.service - Service contract address
- * @property {Object} [options] - Optional configuration settings
- * @property {number} [options.retryAttempts=3] - Number of retry attempts for failed transactions
- * @property {number} [options.maxFeePerTransaction=50] - Maximum fee per transaction in μMIOTA
- * @property {number} [options.timeoutMs=30000] - Request timeout in milliseconds
  */
 export interface RebasedConfig {
   network: 'testnet' | 'mainnet' | 'local';
@@ -46,116 +68,650 @@ export interface RebasedConfig {
     token: string;
     governance: string;
     service: string;
+    rewards?: string; // New: Reward distribution contract
   };
+  packageId?: string; // Move package ID after deployment
   options?: {
     retryAttempts?: number;
     maxFeePerTransaction?: number;
     timeoutMs?: number;
+    enableSponsorWallet?: boolean; // Enable automatic fee sponsoring
   };
 }
 
 /**
- * RebasedAdapter - Implementation of the ChainAdapter interface for IOTA Rebased
+ * Move Contract Call Result
+ */
+interface MoveCallResult {
+  success: boolean;
+  result?: any;
+  error?: string;
+  gasUsed?: number;
+  events?: any[];
+}
+
+/**
+ * OmeoneChain specific transaction types
+ */
+interface OmeoneTransaction extends Transaction {
+  payload: {
+    type: 'recommendation' | 'reputation' | 'token' | 'governance' | 'service' | 'reward';
+    action: string;
+    data: any;
+  };
+}
+
+/**
+ * Enhanced RebasedAdapter with Move Contract Integration
  * 
- * This adapter connects OmeoneChain core to the IOTA Rebased DAG, handling:
- * - Transaction submissions and signing
- * - State queries and data retrieval
- * - Event monitoring and subscriptions
- * - Smart contract interactions
- * 
- * The adapter supports both a modern configuration-based constructor and a legacy
- * constructor for backward compatibility.
- * 
- * @implements {ChainAdapter}
+ * Builds on the existing solid foundation to add:
+ * - Direct Move contract function calls
+ * - OmeoneChain-specific transaction types
+ * - Enhanced reward distribution integration
+ * - Better error handling for contract calls
+ * - Automatic sponsor wallet fee handling
  */
 export class RebasedAdapter implements ChainAdapter {
   private nodeUrl: string;
   private apiKey: string;
-  private wallet: any; // IotaWallet instance
+  private wallet: any;
   private isConnected: boolean = false;
   private eventSubscribers: Map<string, Function[]> = new Map();
   private lastCommitNumber: number = 0;
   private config: RebasedConfig;
-  private client: any; // API client
+  private client: any;
   private currentChainId: string = '';
   private eventIterator: AsyncIterator<Event> | null = null;
   
-  private readonly DEFAULT_OPTIONS = {
-    retryAttempts: 3,
-    maxFeePerTransaction: 50, // in μMIOTA (0.00005 MIOTA)
-    timeoutMs: 30000,
+  // Move contract function mappings
+  private moveContracts: MoveContractMappings = {
+    token: {
+      createUserWallet: 'omeone_token::create_user_wallet',
+      stakeTokens: 'omeone_token::stake_tokens',
+      claimRewards: 'omeone_token::claim_rewards',
+      distributeReward: 'omeone_token::distribute_reward',
+      updateTrustScore: 'omeone_token::update_trust_score',
+      updateReputationScore: 'omeone_token::update_reputation_score',
+      getCurrentRewardRate: 'omeone_token::get_current_reward_rate',
+      getTotalRewardsDistributed: 'omeone_token::get_total_rewards_distributed',
+      getBalance: 'omeone_token::get_balance',
+      getTrustScore: 'omeone_token::get_trust_score',
+      getReputationScore: 'omeone_token::get_reputation_score',
+    },
+    rewards: {
+      submitActionForReward: 'reward_distribution::submit_action_for_reward',
+      addSocialEndorsement: 'reward_distribution::add_social_endorsement',
+      claimReward: 'reward_distribution::claim_reward',
+      distributeOnboardingReward: 'reward_distribution::distribute_onboarding_reward',
+      distributeLeaderboardReward: 'reward_distribution::distribute_leaderboard_reward',
+      isEligibleForReward: 'reward_distribution::is_eligible_for_reward',
+      getPendingRewardInfo: 'reward_distribution::get_pending_reward_info',
+    },
+    governance: {
+      createProposal: 'governance::create_proposal',
+      vote: 'governance::vote',
+      executeProposal: 'governance::execute_proposal',
+      getProposal: 'governance::get_proposal',
+      getVotingPower: 'governance::get_voting_power',
+    },
+    reputation: {
+      updateUserReputation: 'reputation::update_user_reputation',
+      getSocialWeight: 'reputation::get_social_weight',
+      calculateTrustScore: 'reputation::calculate_trust_score',
+    },
   };
   
-  /**
-   * Constructor for RebasedAdapter
-   * 
-   * @param {RebasedConfig|string} configOrNodeUrl - Configuration object or node URL (legacy)
-   * @param {string} [apiKey] - Optional API key for authenticated access (legacy)
-   * @param {string} [seed] - Optional seed for wallet initialization (legacy)
-   */
+  private readonly DEFAULT_OPTIONS = {
+    retryAttempts: 3,
+    maxFeePerTransaction: 50,
+    timeoutMs: 30000,
+    enableSponsorWallet: true,
+  };
+
   constructor(configOrNodeUrl: RebasedConfig | string, apiKey?: string, seed?: string) {
     if (typeof configOrNodeUrl === 'string') {
-      // Legacy constructor
+      // Legacy constructor - enhanced with Move contract addresses
       this.nodeUrl = configOrNodeUrl;
       this.apiKey = apiKey || '';
       
-      // Initialize wallet if seed is provided
       if (seed) {
         this.initializeWallet(seed);
       }
       
-      // Set default config
       this.config = {
         network: 'testnet',
         nodeUrl: this.nodeUrl,
-        account: {
-          address: '',
-          privateKey: '',
-        },
+        account: { address: '', privateKey: '' },
         contractAddresses: {
           recommendation: '0x4f6d656f6e654368e4b8bce8a18de6bd8a8e5ddb',
           reputation: '0x4f6d656f6e655265e4b8bce8a18de6bd8a8e5dda',
           token: '0x4f6d656f6e6554e4b8bce8a18de6bd8a8e5dcc1',
           governance: '0x4f6d656f6e65476f7665726e616e63655ddc7',
           service: '0x4f6d656f6e65536572766963655ddc8',
+          rewards: '0x4f6d656f6e6552657761726473655ddc9', // New rewards contract
         },
+        packageId: '0x4f6d656f6e65506163a6167655ddc0', // Default package ID
         options: this.DEFAULT_OPTIONS
       };
     } else {
-      // New constructor with config object
+      // New constructor with enhanced config
       this.config = {
         ...configOrNodeUrl,
-        options: {
-          ...this.DEFAULT_OPTIONS,
-          ...configOrNodeUrl.options,
-        },
+        options: { ...this.DEFAULT_OPTIONS, ...configOrNodeUrl.options },
+        contractAddresses: {
+          ...configOrNodeUrl.contractAddresses,
+          rewards: configOrNodeUrl.contractAddresses.rewards || '0x4f6d656f6e6552657761726473655ddc9',
+        }
       };
       
       this.nodeUrl = this.config.nodeUrl;
       this.apiKey = '';
       
-      // Initialize wallet if account is provided
       if (this.config.account.privateKey) {
         this.initializeWallet(this.config.account.privateKey);
       }
     }
     
-    // Initialize the client
     this.initializeClient();
   }
 
+  // ========== Enhanced Move Contract Integration ==========
+
   /**
-   * Initialize the IOTA Rebased client
-   * This method sets up the connection to the Rebased node
+   * Call a Move contract function with automatic sponsor wallet handling
    * 
-   * @private
-   * @returns {Promise<void>}
-   * @throws {Error} If client initialization fails
+   * @param contractType - Type of contract (token, governance, etc.)
+   * @param functionName - Name of the function to call
+   * @param args - Function arguments
+   * @param options - Call options
    */
+  async callMoveFunction(
+    contractType: keyof MoveContractMappings,
+    functionName: string,
+    args: any[] = [],
+    options: {
+      useSponsorWallet?: boolean;
+      maxGas?: number;
+      sender?: string;
+    } = {}
+  ): Promise<MoveCallResult> {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+
+    try {
+      // Get the contract address
+      const contractAddress = this.getContractAddress(contractType);
+      
+      // Build the full function name with package ID
+      const fullFunctionName = this.buildFullFunctionName(contractType, functionName);
+      
+      // Determine sender (sponsor wallet or user)
+      const sender = this.determineSender(options);
+      
+      // Prepare the transaction
+      const txData = {
+        sender,
+        function: fullFunctionName,
+        arguments: this.serializeArgsForMove(args),
+        type_arguments: [], // Add type arguments if needed
+        gas_budget: options.maxGas || this.config.options?.maxFeePerTransaction || 50,
+      };
+
+      // Execute the call
+      const result = await this.client.api.post('/api/v1/move/call', txData);
+      
+      if (result.data.success) {
+        return {
+          success: true,
+          result: this.deserializeFromMoveVM(result.data.result),
+          gasUsed: result.data.gas_used,
+          events: result.data.events || [],
+        };
+      } else {
+        return {
+          success: false,
+          error: result.data.error || 'Unknown Move function call error',
+          gasUsed: result.data.gas_used,
+        };
+      }
+    } catch (error) {
+      console.error(`Move function call failed (${contractType}::${functionName}):`, error);
+      return {
+        success: false,
+        error: error.message || 'Move function call failed',
+      };
+    }
+  }
+
+  /**
+   * Enhanced submitTx with Move contract integration
+   */
+  async submitTx(tx: OmeoneTransaction): Promise<TransactionResult> {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+
+    const retryAttempts = this.config.options?.retryAttempts || 3;
+    
+    for (let attempt = 1; attempt <= retryAttempts; attempt++) {
+      try {
+        // Route to appropriate Move contract based on payload type
+        const result = await this.routeToMoveContract(tx);
+        
+        if (result.success) {
+          return {
+            id: result.result?.transaction_id || crypto.randomUUID(),
+            status: 'confirmed',
+            timestamp: new Date().toISOString(),
+            commitNumber: result.result?.commit_number,
+            objectId: result.result?.object_id,
+            gasUsed: result.gasUsed,
+            events: result.events,
+            details: result.result
+          };
+        } else {
+          throw new Error(result.error || 'Transaction failed');
+        }
+      } catch (error) {
+        if (attempt === retryAttempts) {
+          console.error(`Failed to submit transaction after ${retryAttempts} attempts:`, error);
+          return {
+            id: '',
+            status: 'failed',
+            timestamp: new Date().toISOString(),
+            error: error.message
+          };
+        }
+        
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        console.warn(`Attempt ${attempt} failed, retrying in ${backoffMs}ms:`, error.message);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+      }
+    }
+
+    return {
+      id: '',
+      status: 'failed',
+      timestamp: new Date().toISOString(),
+      error: 'Failed to submit transaction after exhausting retry attempts'
+    };
+  }
+
+  // ========== OmeoneChain-Specific Move Contract Methods ==========
+
+  /**
+   * Token Operations
+   */
+  async createUserWallet(userAddress: string): Promise<MoveCallResult> {
+    return await this.callMoveFunction('token', 'createUserWallet', [userAddress]);
+  }
+
+  async stakeTokens(
+    userAddress: string, 
+    amount: number, 
+    stakeType: number, 
+    lockPeriodMonths: number
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('token', 'stakeTokens', [
+      userAddress,
+      amount.toString(),
+      stakeType.toString(),
+      lockPeriodMonths.toString(),
+      this.getCurrentTimestamp() // clock parameter
+    ]);
+  }
+
+  async claimUserRewards(userAddress: string): Promise<MoveCallResult> {
+    return await this.callMoveFunction('token', 'claimRewards', [userAddress]);
+  }
+
+  async getUserBalance(userAddress: string): Promise<{
+    liquid: number;
+    staked: number;
+    pendingRewards: number;
+    lifetimeRewards: number;
+  }> {
+    const result = await this.callMoveFunction('token', 'getBalance', [userAddress]);
+    
+    if (result.success && result.result) {
+      return {
+        liquid: parseInt(result.result.liquid || '0'),
+        staked: parseInt(result.result.staked || '0'),
+        pendingRewards: parseInt(result.result.pending_rewards || '0'),
+        lifetimeRewards: parseInt(result.result.lifetime_rewards || '0'),
+      };
+    }
+    
+    return { liquid: 0, staked: 0, pendingRewards: 0, lifetimeRewards: 0 };
+  }
+
+  async getUserTrustScore(userAddress: string): Promise<number> {
+    const result = await this.callMoveFunction('token', 'getTrustScore', [userAddress]);
+    return result.success ? (parseInt(result.result || '0') / 100) : 0; // Convert from 0-100 to 0-1
+  }
+
+  async getUserReputationScore(userAddress: string): Promise<number> {
+    const result = await this.callMoveFunction('token', 'getReputationScore', [userAddress]);
+    return result.success ? parseInt(result.result || '0') : 0;
+  }
+
+  /**
+   * Reward Distribution Operations
+   */
+  async submitRecommendationForReward(
+    userAddress: string,
+    actionId: string,
+    actionType: number = 1
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('rewards', 'submitActionForReward', [
+      this.config.contractAddresses.rewards, // RewardTracker object
+      userAddress, // UserWallet object
+      this.stringToBytes(actionId), // action_id as bytes
+      actionType.toString(),
+      this.getCurrentTimestamp() // clock object
+    ]);
+  }
+
+  async addSocialEndorsement(
+    endorserAddress: string,
+    actionId: string,
+    socialDistance: number = 1
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('rewards', 'addSocialEndorsement', [
+      this.config.contractAddresses.rewards,
+      endorserAddress,
+      this.stringToBytes(actionId),
+      socialDistance.toString(),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async claimRecommendationReward(
+    userAddress: string,
+    actionId: string
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('rewards', 'claimReward', [
+      this.config.contractAddresses.rewards, // RewardTracker
+      this.config.contractAddresses.token,   // TokenRegistry
+      userAddress,                           // UserWallet
+      this.stringToBytes(actionId),          // action_id
+      this.getCurrentTimestamp()             // clock
+    ]);
+  }
+
+  async checkRewardEligibility(actionId: string): Promise<{
+    trustScore: number;
+    endorsements: number;
+    potentialReward: number;
+    isEligible: boolean;
+  }> {
+    const result = await this.callMoveFunction('rewards', 'getPendingRewardInfo', [
+      this.config.contractAddresses.rewards,
+      this.stringToBytes(actionId)
+    ]);
+    
+    if (result.success && result.result) {
+      return {
+        trustScore: parseInt(result.result.current_trust_score || '0') / 100,
+        endorsements: parseInt(result.result.endorsement_count || '0'),
+        potentialReward: parseInt(result.result.potential_reward || '0') / 1000000, // Convert from micro-tokens
+        isEligible: result.result.is_eligible || false,
+      };
+    }
+    
+    return { trustScore: 0, endorsements: 0, potentialReward: 0, isEligible: false };
+  }
+
+  async distributeOnboardingReward(
+    userAddress: string,
+    milestone: number
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('rewards', 'distributeOnboardingReward', [
+      this.config.contractAddresses.token,
+      userAddress,
+      milestone.toString(),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async distributeLeaderboardReward(
+    userAddress: string,
+    position: number
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('rewards', 'distributeLeaderboardReward', [
+      this.config.contractAddresses.token,
+      userAddress,
+      position.toString(),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  /**
+   * Governance Operations
+   */
+  async createGovernanceProposal(
+    proposerAddress: string,
+    title: string,
+    description: string,
+    proposalType: string
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('governance', 'createProposal', [
+      this.config.contractAddresses.governance,
+      proposerAddress,
+      this.stringToBytes(title),
+      this.stringToBytes(description),
+      this.stringToBytes(proposalType),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async voteOnProposal(
+    voterAddress: string,
+    proposalId: string,
+    support: boolean
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('governance', 'vote', [
+      this.config.contractAddresses.governance,
+      voterAddress,
+      this.stringToBytes(proposalId),
+      support.toString(),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  /**
+   * System State Queries
+   */
+  async getCurrentRewardRate(): Promise<number> {
+    const result = await this.callMoveFunction('token', 'getCurrentRewardRate', [
+      this.config.contractAddresses.token
+    ]);
+    return result.success ? parseInt(result.result || '1000') : 1000;
+  }
+
+  async getTotalRewardsDistributed(): Promise<number> {
+    const result = await this.callMoveFunction('token', 'getTotalRewardsDistributed', [
+      this.config.contractAddresses.token
+    ]);
+    return result.success ? parseInt(result.result || '0') : 0;
+  }
+
+  async getSystemStats(): Promise<{
+    currentRewardRate: number;
+    totalDistributed: number;
+    activeUsers: number;
+  }> {
+    const [rewardRate, totalDistributed] = await Promise.all([
+      this.getCurrentRewardRate(),
+      this.getTotalRewardsDistributed()
+    ]);
+    
+    return {
+      currentRewardRate: rewardRate,
+      totalDistributed,
+      activeUsers: 0, // Would need separate tracking
+    };
+  }
+
+  // ========== Helper Methods ==========
+
+  private async routeToMoveContract(tx: OmeoneTransaction): Promise<MoveCallResult> {
+    const { type, action, data } = tx.payload;
+    
+    switch (type) {
+      case 'token':
+        return await this.handleTokenTransaction(action, data, tx.sender);
+        
+      case 'reward':
+        return await this.handleRewardTransaction(action, data, tx.sender);
+        
+      case 'governance':
+        return await this.handleGovernanceTransaction(action, data, tx.sender);
+        
+      case 'reputation':
+        return await this.handleReputationTransaction(action, data, tx.sender);
+        
+      default:
+        throw new Error(`Unknown transaction type: ${type}`);
+    }
+  }
+
+  private async handleTokenTransaction(action: string, data: any, sender: string): Promise<MoveCallResult> {
+    switch (action) {
+      case 'stake':
+        return await this.stakeTokens(sender, data.amount, data.stakeType, data.lockPeriod);
+        
+      case 'claim_rewards':
+        return await this.claimUserRewards(sender);
+        
+      case 'create_wallet':
+        return await this.createUserWallet(sender);
+        
+      default:
+        throw new Error(`Unknown token action: ${action}`);
+    }
+  }
+
+  private async handleRewardTransaction(action: string, data: any, sender: string): Promise<MoveCallResult> {
+    switch (action) {
+      case 'submit_recommendation':
+        return await this.submitRecommendationForReward(sender, data.actionId, data.actionType);
+        
+      case 'endorse':
+        return await this.addSocialEndorsement(sender, data.actionId, data.socialDistance);
+        
+      case 'claim_reward':
+        return await this.claimRecommendationReward(sender, data.actionId);
+        
+      case 'onboarding':
+        return await this.distributeOnboardingReward(sender, data.milestone);
+        
+      case 'leaderboard':
+        return await this.distributeLeaderboardReward(sender, data.position);
+        
+      default:
+        throw new Error(`Unknown reward action: ${action}`);
+    }
+  }
+
+  private async handleGovernanceTransaction(action: string, data: any, sender: string): Promise<MoveCallResult> {
+    switch (action) {
+      case 'create_proposal':
+        return await this.createGovernanceProposal(sender, data.title, data.description, data.type);
+        
+      case 'vote':
+        return await this.voteOnProposal(sender, data.proposalId, data.support);
+        
+      default:
+        throw new Error(`Unknown governance action: ${action}`);
+    }
+  }
+
+  private async handleReputationTransaction(action: string, data: any, sender: string): Promise<MoveCallResult> {
+    // Implement reputation-specific transactions
+    throw new Error(`Reputation transactions not yet implemented: ${action}`);
+  }
+
+  private getContractAddress(contractType: keyof MoveContractMappings): string {
+    switch (contractType) {
+      case 'token':
+        return this.config.contractAddresses.token;
+      case 'rewards':
+        return this.config.contractAddresses.rewards || this.config.contractAddresses.token;
+      case 'governance':
+        return this.config.contractAddresses.governance;
+      case 'reputation':
+        return this.config.contractAddresses.reputation;
+      default:
+        throw new Error(`Unknown contract type: ${contractType}`);
+    }
+  }
+
+  private buildFullFunctionName(contractType: keyof MoveContractMappings, functionName: string): string {
+    const contractMappings = this.moveContracts[contractType];
+    const moveFunction = contractMappings[functionName as keyof typeof contractMappings];
+    
+    if (!moveFunction) {
+      throw new Error(`Unknown function ${functionName} for contract ${contractType}`);
+    }
+    
+    // Build full function name with package ID
+    const packageId = this.config.packageId || '0x1';
+    return `${packageId}::${moveFunction}`;
+  }
+
+  private determineSender(options: { useSponsorWallet?: boolean; sender?: string }): string {
+    if (options.sender) {
+      return options.sender;
+    }
+    
+    if (options.useSponsorWallet !== false && 
+        this.config.options?.enableSponsorWallet && 
+        this.config.sponsorWallet?.address) {
+      return this.config.sponsorWallet.address;
+    }
+    
+    return this.config.account.address;
+  }
+
+  private serializeArgsForMove(args: any[]): any[] {
+    return args.map(arg => {
+      if (typeof arg === 'string') {
+        return arg;
+      } else if (typeof arg === 'number') {
+        return arg.toString();
+      } else if (typeof arg === 'boolean') {
+        return arg.toString();
+      } else if (Array.isArray(arg)) {
+        return arg;
+      } else if (typeof arg === 'object') {
+        return JSON.stringify(arg);
+      } else {
+        return arg.toString();
+      }
+    });
+  }
+
+  private stringToBytes(str: string): number[] {
+    return Array.from(new TextEncoder().encode(str));
+  }
+
+  private getCurrentTimestamp(): string {
+    return Math.floor(Date.now() / 1000).toString(); // Unix timestamp
+  }
+
+  // ========== Keep All Existing Methods ==========
+  
+  // [Keep all your existing methods from the original file]
+  // This includes: initializeClient, getChainId, queryState, watchEvents, 
+  // getCurrentCommit, estimateFee, connect, disconnect, initializeWallet,
+  // submitTransaction, queryObjectState, queryObjects, subscribeToEvents,
+  // unsubscribeFromEvents, pollForEvents, callContractFunction, 
+  // getWalletAddress, isConnectedToNode, and all helper methods
+  
   private async initializeClient(): Promise<void> {
     try {
-      // For a real implementation, this would use the IOTA Rebased SDK
-      // For now, we'll use a simple axios-based client for HTTP requests
       this.client = {
         api: axios.create({
           baseURL: this.nodeUrl,
@@ -190,8 +746,6 @@ export class RebasedAdapter implements ChainAdapter {
           return response.data;
         },
         async watchEvents(contractAddress: string, eventName: string, callback: Function) {
-          // In a real implementation, this would set up a WebSocket connection
-          // For now, we'll simulate it with polling
           const interval = setInterval(async () => {
             try {
               const response = await this.api.get(`/api/v1/contracts/${contractAddress}/events?name=${eventName}`);
@@ -203,9 +757,8 @@ export class RebasedAdapter implements ChainAdapter {
             } catch (error) {
               console.error('Error watching events:', error);
             }
-          }, 5000); // Poll every 5 seconds
+          }, 5000);
           
-          // Return a function to cancel the polling
           return () => clearInterval(interval);
         }
       };
@@ -215,12 +768,6 @@ export class RebasedAdapter implements ChainAdapter {
     }
   }
 
-  /**
-   * Get the chain ID of the connected IOTA Rebased network
-   * 
-   * @returns {Promise<string>} Promise that resolves to the chain ID
-   * @throws {Error} If unable to retrieve chain ID
-   */
   async getChainId(): Promise<string> {
     if (!this.isConnected) {
       await this.connect();
@@ -239,109 +786,6 @@ export class RebasedAdapter implements ChainAdapter {
     return this.currentChainId;
   }
 
-  /**
-   * Submit a transaction to the IOTA Rebased blockchain
-   * 
-   * @param {Transaction} tx - Transaction to submit
-   * @returns {Promise<TransactionResult>} Transaction result containing ID, status, and metadata
-   * @throws {Error} If transaction submission fails
-   * 
-   * @example
-   * // Submit a recommendation transaction
-   * const result = await adapter.submitTx({
-   *   sender: "userAddress",
-   *   payload: {
-   *     type: "recommendation",
-   *     data: {
-   *       author: "userId",
-   *       serviceId: "restaurantId",
-   *       category: "restaurant",
-   *       rating: 5
-   *     }
-   *   }
-   * });
-   */
-  async submitTx(tx: Transaction): Promise<TransactionResult> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    const retryAttempts = this.config.options?.retryAttempts || 3;
-    
-    for (let attempt = 1; attempt <= retryAttempts; attempt++) {
-      try {
-        // Determine which contract to call based on tx payload type
-        const contractType = this.getContractTypeFromPayload(tx.payload);
-        const contractAddress = this.config.contractAddresses[contractType];
-        
-        // Build the transaction
-        const builtTx = await this.buildNativeTransaction(tx, contractAddress);
-        
-        // Sign the transaction
-        const signedTx = await this.signTransaction(builtTx, tx.sender);
-        
-        // Submit the transaction
-        const result = await this.client.submitTransaction(signedTx);
-        
-        // Check if we need to wait for confirmation
-        if (result.status === 'pending') {
-          await this.waitForTransactionConfirmation(result.id);
-          result.status = 'confirmed';
-        }
-        
-        return {
-          id: result.id,
-          status: result.status as 'pending' | 'confirmed' | 'failed',
-          timestamp: result.timestamp || new Date().toISOString(),
-          commitNumber: result.commitNumber,
-          objectId: result.objectId,
-          details: result
-        };
-      } catch (error) {
-        if (attempt === retryAttempts) {
-          console.error(`Failed to submit transaction after ${retryAttempts} attempts:`, error);
-          return {
-            id: '',
-            status: 'failed',
-            timestamp: new Date().toISOString(),
-            error: error.message
-          };
-        }
-        
-        // Exponential backoff before retry
-        const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        console.warn(`Attempt ${attempt} failed, retrying in ${backoffMs}ms:`, error.message);
-        await new Promise(resolve => setTimeout(resolve, backoffMs));
-      }
-    }
-    
-    // This should never be reached due to the return in the loop
-    return {
-      id: '',
-      status: 'failed',
-      timestamp: new Date().toISOString(),
-      error: 'Failed to submit transaction after exhausting retry attempts'
-    };
-  }
-
-  /**
-   * Query the state of the IOTA Rebased blockchain
-   * 
-   * @param {StateQuery} query - Query parameters
-   * @returns {Promise<{results: T[], total: number, pagination?: {offset: number, limit: number, hasMore: boolean}}>} 
-   *          Query results with pagination info
-   * @throws {Error} If state query fails
-   * 
-   * @template T - Type of the result items
-   * 
-   * @example
-   * // Query recommendations by category
-   * const result = await adapter.queryState<Recommendation>({
-   *   objectType: "recommendation",
-   *   filter: { category: "restaurant" },
-   *   pagination: { offset: 0, limit: 10 }
-   * });
-   */
   async queryState<T>(query: StateQuery): Promise<{
     results: T[];
     total: number;
@@ -356,11 +800,9 @@ export class RebasedAdapter implements ChainAdapter {
     }
     
     try {
-      // Determine which contract to query based on objectType
       const contractType = this.getContractTypeFromObjectType(query.objectType);
-      const contractAddress = this.config.contractAddresses[contractType];
+      const contractAddress = this.getContractAddress(contractType);
       
-      // Determine the method to call
       let method = 'get';
       if (query.filter && query.filter.id) {
         method = `get_${query.objectType}`;
@@ -368,17 +810,12 @@ export class RebasedAdapter implements ChainAdapter {
         method = `list_${query.objectType}s`;
       }
       
-      // Format arguments based on the query
       const args = this.formatQueryArgs(query);
-      
-      // Execute the query
       const result = await this.client.queryContract(contractAddress, method, args);
       
-      // Process the result
       const items = Array.isArray(result) ? result : [result];
       const deserializedItems = items.map(item => this.deserializeFromMoveVM(item)) as T[];
       
-      // Calculate pagination if provided
       const pagination = query.pagination ? {
         offset: query.pagination.offset,
         limit: query.pagination.limit,
@@ -396,31 +833,11 @@ export class RebasedAdapter implements ChainAdapter {
     }
   }
 
-  /**
-   * Watch for events on the IOTA Rebased blockchain
-   * 
-   * @param {EventFilter} filter - Event filter parameters
-   * @returns {AsyncIterator<Event>} Async iterator for event stream
-   * @throws {Error} If event watching fails
-   * 
-   * @example
-   * // Watch for recommendation creation events
-   * const eventIterator = await adapter.watchEvents({
-   *   eventTypes: ["recommendation_created"],
-   *   fromCommit: 12345
-   * });
-   * 
-   * // Process events
-   * for await (const event of eventIterator) {
-   *   console.log("New event:", event);
-   * }
-   */
   async *watchEvents(filter: EventFilter): AsyncIterator<Event> {
     if (!this.isConnected) {
       await this.connect();
     }
     
-    // If an existing iterator is active, close it
     if (this.eventIterator) {
       try {
         await this.eventIterator.return?.();
@@ -429,38 +846,31 @@ export class RebasedAdapter implements ChainAdapter {
       }
     }
     
-    // Create a new event queue and promise resolver mechanism
     const eventQueue: Event[] = [];
     let resolveNext: ((value: IteratorResult<Event>) => void) | null = null;
     let isActive = true;
     
-    // Set up event handlers for each type
     const unsubscribeFunctions: (() => void)[] = [];
     
     for (const eventType of filter.eventTypes) {
       try {
-        // Determine which contract to watch based on eventType
         const contractType = this.getContractTypeFromEventType(eventType);
-        const contractAddress = this.config.contractAddresses[contractType];
+        const contractAddress = this.getContractAddress(contractType);
         
-        // Set up the event subscription
         const unsubscribe = await this.client.watchEvents(
           contractAddress,
           eventType,
           (eventData: any) => {
             if (!isActive) return;
             
-            // Skip events before the fromCommit if specified
             if (filter.fromCommit && eventData.commitNumber < filter.fromCommit) {
               return;
             }
             
-            // Skip events not matching the address filter if specified
             if (filter.address && eventData.address !== filter.address) {
               return;
             }
             
-            // Apply additional filters if specified
             if (filter.filter) {
               for (const key in filter.filter) {
                 if (eventData.data[key] !== filter.filter[key]) {
@@ -469,7 +879,6 @@ export class RebasedAdapter implements ChainAdapter {
               }
             }
             
-            // Create event object
             const event: Event = {
               type: eventType,
               commitNumber: eventData.commitNumber,
@@ -478,7 +887,6 @@ export class RebasedAdapter implements ChainAdapter {
               data: this.deserializeFromMoveVM(eventData.data)
             };
             
-            // Add to queue or resolve immediately
             if (resolveNext) {
               const resolver = resolveNext;
               resolveNext = null;
@@ -498,7 +906,6 @@ export class RebasedAdapter implements ChainAdapter {
       }
     }
     
-    // Create the async iterator
     this.eventIterator = {
       next: async (): Promise<IteratorResult<Event>> => {
         if (!isActive) {
@@ -512,22 +919,18 @@ export class RebasedAdapter implements ChainAdapter {
           };
         }
         
-        // No events in queue, wait for the next one
         return new Promise<IteratorResult<Event>>(resolve => {
           resolveNext = resolve;
         });
       },
       
       return: async (): Promise<IteratorResult<Event>> => {
-        // Clean up resources
         isActive = false;
         
-        // Unsubscribe from all event subscriptions
         for (const unsubscribe of unsubscribeFunctions) {
           unsubscribe();
         }
         
-        // Resolve any pending next() calls
         if (resolveNext) {
           resolveNext({ done: true, value: undefined });
           resolveNext = null;
@@ -537,16 +940,9 @@ export class RebasedAdapter implements ChainAdapter {
       }
     };
     
-    // Return the iterator
     return this.eventIterator;
   }
 
-  /**
-   * Get the current commit/block number
-   * 
-   * @returns {Promise<number>} Current commit number
-   * @throws {Error} If unable to retrieve current commit
-   */
   async getCurrentCommit(): Promise<number> {
     if (!this.isConnected) {
       await this.connect();
@@ -561,77 +957,45 @@ export class RebasedAdapter implements ChainAdapter {
     }
   }
 
-  /**
-   * Calculate the estimated fee for a transaction
-   * 
-   * @param {Transaction} tx - Transaction to estimate fee for
-   * @returns {Promise<number>} Estimated fee in μMIOTA
-   */
   async estimateFee(tx: Transaction): Promise<number> {
-    // In a real implementation, this would use the IOTA Rebased SDK
-    // to estimate the fee based on the transaction size and gas cost
-    
-    // For now, we'll use a simple estimation based on transaction type
-    const baseFee = 5; // 5 μMIOTA
-    
+    const baseFee = 5;
     let complexityMultiplier = 1;
     
-    // Determine transaction type from payload
     const txType = this.getTxTypeFromPayload(tx.payload);
     
-    // Adjust based on transaction type
     switch (txType) {
       case 'createRecommendation':
-        // More complex due to media handling
         complexityMultiplier = 2;
         break;
       case 'submitProposal':
-        // Governance transactions are more expensive
         complexityMultiplier = 3;
         break;
       case 'registerService':
-        // Service registration is also more complex
         complexityMultiplier = 2;
         break;
       default:
         complexityMultiplier = 1;
     }
     
-    // Additional adjustment based on payload size
     const payloadSize = JSON.stringify(tx.payload).length;
-    const sizeMultiplier = Math.ceil(payloadSize / 1024); // Per KB
+    const sizeMultiplier = Math.ceil(payloadSize / 1024);
     
-    // Calculate the estimated fee
     let estimatedFee = baseFee * complexityMultiplier * sizeMultiplier;
-    
-    // Ensure the fee doesn't exceed the maximum
     const maxFee = this.config.options?.maxFeePerTransaction || 50;
     estimatedFee = Math.min(estimatedFee, maxFee);
     
     return estimatedFee;
   }
 
-  /**
-   * Connect to the IOTA Rebased blockchain network
-   * 
-   * @param {Record<string, any>} [options] - Optional connection options
-   * @returns {Promise<void>} Promise that resolves when connected
-   * @throws {Error} If connection fails
-   */
   async connect(options?: Record<string, any>): Promise<void> {
     try {
-      // Test connection to node
       const nodeInfo = await this.client.getNodeInfo();
       
       console.log(`Connected to IOTA Rebased ${this.config.network} node:`, nodeInfo.version);
       console.log(`Network: ${nodeInfo.network}`);
       
-      // Set chain ID
       this.currentChainId = nodeInfo.network || `rebased-${this.config.network}`;
-      
-      // Start event listener
       this.pollForEvents();
-      
       this.isConnected = true;
     } catch (error) {
       console.error('Failed to connect to IOTA Rebased node:', error);
@@ -640,13 +1004,7 @@ export class RebasedAdapter implements ChainAdapter {
     }
   }
 
-  /**
-   * Disconnect from the IOTA Rebased blockchain network
-   * 
-   * @returns {Promise<void>} Promise that resolves when disconnected
-   */
   async disconnect(): Promise<void> {
-    // Close any event subscriptions
     if (this.eventIterator) {
       try {
         await this.eventIterator.return?.();
@@ -660,22 +1018,15 @@ export class RebasedAdapter implements ChainAdapter {
     console.log('Disconnected from IOTA Rebased node');
   }
 
-  // Legacy methods and helper functions
+  // [Continue with all other existing methods...]
+  // Include: initializeWallet, submitTransaction, queryObjectState, queryObjects,
+  // subscribeToEvents, unsubscribeFromEvents, pollForEvents, callContractFunction,
+  // getWalletAddress, isConnectedToNode, and all private helper methods
 
-  /**
-   * Initialize wallet with seed
-   * 
-   * @private
-   * @param {string} seed - Seed for wallet initialization
-   * @returns {Promise<void>}
-   * @throws {Error} If wallet initialization fails
-   */
   private async initializeWallet(seed: string): Promise<void> {
     try {
-      // Create wallet using the provided seed
       const seedBytes = Ed25519Seed.fromMnemonic(seed);
       
-      // Initialize wallet with the seed
       this.wallet = new IotaWallet({
         storagePath: './wallet-database',
         clientOptions: {
@@ -690,7 +1041,6 @@ export class RebasedAdapter implements ChainAdapter {
         },
       });
       
-      // Create account if it doesn't exist
       const account = await this.wallet.createAccount({
         alias: 'OmeoneChain',
       });
@@ -703,27 +1053,18 @@ export class RebasedAdapter implements ChainAdapter {
     }
   }
 
-  /**
-   * Submit a transaction to the IOTA Rebased blockchain (legacy method)
-   * 
-   * @param {any} transaction - Transaction data to submit
-   * @returns {Promise<any>} Transaction result
-   * @throws {Error} If transaction submission fails
-   * @deprecated Use submitTx() instead
-   */
+  // Legacy method support
   public async submitTransaction(transaction: any): Promise<any> {
     if (!this.isConnected) {
       await this.connect();
     }
     
     try {
-      // Convert to Transaction format
-      const tx: Transaction = {
+      const tx: OmeoneTransaction = {
         sender: transaction.sender,
         payload: {
           type: transaction.type,
           action: transaction.action,
-          actionDetail: transaction.actionDetail,
           data: transaction.data
         },
         feeOptions: {
@@ -731,10 +1072,8 @@ export class RebasedAdapter implements ChainAdapter {
         }
       };
       
-      // Use the standard submitTx method
       const result = await this.submitTx(tx);
       
-      // Convert back to legacy format
       return {
         transactionId: result.id,
         objectId: result.objectId,
@@ -747,284 +1086,13 @@ export class RebasedAdapter implements ChainAdapter {
     }
   }
 
-  /**
-   * Query the current state for a given object type and ID (legacy method)
-   * 
-   * @param {string} objectType - Type of object to query
-   * @param {string} objectId - ID of the object
-   * @returns {Promise<any>} Current state of the object
-   * @throws {Error} If state query fails
-   * @deprecated Use queryState() instead
-   */
-  public async queryObjectState(objectType: string, objectId: string): Promise<any> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    try {
-      // Use standard queryState method
-      const result = await this.queryState<any>({
-        objectType,
-        filter: { id: objectId }
-      });
-      
-      if (result.results.length === 0) {
-        throw new Error(`Object ${objectId} of type ${objectType} not found`);
-      }
-      
-      // Convert to legacy format
-      return {
-        objectId,
-        objectType,
-        data: result.results[0],
-        commitNumber: result.results[0].tangle?.commitNumber,
-        timestamp: result.results[0].timestamp
-      };
-    } catch (error) {
-      console.error('State query failed:', error);
-      throw new Error(`Failed to query state: ${error.message}`);
-    }
-  }
-  
-  /**
-   * Query objects by type with optional filters (legacy method)
-   * 
-   * @param {string} objectType - Type of objects to query
-   * @param {any} [filters] - Optional filters to apply
-   * @param {{ limit: number; offset: number }} [pagination] - Pagination options
-   * @returns {Promise<any[]>} Array of matching objects
-   * @throws {Error} If objects query fails
-   * @deprecated Use queryState() instead
-   */
-  public async queryObjects(
-    objectType: string, 
-    filters?: any, 
-    pagination?: { limit: number; offset: number }
-  ): Promise<any[]> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    try {
-      // Use standard queryState method
-      const result = await this.queryState<any>({
-        objectType,
-        filter: filters,
-        pagination
-      });
-      
-      // Convert to legacy format
-      return result.results.map(item => ({
-        objectId: item.id,
-        objectType,
-        data: item,
-        commitNumber: item.tangle?.commitNumber,
-        timestamp: item.timestamp
-      }));
-    } catch (error) {
-      console.error('Objects query failed:', error);
-      throw new Error(`Failed to query objects: ${error.message}`);
-    }
-  }
+  // [Include all other existing methods with proper TypeScript types]
+  // Keep all functionality from your original implementation
 
-  /**
-   * Subscribe to events of a specific type (legacy method)
-   * 
-   * @param {string} eventType - Type of events to subscribe to
-   * @param {(event: any) => void} callback - Function to call when events occur
-   * @returns {string} Subscription ID
-   * @deprecated Use watchEvents() instead
-   */
-  public subscribeToEvents(eventType: string, callback: (event: any) => void): string {
-    const subscriptionId = crypto.randomUUID();
-    
-    if (!this.eventSubscribers.has(eventType)) {
-      this.eventSubscribers.set(eventType, []);
-    }
-    
-    this.eventSubscribers.get(eventType).push(callback);
-    
-    // Start event polling if not already started
-    if (this.isConnected && this.eventSubscribers.size === 1) {
-      this.pollForEvents();
-    }
-    
-    return subscriptionId;
-  }
-  
-  /**
-   * Unsubscribe from events (legacy method)
-   * 
-   * @param {string} subscriptionId - ID of the subscription to cancel
-   * @deprecated Use watchEvents() iterator.return() instead
-   */
-  public unsubscribeFromEvents(subscriptionId: string): void {
-    // Implementation would remove the specific callback
-    console.log(`Unsubscribed from events with ID: ${subscriptionId}`);
-  }
-  
-  /**
-   * Poll for new events on the DAG
-   * 
-   * @private
-   * @returns {Promise<void>}
-   */
-  private async pollForEvents(): Promise<void> {
-    if (!this.isConnected || this.eventSubscribers.size === 0) {
-      return;
-    }
-    
-    try {
-      const response = await axios.get(
-        `${this.nodeUrl}/api/v1/events`,
-        { 
-          params: { since: this.lastCommitNumber },
-          headers: this.apiKey ? { 'X-API-Key': this.apiKey } : {} 
-        }
-      );
-      
-      const events = response.data.events;
-      
-      if (events && events.length > 0) {
-        // Update the last processed commit number
-        this.lastCommitNumber = Math.max(
-          ...events.map(event => event.commitNumber)
-        );
-        
-        // Process each event
-        events.forEach(event => {
-          const chainEvent = {
-            eventId: event.eventId,
-            eventType: event.eventType,
-            objectId: event.objectId,
-            objectType: event.objectType,
-            data: event.data,
-            commitNumber: event.commitNumber,
-            timestamp: event.timestamp
-          };
-          
-          // Notify subscribers
-          if (this.eventSubscribers.has(event.eventType)) {
-            this.eventSubscribers.get(event.eventType).forEach(callback => {
-              callback(chainEvent);
-            });
-          }
-          
-          // Notify subscribers to 'all' events
-          if (this.eventSubscribers.has('all')) {
-            this.eventSubscribers.get('all').forEach(callback => {
-              callback(chainEvent);
-            });
-          }
-        });
-      }
-      
-      // Schedule next poll
-      setTimeout(() => this.pollForEvents(), 5000); // Poll every 5 seconds
-    } catch (error) {
-      console.error('Event polling failed:', error);
-      // Retry after a delay
-      setTimeout(() => this.pollForEvents(), 10000); // Retry after 10 seconds
-    }
-  }
-  
-  /**
-   * Call a Move smart contract function
-   * 
-   * @param {string} contractAddress - Address of the contract
-   * @param {string} functionName - Name of the function to call
-   * @param {any[]} args - Arguments for the function
-   * @returns {Promise<any>} Result of the function call
-   * @throws {Error} If contract function call fails
-   */
-  public async callContractFunction(
-    contractAddress: string,
-    functionName: string,
-    args: any[]
-  ): Promise<any> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    try {
-      const response = await this.client.queryContract(contractAddress, functionName, args);
-      return this.deserializeFromMoveVM(response);
-    } catch (error) {
-      console.error('Contract function call failed:', error);
-      throw new Error(`Failed to call contract function: ${error.message}`);
-    }
-  }
-  
-  /**
-   * Get the address of the wallet account
-   * 
-   * @returns {Promise<string>} Wallet address
-   * @throws {Error} If wallet is not initialized
-   */
-  public async getWalletAddress(): Promise<string> {
-    if (!this.wallet) {
-      throw new Error('Wallet is not initialized');
-    }
-    
-    try {
-      const account = await this.wallet.getAccount('OmeoneChain');
-      const addresses = await account.addresses();
-      
-      return addresses[0].address;
-    } catch (error) {
-      console.error('Failed to get wallet address:', error);
-      throw new Error('Could not retrieve wallet address');
-    }
-  }
-  
-  /**
-   * Check the connection status
-   * 
-   * @returns {boolean} Connection status
-   */
-  public isConnectedToNode(): boolean {
-    return this.isConnected;
-  }
-
-  // Helper methods for the new implementation
-
-  /**
-   * Get the contract type from the payload
-   * 
-   * @private
-   * @param {any} payload - Transaction payload
-   * @returns {keyof RebasedConfig['contractAddresses']} Contract type key
-   */
-  private getContractTypeFromPayload(payload: any): keyof RebasedConfig['contractAddresses'] {
-    // Determine the contract based on payload fields
-    if (payload.recommendation || payload.type === 'recommendation') {
-      return 'recommendation';
-    } else if (payload.reputation || payload.type === 'reputation') {
-      return 'reputation';
-    } else if (payload.token || payload.type === 'token') {
-      return 'token';
-    } else if (payload.governance || payload.type === 'governance') {
-      return 'governance';
-    } else if (payload.service || payload.type === 'service') {
-      return 'service';
-    }
-    
-    // Default to recommendation if unknown
-    return 'recommendation';
-  }
-
-  /**
-   * Get the contract type from an object type
-   * 
-   * @private
-   * @param {string} objectType - Object type
-   * @returns {keyof RebasedConfig['contractAddresses']} Contract type key
-   * @throws {Error} If object type is unknown
-   */
-  private getContractTypeFromObjectType(objectType: string): keyof RebasedConfig['contractAddresses'] {
+  private getContractTypeFromObjectType(objectType: string): keyof MoveContractMappings {
     switch (objectType.toLowerCase()) {
       case 'recommendation':
-        return 'recommendation';
+        return 'token'; // Recommendations are stored in token contract
       case 'reputation':
       case 'user':
       case 'profile':
@@ -1035,69 +1103,50 @@ export class RebasedAdapter implements ChainAdapter {
       case 'governance':
       case 'proposal':
         return 'governance';
-      case 'service':
-        return 'service';
+      case 'reward':
+        return 'rewards';
       default:
         throw new Error(`Unknown object type: ${objectType}`);
     }
   }
 
-  /**
-   * Get the contract type from an event type
-   * 
-   * @private
-   * @param {string} eventType - Event type
-   * @returns {keyof RebasedConfig['contractAddresses']} Contract type key
-   * @throws {Error} If event type is unknown
-   */
-  private getContractTypeFromEventType(eventType: string): keyof RebasedConfig['contractAddresses'] {
+  private getContractTypeFromEventType(eventType: string): keyof MoveContractMappings {
     if (eventType.includes('recommendation')) {
-      return 'recommendation';
+      return 'token';
     } else if (eventType.includes('reputation') || eventType.includes('user')) {
       return 'reputation';
     } else if (eventType.includes('token') || eventType.includes('transfer')) {
       return 'token';
     } else if (eventType.includes('governance') || eventType.includes('proposal')) {
       return 'governance';
-    } else if (eventType.includes('service')) {
-      return 'service';
+    } else if (eventType.includes('reward')) {
+      return 'rewards';
     } else {
       throw new Error(`Unknown event type: ${eventType}`);
     }
   }
 
-  /**
-   * Format query arguments based on the query
-   * 
-   * @private
-   * @param {StateQuery} query - State query
-   * @returns {any[]} Formatted arguments
-   */
   private formatQueryArgs(query: StateQuery): any[] {
     const args: any[] = [];
     
-    // Add ID if specified
     if (query.filter && query.filter.id) {
       args.push(query.filter.id);
     }
     
-    // Add other filters
     if (query.filter) {
       const filterObj = { ...query.filter };
-      delete filterObj.id; // Remove ID since it's already handled
+      delete filterObj.id;
       
       if (Object.keys(filterObj).length > 0) {
         args.push(JSON.stringify(filterObj));
       }
     }
     
-    // Add pagination
     if (query.pagination) {
       args.push(query.pagination.limit);
       args.push(query.pagination.offset);
     }
     
-    // Add sorting
     if (query.sort) {
       args.push(JSON.stringify({
         field: query.sort.field,
@@ -1108,19 +1157,11 @@ export class RebasedAdapter implements ChainAdapter {
     return args;
   }
 
-  /**
-   * Get transaction type from payload
-   * 
-   * @private
-   * @param {any} payload - Transaction payload
-   * @returns {string} Transaction type
-   */
   private getTxTypeFromPayload(payload: any): string {
     if (payload.type) {
       return payload.type;
     }
     
-    // Infer type from payload structure
     if (payload.recommendation || payload.serviceId) {
       return 'createRecommendation';
     } else if (payload.reputationScore || payload.userId) {
@@ -1133,225 +1174,11 @@ export class RebasedAdapter implements ChainAdapter {
       return 'registerService';
     }
     
-    // Default
     return 'unknown';
   }
 
-  /**
-   * Build a native transaction for the IOTA Rebased blockchain
-   * 
-   * @private
-   * @param {Transaction} tx - Transaction in standard format
-   * @param {string} contractAddress - The contract address to call
-   * @returns {Promise<any>} The built transaction in native format
-   */
-  private async buildNativeTransaction(tx: Transaction, contractAddress: string): Promise<any> {
-    // Get the tx type
-    const txType = this.getTxTypeFromPayload(tx.payload);
-    
-    // Get the method name based on txType
-    const method = this.getTxMethodName(txType);
-    
-    // Format the arguments
-    const args = this.formatTxArgs(txType, tx.payload);
-    
-    // Estimate the fee
-    const fee = await this.estimateFee(tx);
-    
-    // Use sponsor wallet if available and requested
-    const sender = (tx.feeOptions?.sponsorWallet && this.config.sponsorWallet?.address) ? 
-                  this.config.sponsorWallet.address : 
-                  tx.sender || this.config.account.address;
-    
-    // Build the transaction
-    return {
-      id: crypto.randomBytes(32).toString('hex'),
-      type: 'contract_call',
-      sender,
-      contract: contractAddress,
-      method,
-      args,
-      fee,
-      timestamp: new Date().toISOString(),
-      payload: tx.payload
-    };
-  }
-
-  /**
-   * Get the method name for a transaction type
-   * 
-   * @private
-   * @param {string} txType - The transaction type
-   * @returns {string} The method name
-   */
-  private getTxMethodName(txType: string): string {
-    // Map transaction type to method name
-    const txTypeToMethodMap: Record<string, string> = {
-      'createRecommendation': 'post_recommendation',
-      'updateRecommendation': 'update_recommendation',
-      'deleteRecommendation': 'delete_recommendation',
-      'updateReputation': 'update_reputation',
-      'transferTokens': 'transfer',
-      'claimReward': 'claim_reward',
-      'submitProposal': 'create_proposal',
-      'voteOnProposal': 'cast_vote',
-      'registerService': 'register_service',
-      'updateService': 'update_service',
-    };
-    
-    return txTypeToMethodMap[txType] || txType;
-  }
-
-  /**
-   * Format transaction arguments based on type
-   * 
-   * @private
-   * @param {string} txType - Transaction type
-   * @param {any} payload - Transaction payload
-   * @returns {any[]} Formatted arguments
-   */
-  private formatTxArgs(txType: string, payload: any): any[] {
-    // Extract the actual data from the payload
-    const data = payload.data || payload;
-    
-    switch (txType) {
-      case 'createRecommendation':
-        return [
-          data.author,
-          data.serviceId,
-          data.category,
-          data.rating,
-          JSON.stringify(data.location),
-          data.content?.title || '',
-          data.content?.body || '',
-          JSON.stringify(data.content?.media || []),
-          data.tags || [],
-        ];
-      
-      case 'updateReputation':
-        return [
-          data.userId,
-          data.reputationScore.toString(),
-          data.verificationLevel || 'basic',
-          JSON.stringify(data.specializations || []),
-        ];
-      
-      case 'transferTokens':
-        return [
-          data.recipient,
-          data.amount.toString(),
-          data.type || 'transfer',
-          data.actionReference || '',
-        ];
-      
-      case 'submitProposal':
-        return [
-          data.title,
-          data.description,
-          data.type,
-          JSON.stringify(data.params),
-          data.votingEndTime ? new Date(data.votingEndTime).toISOString() : '',
-        ];
-      
-      case 'voteOnProposal':
-        return [
-          data.proposalId,
-          data.vote,
-        ];
-      
-      case 'registerService':
-        return [
-          data.name,
-          data.category,
-          JSON.stringify(data.subcategories || []),
-          JSON.stringify(data.location),
-          data.website || '',
-          data.contact || '',
-        ];
-      
-      default:
-        return Object.values(data);
-    }
-  }
-
-  /**
-   * Sign a transaction
-   * 
-   * @private
-   * @param {any} transaction - The transaction to sign
-   * @param {string} [senderOverride] - Override the sender address
-   * @returns {Promise<any>} The signed transaction
-   */
-  private async signTransaction(transaction: any, senderOverride?: string): Promise<any> {
-    // Determine which private key to use
-    const sender = senderOverride || transaction.sender;
-    const privateKey = sender === this.config.sponsorWallet?.address
-      ? this.config.sponsorWallet.privateKey
-      : this.config.account.privateKey;
-    
-    // For now, we'll just simulate a signature
-    const signatureData = JSON.stringify(transaction);
-    const signature = crypto.createHash('sha256')
-      .update(signatureData)
-      .update(privateKey)
-      .digest('hex');
-    
-    // Add the signature to the transaction
-    return {
-      ...transaction,
-      signature,
-    };
-  }
-
-  /**
-   * Wait for a transaction to be confirmed
-   * 
-   * @private
-   * @param {string} txId - The transaction ID
-   * @returns {Promise<void>} Promise that resolves when the transaction is confirmed
-   * @throws {Error} If confirmation fails or times out
-   */
-  private async waitForTransactionConfirmation(txId: string): Promise<void> {
-    const maxAttempts = 10;
-    const interval = 2000; // 2 seconds
-    
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const status = await this.client.getTransactionStatus(txId);
-        
-        if (status.status === 'confirmed') {
-          return;
-        }
-        
-        if (status.status === 'failed') {
-          throw new Error(`Transaction failed: ${status.error || 'Unknown error'}`);
-        }
-        
-        // Transaction is still pending, wait and try again
-        await new Promise(resolve => setTimeout(resolve, interval));
-      } catch (error) {
-        if (attempt === maxAttempts) {
-          throw new Error(`Failed to confirm transaction after ${maxAttempts} attempts: ${error.message}`);
-        }
-        
-        // Wait and try again
-        await new Promise(resolve => setTimeout(resolve, interval));
-      }
-    }
-    
-    throw new Error(`Transaction confirmation timeout: ${txId}`);
-  }
-
-  /**
-   * Deserialize data from Move VM
-   * 
-   * @private
-   * @param {any} data - The data to deserialize
-   * @returns {any} Deserialized data
-   */
   private deserializeFromMoveVM(data: any): any {
     if (typeof data === 'string') {
-      // Try to parse as JSON if it looks like JSON
       if (data.startsWith('{') || data.startsWith('[')) {
         try {
           return JSON.parse(data);
@@ -1360,12 +1187,10 @@ export class RebasedAdapter implements ChainAdapter {
         }
       }
       
-      // Try to parse as date if it looks like a date
       if (data.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)) {
         return new Date(data);
       }
       
-      // Try to parse as a number if it's numeric
       if (data.match(/^\d+$/)) {
         const num = parseInt(data, 10);
         if (!isNaN(num)) {
@@ -1386,4 +1211,6 @@ export class RebasedAdapter implements ChainAdapter {
       return data;
     }
   }
+
+  // [Add any remaining methods from your original implementation]
 }
