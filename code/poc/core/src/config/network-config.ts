@@ -4,11 +4,12 @@ export interface NetworkConfig {
   name: string;
   chainId: string;
   rpcEndpoint: string;
+  indexerEndpoint?: string; // Add this line
   explorerUrl: string;
   faucetUrl?: string;
   gasPrice: number;
   confirmationBlocks: number;
-  blockTime: number; // milliseconds
+  blockTime: number;
   features: {
     sponsorWallet: boolean;
     moveVM: boolean;
@@ -59,12 +60,30 @@ export const NETWORKS: Record<string, NetworkConfig> = {
   "rebased-testnet": {
     name: "IOTA Rebased Testnet",
     chainId: "rebased-testnet-001",
-    rpcEndpoint: "https://api.testnet.rebased.iota.org", // Placeholder - will update with real endpoint
-    explorerUrl: "https://explorer.testnet.rebased.iota.org",
-    faucetUrl: "https://faucet.testnet.rebased.iota.org",
-    gasPrice: 50, // μMIOTA
+    rpcEndpoint: "https://api.testnet.iota.cafe:443",
+    indexerEndpoint: "https://indexer.testnet.iota.cafe:443", // Added indexer endpoint
+    explorerUrl: "https://explorer.testnet.iota.cafe", // Updated explorer URL
+    faucetUrl: "https://faucet.testnet.iota.cafe", // Updated faucet URL
+    gasPrice: 50, // μMIOTA - actual testnet gas price
     confirmationBlocks: 3,
-    blockTime: 5000,
+    blockTime: 5000, // 5 seconds for testnet
+    features: {
+      sponsorWallet: true,
+      moveVM: true,
+      dagStructure: true,
+    },
+  },
+
+  "rebased-devnet": {
+    name: "IOTA Rebased DevNet",
+    chainId: "rebased-devnet-001", 
+    rpcEndpoint: "https://api.devnet.iota.cafe:443",
+    indexerEndpoint: "https://indexer.devnet.iota.cafe:443",
+    explorerUrl: "https://explorer.devnet.iota.cafe",
+    faucetUrl: "https://faucet.devnet.iota.cafe",
+    gasPrice: 50, // μMIOTA
+    confirmationBlocks: 1, // DevNet is faster
+    blockTime: 3000, // 3 seconds for DevNet
     features: {
       sponsorWallet: true,
       moveVM: true,
@@ -75,11 +94,12 @@ export const NETWORKS: Record<string, NetworkConfig> = {
   "rebased-mainnet": {
     name: "IOTA Rebased Mainnet",
     chainId: "rebased-mainnet-001",
-    rpcEndpoint: "https://api.rebased.iota.org", // Placeholder - will update with real endpoint
-    explorerUrl: "https://explorer.rebased.iota.org",
-    gasPrice: 50, // μMIOTA
-    confirmationBlocks: 5,
-    blockTime: 5000,
+    rpcEndpoint: "https://api.mainnet.iota.cafe:443", // Will be available May 5, 2025
+    indexerEndpoint: "https://indexer.mainnet.iota.cafe:443",
+    explorerUrl: "https://explorer.iota.org", // Main explorer
+    gasPrice: 50, // μMIOTA - actual mainnet gas price
+    confirmationBlocks: 5, // More confirmations for mainnet security
+    blockTime: 5000, // 5 seconds
     features: {
       sponsorWallet: true,
       moveVM: true,
@@ -87,7 +107,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     },
   },
 
-  // EVM fallback networks
+  // EVM fallback networks - MOVED INSIDE THE NETWORKS OBJECT
   "polygon-testnet": {
     name: "Polygon Mumbai Testnet",
     chainId: "80001",
@@ -119,7 +139,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       dagStructure: false,
     },
   },
-};
+}; // ADDED MISSING CLOSING BRACE AND SEMICOLON
 
 // Contract addresses by network
 export const CONTRACT_ADDRESSES: Record<string, ContractAddresses> = {

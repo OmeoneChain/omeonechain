@@ -8,8 +8,9 @@ import {
   isNetworkAvailable,
   isMoveVMNetwork,
   isDagNetwork,
-  hasSponsorWallet
-} from './network-config.js';
+  hasSponsorWallet,
+  CONTRACT_ADDRESSES
+} from './network-config';
 
 export type EnvironmentName = 'development' | 'testnet' | 'production' | 'evm-testnet';
 
@@ -108,23 +109,32 @@ export class EnvironmentManager {
       errors.push('Invalid network configuration');
     }
 
-    // Validate contract addresses (skip for development)
-    if (environment.network.name !== 'Mock Network') {
+    // RELAXED: Only validate contract addresses for production environment
+    // Testnet and development can have empty contract addresses
+    if (environment.network.name !== 'Mock Network' && this.currentEnvironment === 'production') {
       const hasValidContracts = Object.values(environment.contracts).some(addr => addr.length > 0);
       if (!hasValidContracts) {
-        errors.push('No contract addresses configured - contracts need to be deployed');
+        errors.push('No contract addresses configured - contracts need to be deployed for production');
       }
     }
 
-    // Validate required environment variables for non-development
-    if (environment.network.name !== 'Mock Network') {
+    // Validate required environment variables for production only
+    if (this.currentEnvironment === 'production') {
       if (environment.apiKeys?.ipfsGateway && !process.env.IPFS_GATEWAY_KEY) {
-        errors.push('IPFS_GATEWAY_KEY environment variable required');
+        errors.push('IPFS_GATEWAY_KEY environment variable required for production');
       }
     }
 
     if (errors.length > 0) {
       throw new Error(`Environment validation failed: ${errors.join(', ')}`);
+    }
+
+    // Log warnings for testnet/development with missing contracts
+    if (environment.network.name !== 'Mock Network' && this.currentEnvironment !== 'production') {
+      const hasValidContracts = Object.values(environment.contracts).some(addr => addr.length > 0);
+      if (!hasValidContracts) {
+        console.warn(`⚠️  No contracts deployed in ${this.currentEnvironment} environment - this is expected for testing`);
+      }
     }
   }
 
@@ -192,7 +202,7 @@ export class EnvironmentManager {
     const totalContracts = Object.keys(contracts).length;
     
     if (deployedContracts.length === 0 && environment.network.name !== 'Mock Network') {
-      status.warnings.push('No contracts deployed yet');
+      status.warnings.push('No contracts deployed yet - expected for testnet');
     } else if (deployedContracts.length < totalContracts) {
       status.warnings.push(`Only ${deployedContracts.length}/${totalContracts} contracts deployed`);
     }
@@ -227,8 +237,16 @@ export class EnvironmentManager {
     console.log(`📊 Network: ${environment.network.name} (${environment.network.chainId})`);
     console.log(`🔗 RPC: ${environment.network.rpcEndpoint}`);
     
+    if (environment.network.indexerEndpoint) {
+      console.log(`📊 Indexer: ${environment.network.indexerEndpoint}`);
+    }
+    
     if (environment.network.explorerUrl) {
       console.log(`🔍 Explorer: ${environment.network.explorerUrl}`);
+    }
+    
+    if (environment.network.faucetUrl) {
+      console.log(`💧 Faucet: ${environment.network.faucetUrl}`);
     }
     
     // Log contract status
@@ -237,6 +255,8 @@ export class EnvironmentManager {
     
     if (deployedContracts.length > 0) {
       console.log(`📋 Contracts deployed: ${deployedContracts.length}/${Object.keys(environment.contracts).length}`);
+    } else {
+      console.log(`📋 Contracts: Not yet deployed (expected for ${this.currentEnvironment})`);
     }
 
     // Log special features

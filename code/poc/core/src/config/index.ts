@@ -1,19 +1,19 @@
 // code/poc/core/src/config/index.ts
 
 // Main configuration exports
-export * from './network-config.js';
-export * from './environment-manager.js';
-export * from './contract-registry.js';
-export * from './types.js';
+export * from './network-config';
+export * from './environment-manager';
+export * from './contract-registry';
+export * from './types';
 
 // Convenience exports for common use cases
-export { environmentManager } from './environment-manager.js';
-export { contractRegistry } from './contract-registry.js';
+export { environmentManager } from './environment-manager';
+export { contractRegistry } from './contract-registry';
 
 // Utility functions for quick access
-import { environmentManager } from './environment-manager.js';
-import { contractRegistry } from './contract-registry.js';
-import type { ConfigurationState, NetworkCapabilities } from './types.js';
+import { environmentManager } from './environment-manager';
+import { contractRegistry } from './contract-registry';
+import type { ConfigurationState, NetworkCapabilities } from './types';
 
 /**
  * Get current configuration state summary

@@ -1,8 +1,8 @@
 // code/poc/core/src/adapters/production-rebased-adapter.ts
 
-import { ChainAdapter, TransactionResult, QueryResult } from './chain-adapter.js';
-import { environmentManager, contractRegistry } from '../config/index.js';
-import type { NetworkConfig } from '../config/network-config.js';
+import { environmentManager, contractRegistry } from '../config/index';
+import type { NetworkConfig } from '../config/network-config';
+import { ChainAdapter, TransactionResult, QueryResult } from './chain-adapter';
 
 export interface ConnectionPool {
   primary: string;

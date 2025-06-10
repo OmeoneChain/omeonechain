@@ -1,6 +1,6 @@
 // code/poc/core/src/config/contract-registry.ts
 
-import { environmentManager } from './environment-manager.js';
+import { environmentManager } from './environment-manager';
 
 export interface ContractMetadata {
   name: string;
