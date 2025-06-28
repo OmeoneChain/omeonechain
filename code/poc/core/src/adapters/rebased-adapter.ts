@@ -33,6 +33,8 @@ interface MoveContractMappings {
     distributeLeaderboardReward: 'reward_distribution::distribute_leaderboard_reward';
     isEligibleForReward: 'reward_distribution::is_eligible_for_reward';
     getPendingRewardInfo: 'reward_distribution::get_pending_reward_info';
+    claimDiscoveryBonus: 'discovery_incentives::claim_discovery_bonus';
+    getActiveCampaigns: 'discovery_incentives::get_active_campaigns';
   };
   governance: {
     createProposal: 'governance::create_proposal';
@@ -45,6 +47,10 @@ interface MoveContractMappings {
     updateUserReputation: 'reputation::update_user_reputation';
     getSocialWeight: 'reputation::get_social_weight';
     calculateTrustScore: 'reputation::calculate_trust_score';
+    submitCommunityVerification: 'reputation::submit_community_verification';
+    addSocialConnection: 'reputation::add_social_connection',
+    removeSocialConnection: 'reputation::remove_social_connection';
+    getUserReputation: 'reputation::get_user_reputation';
   };
 }
 
@@ -485,6 +491,264 @@ export class RebasedAdapter implements ChainAdapter {
       position.toString(),
       this.getCurrentTimestamp()
     ]);
+  }
+
+  // ========== Phase 5C Reputation Integration Methods ==========
+
+  /**
+   * Update user reputation on blockchain (Phase 5B integration)
+   */
+  async updateUserReputationOnChain(
+    userId: string,
+    reputationScore: number,
+    verificationLevel: number,
+    socialConnections: Array<{
+      targetId: string;
+      trustWeight: number;
+      connectionType: number;
+    }> = []
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('reputation', 'updateUserReputation', [
+      userId,
+      Math.floor(reputationScore), // Convert to integer
+      verificationLevel, // 0=basic, 1=verified, 2=expert
+      JSON.stringify(socialConnections),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  /**
+   * Submit community verification (Phase 5B)
+   */
+  async submitCommunityVerificationOnChain(
+    verifierId: string,
+    targetUserId: string,
+    evidence: string,
+    category: string,
+    verificationHash: string
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('reputation', 'submitCommunityVerification', [
+      verifierId,
+      targetUserId,
+      this.stringToBytes(evidence),
+      this.stringToBytes(category),
+      this.stringToBytes(verificationHash),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  /**
+   * Add social connection to blockchain (Phase 5B)
+   */
+  async addSocialConnectionOnChain(
+    followerId: string,
+    followedId: string,
+    trustWeight: number,
+    connectionType: number = 1
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('reputation', 'addSocialConnection', [
+      followerId,
+      followedId,
+      Math.floor(trustWeight * 1000), // Convert 0.75 -> 750
+      connectionType, // 1=direct, 2=friend-of-friend
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  /**
+   * Remove social connection from blockchain (Phase 5B)
+   */
+  async removeSocialConnectionOnChain(
+    followerId: string,
+    followedId: string
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('reputation', 'removeSocialConnection', [
+      followerId,
+      followedId,
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  /**
+   * Claim discovery incentive bonus (Phase 5B)
+   */
+  async claimDiscoveryBonusOnChain(
+    userId: string,
+    campaignId: string,
+    recommendationIds: string[]
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('rewards', 'claimDiscoveryBonus', [
+      this.config.contractAddresses.rewards,
+      userId,
+      this.stringToBytes(campaignId),
+      recommendationIds.map(id => this.stringToBytes(id)),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  /**
+   * Get user's on-chain reputation data (Phase 5B)
+   */
+  async getOnChainReputationData(userId: string): Promise<{
+    reputationScore: number;
+    verificationLevel: number;
+    socialConnections: number;
+    lastUpdated: string;
+    verificationCount: number;
+  }> {
+    const result = await this.callMoveFunction('reputation', 'getUserReputation', [userId]);
+    
+    if (result.success && result.result) {
+      return {
+        reputationScore: parseInt(result.result.reputation_score || '0') / 100, // Convert from integer
+        verificationLevel: parseInt(result.result.verification_level || '0'),
+        socialConnections: parseInt(result.result.connection_count || '0'),
+        lastUpdated: result.result.last_updated || new Date().toISOString(),
+        verificationCount: parseInt(result.result.verification_count || '0'),
+      };
+    }
+    
+    return {
+      reputationScore: 0,
+      verificationLevel: 0,
+      socialConnections: 0,
+      lastUpdated: new Date().toISOString(),
+      verificationCount: 0,
+    };
+  }
+
+  /**
+   * Get active discovery campaigns from blockchain (Phase 5B)
+   */
+  async getActiveDiscoveryCampaignsOnChain(region?: string, category?: string): Promise<Array<{
+    campaignId: string;
+    region: string;
+    category: string;
+    bonusMultiplier: number;
+    targetRecommendations: number;
+    expiresAt: string;
+    minTrustScore: number;
+    bonusPool: number;
+    participantCount: number;
+  }>> {
+    const result = await this.callMoveFunction('rewards', 'getActiveCampaigns', [
+      this.config.contractAddresses.rewards,
+      region || '',
+      category || ''
+    ]);
+    
+    if (result.success && result.result && Array.isArray(result.result)) {
+      return result.result.map((campaign: any) => ({
+        campaignId: campaign.campaign_id || '',
+        region: campaign.region || '',
+        category: campaign.category || '',
+        bonusMultiplier: (parseInt(campaign.bonus_multiplier || '100') / 100), // Convert from integer
+        targetRecommendations: parseInt(campaign.target_recommendations || '0'),
+        expiresAt: campaign.expires_at || '',
+        minTrustScore: (parseInt(campaign.min_trust_score || '25') / 100), // Convert from integer
+        bonusPool: parseInt(campaign.bonus_pool || '0'),
+        participantCount: parseInt(campaign.participant_count || '0'),
+      }));
+    }
+    
+    return [];
+  }
+
+  /**
+   * Calculate trust score between users on blockchain (Phase 5B)
+   */
+  async calculateTrustScoreOnChain(
+    sourceUserId: string,
+    targetUserId: string,
+    maxDepth: number = 2
+  ): Promise<{
+    trustScore: number;
+    directConnection: boolean;
+    shortestPath: number;
+    socialDistance: number;
+  }> {
+    const result = await this.callMoveFunction('reputation', 'calculateTrustScore', [
+      sourceUserId,
+      targetUserId,
+      maxDepth.toString()
+    ]);
+    
+    if (result.success && result.result) {
+      return {
+        trustScore: (parseInt(result.result.trust_score || '0') / 1000), // Convert from integer
+        directConnection: result.result.direct_connection || false,
+        shortestPath: parseInt(result.result.shortest_path || '999'),
+        socialDistance: parseInt(result.result.social_distance || '999'),
+      };
+    }
+    
+    return {
+      trustScore: 0,
+      directConnection: false,
+      shortestPath: 999,
+      socialDistance: 999,
+    };
+  }
+
+  /**
+   * Sync reputation data between off-chain and on-chain (Phase 5B)
+   */
+  async syncReputationWithBlockchain(
+    userId: string,
+    offChainData: {
+      reputationScore: number;
+      verificationLevel: string;
+      socialConnections: number;
+    }
+  ): Promise<{
+    synced: boolean;
+    discrepancies: string[];
+    transactionId?: string;
+  }> {
+    try {
+      // Get on-chain data
+      const onChainData = await this.getOnChainReputationData(userId);
+      
+      const discrepancies: string[] = [];
+      
+      // Check reputation score (allow 10 point difference for rounding)
+      const scoreDiff = Math.abs(offChainData.reputationScore - (onChainData.reputationScore * 1000));
+      if (scoreDiff > 10) {
+        discrepancies.push(`Reputation score: off-chain ${offChainData.reputationScore}, on-chain ${onChainData.reputationScore * 1000}`);
+      }
+      
+      // Check verification level
+      const verificationLevelMap = { 'basic': 0, 'verified': 1, 'expert': 2 };
+      const expectedLevel = verificationLevelMap[offChainData.verificationLevel as keyof typeof verificationLevelMap] || 0;
+      if (expectedLevel !== onChainData.verificationLevel) {
+        discrepancies.push(`Verification level: off-chain ${offChainData.verificationLevel}, on-chain ${onChainData.verificationLevel}`);
+      }
+      
+      // If discrepancies found, update on-chain
+      if (discrepancies.length > 0) {
+        const updateResult = await this.updateUserReputationOnChain(
+          userId,
+          offChainData.reputationScore,
+          expectedLevel
+        );
+        
+        return {
+          synced: updateResult.success,
+          discrepancies,
+          transactionId: updateResult.result?.transaction_id,
+        };
+      }
+      
+      return {
+        synced: true,
+        discrepancies: [],
+      };
+    } catch (error) {
+      return {
+        synced: false,
+        discrepancies: [`Sync failed: ${error.message}`],
+      };
+    }
   }
 
   /**

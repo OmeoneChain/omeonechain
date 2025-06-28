@@ -30,7 +30,7 @@ import { authenticate } from './middleware/auth';
 import { RecommendationEngine } from '../recommendation/engine';
 import { ReputationEngine } from '../reputation/engine';
 import { TokenEngine } from '../token/engine';
-import { ServiceEngine } from '../service/engine';
+import { ServiceEngine } from '../services/engine';
 import { GovernanceEngine } from '../governance/engine';
 
 // Import adapters

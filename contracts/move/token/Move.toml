@@ -1,11 +1,16 @@
 [package]
-name = "OmeoneToken"
+name = "omeone_token"
 version = "0.1.0"
-published-at = "0x0"
+edition = "2024.beta"
 
 [dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
+Sui = { git = "https://github.com/iotaledger/iota.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
 
 [addresses]
-omeone_token = "0x0"
+omeone = "0x0"
+omeonechain = "0x0"  # Keep for compatibility with your existing code
 sui = "0x2"
+
+[dev-addresses]
+omeone = "0xCAFE"
+omeonechain = "0xCAFE"

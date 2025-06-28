@@ -1,11 +1,15 @@
-module omeonechain::token {
-    use std::error;
-    use std::signer;
+module omeone::token {
     use std::string::{Self, String};
     use std::vector;
+    use sui::object::{Self, UID};
+    use sui::tx_context::{Self, TxContext};
+    use sui::transfer;
+    use sui::coin::{Self, Coin, TreasuryCap};
+    use sui::balance::{Self, Balance};
+    use sui::event;
     
-    use omeonechain::common::{Self, TimeStamp};
-    use omeonechain::recommendation::{Self};
+    // You'll need to create this common module or import timestamp functions
+    // use omeone::common::{Self, TimeStamp};
     
     /// Error codes
     const E_NOT_AUTHORIZED: u64 = 301;
@@ -17,31 +21,29 @@ module omeonechain::token {
     const E_INVALID_HALVING_PERIOD: u64 = 307;
     
     /// Constants
-    const TOTAL_SUPPLY_CAP: u64 = 10000000000; // 10 billion tokens
-    const DECIMALS: u8 = 8; // 8 decimal places
+    const TOTAL_SUPPLY_CAP: u64 = 10_000_000_000_000_000_000; // 10 billion tokens with 9 decimals
+    const DECIMALS: u8 = 9; // Changed to 9 decimals as discussed
     
-    const REWARDS_ALLOCATION: u64 = 5200000000; // 5.2 billion tokens (52%)
-    const DEVELOPMENT_ALLOCATION: u64 = 2000000000; // 2 billion tokens (20%)
-    const ECOSYSTEM_ALLOCATION: u64 = 1600000000; // 1.6 billion tokens (16%)
-    const TEAM_ALLOCATION: u64 = 1200000000; // 1.2 billion tokens (12%)
+    const REWARDS_ALLOCATION: u64 = 5_200_000_000_000_000_000; // 5.2 billion tokens (52%)
+    const DEVELOPMENT_ALLOCATION: u64 = 2_000_000_000_000_000_000; // 2 billion tokens (20%)
+    const ECOSYSTEM_ALLOCATION: u64 = 1_600_000_000_000_000_000; // 1.6 billion tokens (16%)
+    const TEAM_ALLOCATION: u64 = 1_200_000_000_000_000_000; // 1.2 billion tokens (12%)
     
     // Halving thresholds (10% of supply each)
-    const HALVING_THRESHOLD_1: u64 = 1000000000; // 1 billion tokens (10% of total)
-    const HALVING_THRESHOLD_2: u64 = 2000000000; // 2 billion tokens (20% of total)
-    const HALVING_THRESHOLD_3: u64 = 3000000000; // 3 billion tokens (30% of total)
-    // ... and so on until 90%
+    const HALVING_THRESHOLD_1: u64 = 1_000_000_000_000_000_000; // 1 billion tokens (10% of total)
+    const HALVING_THRESHOLD_2: u64 = 2_000_000_000_000_000_000; // 2 billion tokens (20% of total)
+    const HALVING_THRESHOLD_3: u64 = 3_000_000_000_000_000_000; // 3 billion tokens (30% of total)
     
     const BASE_EMISSION_RATE: u64 = 100; // Base emission rate (100%)
     const FEE_BURN_PERCENTAGE: u64 = 75; // 75% of fees are burned
-    
-    /// Token balance for a user
-    struct TokenBalance has key, store {
-        balance: u64,
-        timestamp: TimeStamp,
-    }
-    
-    /// Token supply registry
-    struct TokenSupply has key {
+
+    /// One-time witness for token creation
+    public struct OMEONE has drop {}
+
+    /// Token supply registry - now compatible with IOTA Rebased
+    public struct TokenSupply has key {
+        id: UID,
+        treasury_cap: TreasuryCap<OMEONE>,
         total_supply: u64,
         circulating_supply: u64,
         rewards_remaining: u64,
@@ -49,43 +51,65 @@ module omeonechain::token {
         ecosystem_remaining: u64,
         team_remaining: u64,
         total_burned: u64,
-        emission_rate: u64, // Current emission rate percentage
-        halving_index: u64, // Current halving period (0-9)
-        timestamp: TimeStamp,
-    }
-    
-    /// Transaction registry
-    struct TransactionRegistry has key {
-        transaction_count: u64,
-        transactions: vector<Transaction>,
+        emission_rate: u64,
+        halving_index: u64,
+        created_at: u64,
     }
     
     /// Transaction record
-    struct Transaction has store {
+    public struct Transaction has copy, drop, store {
         id: u64,
         sender: address,
         recipient: address,
         amount: u64,
         transaction_type: u8, // 1=reward, 2=transfer, 3=fee, 4=burn
-        reference: String, // Optional reference (e.g., recommendation ID)
+        reference: String,
         timestamp: u64,
     }
     
     /// Reward claim registry
-    struct RewardClaimRegistry has key {
+    public struct RewardClaimRegistry has key {
+        id: UID,
         claimed_recommendations: vector<String>,
     }
-    
-    /// Initialize the token module
-    public entry fun initialize(admin: &signer) {
-        let admin_addr = signer::address_of(admin);
-        assert!(common::is_admin(admin_addr), error::permission_denied(E_NOT_AUTHORIZED));
-        
-        // Check if already initialized
-        assert!(!exists<TokenSupply>(admin_addr), error::already_exists(E_TOKEN_ALREADY_EXISTS));
-        
+
+    /// Events
+    public struct TokenMinted has copy, drop {
+        recipient: address,
+        amount: u64,
+        allocation_type: String, // "reward", "development", "ecosystem", "team"
+        reference: String,
+    }
+
+    public struct TokenBurned has copy, drop {
+        amount: u64,
+        burned_by: address,
+        reason: String,
+    }
+
+    public struct HalvingTriggered has copy, drop {
+        old_emission_rate: u64,
+        new_emission_rate: u64,
+        halving_index: u64,
+        total_distributed: u64,
+    }
+
+    /// Initialize the token (called once at deployment)
+    fun init(witness: OMEONE, ctx: &mut TxContext) {
+        let (treasury_cap, metadata) = coin::create_currency(
+            witness,
+            DECIMALS,
+            b"TOK",
+            b"OmeoneChain Token",
+            b"Trust-based social recommendation rewards",
+            option::none(),
+            ctx
+        );
+
         // Create token supply registry
         let token_supply = TokenSupply {
+            id: object::new(ctx),
+            treasury_cap,
             total_supply: TOTAL_SUPPLY_CAP,
             circulating_supply: 0,
             rewards_remaining: REWARDS_ALLOCATION,
@@ -95,348 +119,143 @@ module omeonechain::token {
             total_burned: 0,
             emission_rate: BASE_EMISSION_RATE,
             halving_index: 0,
-            timestamp: common::create_timestamp(),
+            created_at: tx_context::epoch_timestamp_ms(ctx),
         };
-        
-        // Create transaction registry
-        let transaction_registry = TransactionRegistry {
-            transaction_count: 0,
-            transactions: vector::empty<Transaction>(),
-        };
-        
+
         // Create reward claim registry
         let reward_claim_registry = RewardClaimRegistry {
+            id: object::new(ctx),
             claimed_recommendations: vector::empty<String>(),
         };
-        
-        // Store registries
-        move_to(admin, token_supply);
-        move_to(admin, transaction_registry);
-        move_to(admin, reward_claim_registry);
-        
-        // Initialize admin balance
-        let admin_balance = TokenBalance {
-            balance: 0,
-            timestamp: common::create_timestamp(),
-        };
-        move_to(admin, admin_balance);
+
+        // Share the objects
+        transfer::share_object(token_supply);
+        transfer::share_object(reward_claim_registry);
+        transfer::public_freeze_object(metadata);
     }
-    
-    /// Initialize a user's token balance
-    public entry fun initialize_balance(user: &signer) {
-        let user_addr = signer::address_of(user);
-        
-        // Check if balance already exists
-        if (!exists<TokenBalance>(user_addr)) {
-            // Create balance with 0 tokens
-            let balance = TokenBalance {
-                balance: 0,
-                timestamp: common::create_timestamp(),
-            };
-            move_to(user, balance);
-        };
-    }
-    
-    /// Transfer tokens from sender to recipient
-    public entry fun transfer(
-        sender: &signer,
-        recipient: address,
-        amount: u64,
-        reference: String
-    ) acquires TokenBalance, TransactionRegistry {
-        let sender_addr = signer::address_of(sender);
-        
-        // Ensure both sender and recipient have balance resources
-        assert!(exists<TokenBalance>(sender_addr), error::not_found(0));
-        
-        // Initialize recipient balance if it doesn't exist
-        if (!exists<TokenBalance>(recipient)) {
-            let recipient_signer = create_signer_for_testing(recipient); // Note: This is for testing only
-            initialize_balance(&recipient_signer);
-        };
-        
-        // Get balances
-        let sender_balance = borrow_global_mut<TokenBalance>(sender_addr);
-        let recipient_balance = borrow_global_mut<TokenBalance>(recipient);
-        
-        // Check if sender has sufficient balance
-        assert!(sender_balance.balance >= amount, error::invalid_state(E_INSUFFICIENT_BALANCE));
-        
-        // Update balances
-        sender_balance.balance = sender_balance.balance - amount;
-        recipient_balance.balance = recipient_balance.balance + amount;
-        
-        // Update timestamps
-        common::update_timestamp(&mut sender_balance.timestamp);
-        common::update_timestamp(&mut recipient_balance.timestamp);
-        
-        // Record transaction
-        record_transaction(sender_addr, recipient, amount, 2, reference);
-    }
-    
+
     /// Mint tokens for development allocation
-    public entry fun mint_development(
-        admin: &signer,
+    public fun mint_development(
+        token_supply: &mut TokenSupply,
         recipient: address,
         amount: u64,
-        reference: String
-    ) acquires TokenBalance, TokenSupply, TransactionRegistry {
-        let admin_addr = signer::address_of(admin);
-        assert!(common::is_admin(admin_addr), error::permission_denied(E_NOT_AUTHORIZED));
-        
-        // Get token supply
-        let token_supply = borrow_global_mut<TokenSupply>(@omeonechain);
-        
+        reference: String,
+        ctx: &mut TxContext
+    ): Coin<OMEONE> {
         // Check if amount is within remaining development allocation
-        assert!(amount <= token_supply.development_remaining, error::invalid_state(E_EXCEEDS_SUPPLY_CAP));
-        
-        // Initialize recipient balance if it doesn't exist
-        if (!exists<TokenBalance>(recipient)) {
-            let recipient_signer = create_signer_for_testing(recipient); // Note: This is for testing only
-            initialize_balance(&recipient_signer);
-        };
-        
-        // Get recipient balance
-        let recipient_balance = borrow_global_mut<TokenBalance>(recipient);
-        
-        // Update balances
-        recipient_balance.balance = recipient_balance.balance + amount;
+        assert!(amount <= token_supply.development_remaining, E_EXCEEDS_SUPPLY_CAP);
+
+        // Mint coins
+        let minted_coin = coin::mint(&mut token_supply.treasury_cap, amount, ctx);
+
+        // Update supply tracking
         token_supply.circulating_supply = token_supply.circulating_supply + amount;
         token_supply.development_remaining = token_supply.development_remaining - amount;
-        
-        // Update timestamps
-        common::update_timestamp(&mut recipient_balance.timestamp);
-        common::update_timestamp(&mut token_supply.timestamp);
-        
-        // Record transaction
-        record_transaction(@omeonechain, recipient, amount, 1, reference);
+
+        // Emit event
+        event::emit(TokenMinted {
+            recipient,
+            amount,
+            allocation_type: string::utf8(b"development"),
+            reference,
+        });
+
+        minted_coin
     }
-    
-    /// Mint tokens for ecosystem allocation
-    public entry fun mint_ecosystem(
-        admin: &signer,
-        recipient: address,
-        amount: u64,
-        reference: String
-    ) acquires TokenBalance, TokenSupply, TransactionRegistry {
-        let admin_addr = signer::address_of(admin);
-        assert!(common::is_admin(admin_addr), error::permission_denied(E_NOT_AUTHORIZED));
-        
-        // Get token supply
-        let token_supply = borrow_global_mut<TokenSupply>(@omeonechain);
-        
-        // Check if amount is within remaining ecosystem allocation
-        assert!(amount <= token_supply.ecosystem_remaining, error::invalid_state(E_EXCEEDS_SUPPLY_CAP));
-        
-        // Initialize recipient balance if it doesn't exist
-        if (!exists<TokenBalance>(recipient)) {
-            let recipient_signer = create_signer_for_testing(recipient); // Note: This is for testing only
-            initialize_balance(&recipient_signer);
-        };
-        
-        // Get recipient balance
-        let recipient_balance = borrow_global_mut<TokenBalance>(recipient);
-        
-        // Update balances
-        recipient_balance.balance = recipient_balance.balance + amount;
-        token_supply.circulating_supply = token_supply.circulating_supply + amount;
-        token_supply.ecosystem_remaining = token_supply.ecosystem_remaining - amount;
-        
-        // Update timestamps
-        common::update_timestamp(&mut recipient_balance.timestamp);
-        common::update_timestamp(&mut token_supply.timestamp);
-        
-        // Record transaction
-        record_transaction(@omeonechain, recipient, amount, 1, reference);
-    }
-    
-    /// Mint tokens for team allocation
-    public entry fun mint_team(
-        admin: &signer,
-        recipient: address,
-        amount: u64,
-        reference: String
-    ) acquires TokenBalance, TokenSupply, TransactionRegistry {
-        let admin_addr = signer::address_of(admin);
-        assert!(common::is_admin(admin_addr), error::permission_denied(E_NOT_AUTHORIZED));
-        
-        // Get token supply
-        let token_supply = borrow_global_mut<TokenSupply>(@omeonechain);
-        
-        // Check if amount is within remaining team allocation
-        assert!(amount <= token_supply.team_remaining, error::invalid_state(E_EXCEEDS_SUPPLY_CAP));
-        
-        // Initialize recipient balance if it doesn't exist
-        if (!exists<TokenBalance>(recipient)) {
-            let recipient_signer = create_signer_for_testing(recipient); // Note: This is for testing only
-            initialize_balance(&recipient_signer);
-        };
-        
-        // Get recipient balance
-        let recipient_balance = borrow_global_mut<TokenBalance>(recipient);
-        
-        // Update balances
-        recipient_balance.balance = recipient_balance.balance + amount;
-        token_supply.circulating_supply = token_supply.circulating_supply + amount;
-        token_supply.team_remaining = token_supply.team_remaining - amount;
-        
-        // Update timestamps
-        common::update_timestamp(&mut recipient_balance.timestamp);
-        common::update_timestamp(&mut token_supply.timestamp);
-        
-        // Record transaction
-        record_transaction(@omeonechain, recipient, amount, 1, reference);
-    }
-    
+
     /// Issue recommendation reward
-    public entry fun issue_recommendation_reward(
-        admin: &signer,
+    public fun issue_recommendation_reward(
+        token_supply: &mut TokenSupply,
+        reward_registry: &mut RewardClaimRegistry,
         author: address,
-        recommendation_id: String
-    ) acquires TokenBalance, TokenSupply, TransactionRegistry, RewardClaimRegistry {
-        let admin_addr = signer::address_of(admin);
-        assert!(common::is_admin(admin_addr), error::permission_denied(E_NOT_AUTHORIZED));
-        
-        // Get token supply and reward claim registry
-        let token_supply = borrow_global_mut<TokenSupply>(@omeonechain);
-        let reward_registry = borrow_global_mut<RewardClaimRegistry>(@omeonechain);
-        
+        recommendation_id: String,
+        trust_score: u64,
+        social_weights: vector<u64>,
+        ctx: &mut TxContext
+    ): Option<Coin<OMEONE>> {
         // Check if recommendation already claimed
-        assert!(!vector::contains(&reward_registry.claimed_recommendations, &recommendation_id), 
-                error::invalid_state(E_REWARD_ALREADY_CLAIMED));
-        
-        // Calculate reward multiplier
-        let multiplier = recommendation::calculate_reward_multiplier(recommendation_id);
-        
-        // Ensure recommendation meets threshold
-        assert!(multiplier > 0, error::invalid_state(E_BELOW_REWARD_THRESHOLD));
-        
-        // Calculate base reward (1 token) adjusted by emission rate
-        let base_reward = 100000000; // 1 token with 8 decimals
-        let adjusted_reward = base_reward * token_supply.emission_rate / 100;
-        
-        // Apply multiplier
-        let reward_amount = adjusted_reward * multiplier;
-        
-        // Ensure we have enough rewards remaining
-        assert!(reward_amount <= token_supply.rewards_remaining, error::invalid_state(E_EXCEEDS_SUPPLY_CAP));
-        
-        // Initialize author balance if it doesn't exist
-        if (!exists<TokenBalance>(author)) {
-            let author_signer = create_signer_for_testing(author); // Note: This is for testing only
-            initialize_balance(&author_signer);
+        if (vector::contains(&reward_registry.claimed_recommendations, &recommendation_id)) {
+            return option::none()
         };
+
+        // Calculate reward using the same logic as before
+        let base_reward = 1_000_000_000; // 1 TOK with 9 decimals
+        let trust_threshold = 250; // 0.25 * 1000
+
+        if (trust_score < trust_threshold) {
+            return option::none()
+        };
+
+        // Calculate social multiplier
+        let total_weight = 0;
+        let i = 0;
+        let len = vector::length(&social_weights);
         
-        // Get author balance
-        let author_balance = borrow_global_mut<TokenBalance>(author);
-        
-        // Update balances
-        author_balance.balance = author_balance.balance + reward_amount;
+        while (i < len) {
+            total_weight = total_weight + *vector::borrow(&social_weights, i);
+            i = i + 1;
+        };
+
+        let max_multiplier = 3000; // 3.0x max
+        if (total_weight > max_multiplier) {
+            total_weight = max_multiplier;
+        };
+
+        // Calculate final reward
+        let adjusted_reward = base_reward * token_supply.emission_rate / 100;
+        let reward_amount = (adjusted_reward * total_weight) / 1000;
+
+        // Check if we have enough rewards remaining
+        if (reward_amount > token_supply.rewards_remaining) {
+            return option::none()
+        };
+
+        // Mint reward
+        let reward_coin = coin::mint(&mut token_supply.treasury_cap, reward_amount, ctx);
+
+        // Update tracking
         token_supply.circulating_supply = token_supply.circulating_supply + reward_amount;
         token_supply.rewards_remaining = token_supply.rewards_remaining - reward_amount;
-        
-        // Update timestamps
-        common::update_timestamp(&mut author_balance.timestamp);
-        common::update_timestamp(&mut token_supply.timestamp);
-        
-        // Record claim
         vector::push_back(&mut reward_registry.claimed_recommendations, recommendation_id);
-        
-        // Record transaction
-        record_transaction(@omeonechain, author, reward_amount, 1, recommendation_id);
-        
-        // Mark recommendation reward as claimed
-        recommendation::mark_reward_claimed(admin, recommendation_id);
-        
-        // Check if halving threshold reached
+
+        // Check halving threshold
         check_halving_threshold(token_supply);
+
+        // Emit event
+        event::emit(TokenMinted {
+            recipient: author,
+            amount: reward_amount,
+            allocation_type: string::utf8(b"reward"),
+            reference: recommendation_id,
+        });
+
+        option::some(reward_coin)
     }
-    
-    /// Burn tokens for fee or other purposes
-    public entry fun burn(
-        sender: &signer,
-        amount: u64,
-        reference: String
-    ) acquires TokenBalance, TokenSupply, TransactionRegistry {
-        let sender_addr = signer::address_of(sender);
+
+    /// Burn tokens (75% of protocol fees)
+    public fun burn_tokens(
+        token_supply: &mut TokenSupply,
+        burn_coin: Coin<OMEONE>,
+        reason: String,
+        ctx: &mut TxContext
+    ) {
+        let burn_amount = coin::value(&burn_coin);
         
-        // Ensure sender has balance resource
-        assert!(exists<TokenBalance>(sender_addr), error::not_found(0));
+        // Burn the coins (they are permanently destroyed)
+        coin::burn(&mut token_supply.treasury_cap, burn_coin);
         
-        // Get balances
-        let sender_balance = borrow_global_mut<TokenBalance>(sender_addr);
-        let token_supply = borrow_global_mut<TokenSupply>(@omeonechain);
-        
-        // Check if sender has sufficient balance
-        assert!(sender_balance.balance >= amount, error::invalid_state(E_INSUFFICIENT_BALANCE));
-        
-        // Update balances
-        sender_balance.balance = sender_balance.balance - amount;
-        token_supply.circulating_supply = token_supply.circulating_supply - amount;
-        token_supply.total_burned = token_supply.total_burned + amount;
-        
-        // Update timestamps
-        common::update_timestamp(&mut sender_balance.timestamp);
-        common::update_timestamp(&mut token_supply.timestamp);
-        
-        // Record transaction
-        record_transaction(sender_addr, @0x0, amount, 4, reference); // Burn address is 0x0
+        // Update tracking
+        token_supply.circulating_supply = token_supply.circulating_supply - burn_amount;
+        token_supply.total_burned = token_supply.total_burned + burn_amount;
+
+        // Emit event
+        event::emit(TokenBurned {
+            amount: burn_amount,
+            burned_by: tx_context::sender(ctx),
+            reason,
+        });
     }
-    
-    /// Process a fee payment with partial burn
-    public entry fun process_fee(
-        sender: &signer,
-        amount: u64,
-        reference: String
-    ) acquires TokenBalance, TokenSupply, TransactionRegistry {
-        let sender_addr = signer::address_of(sender);
-        
-        // Ensure sender has balance resource
-        assert!(exists<TokenBalance>(sender_addr), error::not_found(0));
-        
-        // Get sender balance
-        let sender_balance = borrow_global_mut<TokenBalance>(sender_addr);
-        
-        // Check if sender has sufficient balance
-        assert!(sender_balance.balance >= amount, error::invalid_state(E_INSUFFICIENT_BALANCE));
-        
-        // Calculate burn amount and treasury amount
-        let burn_amount = amount * FEE_BURN_PERCENTAGE / 100;
-        let treasury_amount = amount - burn_amount;
-        
-        // Update sender balance
-        sender_balance.balance = sender_balance.balance - amount;
-        common::update_timestamp(&mut sender_balance.timestamp);
-        
-        // Process burn
-        if (burn_amount > 0) {
-            let token_supply = borrow_global_mut<TokenSupply>(@omeonechain);
-            token_supply.circulating_supply = token_supply.circulating_supply - burn_amount;
-            token_supply.total_burned = token_supply.total_burned + burn_amount;
-            common::update_timestamp(&mut token_supply.timestamp);
-            
-            // Record burn transaction
-            record_transaction(sender_addr, @0x0, burn_amount, 4, reference);
-        };
-        
-        // Process treasury allocation
-        if (treasury_amount > 0) {
-            // Ensure treasury has a balance
-            if (!exists<TokenBalance>(@omeonechain)) {
-                let treasury_signer = create_signer_for_testing(@omeonechain); // Note: This is for testing only
-                initialize_balance(&treasury_signer);
-            };
-            
-            // Update treasury balance
-            let treasury_balance = borrow_global_mut<TokenBalance>(@omeonechain);
-            treasury_balance.balance = treasury_balance.balance + treasury_amount;
-            common::update_timestamp(&mut treasury_balance.timestamp);
-            
-            // Record fee transaction
-            record_transaction(sender_addr, @omeonechain, treasury_amount, 3, reference);
-        };
-    }
-    
+
     /// Check if a halving threshold has been reached
     fun check_halving_threshold(token_supply: &mut TokenSupply) {
         let total_distributed = REWARDS_ALLOCATION - token_supply.rewards_remaining +
@@ -446,143 +265,37 @@ module omeonechain::token {
         
         let next_threshold = (token_supply.halving_index + 1) * HALVING_THRESHOLD_1;
         
-        // Check if we've crossed the next threshold
         if (total_distributed >= next_threshold) {
-            // Apply halving
+            let old_rate = token_supply.emission_rate;
             token_supply.halving_index = token_supply.halving_index + 1;
             token_supply.emission_rate = token_supply.emission_rate / 2;
+
+            event::emit(HalvingTriggered {
+                old_emission_rate: old_rate,
+                new_emission_rate: token_supply.emission_rate,
+                halving_index: token_supply.halving_index,
+                total_distributed,
+            });
         };
     }
-    
-    /// Record a transaction
-    fun record_transaction(
-        sender: address,
-        recipient: address,
-        amount: u64,
-        transaction_type: u8,
-        reference: String
-    ) acquires TransactionRegistry {
-        let registry = borrow_global_mut<TransactionRegistry>(@omeonechain);
-        
-        // Create transaction record
-        let transaction = Transaction {
-            id: registry.transaction_count,
-            sender,
-            recipient,
-            amount,
-            transaction_type,
-            reference,
-            timestamp: common::current_timestamp(),
-        };
-        
-        // Add to registry
-        vector::push_back(&mut registry.transactions, transaction);
-        registry.transaction_count = registry.transaction_count + 1;
+
+    // Getter functions
+    public fun get_total_supply(token_supply: &TokenSupply): u64 {
+        token_supply.total_supply
     }
-    
-    /// Get token balance for a user (public view)
-    public fun get_balance(user: address): u64 acquires TokenBalance {
-        if (!exists<TokenBalance>(user)) {
-            return 0
-        };
-        
-        let balance = borrow_global<TokenBalance>(user);
-        balance.balance
+
+    public fun get_circulating_supply(token_supply: &TokenSupply): u64 {
+        token_supply.circulating_supply
     }
-    
-    /// Get token supply information (public view)
-    public fun get_token_supply(): (u64, u64, u64, u64) acquires TokenSupply {
-        let supply = borrow_global<TokenSupply>(@omeonechain);
-        (
-            supply.total_supply,
-            supply.circulating_supply,
-            supply.total_burned,
-            supply.emission_rate
-        )
+
+    public fun get_emission_rate(token_supply: &TokenSupply): u64 {
+        token_supply.emission_rate
     }
-    
-    /// Get current emission rate (public view)
-    public fun get_emission_rate(): u64 acquires TokenSupply {
-        let supply = borrow_global<TokenSupply>(@omeonechain);
-        supply.emission_rate
+
+    public fun get_halving_index(token_supply: &TokenSupply): u64 {
+        token_supply.halving_index
     }
-    
-    /// Get halving index (public view)
-    public fun get_halving_index(): u64 acquires TokenSupply {
-        let supply = borrow_global<TokenSupply>(@omeonechain);
-        supply.halving_index
-    }
-    
-    /// Create a signer for testing purposes only
-    #[test_only]
-    public fun create_signer_for_testing(addr: address): signer {
-        // In a real implementation, this would not be possible
-        // This is only for testing
-        @0x1
-    }
-    
-    #[test_only]
-    public fun setup_test(ctx: &signer) {
-        // Initialize token module
-        initialize(ctx);
-    }
-    
-    #[test]
-    public fun test_initialize() acquires TokenSupply {
-        use std::unit_test;
-        
-        // Create test account
-        let scenario = unit_test::begin(@0x1);
-        let admin = unit_test::get_signer_for(@0x42);
-        
-        // Initialize module
-        setup_test(&admin);
-        
-        // Verify token supply was initialized
-        let token_supply = borrow_global<TokenSupply>(@omeonechain);
-        assert!(token_supply.total_supply == TOTAL_SUPPLY_CAP, 0);
-        assert!(token_supply.rewards_remaining == REWARDS_ALLOCATION, 0);
-        assert!(token_supply.development_remaining == DEVELOPMENT_ALLOCATION, 0);
-        assert!(token_supply.ecosystem_remaining == ECOSYSTEM_ALLOCATION, 0);
-        assert!(token_supply.team_remaining == TEAM_ALLOCATION, 0);
-        assert!(token_supply.emission_rate == BASE_EMISSION_RATE, 0);
-        
-        unit_test::end(scenario);
-    }
-    
-    #[test]
-    public fun test_mint_transfer() acquires TokenBalance, TokenSupply, TransactionRegistry {
-        use std::unit_test;
-        
-        // Create test accounts
-        let scenario = unit_test::begin(@0x1);
-        let admin = unit_test::get_signer_for(@0x42);
-        let user1 = unit_test::get_signer_for(@0x100);
-        let user2 = unit_test::get_signer_for(@0x101);
-        
-        // Initialize module
-        setup_test(&admin);
-        
-        // Initialize user balances
-        initialize_balance(&user1);
-        initialize_balance(&user2);
-        
-        // Mint tokens for user1
-        mint_development(&admin, @0x100, 1000000000, string::utf8(b"test"));
-        
-        // Verify balance
-        let balance1 = get_balance(@0x100);
-        assert!(balance1 == 1000000000, 0);
-        
-        // Transfer tokens
-        transfer(&user1, @0x101, 500000000, string::utf8(b"test_transfer"));
-        
-        // Verify balances
-        let new_balance1 = get_balance(@0x100);
-        let balance2 = get_balance(@0x101);
-        assert!(new_balance1 == 500000000, 0);
-        assert!(balance2 == 500000000, 0);
-        
-        unit_test::end(scenario);
-    }
+
+    public fun decimals(): u8 { DECIMALS }
+    public fun total_supply_cap(): u64 { TOTAL_SUPPLY_CAP }
 }

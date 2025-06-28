@@ -8,7 +8,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { RecommendationEngine } from '../../recommendation/engine';
 import { ReputationEngine } from '../../reputation/engine';
-import { ServiceEngine } from '../../service/engine';
+import { ServiceEngine } from '../../services/engine';
 import { ApiError } from '../middleware/error-handler';
 import { authenticate, requireRoles } from '../middleware/auth';
 // Import adapter-specific types

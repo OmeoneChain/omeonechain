@@ -1,8 +1,8 @@
 /**
- * Users API Routes (v2 - Updated with adapter-specific types)
+ * Users API Routes (v3 - Phase 5C Integration)
  * 
- * API endpoints for user management and reputation
- * Based on Technical Specifications A.4.1
+ * API endpoints for user management and reputation with Phase 5B integration
+ * Includes social graph, discovery incentives, and community verification
  */
 
 import express, { Request, Response, NextFunction } from 'express';
@@ -168,7 +168,7 @@ export function createUserRoutes(engine: ReputationEngine) {
   
   /**
    * GET /users/:id/reputation
-   * Get user's reputation details
+   * Get user's detailed reputation metrics (Phase 5B integration)
    */
   router.get('/:id/reputation', async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -177,7 +177,7 @@ export function createUserRoutes(engine: ReputationEngine) {
       // Get user reputation
       const userReputation = await engine.getUserReputation(id);
       
-      // Return reputation details
+      // Return detailed reputation metrics
       res.json({
         userId: userReputation.userId,
         reputationScore: userReputation.reputationScore,
@@ -186,7 +186,19 @@ export function createUserRoutes(engine: ReputationEngine) {
         totalRecommendations: userReputation.totalRecommendations,
         upvotesReceived: userReputation.upvotesReceived,
         downvotesReceived: userReputation.downvotesReceived,
-        tokenRewardsEarned: userReputation.tokenRewardsEarned
+        tokenRewardsEarned: userReputation.tokenRewardsEarned,
+        // Phase 5B additions
+        reputationHistory: {
+          weeklyCalculations: userReputation.weeklyCalculations || [],
+          lastCalculated: userReputation.lastCalculated,
+          verificationCount: userReputation.verificationCount || 0,
+          penaltyCount: userReputation.penaltyCount || 0
+        },
+        socialMetrics: {
+          networkDensity: userReputation.networkDensity || 0,
+          avgTrustWeight: userReputation.avgTrustWeight || 0,
+          connectionQuality: userReputation.connectionQuality || 'unknown'
+        }
       });
     } catch (error) {
       if ((error as Error).message.includes('not found')) {
@@ -194,6 +206,93 @@ export function createUserRoutes(engine: ReputationEngine) {
       } else {
         next(error);
       }
+    }
+  });
+
+  /**
+   * GET /users/:id/social-graph
+   * Get user's social graph analytics (NEW - Phase 5B)
+   */
+  router.get('/:id/social-graph', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const { depth = 2 } = req.query;
+      
+      // Get social graph data
+      const socialGraph = await engine.getSocialGraphAnalytics(id, parseInt(depth as string));
+      
+      res.json({
+        userId: id,
+        networkSize: socialGraph.networkSize,
+        density: socialGraph.density,
+        clusters: socialGraph.clusters,
+        influenceScore: socialGraph.influenceScore,
+        pathStrengths: socialGraph.pathStrengths,
+        geographicDistribution: socialGraph.geographicDistribution,
+        interestClusters: socialGraph.interestClusters
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * POST /users/:id/verify
+   * Submit community verification for user (NEW - Phase 5B)
+   */
+  router.post('/:id/verify', authenticate(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw ApiError.unauthorized('Authentication required for verification');
+      }
+
+      const { id } = req.params;
+      const { evidence, category } = req.body;
+
+      // Prevent self-verification
+      if (id === req.user.id) {
+        throw ApiError.badRequest('Users cannot verify themselves');
+      }
+
+      // Submit verification
+      const result = await engine.submitCommunityVerification(req.user.id, id, {
+        evidence,
+        category,
+        timestamp: new Date().toISOString()
+      });
+
+      res.json({
+        success: true,
+        verificationId: result.verificationId,
+        status: result.status,
+        requiredVerifications: result.requiredVerifications,
+        currentVerifications: result.currentVerifications
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * GET /users/:id/verifications
+   * Get user's verification status and history (NEW - Phase 5B)
+   */
+  router.get('/:id/verifications', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      
+      const verifications = await engine.getUserVerifications(id);
+      
+      res.json({
+        userId: id,
+        verificationLevel: verifications.currentLevel,
+        pendingVerifications: verifications.pending,
+        completedVerifications: verifications.completed,
+        verificationHistory: verifications.history,
+        nextMilestone: verifications.nextMilestone
+      });
+    } catch (error) {
+      next(error);
     }
   });
   
@@ -335,7 +434,81 @@ export function createUserRoutes(engine: ReputationEngine) {
       res.json({
         sourceId: id,
         targetId,
-        trustScore
+        trustScore,
+        // Phase 5B additions
+        pathAnalysis: {
+          directConnection: trustScore > 0.75,
+          shortestPath: trustScore > 0.25 ? 1 : 2,
+          trustMultiplier: trustScore
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * GET /users/:id/discovery-score
+   * Get user's discovery incentive eligibility (NEW - Phase 5B)
+   */
+  router.get('/:id/discovery-score', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const { region, category } = req.query;
+      
+      const discoveryScore = await engine.getDiscoveryIncentiveScore(id, {
+        region: region as string,
+        category: category as string
+      });
+      
+      res.json({
+        userId: id,
+        eligibilityScore: discoveryScore.eligibilityScore,
+        activeIncentives: discoveryScore.activeIncentives,
+        potentialBonus: discoveryScore.potentialBonus,
+        regionCoverage: discoveryScore.regionCoverage,
+        categoryExpertise: discoveryScore.categoryExpertise,
+        recommendations: {
+          eligible: discoveryScore.eligibleRecommendations,
+          needed: discoveryScore.recommendationsNeeded
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * POST /users/:id/claim-discovery-bonus
+   * Claim discovery incentive bonus (NEW - Phase 5B)
+   */
+  router.post('/:id/claim-discovery-bonus', authenticate(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw ApiError.unauthorized('Authentication required to claim bonus');
+      }
+
+      const { id } = req.params;
+      
+      // Verify ownership
+      if (id !== req.user.id) {
+        throw ApiError.forbidden('You can only claim your own bonuses');
+      }
+
+      const { campaignId, recommendationIds } = req.body;
+
+      const result = await engine.claimDiscoveryBonus(id, {
+        campaignId,
+        recommendationIds,
+        claimedAt: new Date().toISOString()
+      });
+
+      res.json({
+        success: true,
+        bonusAmount: result.bonusAmount,
+        campaignId: result.campaignId,
+        transactionId: result.transactionId,
+        claimedRecommendations: result.claimedRecommendations
       });
     } catch (error) {
       next(error);

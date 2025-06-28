@@ -1,10 +1,11 @@
-module omeonechain::common {
-    use std::error;
-    use std::signer;
+module omeone::common {
     use std::string::{String};
     use std::vector;
+    use sui::tx_context::{Self, TxContext};
+    use sui::object::{Self, UID};
+    use sui::transfer;
 
-    /// Error codes
+    /// Error codes  
     const E_NOT_AUTHORIZED: u64 = 1;
     const E_ALREADY_INITIALIZED: u64 = 2;
     const E_NOT_INITIALIZED: u64 = 3;
@@ -13,34 +14,38 @@ module omeonechain::common {
     const E_RESOURCE_ALREADY_EXISTS: u64 = 6;
 
     /// Constants
-    const TRUST_SCORE_DECIMALS: u8 = 2; // Trust score is represented with 2 decimal places
+    const TRUST_SCORE_DECIMALS: u8 = 2;
     const MAX_TRUST_SCORE: u64 = 1000; // 10.00 with 2 decimal places
     const MIN_TRUST_WEIGHT: u64 = 0;
     const DIRECT_FOLLOWER_WEIGHT: u64 = 75; // 0.75 with 2 decimal places
     const INDIRECT_FOLLOWER_WEIGHT: u64 = 25; // 0.25 with 2 decimal places
 
-    /// Timestamp utility to get current time in seconds
-    public fun current_timestamp(): u64 {
-        // Implementation would call blockchain timestamp in production
-        // For testing, we just return a fixed value
-        1651234567
+    /// Admin capability for secure access control
+    public struct AdminCap has key, store {
+        id: UID,
+    }
+
+    /// Get current timestamp from transaction context
+    public fun current_timestamp(ctx: &TxContext): u64 {
+        tx_context::epoch_timestamp_ms(ctx)
     }
 
     /// Utility to check if an address is the module owner/admin
     public fun is_admin(addr: address): bool {
-        // Implement admin check here, could be a hardcoded address
-        // or a dynamic admin registry
-        addr == @omeonechain
+        // For development - in production, check AdminCap ownership
+        addr == @omeone || addr == @0xCAFE
     }
 
-    /// Utility to check authorization
-    public fun check_authorized(account: &signer) {
-        let addr = signer::address_of(account);
-        assert!(is_admin(addr), error::permission_denied(E_NOT_AUTHORIZED));
+    /// Initialize admin capability
+    fun init(ctx: &mut TxContext) {
+        let admin_cap = AdminCap {
+            id: object::new(ctx),
+        };
+        transfer::transfer(admin_cap, tx_context::sender(ctx));
     }
 
     /// StorageId struct to uniquely identify on-chain objects
-    struct StorageId has copy, drop, store {
+    public struct StorageId has copy, drop, store {
         id: String,
     }
 
@@ -55,14 +60,14 @@ module omeonechain::common {
     }
 
     /// ContentHash struct for verifying off-chain content
-    struct ContentHash has copy, drop, store {
+    public struct ContentHash has copy, drop, store {
         hash: vector<u8>,
         hash_type: u8, // 1 = SHA-256, 2 = BLAKE3, etc.
     }
 
     /// Create a new content hash
     public fun create_content_hash(hash: vector<u8>, hash_type: u8): ContentHash {
-        assert!(hash_type > 0 && hash_type <= 3, error::invalid_argument(E_INVALID_ARGUMENT));
+        assert!(hash_type > 0 && hash_type <= 3, E_INVALID_ARGUMENT);
         ContentHash { hash, hash_type }
     }
 
@@ -72,7 +77,7 @@ module omeonechain::common {
     }
 
     /// IPFS CID wrapper
-    struct IpfsCid has copy, drop, store {
+    public struct IpfsCid has copy, drop, store {
         cid: String,
     }
 
@@ -87,14 +92,14 @@ module omeonechain::common {
     }
 
     /// TimeStamp utility for tracking creation/modification times
-    struct TimeStamp has copy, drop, store {
+    public struct TimeStamp has copy, drop, store {
         created_at: u64,
         modified_at: u64,
     }
 
-    /// Create a new timestamp
-    public fun create_timestamp(): TimeStamp {
-        let now = current_timestamp();
+    /// Create a new timestamp with current time
+    public fun create_timestamp(ctx: &TxContext): TimeStamp {
+        let now = current_timestamp(ctx);
         TimeStamp {
             created_at: now,
             modified_at: now,
@@ -102,8 +107,8 @@ module omeonechain::common {
     }
 
     /// Update the modified timestamp
-    public fun update_timestamp(timestamp: &mut TimeStamp) {
-        timestamp.modified_at = current_timestamp();
+    public fun update_timestamp(timestamp: &mut TimeStamp, ctx: &TxContext) {
+        timestamp.modified_at = current_timestamp(ctx);
     }
 
     /// Get creation time
@@ -117,7 +122,7 @@ module omeonechain::common {
     }
 
     /// Location struct for geographical coordinates
-    struct Location has copy, drop, store {
+    public struct Location has copy, drop, store {
         latitude: u64,  // Stored as integer with 6 decimal places (multiply by 1,000,000)
         longitude: u64, // Stored as integer with 6 decimal places (multiply by 1,000,000)
         is_negative_lat: bool,
@@ -132,8 +137,8 @@ module omeonechain::common {
         is_negative_long: bool
     ): Location {
         // Basic validation
-        assert!(latitude <= 90000000, error::invalid_argument(E_INVALID_ARGUMENT)); // Max 90 degrees
-        assert!(longitude <= 180000000, error::invalid_argument(E_INVALID_ARGUMENT)); // Max 180 degrees
+        assert!(latitude <= 90000000, E_INVALID_ARGUMENT); // Max 90 degrees
+        assert!(longitude <= 180000000, E_INVALID_ARGUMENT); // Max 180 degrees
         
         Location {
             latitude,
@@ -144,29 +149,52 @@ module omeonechain::common {
     }
 
     /// Category enum for service types
-    struct Category has copy, drop, store {
+    public struct Category has copy, drop, store {
         code: u8, // 1 = Restaurant, 2 = Hotel, 3 = Activity, etc.
     }
 
     /// Create a category
     public fun create_category(code: u8): Category {
         // Validate category code is within valid range
-        assert!(code > 0 && code <= 10, error::invalid_argument(E_INVALID_ARGUMENT));
+        assert!(code > 0 && code <= 10, E_INVALID_ARGUMENT);
         Category { code }
     }
 
-    /// Test harness for all functions in this module (internal)
+    /// Get trust weight constants
+    public fun get_direct_follower_weight(): u64 { DIRECT_FOLLOWER_WEIGHT }
+    public fun get_indirect_follower_weight(): u64 { INDIRECT_FOLLOWER_WEIGHT }
+    public fun get_max_trust_score(): u64 { MAX_TRUST_SCORE }
+
+    /// Time utility functions
+    public fun days_to_ms(days: u64): u64 {
+        days * 24 * 60 * 60 * 1000
+    }
+
+    public fun hours_to_ms(hours: u64): u64 {
+        hours * 60 * 60 * 1000
+    }
+
+    public fun minutes_to_ms(minutes: u64): u64 {
+        minutes * 60 * 1000
+    }
+
     #[test_only]
-    struct CommonTests has drop {}
+    use sui::test_scenario;
 
     #[test]
-    public fun test_current_timestamp() {
-        let ts = current_timestamp();
+    fun test_current_timestamp() {
+        let scenario_val = test_scenario::begin(@0x1);
+        let scenario = &mut scenario_val;
+        let ctx = test_scenario::ctx(scenario);
+        
+        let ts = current_timestamp(ctx);
         assert!(ts > 0, 0);
+        
+        test_scenario::end(scenario_val);
     }
 
     #[test]
-    public fun test_content_hash() {
+    fun test_content_hash() {
         let hash = x"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         let hash_type = 1; // SHA-256
         let content_hash = create_content_hash(hash, hash_type);
@@ -180,19 +208,25 @@ module omeonechain::common {
     }
 
     #[test]
-    public fun test_timestamp() {
-        let ts = create_timestamp();
+    fun test_timestamp() {
+        let scenario_val = test_scenario::begin(@0x1);
+        let scenario = &mut scenario_val;
+        let ctx = test_scenario::ctx(scenario);
+        
+        let mut ts = create_timestamp(ctx);
         let created = get_creation_time(&ts);
         assert!(created > 0, 0);
         
         // Test updating timestamp
-        update_timestamp(&mut ts);
+        update_timestamp(&mut ts, ctx);
         let modified = get_modified_time(&ts);
         assert!(modified >= created, 0);
+        
+        test_scenario::end(scenario_val);
     }
 
     #[test]
-    public fun test_location() {
+    fun test_location() {
         // Create a valid location (New York City approx: 40.7128° N, 74.0060° W)
         let lat = 40712800; // 40.712800
         let long = 74006000; // 74.006000
@@ -202,5 +236,12 @@ module omeonechain::common {
         assert!(location.longitude == long, 0);
         assert!(!location.is_negative_lat, 0); // North is positive
         assert!(location.is_negative_long, 0); // West is negative
+    }
+
+    #[test]
+    fun test_trust_constants() {
+        assert!(get_direct_follower_weight() == 75, 0);
+        assert!(get_indirect_follower_weight() == 25, 0);
+        assert!(get_max_trust_score() == 1000, 0);
     }
 }
