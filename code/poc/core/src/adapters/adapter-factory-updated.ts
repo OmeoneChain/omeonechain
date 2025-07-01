@@ -1,8 +1,8 @@
-import { ChainAdapter, ChainEvent, ChainTransaction, ChainState } from '../types/chain';
+import { ChainAdapter, ChainConfig, StateQuery, StateQueryResult, Transaction, TransactionResult, Event, EventFilter, BaseChainAdapter } from './chain-adapter';
+import { ChainEvent, ChainTransaction, ChainState } from '../types/chain';
 import * as crypto from 'crypto';
-import { RecommendationTransactionData } from './types/recommendation-adapters';
-import { ReputationTransactionData } from './types/reputation-adapters';
-import { TokenTransactionData } from './types/token-adapters';
+import { RecommendationTransactionData } from '../types/recommendation-adapters';
+import { ReputationTransactionData, TokenTransactionData } from '../types/reputation-adapters';
 
 /**
  * MockAdapter (Version 2) - Implementation of ChainAdapter for testing and development
@@ -10,9 +10,10 @@ import { TokenTransactionData } from './types/token-adapters';
  * This adapter simulates a blockchain environment for local testing without
  * requiring an actual blockchain connection.
  * 
- * This is the updated version that integrates with the existing project structure.
+ * This is the updated version that integrates with the existing project structure
+ * and implements the ChainAdapter interface properly.
  */
-export class MockAdapterV2 implements ChainAdapter {
+export class MockAdapterV2 extends BaseChainAdapter {
   private isConnected: boolean = false;
   private eventSubscribers: Map<string, Function[]> = new Map();
   private simulateLatency: boolean;
@@ -29,10 +30,12 @@ export class MockAdapterV2 implements ChainAdapter {
   
   /**
    * Constructor
+   * @param config Chain configuration
    * @param simulateLatency Whether to simulate network latency
    * @param failureRate Percentage chance (0-100) of random failures
    */
-  constructor(simulateLatency: boolean = false, failureRate: number = 0) {
+  constructor(config: ChainConfig, simulateLatency: boolean = false, failureRate: number = 0) {
+    super(config);
     this.simulateLatency = simulateLatency;
     this.failureRate = Math.min(Math.max(failureRate, 0), 100);
     this.mockWalletAddress = `0x${crypto.randomBytes(20).toString('hex')}`;
@@ -71,31 +74,221 @@ export class MockAdapterV2 implements ChainAdapter {
     return `${prefix}-${crypto.randomBytes(8).toString('hex')}`;
   }
 
+  // ChainAdapter interface implementation
+
   /**
-   * Initialize and connect to the mock chain
+   * Get the chain ID
    */
-  public async connect(): Promise<boolean> {
+  async getChainId(): Promise<string> {
+    return this.config.networkId;
+  }
+
+  /**
+   * Submit a transaction to the mock chain (ChainAdapter interface)
+   * @param tx Transaction to submit
+   * @returns Transaction result
+   */
+  async submitTx(tx: Transaction): Promise<TransactionResult> {
+    if (!this.isConnected) {
+      throw new Error('Not connected to mock adapter');
+    }
+    
+    await this.simulateDelay();
+    this.simulateFailure();
+    
+    this.commitNumber++;
+    const timestamp = new Date().toISOString();
+    
+    // Generate a transaction ID
+    const transactionId = `tx-${crypto.randomBytes(16).toString('hex')}`;
+    
+    // Create a mock object ID
+    const objectId = this.generateObjectId('mock');
+    
+    // Store the transaction
+    const storedTransaction = {
+      transactionId,
+      sender: tx.sender,
+      payload: tx.payload,
+      feeOptions: tx.feeOptions,
+      options: tx.options,
+      commitNumber: this.commitNumber,
+      timestamp
+    };
+    
+    this.transactions.push(storedTransaction);
+    
+    return {
+      id: transactionId,
+      status: 'confirmed',
+      timestamp,
+      commitNumber: this.commitNumber,
+      objectId,
+      details: {
+        gasUsed: 1000,
+        fee: 0.001
+      }
+    };
+  }
+
+  /**
+   * Query the current state (ChainAdapter interface)
+   * @param query Query parameters
+   * @returns Query results
+   */
+  async queryState<T>(query: StateQuery): Promise<StateQueryResult<T>> {
+    if (!this.isConnected) {
+      throw new Error('Not connected to mock adapter');
+    }
+    
+    await this.simulateDelay();
+    this.simulateFailure();
+    
+    const { objectType, filter = {}, sort, pagination } = query;
+    
+    let objects: Map<string, any>;
+    
+    // Select object collection based on type
+    switch (objectType) {
+      case 'recommendation':
+        objects = this.recommendations;
+        break;
+      case 'reputation':
+        objects = this.reputations;
+        break;
+      case 'token':
+        objects = this.tokens;
+        break;
+      case 'governance':
+        objects = this.governance;
+        break;
+      default:
+        objects = new Map();
+    }
+    
+    // Convert map to array and apply filters
+    let results = Array.from(objects.entries()).map(([id, data]) => ({
+      id,
+      type: objectType,
+      data,
+      commitNumber: data.tangle?.commitNumber || this.commitNumber,
+      timestamp: data.timestamp || new Date().toISOString()
+    }));
+    
+    // Apply filters
+    if (filter && Object.keys(filter).length > 0) {
+      results = results.filter((item: any) => {
+        return Object.entries(filter).every(([key, value]) => {
+          if (key in item.data) {
+            return item.data[key] === value;
+          }
+          return item[key] === value;
+        });
+      });
+    }
+    
+    // Apply sorting
+    if (sort) {
+      results.sort((a: any, b: any) => {
+        const aVal = a.data[sort.field] || a[sort.field];
+        const bVal = b.data[sort.field] || b[sort.field];
+        if (sort.direction === 'desc') {
+          return bVal > aVal ? 1 : -1;
+        }
+        return aVal > bVal ? 1 : -1;
+      });
+    }
+    
+    // Apply pagination
+    const offset = pagination?.offset || 0;
+    const limit = pagination?.limit || 100;
+    const paginatedResults = results.slice(offset, offset + limit);
+    
+    return {
+      results: paginatedResults as T[],
+      total: results.length,
+      pagination: {
+        offset,
+        limit,
+        hasMore: offset + limit < results.length
+      }
+    };
+  }
+
+  /**
+   * Watch for events on the blockchain (ChainAdapter interface)
+   * @param filter Event filter
+   * @returns Async iterator of events
+   */
+  async *watchEvents(filter: EventFilter): AsyncIterator<Event> {
+    let eventCounter = 0;
+    const maxEvents = 10; // Limit for testing
+    
+    while (eventCounter < maxEvents && this.isConnected) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const eventType = filter.eventTypes[0] || 'test_event';
+      
+      yield {
+        type: eventType,
+        commitNumber: this.commitNumber + eventCounter,
+        timestamp: new Date().toISOString(),
+        address: filter.address || this.mockWalletAddress,
+        data: {
+          eventId: eventCounter,
+          mockData: true,
+          filter: filter
+        }
+      };
+      
+      eventCounter++;
+    }
+  }
+
+  /**
+   * Get the current commit/block number
+   */
+  async getCurrentCommit(): Promise<number> {
+    await this.simulateDelay();
+    return this.commitNumber;
+  }
+
+  /**
+   * Calculate the estimated fee for a transaction
+   */
+  async estimateFee(tx: Transaction): Promise<number> {
+    await this.simulateDelay();
+    return 1000; // Mock fee in smallest units
+  }
+
+  /**
+   * Connect to the blockchain network
+   */
+  async connect(options?: Record<string, any>): Promise<void> {
     await this.simulateDelay();
     this.simulateFailure();
     
     console.log('Connected to mock adapter v2');
+    this.connected = true;
     this.isConnected = true;
-    return true;
   }
 
   /**
-   * Disconnect from the mock chain
+   * Disconnect from the blockchain network
    */
-  public async disconnect(): Promise<void> {
+  async disconnect(): Promise<void> {
     await this.simulateDelay();
     this.simulateFailure();
     
+    this.connected = false;
     this.isConnected = false;
     console.log('Disconnected from mock adapter v2');
   }
 
+  // Legacy methods for backward compatibility
+
   /**
-   * Submit a transaction to the mock chain
+   * Submit a transaction to the mock chain (legacy method)
    * @param transaction Transaction data to submit
    * @returns Transaction ID and metadata
    */
@@ -177,7 +370,7 @@ export class MockAdapterV2 implements ChainAdapter {
    */
   private processRecommendationTransaction(transaction: ChainTransaction, transactionId: string): string {
     const data = transaction.data as RecommendationTransactionData;
-    const objectId = data.id || this.generateObjectId('recommendation');
+    const objectId = (data as any).id || this.generateObjectId('recommendation');
     
     if (transaction.action === 'create') {
       this.recommendations.set(objectId, {
@@ -185,17 +378,17 @@ export class MockAdapterV2 implements ChainAdapter {
         id: objectId,
         upvotes: 0,
         downvotes: 0,
-        timestamp: data.timestamp || new Date().toISOString(),
+        timestamp: data.timestamp || Date.now(),
         tangle: {
           objectId,
           commitNumber: this.commitNumber
         }
       });
     } else if (transaction.action === 'vote') {
-      const rec = this.recommendations.get(data.id);
+      const rec = this.recommendations.get((data as any).id);
       
       if (!rec) {
-        throw new Error(`Recommendation ${data.id} not found`);
+        throw new Error(`Recommendation ${(data as any).id} not found`);
       }
       
       if (transaction.actionDetail === 'upvote') {
@@ -204,7 +397,7 @@ export class MockAdapterV2 implements ChainAdapter {
         rec.downvotes++;
       }
       
-      this.recommendations.set(data.id, rec);
+      this.recommendations.set((data as any).id, rec);
     }
     
     return objectId;
@@ -243,11 +436,16 @@ export class MockAdapterV2 implements ChainAdapter {
     const data = transaction.data as TokenTransactionData;
     const objectId = this.generateObjectId('token');
     
+    // Ensure timestamp exists (fix for line 250 error)
+    const processedData = {
+      ...data,
+      timestamp: data.timestamp || Date.now()
+    };
+    
     // Store the token transaction
     this.tokens.set(transactionId, {
-      ...data,
+      ...processedData,
       transactionId,
-      timestamp: data.timestamp || new Date().toISOString(),
       tangle: {
         objectId,
         commitNumber: this.commitNumber
@@ -268,13 +466,13 @@ export class MockAdapterV2 implements ChainAdapter {
     const objectId = this.generateObjectId('governance');
     
     if (transaction.action === 'propose') {
-      const proposalId = data.id || objectId;
+      const proposalId = (data as any).id || objectId;
       
       this.governance.set(proposalId, {
         ...data,
         id: proposalId,
-        proposer: data.proposer,
-        timestamp: data.timestamp || new Date().toISOString(),
+        proposer: (data as any).proposer,
+        timestamp: (data as any).timestamp || Date.now(),
         yesVotes: 0,
         noVotes: 0,
         status: 'Active',
@@ -286,32 +484,32 @@ export class MockAdapterV2 implements ChainAdapter {
       
       return proposalId;
     } else if (transaction.action === 'vote') {
-      const proposal = this.governance.get(data.proposalId);
+      const proposal = this.governance.get((data as any).proposalId);
       
       if (!proposal) {
-        throw new Error(`Proposal ${data.proposalId} not found`);
+        throw new Error(`Proposal ${(data as any).proposalId} not found`);
       }
       
-      if (data.vote) {
+      if ((data as any).vote) {
         proposal.yesVotes++;
       } else {
         proposal.noVotes++;
       }
       
-      this.governance.set(data.proposalId, proposal);
-      return data.proposalId;
+      this.governance.set((data as any).proposalId, proposal);
+      return (data as any).proposalId;
     }
     
     return objectId;
   }
 
   /**
-   * Query the current state for a given object type and ID
+   * Query the current state for a given object type and ID (legacy method)
    * @param objectType Type of object to query
    * @param objectId ID of the object
    * @returns Current state of the object
    */
-  public async queryState(objectType: string, objectId: string): Promise<ChainState> {
+  public async queryStateById(objectType: string, objectId: string): Promise<ChainState> {
     if (!this.isConnected) {
       throw new Error('Not connected to mock adapter');
     }
@@ -357,7 +555,7 @@ export class MockAdapterV2 implements ChainAdapter {
   }
   
   /**
-   * Query objects by type with optional filters
+   * Query objects by type with optional filters (legacy method)
    * @param objectType Type of objects to query
    * @param filters Optional filters to apply
    * @param pagination Pagination options
@@ -447,7 +645,7 @@ export class MockAdapterV2 implements ChainAdapter {
       this.eventSubscribers.set(eventType, []);
     }
     
-    this.eventSubscribers.get(eventType).push(callback);
+    this.eventSubscribers.get(eventType)!.push(callback);
     
     return subscriptionId;
   }
@@ -469,14 +667,14 @@ export class MockAdapterV2 implements ChainAdapter {
   private emitEvent(event: ChainEvent): void {
     // Notify subscribers for this event type
     if (this.eventSubscribers.has(event.eventType)) {
-      for (const callback of this.eventSubscribers.get(event.eventType)) {
+      for (const callback of this.eventSubscribers.get(event.eventType)!) {
         callback(event);
       }
     }
     
     // Notify subscribers to 'all' events
     if (this.eventSubscribers.has('all')) {
-      for (const callback of this.eventSubscribers.get('all')) {
+      for (const callback of this.eventSubscribers.get('all')!) {
         callback(event);
       }
     }
@@ -520,7 +718,7 @@ export class MockAdapterV2 implements ChainAdapter {
         contentHash: `hash-${crypto.randomBytes(16).toString('hex')}`,
         upvotes: Math.floor(Math.random() * 50),
         downvotes: Math.floor(Math.random() * 10),
-        timestamp: new Date().toISOString(),
+        timestamp: Date.now(),
         tangle: {
           objectId: id,
           commitNumber: this.commitNumber
@@ -539,7 +737,7 @@ export class MockAdapterV2 implements ChainAdapter {
         reputationScore: Math.random() * 0.9 + 0.1,
         verificationLevel: i % 3 === 0 ? 'expert' : i % 2 === 0 ? 'verified' : 'basic',
         specializations: ['restaurant', 'hotel', 'bar'].slice(0, i % 3 + 1),
-        activeSince: new Date().toISOString(),
+        activeSince: Date.now(),
         followers: Math.floor(Math.random() * 50),
         following: Math.floor(Math.random() * 30),
         ledger: {
@@ -557,7 +755,7 @@ export class MockAdapterV2 implements ChainAdapter {
         sender: i % 3 === 0 ? 'SYSTEM' : `user-${i % 5}`,
         recipient: `user-${(i + 1) % 5}`,
         amount: Math.random() * 100,
-        timestamp: new Date().toISOString(),
+        timestamp: Date.now(),
         type: i % 4 === 0 ? 'reward' : i % 3 === 0 ? 'transfer' : i % 2 === 0 ? 'stake' : 'unstake',
         actionReference: i % 3 === 0 ? `recommendation-${i % count}` : undefined,
         tangle: {
@@ -576,7 +774,7 @@ export class MockAdapterV2 implements ChainAdapter {
         title: `Proposal ${i}`,
         description: `Description for proposal ${i}`,
         parameters: JSON.stringify({ param1: i, param2: `value-${i}` }),
-        timestamp: new Date().toISOString(),
+        timestamp: Date.now(),
         yesVotes: Math.floor(Math.random() * 30),
         noVotes: Math.floor(Math.random() * 20),
         status: ['Active', 'Succeeded', 'Defeated'][i % 3],
@@ -602,5 +800,14 @@ export class MockAdapterV2 implements ChainAdapter {
     this.commitNumber = 0;
     
     console.log('Cleared all mock data');
+  }
+
+  // Helper methods for mock data
+  setMockData(key: string, value: any): void {
+    this.recommendations.set(key, value);
+  }
+
+  getMockData(key: string): any {
+    return this.recommendations.get(key);
   }
 }

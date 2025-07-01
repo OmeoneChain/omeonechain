@@ -3,12 +3,15 @@
  * 
  * Implementation of the StorageProvider interface for IPFS
  * Based on Technical Specifications A.3.4 (Hybrid Storage System)
+ * Updated to fix TypeScript compatibility issues
  */
 
 import { create, IPFSHTTPClient } from 'ipfs-http-client';
 import { StorageProvider, StorageOptions } from './storage-provider';
 import { CID } from 'multiformats/cid';
 import { base58btc } from 'multiformats/bases/base58';
+import * as json from 'multiformats/codecs/json';
+import { sha256 } from 'multiformats/hashes/sha2';
 
 /**
  * IPFS storage options
@@ -33,6 +36,11 @@ export interface IPFSStorageOptions {
    * Default pin setting (default: true)
    */
   defaultPin?: boolean;
+  
+  /**
+   * Request timeout in milliseconds
+   */
+  timeout?: number;
   
   /**
    * Optional Pinning Service API config
@@ -61,8 +69,29 @@ export interface IPFSStorageOptions {
 const DEFAULT_OPTIONS: IPFSStorageOptions = {
   apiUrl: 'https://ipfs.infura.io:5001',
   gatewayUrl: 'https://ipfs.io/ipfs/',
-  defaultPin: true
+  defaultPin: true,
+  timeout: 30000
 };
+
+/**
+ * Storage result interface for better type safety
+ */
+export interface IpfsStorageResult {
+  success: boolean;
+  cid?: string;
+  error?: string;
+  size?: number;
+}
+
+/**
+ * Retrieval result interface for better type safety
+ */
+export interface IpfsRetrievalResult {
+  success: boolean;
+  data?: Buffer;
+  error?: string;
+  contentType?: string;
+}
 
 /**
  * IPFS implementation of the StorageProvider interface
@@ -111,7 +140,10 @@ export class IPFSStorage implements StorageProvider {
     }
     
     try {
-      const clientOptions: Record<string, any> = {};
+      const clientOptions: any = {
+        url: this.options.apiUrl,
+        timeout: this.options.timeout
+      };
       
       // Add authentication if provided
       if (this.options.authToken) {
@@ -121,28 +153,35 @@ export class IPFSStorage implements StorageProvider {
       }
       
       // Create IPFS client
-      this.client = create({
-        url: this.options.apiUrl,
-        ...clientOptions
-      });
+      this.client = create(clientOptions);
       
-      // Test connection
-      await this.client.version();
+      // Test connection with timeout handling
+      const versionPromise = this.client.version();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), this.options.timeout)
+      );
+      
+      await Promise.race([versionPromise, timeoutPromise]);
       
       // Configure pinning service if provided
       if (this.options.pinningService) {
-        await this.client.pin.remote.service.add(
-          this.options.pinningService.name,
-          {
-            endpoint: this.options.pinningService.endpoint,
-            key: this.options.pinningService.key
-          }
-        );
+        try {
+          await this.client.pin.remote.service.add(
+            this.options.pinningService.name,
+            {
+              endpoint: this.options.pinningService.endpoint,
+              key: this.options.pinningService.key
+            }
+          );
+        } catch (error) {
+          console.warn('Failed to add pinning service:', error);
+          // Don't fail connection if pinning service setup fails
+        }
       }
       
       this.connected = true;
     } catch (error) {
-      throw new Error(`Failed to connect to IPFS: ${error}`);
+      throw new Error(`Failed to connect to IPFS: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
   
@@ -171,46 +210,57 @@ export class IPFSStorage implements StorageProvider {
   ): Promise<string> {
     this.ensureConnected();
     
-    // Convert data to Buffer if needed
-    let buffer: Buffer;
-    if (Buffer.isBuffer(data)) {
-      buffer = data;
-    } else if (typeof data === 'string') {
-      buffer = Buffer.from(data);
-    } else if (data instanceof Blob) {
-      buffer = Buffer.from(await data.arrayBuffer());
-    } else {
-      throw new Error('Unsupported data type');
-    }
-    
-    // Create file object with metadata
-    const file = {
-      path: 'content',
-      content: buffer,
-      mimeType,
-      metadata: {
-        ...metadata,
-        timestamp: new Date().toISOString()
+    try {
+      // Convert data to Buffer if needed
+      let buffer: Buffer;
+      if (Buffer.isBuffer(data)) {
+        buffer = data;
+      } else if (typeof data === 'string') {
+        buffer = Buffer.from(data, 'utf8');
+      } else if (data instanceof Blob) {
+        const arrayBuffer = await data.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+      } else {
+        throw new Error('Unsupported data type');
       }
-    };
-    
-    // Upload to IPFS
-    const result = await this.client!.add(file, {
-      pin: options?.pin ?? this.options.defaultPin
-    });
-    
-    // Pin to remote service if configured
-    if (
-      this.options.pinningService && 
-      (options?.pin ?? this.options.defaultPin)
-    ) {
-      await this.client!.pin.remote.add(result.cid, {
-        service: this.options.pinningService.name,
-        name: metadata?.caption || `File uploaded at ${new Date().toISOString()}`
+      
+      // Create file object with metadata
+      const file = {
+        path: 'content',
+        content: buffer,
+        mimeType,
+        metadata: {
+          ...metadata,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      // Upload to IPFS with proper error handling
+      const result = await this.client!.add(file, {
+        pin: options?.pin ?? this.options.defaultPin,
+        cidVersion: 1
       });
+      
+      // Pin to remote service if configured
+      if (
+        this.options.pinningService && 
+        (options?.pin ?? this.options.defaultPin)
+      ) {
+        try {
+          await this.client!.pin.remote.add(result.cid, {
+            service: this.options.pinningService.name,
+            name: metadata?.caption || `File uploaded at ${new Date().toISOString()}`
+          });
+        } catch (error) {
+          console.warn('Failed to pin to remote service:', error);
+          // Don't fail the upload if remote pinning fails
+        }
+      }
+      
+      return result.cid.toString();
+    } catch (error) {
+      throw new Error(`Failed to store file in IPFS: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    
-    return result.cid.toString();
   }
   
   /**
@@ -223,19 +273,23 @@ export class IPFSStorage implements StorageProvider {
     this.ensureConnected();
     
     try {
-      // Parse CID
+      // Parse and validate CID
       const parsedCid = CID.parse(cid);
       
-      // Get file chunks
+      // Get file chunks with timeout
       const chunks: Uint8Array[] = [];
-      for await (const chunk of this.client!.cat(parsedCid)) {
+      const catIterable = this.client!.cat(parsedCid, {
+        timeout: this.options.timeout
+      });
+      
+      for await (const chunk of catIterable) {
         chunks.push(chunk);
       }
       
       // Combine chunks into a single buffer
       return Buffer.concat(chunks);
     } catch (error) {
-      throw new Error(`Failed to retrieve file from IPFS: ${error}`);
+      throw new Error(`Failed to retrieve file from IPFS: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
   
@@ -249,8 +303,13 @@ export class IPFSStorage implements StorageProvider {
     this.ensureConnected();
     
     try {
-      // Try to get file stat
-      await this.client!.files.stat(`/ipfs/${cid}`);
+      // Parse CID first to validate format
+      const parsedCid = CID.parse(cid);
+      
+      // Try to get file stat with timeout
+      await this.client!.files.stat(`/ipfs/${parsedCid.toString()}`, {
+        timeout: 5000 // Shorter timeout for existence check
+      });
       return true;
     } catch (error) {
       return false;
@@ -267,7 +326,7 @@ export class IPFSStorage implements StorageProvider {
     this.ensureConnected();
     
     try {
-      // Parse CID
+      // Parse and validate CID
       const parsedCid = CID.parse(cid);
       
       // Unpin from local node
@@ -275,15 +334,20 @@ export class IPFSStorage implements StorageProvider {
       
       // Unpin from remote service if configured
       if (this.options.pinningService) {
-        await this.client!.pin.remote.rm({
-          cid: parsedCid,
-          service: this.options.pinningService.name
-        });
+        try {
+          await this.client!.pin.remote.rm({
+            cid: parsedCid,
+            service: this.options.pinningService.name
+          });
+        } catch (error) {
+          console.warn('Failed to unpin from remote service:', error);
+          // Don't fail if remote unpin fails
+        }
       }
       
       return true;
     } catch (error) {
-      console.warn(`Failed to unpin file from IPFS: ${error}`);
+      console.warn(`Failed to unpin file from IPFS: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
   }
@@ -303,15 +367,25 @@ export class IPFSStorage implements StorageProvider {
     this.ensureConnected();
     
     try {
-      // Parse CID
+      // Parse and validate CID
       const parsedCid = CID.parse(cid);
       
       // Get file stats
-      const stats = await this.client!.files.stat(`/ipfs/${parsedCid}`);
+      const stats = await this.client!.files.stat(`/ipfs/${parsedCid.toString()}`);
       
-      // Get pin status
-      const pins = await this.client!.pin.ls({ paths: [parsedCid] });
-      const isPinned = Array.from(pins).length > 0;
+      // Check pin status
+      let isPinned = false;
+      try {
+        const pins = this.client!.pin.ls({ paths: [parsedCid] });
+        const pinArray = [];
+        for await (const pin of pins) {
+          pinArray.push(pin);
+        }
+        isPinned = pinArray.length > 0;
+      } catch (error) {
+        // Ignore pin check errors
+        isPinned = false;
+      }
       
       // Return metadata
       return {
@@ -320,10 +394,12 @@ export class IPFSStorage implements StorageProvider {
         created: new Date(), // IPFS doesn't store creation times
         cid: parsedCid.toString(),
         isPinned,
-        type: stats.type
+        type: stats.type,
+        blocks: stats.blocks,
+        cumulativeSize: stats.cumulativeSize
       };
     } catch (error) {
-      throw new Error(`Failed to get file metadata from IPFS: ${error}`);
+      throw new Error(`Failed to get file metadata from IPFS: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
   
@@ -334,7 +410,160 @@ export class IPFSStorage implements StorageProvider {
    * @returns Gateway URL
    */
   getGatewayUrl(cid: string): string {
-    return `${this.options.gatewayUrl}${cid}`;
+    // Validate CID format before creating URL
+    try {
+      const parsedCid = CID.parse(cid);
+      return `${this.options.gatewayUrl}${parsedCid.toString()}`;
+    } catch (error) {
+      throw new Error(`Invalid CID format: ${cid}`);
+    }
+  }
+  
+  /**
+   * Store data and return result with error handling
+   * 
+   * @param data Data to store
+   * @returns Storage result
+   */
+  async store(data: any): Promise<IpfsStorageResult> {
+    try {
+      // Convert data to buffer
+      const buffer = Buffer.from(JSON.stringify(data), 'utf8');
+      
+      // Add to IPFS
+      const result = await this.client!.add(buffer, {
+        pin: this.options.defaultPin,
+        cidVersion: 1
+      });
+
+      return {
+        success: true,
+        cid: result.cid.toString(),
+        size: result.size
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown IPFS storage error'
+      };
+    }
+  }
+
+  /**
+   * Retrieve data with error handling
+   * 
+   * @param cid Content identifier
+   * @returns Retrieval result
+   */
+  async retrieve(cid: string): Promise<IpfsRetrievalResult> {
+    try {
+      // Parse CID to validate format
+      const parsedCid = CID.parse(cid);
+      
+      // Get data from IPFS
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of this.client!.cat(parsedCid)) {
+        chunks.push(chunk);
+      }
+
+      // Combine chunks
+      const buffer = Buffer.concat(chunks);
+
+      return {
+        success: true,
+        data: buffer,
+        contentType: 'application/json'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown IPFS retrieval error'
+      };
+    }
+  }
+
+  /**
+   * Pin content with error handling
+   * 
+   * @param cid Content identifier
+   * @returns Success status
+   */
+  async pin(cid: string): Promise<boolean> {
+    try {
+      const parsedCid = CID.parse(cid);
+      await this.client!.pin.add(parsedCid);
+      return true;
+    } catch (error) {
+      console.error('IPFS pin error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Unpin content with error handling
+   * 
+   * @param cid Content identifier
+   * @returns Success status
+   */
+  async unpin(cid: string): Promise<boolean> {
+    try {
+      const parsedCid = CID.parse(cid);
+      await this.client!.pin.rm(parsedCid);
+      return true;
+    } catch (error) {
+      console.error('IPFS unpin error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Health check for circuit breaker
+   * 
+   * @returns Health status
+   */
+  async healthCheck(): Promise<boolean> {
+    try {
+      if (!this.client) return false;
+      const id = await this.client.id();
+      return !!id;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Create content hash for verification
+   * 
+   * @param data Data to hash
+   * @returns Content hash
+   */
+  static async createHash(data: any): Promise<string> {
+    try {
+      const bytes = new TextEncoder().encode(JSON.stringify(data));
+      const hash = await sha256.digest(bytes);
+      const cid = CID.create(1, json.code, hash);
+      return cid.toString();
+    } catch (error) {
+      throw new Error(`Failed to create hash: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+  
+  /**
+   * Check if client is connected
+   * 
+   * @returns Connection status
+   */
+  isConnected(): boolean {
+    return this.connected && this.client !== null;
+  }
+  
+  /**
+   * Get current options
+   * 
+   * @returns Current IPFS options
+   */
+  getOptions(): IPFSStorageOptions {
+    return { ...this.options };
   }
   
   /**

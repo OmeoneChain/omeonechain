@@ -16,6 +16,22 @@ export enum TransactionType {
   BURN = 'burn'
 }
 
+// Additional enum for compatibility with existing code that expects TokenActionType
+export enum TokenActionType {
+  MINT = 'mint',
+  BURN = 'burn',
+  TRANSFER = 'transfer',
+  STAKE = 'stake',
+  UNSTAKE = 'unstake',
+  REWARD = 'reward',
+  TIP = 'tip',
+  GOVERNANCE = 'governance',
+  // Map to existing TransactionType values
+  FEE = 'fee',
+  SERVICE_PAYMENT = 'service_payment',
+  NFT_PURCHASE = 'nft_purchase'
+}
+
 export interface TangleReference {
   /**
    * Rebased object ID
@@ -30,6 +46,7 @@ export interface TangleReference {
 
 /**
  * Main TokenTransaction interface defining the structure of token transaction data
+ * Enhanced to satisfy TypeScript requirements while maintaining existing functionality
  */
 export interface TokenTransaction {
   /**
@@ -53,7 +70,7 @@ export interface TokenTransaction {
   amount: number;
   
   /**
-   * ISO8601 timestamp of the transaction
+   * ISO8601 timestamp of the transaction (string format as per existing design)
    */
   timestamp: string;
   
@@ -71,6 +88,41 @@ export interface TokenTransaction {
    * Reference to on-chain storage
    */
   tangle: TangleReference;
+  
+  // Additional fields for TypeScript compatibility with existing code
+  /**
+   * User ID (for compatibility with existing code patterns)
+   */
+  userId?: string;
+  
+  /**
+   * Token type classification
+   */
+  tokenType?: "reward" | "stake" | "TOK";
+  
+  /**
+   * Action type (for compatibility with TokenActionType usage)
+   */
+  action?: TokenActionType;
+  
+  /**
+   * Additional metadata
+   */
+  metadata?: Record<string, any>;
+  
+  /**
+   * Transaction status
+   */
+  status?: 'pending' | 'confirmed' | 'failed';
+  
+  /**
+   * Blockchain specific fields (for compatibility)
+   */
+  objectId?: any;
+  commitNumber?: any;
+  chainId?: string;
+  blockHeight?: number;
+  gasUsed?: number;
 }
 
 /**
@@ -248,4 +300,118 @@ export interface TransactionFilter {
     field: string;
     direction: 'asc' | 'desc';
   };
+}
+
+/**
+ * Helper function to create TokenTransaction with proper defaults
+ * Ensures all required fields are present for TypeScript compliance
+ */
+export function createTokenTransaction(
+  partial: Partial<TokenTransaction> & {
+    sender: string;
+    recipient: string;
+    amount: number;
+    type: TransactionType;
+    tangle: TangleReference;
+  }
+): TokenTransaction {
+  const now = new Date().toISOString();
+  const txId = partial.transactionId || `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  return {
+    transactionId: txId,
+    timestamp: partial.timestamp || now,
+    status: partial.status || 'pending',
+    userId: partial.userId || partial.sender,
+    tokenType: partial.tokenType || 'TOK',
+    // Map TransactionType to TokenActionType for compatibility
+    action: mapTransactionTypeToAction(partial.type),
+    ...partial
+  };
+}
+
+/**
+ * Helper function to map TransactionType to TokenActionType
+ */
+function mapTransactionTypeToAction(type: TransactionType): TokenActionType {
+  switch (type) {
+    case TransactionType.REWARD:
+      return TokenActionType.REWARD;
+    case TransactionType.TRANSFER:
+      return TokenActionType.TRANSFER;
+    case TransactionType.STAKE:
+      return TokenActionType.STAKE;
+    case TransactionType.UNSTAKE:
+      return TokenActionType.UNSTAKE;
+    case TransactionType.BURN:
+      return TokenActionType.BURN;
+    case TransactionType.FEE:
+      return TokenActionType.FEE;
+    case TransactionType.SERVICE_PAYMENT:
+      return TokenActionType.SERVICE_PAYMENT;
+    case TransactionType.NFT_PURCHASE:
+      return TokenActionType.NFT_PURCHASE;
+    default:
+      return TokenActionType.TRANSFER;
+  }
+}
+
+/**
+ * Helper function for creating reward transactions
+ */
+export function createRewardTransaction(
+  recipient: string,
+  amount: number,
+  recommendationId: string,
+  tangle: TangleReference
+): TokenTransaction {
+  return createTokenTransaction({
+    sender: 'SYSTEM',
+    recipient,
+    amount,
+    type: TransactionType.REWARD,
+    actionReference: recommendationId,
+    tokenType: 'reward',
+    tangle
+  });
+}
+
+/**
+ * Helper function for creating transfer transactions
+ */
+export function createTransferTransaction(
+  sender: string,
+  recipient: string,
+  amount: number,
+  tangle: TangleReference,
+  actionReference?: string
+): TokenTransaction {
+  return createTokenTransaction({
+    sender,
+    recipient,
+    amount,
+    type: TransactionType.TRANSFER,
+    actionReference,
+    tokenType: 'TOK',
+    tangle
+  });
+}
+
+/**
+ * Validate TokenTransaction structure
+ * Ensures all required fields are present and valid
+ */
+export function validateTokenTransaction(tx: any): tx is TokenTransaction {
+  return (
+    typeof tx === 'object' &&
+    typeof tx.transactionId === 'string' &&
+    typeof tx.sender === 'string' &&
+    typeof tx.recipient === 'string' &&
+    typeof tx.amount === 'number' &&
+    typeof tx.timestamp === 'string' &&
+    Object.values(TransactionType).includes(tx.type) &&
+    typeof tx.tangle === 'object' &&
+    typeof tx.tangle.objectId === 'string' &&
+    typeof tx.tangle.commitNumber === 'number'
+  );
 }

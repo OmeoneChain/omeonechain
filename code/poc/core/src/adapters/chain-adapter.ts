@@ -3,6 +3,7 @@
  * 
  * Provides a common interface for different blockchain implementations
  * Based on Technical Specifications A.1.3 (Blockchain Abstraction Layer)
+ * Updated to fix TypeScript compatibility issues
  */
 
 /**
@@ -165,6 +166,32 @@ export interface Event {
 }
 
 /**
+ * Query result structure for state queries
+ */
+export interface StateQueryResult<T = any> {
+  results: T[];
+  total: number;
+  pagination?: {
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+  };
+}
+
+/**
+ * Chain configuration interface
+ */
+export interface ChainConfig {
+  networkId: string;
+  rpcUrl: string;
+  indexerUrl?: string;
+  explorerUrl?: string;
+  gasPrice?: number;
+  gasLimit?: number;
+  sponsorWallet?: string;
+}
+
+/**
  * Chain Adapter interface
  * Provides a common interface for interacting with different blockchain implementations
  */
@@ -188,15 +215,7 @@ export interface ChainAdapter {
    * @param query Query parameters
    * @returns Query results
    */
-  queryState<T>(query: StateQuery): Promise<{
-    results: T[];
-    total: number;
-    pagination?: {
-      offset: number;
-      limit: number;
-      hasMore: boolean;
-    };
-  }>;
+  queryState<T>(query: StateQuery): Promise<StateQueryResult<T>>;
   
   /**
    * Watch for events on the blockchain
@@ -235,4 +254,101 @@ export interface ChainAdapter {
    * @returns Promise resolving when disconnected
    */
   disconnect(): Promise<void>;
+  
+  /**
+   * Health check for circuit breaker pattern
+   * 
+   * @returns Promise resolving to true if healthy
+   */
+  healthCheck(): Promise<boolean>;
+  
+  /**
+   * Get current network status
+   * 
+   * @returns Network information and health status
+   */
+  getNetworkInfo(): Promise<{
+    chainId: string;
+    currentCommit: number;
+    networkStatus: 'healthy' | 'degraded' | 'down';
+    lastUpdate: string;
+  }>;
+}
+
+/**
+ * Abstract base class for chain adapters
+ * Provides common functionality and structure
+ */
+export abstract class BaseChainAdapter implements ChainAdapter {
+  protected config: ChainConfig;
+  protected connected: boolean = false;
+
+  constructor(config: ChainConfig) {
+    this.config = config;
+  }
+
+  abstract getChainId(): Promise<string>;
+  abstract submitTx(tx: Transaction): Promise<TransactionResult>;
+  abstract queryState<T>(query: StateQuery): Promise<StateQueryResult<T>>;
+  abstract watchEvents(filter: EventFilter): AsyncIterator<Event>;
+  abstract getCurrentCommit(): Promise<number>;
+  abstract estimateFee(tx: Transaction): Promise<number>;
+  abstract connect(options?: Record<string, any>): Promise<void>;
+  abstract disconnect(): Promise<void>;
+
+  /**
+   * Default health check implementation
+   */
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.getChainId();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Default network info implementation
+   */
+  async getNetworkInfo(): Promise<{
+    chainId: string;
+    currentCommit: number;
+    networkStatus: 'healthy' | 'degraded' | 'down';
+    lastUpdate: string;
+  }> {
+    try {
+      const chainId = await this.getChainId();
+      const currentCommit = await this.getCurrentCommit();
+      const isHealthy = await this.healthCheck();
+      
+      return {
+        chainId,
+        currentCommit,
+        networkStatus: isHealthy ? 'healthy' : 'down',
+        lastUpdate: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        chainId: 'unknown',
+        currentCommit: 0,
+        networkStatus: 'down',
+        lastUpdate: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Check if adapter is connected
+   */
+  isConnected(): boolean {
+    return this.connected;
+  }
+
+  /**
+   * Get adapter configuration
+   */
+  getConfig(): ChainConfig {
+    return { ...this.config };
+  }
 }

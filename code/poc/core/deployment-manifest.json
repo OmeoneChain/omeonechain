@@ -1,0 +1,30 @@
+{
+  "deployment": {
+    "version": "5C.1.0-dev",
+    "timestamp": "2025-06-28T18:14:58Z",
+    "environment": "development",
+    "status": "configured",
+    "components": {
+      "contracts": {
+        "reputation": "",
+        "token": "",
+        "governance": "",
+        "socialGraph": "",
+        "discoveryIncentives": ""
+      },
+      "backend": {
+        "configured": true,
+        "port": 3001
+      },
+      "frontend": {
+        "configured": true,
+        "port": 3000
+      }
+    },
+    "next_steps": [
+      "Start backend: ./scripts/start-backend.sh",
+      "Start frontend: ./scripts/start-frontend.sh",
+      "Run health check: ./scripts/health-check.sh"
+    ]
+  }
+}
