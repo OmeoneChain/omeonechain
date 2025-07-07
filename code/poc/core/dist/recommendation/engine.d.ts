@@ -4,9 +4,9 @@
  * Core business logic for processing, storing, and retrieving user recommendations
  * Based on Technical Specifications A.3.1
  */
-import { ChainAdapter } from '../types/chain';
+import { ChainAdapter } from '../type/chain';
 import { StorageProvider } from '../storage/storage-provider';
-import { Recommendation, RecommendationFilter, RecommendationAction } from '../types/recommendation';
+import { Recommendation, RecommendationFilter, RecommendationAction } from '../type/recommendation';
 /**
  * Options for the recommendation engine
  */

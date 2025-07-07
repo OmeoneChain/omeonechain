@@ -1,7 +1,7 @@
 /**
  * blockchain-reputation.ts - Blockchain Integration Service
  *
- * Location: code/core/src/services/blockchain-reputation.ts
+ * Location: code/poc/core/src/services/blockchain-reputation.ts
  *
  * Service layer connecting reputation engine to IOTA Rebased blockchain
  */

@@ -1,4 +1,4 @@
-import { AppConfig } from '../types';
+import { AppConfig } from '../type';
 export declare class EnvironmentConfig {
     static load(): AppConfig;
     private static getEnv;

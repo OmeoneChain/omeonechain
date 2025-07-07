@@ -1,0 +1,367 @@
+src/__integration_tests__/rebased-adapter/setup.ts(9,31): error TS2307: Cannot find module '../../service/engine' or its corresponding type declarations.
+src/__integration_tests__/rebased-adapter/setup.ts(145,49): error TS2345: Argument of type 'RebasedAdapter' is not assignable to parameter of type 'ChainAdapter'.
+src/__integration_tests__/rebased-adapter/setup.ts(148,39): error TS2345: Argument of type 'RebasedAdapter' is not assignable to parameter of type 'ChainAdapter'.
+src/__integration_tests__/rebased-adapter/setup.ts(151,57): error TS2345: Argument of type 'RebasedAdapter' is not assignable to parameter of type 'ChainAdapter'.
+src/__integration_tests__/rebased-adapter/setup.ts(155,5): error TS2345: Argument of type 'RebasedAdapter' is not assignable to parameter of type 'ChainAdapter'.
+src/__integration_tests__/rebased-adapter/setup.ts(257,89): error TS18046: 'error' is of type 'unknown'.
+src/__integration_tests__/test-utils/test-helpers.ts(14,3): error TS2349: This expression is not callable.
+src/adapters/adapter-factory-updated.ts(17,11): error TS2416: Property 'isConnected' in type 'MockAdapterV2' is not assignable to the same property in base type 'BaseChainAdapter'.
+src/adapters/adapter-factory.ts(147,16): error TS2352: Conversion of type 'ProductionRebasedAdapter' to type 'ChainAdapter' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/adapters/adapter-factory.ts(147,45): error TS2554: Expected 0 arguments, but got 1.
+src/adapters/adapter-factory.ts(149,16): error TS2352: Conversion of type 'ProductionRebasedAdapter' to type 'ChainAdapter' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/adapters/adapter-factory.ts(175,14): error TS2352: Conversion of type 'RebasedAdapter' to type 'ChainAdapter' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/adapters/adapter-factory.ts(184,16): error TS2352: Conversion of type 'RebasedAdapter' to type 'ChainAdapter' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/adapters/adapter-factory.ts(187,51): error TS2345: Argument of type '{ network: "testnet"; nodeUrl: string; account: { address: string; privateKey: string; }; }' is not assignable to parameter of type 'string | RebasedConfig'.
+src/adapters/adapter-factory.ts(195,16): error TS2352: Conversion of type 'RebasedAdapter' to type 'ChainAdapter' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/adapters/adapter-factory.ts(220,14): error TS2352: Conversion of type 'EVMAdapter' to type 'ChainAdapter' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/adapters/adapter-factory.ts(224,28): error TS2554: Expected 2-4 arguments, but got 1.
+src/adapters/adapter-factory.ts(225,16): error TS2352: Conversion of type 'EVMAdapter' to type 'ChainAdapter' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/adapters/adapter-factory.ts(229,16): error TS2352: Conversion of type 'EVMAdapter' to type 'ChainAdapter' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/adapters/evm-adapter.ts(2,10): error TS2724: '"../types/recommendation"' has no exported member named 'RecommendationData'. Did you mean 'Recommendation'?
+src/adapters/evm-adapter.ts(3,10): error TS2724: '"../types/reputation"' has no exported member named 'UserReputationData'. Did you mean 'UserReputation'?
+src/adapters/evm-adapter.ts(20,37): error TS2314: Generic type 'Contract<Abi>' requires 1 type argument(s).
+src/adapters/evm-adapter.ts(21,11): error TS2564: Property 'accountAddress' has no initializer and is not definitely assigned in the constructor.
+src/adapters/evm-adapter.ts(22,11): error TS2564: Property 'privateKey' has no initializer and is not definitely assigned in the constructor.
+src/adapters/evm-adapter.ts(24,11): error TS2564: Property 'eventPollingInterval' has no initializer and is not definitely assigned in the constructor.
+src/adapters/evm-adapter.ts(322,56): error TS18046: 'error' is of type 'unknown'.
+src/adapters/evm-adapter.ts(332,19): error TS2314: Generic type 'Contract<Abi>' requires 1 type argument(s).
+src/adapters/evm-adapter.ts(444,16): error TS2416: Property 'queryState' in type 'EVMAdapter' is not assignable to the same property in base type 'ChainAdapter'.
+src/adapters/evm-adapter.ts(473,11): error TS2322: Type 'bigint' is not assignable to type 'number'.
+src/adapters/evm-adapter.ts(490,11): error TS2322: Type 'bigint' is not assignable to type 'number'.
+src/adapters/evm-adapter.ts(511,11): error TS2322: Type 'bigint' is not assignable to type 'number'.
+src/adapters/evm-adapter.ts(527,49): error TS18046: 'error' is of type 'unknown'.
+src/adapters/evm-adapter.ts(571,21): error TS2314: Generic type 'Contract<Abi>' requires 1 type argument(s).
+src/adapters/evm-adapter.ts(612,37): error TS2365: Operator '-' cannot be applied to types 'bigint' and 'number'.
+src/adapters/evm-adapter.ts(703,51): error TS18046: 'error' is of type 'unknown'.
+src/adapters/evm-adapter.ts(720,5): error TS2532: Object is possibly 'undefined'.
+src/adapters/evm-adapter.ts(784,9): error TS2322: Type 'bigint' is not assignable to type 'number'.
+src/adapters/evm-adapter.ts(925,7): error TS2532: Object is possibly 'undefined'.
+src/adapters/index-updated.ts(11,31): error TS2307: Cannot find module './mock-adapter-v2' or its corresponding type declarations.
+src/adapters/index-updated.ts(15,3): error TS2305: Module '"./adapter-factory-updated"' has no exported member 'AdapterFactory'.
+src/adapters/index-updated.ts(16,3): error TS2305: Module '"./adapter-factory-updated"' has no exported member 'AdapterType'.
+src/adapters/index-updated.ts(17,8): error TS2305: Module '"./adapter-factory-updated"' has no exported member 'RebasedAdapterConfig'.
+src/adapters/index-updated.ts(18,8): error TS2305: Module '"./adapter-factory-updated"' has no exported member 'EVMAdapterConfig'.
+src/adapters/index-updated.ts(19,8): error TS2305: Module '"./adapter-factory-updated"' has no exported member 'MockAdapterConfig'.
+src/adapters/index-updated.ts(20,8): error TS2305: Module '"./adapter-factory-updated"' has no exported member 'AdapterConfig'.
+src/adapters/index-updated.ts(26,1): error TS2308: Module './types/recommendation-adapters' has already exported a member named 'RecommendationTransactionData'. Consider explicitly re-exporting to resolve the ambiguity.
+src/adapters/index.ts(10,29): error TS2307: Cannot find module './mock-adapter' or its corresponding type declarations.
+src/adapters/index.ts(18,8): error TS2724: '"./adapter-factory"' has no exported member named 'MockAdapterConfig'. Did you mean 'AdapterConfig'?
+src/adapters/monitoring.ts(115,38): error TS2339: Property 'getCurrentAdapter' does not exist on type 'AdapterFactory'.
+src/adapters/monitoring.ts(134,25): error TS2339: Property 'getCurrentAdapterType' does not exist on type 'AdapterFactory'.
+src/adapters/monitoring.ts(413,34): error TS2683: 'this' implicitly has type 'any' because it does not have a type annotation.
+src/adapters/production-rebased-adapter.ts(5,43): error TS2305: Module '"./chain-adapter"' has no exported member 'QueryResult'.
+src/adapters/production-rebased-adapter.ts(56,11): error TS2564: Property 'network' has no initializer and is not definitely assigned in the constructor.
+src/adapters/production-rebased-adapter.ts(57,11): error TS2564: Property 'connectionPool' has no initializer and is not definitely assigned in the constructor.
+src/adapters/production-rebased-adapter.ts(58,11): error TS2564: Property 'metrics' has no initializer and is not definitely assigned in the constructor.
+src/adapters/production-rebased-adapter.ts(59,11): error TS2564: Property 'sponsorWallet' has no initializer and is not definitely assigned in the constructor.
+src/adapters/production-rebased-adapter.ts(60,11): error TS2564: Property 'cache' has no initializer and is not definitely assigned in the constructor.
+src/adapters/production-rebased-adapter.ts(61,11): error TS2564: Property 'cacheConfig' has no initializer and is not definitely assigned in the constructor.
+src/adapters/production-rebased-adapter.ts(62,11): error TS2564: Property 'circuitBreaker' has no initializer and is not definitely assigned in the constructor.
+src/adapters/production-rebased-adapter.ts(210,25): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/adapters/production-rebased-adapter.ts(403,11): error TS2322: Type 'Date' is not assignable to type 'string'.
+src/adapters/production-rebased-adapter.ts(428,9): error TS2322: Type 'Date' is not assignable to type 'string'.
+src/adapters/production-rebased-adapter.ts(436,9): error TS2322: Type 'Date' is not assignable to type 'string'.
+src/adapters/production-rebased-adapter.ts(483,9): error TS2416: Property 'watchEvents' in type 'ProductionRebasedAdapter' is not assignable to the same property in base type 'ChainAdapter'.
+src/adapters/rebased-adapter.ts(6,28): error TS2307: Cannot find module '@iota/wallet' or its corresponding type declarations.
+src/adapters/rebased-adapter.ts(7,29): error TS2307: Cannot find module '@iota/crypto.js' or its corresponding type declarations.
+src/adapters/rebased-adapter.ts(147,5): error TS2739: Type '{ submitActionForReward: "reward_distribution::submit_action_for_reward"; addSocialEndorsement: "reward_distribution::add_social_endorsement"; claimReward: "reward_distribution::claim_reward"; distributeOnboardingReward: "reward_distribution::distribute_onboarding_reward"; distributeLeaderboardReward: "reward_distri...' is missing the following properties from type '{ submitActionForReward: "reward_distribution::submit_action_for_reward"; addSocialEndorsement: "reward_distribution::add_social_endorsement"; claimReward: "reward_distribution::claim_reward"; ... 5 more ...; getActiveCampaigns: "discovery_incentives::get_active_campaigns"; }': claimDiscoveryBonus, getActiveCampaigns
+src/adapters/rebased-adapter.ts(163,5): error TS2739: Type '{ updateUserReputation: "reputation::update_user_reputation"; getSocialWeight: "reputation::get_social_weight"; calculateTrustScore: "reputation::calculate_trust_score"; }' is missing the following properties from type '{ updateUserReputation: "reputation::update_user_reputation"; getSocialWeight: "reputation::get_social_weight"; calculateTrustScore: "reputation::calculate_trust_score"; submitCommunityVerification: "reputation::submit_community_verification"; addSocialConnection: "reputation::add_social_connection"; removeSocialCon...': submitCommunityVerification, addSocialConnection, removeSocialConnection, getUserReputation
+src/adapters/rebased-adapter.ts(315,13): error TS2353: Object literal may only specify known properties, and 'gasUsed' does not exist in type 'TransactionResult'.
+src/adapters/rebased-adapter.ts(329,13): error TS2353: Object literal may only specify known properties, and 'error' does not exist in type 'TransactionResult'.
+src/adapters/rebased-adapter.ts(343,7): error TS2353: Object literal may only specify known properties, and 'error' does not exist in type 'TransactionResult'.
+src/adapters/rebased-adapter.ts(372,9): error TS2416: Property 'subscribeToEvents' in type 'RebasedAdapter' is not assignable to the same property in base type 'ChainAdapter'.
+src/adapters/rebased-adapter.ts(381,9): error TS2353: Object literal may only specify known properties, and 'filter' does not exist in type 'EventFilter'.
+src/adapters/rebased-adapter.ts(387,37): error TS2504: Type 'AsyncIterator<Event, any, any>' must have a '[Symbol.asyncIterator]()' method that returns an async iterator.
+src/adapters/rebased-adapter.ts(423,9): error TS2416: Property 'isConnectedToNode' in type 'RebasedAdapter' is not assignable to the same property in base type 'ChainAdapter'.
+src/adapters/rebased-adapter.ts(1243,9): error TS2416: Property 'queryState' in type 'RebasedAdapter' is not assignable to the same property in base type 'ChainAdapter'.
+src/adapters/rebased-adapter.ts(1328,24): error TS2339: Property 'filter' does not exist on type 'EventFilter'.
+src/adapters/rebased-adapter.ts(1329,40): error TS2339: Property 'filter' does not exist on type 'EventFilter'.
+src/adapters/rebased-adapter.ts(1330,52): error TS2339: Property 'filter' does not exist on type 'EventFilter'.
+src/adapters/rebased-adapter.ts(1519,9): error TS2561: Object literal may only specify known properties, but 'feeOptions' does not exist in type 'OmeoneTransaction'. Did you mean to write 'options'?
+src/adapters/types/recommendation-adapters.ts(66,3): error TS2484: Export declaration conflicts with exported declaration of 'RecommendationTransactionData'.
+src/adapters/types/recommendation-adapters.ts(67,3): error TS2484: Export declaration conflicts with exported declaration of 'VoteTransactionData'.
+src/adapters/types/recommendation-adapters.ts(68,3): error TS2484: Export declaration conflicts with exported declaration of 'ReputationUpdateData'.
+src/adapters/types/token-adapters.ts(2,10): error TS2300: Duplicate identifier 'ChainTransaction'.
+src/adapters/types/token-adapters.ts(39,5): error TS2322: Type 'string' is not assignable to type 'Date'.
+src/adapters/types/token-adapters.ts(46,10): error TS2300: Duplicate identifier 'ChainTransaction'.
+src/adapters/types/token-adapters.ts(66,5): error TS2322: Type 'string' is not assignable to type 'Date'.
+src/adapters/types/token-adapters.ts(73,10): error TS2300: Duplicate identifier 'ChainTransaction'.
+src/adapters/types/token-adapters.ts(95,5): error TS2322: Type 'string' is not assignable to type 'Date'.
+src/api/index.ts(10,20): error TS2307: Cannot find module 'helmet' or its corresponding type declarations.
+src/api/index.ts(14,24): error TS2307: Cannot find module 'socket.io' or its corresponding type declarations.
+src/api/index.ts(17,34): error TS2307: Cannot find module './routes/recommendations' or its corresponding type declarations.
+src/api/index.ts(136,58): error TS2345: Argument of type 'import("/workspaces/omeonechain/code/poc/core/src/adapters/chain-adapter").ChainAdapter' is not assignable to parameter of type 'import("/workspaces/omeonechain/code/poc/core/src/types/chain").ChainAdapter'.
+src/api/index.ts(137,50): error TS2345: Argument of type 'import("/workspaces/omeonechain/code/poc/core/src/adapters/chain-adapter").ChainAdapter' is not assignable to parameter of type 'import("/workspaces/omeonechain/code/poc/core/src/types/chain").ChainAdapter'.
+src/api/index.ts(138,40): error TS2345: Argument of type 'import("/workspaces/omeonechain/code/poc/core/src/adapters/chain-adapter").ChainAdapter' is not assignable to parameter of type 'import("/workspaces/omeonechain/code/poc/core/src/types/chain").ChainAdapter'.
+src/api/index.ts(139,44): error TS2345: Argument of type 'import("/workspaces/omeonechain/code/poc/core/src/adapters/chain-adapter").ChainAdapter' is not assignable to parameter of type 'import("/workspaces/omeonechain/code/poc/core/src/types/chain").ChainAdapter'.
+src/api/index.ts(140,29): error TS2554: Expected 4 arguments, but got 1.
+src/api/index.ts(212,40): error TS2769: No overload matches this call.
+src/api/index.ts(213,43): error TS2769: No overload matches this call.
+src/api/index.ts(214,41): error TS2769: No overload matches this call.
+src/api/index.ts(215,45): error TS2769: No overload matches this call.
+src/api/index.ts(218,44): error TS2769: No overload matches this call.
+src/api/index.ts(299,33): error TS2339: Property 'initialize' does not exist on type 'GovernanceEngine'.
+src/api/middleware/auth.ts(8,17): error TS2307: Cannot find module 'jsonwebtoken' or its corresponding type declarations.
+src/api/middleware/error-handler.ts(210,5): error TS2741: Property 'error' is missing in type 'Record<string, any>' but required in type '{ error: { message: string; code: string; }; }'.
+src/api/middleware/error-handler.ts(219,9): error TS2353: Object literal may only specify known properties, and 'details' does not exist in type '{ message: string; code: string; }'.
+src/api/middleware/error-handler.ts(238,7): error TS2353: Object literal may only specify known properties, and 'requestId' does not exist in type '{ message: string; code: string; }'.
+src/api/middleware/error-handler.ts(246,7): error TS2353: Object literal may only specify known properties, and 'stack' does not exist in type '{ message: string; code: string; }'.
+src/api/middleware/request-logger.ts(67,5): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'Console'.
+src/api/middleware/request-logger.ts(219,44): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+src/api/routes/developer.ts(15,10): error TS2305: Module '"../../types/recommendation-adapters"' has no exported member 'RecommendationFilter'.
+src/api/routes/developer.ts(15,32): error TS2305: Module '"../../types/recommendation-adapters"' has no exported member 'PaginationOptions'.
+src/api/routes/developer.ts(16,10): error TS2305: Module '"../../types/reputation-adapters"' has no exported member 'PaginationOptions'.
+src/api/routes/developer.ts(16,53): error TS2305: Module '"../../types/reputation-adapters"' has no exported member 'RelationshipResult'.
+src/api/routes/developer.ts(17,46): error TS2307: Cannot find module '../../types/service-adapters' or its corresponding type declarations.
+src/api/routes/developer.ts(208,27): error TS2769: No overload matches this call.
+src/api/routes/developer.ts(272,26): error TS2769: No overload matches this call.
+src/api/routes/developer.ts(302,33): error TS2769: No overload matches this call.
+src/api/routes/developer.ts(422,35): error TS2769: No overload matches this call.
+src/api/routes/governance.ts(22,8): error TS2307: Cannot find module '../../types/governance-adapters' or its corresponding type declarations.
+src/api/routes/governance.ts(57,51): error TS2339: Property 'queryProposals' does not exist on type 'GovernanceEngine'.
+src/api/routes/governance.ts(79,47): error TS2551: Property 'getProposalById' does not exist on type 'GovernanceEngine'. Did you mean 'getProposal'?
+src/api/routes/governance.ts(96,29): error TS2769: No overload matches this call.
+src/api/routes/governance.ts(137,9): error TS2554: Expected 1 arguments, but got 6.
+src/api/routes/governance.ts(162,39): error TS2769: No overload matches this call.
+src/api/routes/governance.ts(182,47): error TS2339: Property 'updateProposalStatus' does not exist on type 'GovernanceEngine'.
+src/api/routes/governance.ts(199,38): error TS2769: No overload matches this call.
+src/api/routes/governance.ts(217,9): error TS2345: Argument of type 'boolean' is not assignable to parameter of type 'VoteType'.
+src/api/routes/governance.ts(247,69): error TS2554: Expected 1 arguments, but got 2.
+src/api/routes/governance.ts(264,47): error TS2769: No overload matches this call.
+src/api/routes/governance.ts(274,47): error TS2339: Property 'checkProposalVotingResults' does not exist on type 'GovernanceEngine'.
+src/api/routes/governance.ts(300,37): error TS2339: Property 'getRecentActivity' does not exist on type 'GovernanceEngine'.
+src/api/routes/governance.ts(316,49): error TS2769: No overload matches this call.
+src/api/routes/governance.ts(321,47): error TS2339: Property 'approveProposal' does not exist on type 'GovernanceEngine'.
+src/api/routes/recommendation.ts(13,10): error TS2305: Module '"../../types/recommendation-adapters"' has no exported member 'RecommendationSubmission'.
+src/api/routes/recommendation.ts(13,36): error TS2305: Module '"../../types/recommendation-adapters"' has no exported member 'RecommendationFilter'.
+src/api/routes/recommendation.ts(13,58): error TS2305: Module '"../../types/recommendation-adapters"' has no exported member 'RecommendationUpdate'.
+src/api/routes/recommendation.ts(13,80): error TS2305: Module '"../../types/recommendation-adapters"' has no exported member 'VoteResult'.
+src/api/routes/recommendation.ts(120,20): error TS2769: No overload matches this call.
+src/api/routes/recommendation.ts(181,22): error TS2769: No overload matches this call.
+src/api/routes/recommendation.ts(241,25): error TS2769: No overload matches this call.
+src/api/routes/recommendation.ts(282,30): error TS2769: No overload matches this call.
+src/api/routes/recommendation.ts(313,32): error TS2769: No overload matches this call.
+src/api/routes/services.ts(22,8): error TS2307: Cannot find module '../../types/service-adapters' or its corresponding type declarations.
+src/api/routes/services.ts(133,20): error TS2769: No overload matches this call.
+src/api/routes/services.ts(187,22): error TS2769: No overload matches this call.
+src/api/routes/services.ts(266,36): error TS2769: No overload matches this call.
+src/api/routes/services.ts(371,35): error TS2769: No overload matches this call.
+src/api/routes/services.ts(466,54): error TS2769: No overload matches this call.
+src/api/routes/services.ts(508,5): error TS2769: No overload matches this call.
+src/api/routes/tokens.ts(14,3): error TS2305: Module '"../../types/token-adapters"' has no exported member 'TokenBalance'.
+src/api/routes/tokens.ts(15,3): error TS2724: '"../../types/token-adapters"' has no exported member named 'TokenTransaction'. Did you mean 'TokenTransactionData'?
+src/api/routes/tokens.ts(16,3): error TS2305: Module '"../../types/token-adapters"' has no exported member 'ServiceFeeResult'.
+src/api/routes/tokens.ts(17,3): error TS2724: '"../../types/token-adapters"' has no exported member named 'TransactionType'. Did you mean 'TokenActionType'?
+src/api/routes/tokens.ts(18,3): error TS2305: Module '"../../types/token-adapters"' has no exported member 'PaginationOptions'.
+src/api/routes/tokens.ts(19,3): error TS2305: Module '"../../types/token-adapters"' has no exported member 'TransactionResult'.
+src/api/routes/tokens.ts(35,19): error TS2769: No overload matches this call.
+src/api/routes/tokens.ts(62,31): error TS2769: No overload matches this call.
+src/api/routes/tokens.ts(97,28): error TS2769: No overload matches this call.
+src/api/routes/tokens.ts(142,25): error TS2769: No overload matches this call.
+src/api/routes/tokens.ts(195,27): error TS2769: No overload matches this call.
+src/api/routes/tokens.ts(248,26): error TS2769: No overload matches this call.
+src/api/routes/tokens.ts(266,56): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/api/routes/tokens.ts(266,61): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/api/routes/tokens.ts(276,17): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/api/routes/tokens.ts(294,34): error TS2769: No overload matches this call.
+src/api/routes/tokens.ts(329,37): error TS2769: No overload matches this call.
+src/api/routes/users.ts(14,3): error TS2305: Module '"../../types/reputation-adapters"' has no exported member 'UserReputationUpdate'.
+src/api/routes/users.ts(15,3): error TS2305: Module '"../../types/reputation-adapters"' has no exported member 'FollowResult'.
+src/api/routes/users.ts(16,3): error TS2305: Module '"../../types/reputation-adapters"' has no exported member 'UnfollowResult'.
+src/api/routes/users.ts(17,3): error TS2305: Module '"../../types/reputation-adapters"' has no exported member 'FollowRelationship'.
+src/api/routes/users.ts(18,3): error TS2305: Module '"../../types/reputation-adapters"' has no exported member 'PaginationOptions'.
+src/api/routes/users.ts(19,3): error TS2305: Module '"../../types/reputation-adapters"' has no exported member 'RelationshipResult'.
+src/api/routes/users.ts(101,22): error TS2769: No overload matches this call.
+src/api/routes/users.ts(192,46): error TS2339: Property 'weeklyCalculations' does not exist on type 'UserReputation'.
+src/api/routes/users.ts(193,42): error TS2339: Property 'lastCalculated' does not exist on type 'UserReputation'.
+src/api/routes/users.ts(194,45): error TS2339: Property 'verificationCount' does not exist on type 'UserReputation'.
+src/api/routes/users.ts(195,40): error TS2339: Property 'penaltyCount' does not exist on type 'UserReputation'.
+src/api/routes/users.ts(198,42): error TS2339: Property 'networkDensity' does not exist on type 'UserReputation'.
+src/api/routes/users.ts(199,42): error TS2339: Property 'avgTrustWeight' does not exist on type 'UserReputation'.
+src/api/routes/users.ts(200,45): error TS2339: Property 'connectionQuality' does not exist on type 'UserReputation'.
+src/api/routes/users.ts(222,40): error TS2339: Property 'getSocialGraphAnalytics' does not exist on type 'ReputationEngine'.
+src/api/routes/users.ts(243,30): error TS2769: No overload matches this call.
+src/api/routes/users.ts(258,35): error TS2339: Property 'submitCommunityVerification' does not exist on type 'ReputationEngine'.
+src/api/routes/users.ts(284,42): error TS2339: Property 'getUserVerifications' does not exist on type 'ReputationEngine'.
+src/api/routes/users.ts(303,30): error TS2769: No overload matches this call.
+src/api/routes/users.ts(337,32): error TS2769: No overload matches this call.
+src/api/routes/users.ts(459,43): error TS2339: Property 'getDiscoveryIncentiveScore' does not exist on type 'ReputationEngine'.
+src/api/routes/users.ts(485,45): error TS2769: No overload matches this call.
+src/api/routes/users.ts(500,35): error TS2339: Property 'claimDiscoveryBonus' does not exist on type 'ReputationEngine'.
+src/blockchain/blockchain-integration.ts(3,29): error TS2307: Cannot find module '../adapters/mock-adapter' or its corresponding type declarations.
+src/blockchain/blockchain-integration.ts(71,7): error TS2322: Type 'RebasedAdapter' is not assignable to type 'ChainAdapter'.
+src/blockchain/blockchain-integration.ts(86,28): error TS2339: Property 'initializeSystem' does not exist on type 'ChainAdapter & RebasedAdapter'.
+src/blockchain/blockchain-integration.ts(127,30): error TS2339: Property 'createUser' does not exist on type 'TokenEngine'.
+src/blockchain/blockchain-integration.ts(128,68): error TS2554: Expected 1-2 arguments, but got 3.
+src/blockchain/blockchain-integration.ts(154,44): error TS2551: Property 'getTokenBalance' does not exist on type 'ChainAdapter & RebasedAdapter'. Did you mean 'getBalance'?
+src/blockchain/blockchain-integration.ts(155,47): error TS2551: Property 'getTrustScore' does not exist on type 'ChainAdapter & RebasedAdapter'. Did you mean 'getUserTrustScore'?
+src/blockchain/blockchain-integration.ts(156,52): error TS2551: Property 'getReputationScore' does not exist on type 'ChainAdapter & RebasedAdapter'. Did you mean 'getUserReputationScore'?
+src/blockchain/blockchain-integration.ts(157,43): error TS2339: Property 'getStakeInfo' does not exist on type 'ChainAdapter & RebasedAdapter'.
+src/blockchain/blockchain-integration.ts(170,50): error TS2339: Property 'getUserBalance' does not exist on type 'TokenEngine'.
+src/blockchain/blockchain-integration.ts(178,38): error TS2339: Property 'trustScore' does not exist on type 'UserReputation'.
+src/blockchain/blockchain-integration.ts(216,59): error TS2339: Property 'hash' does not exist on type 'MoveCallResult'.
+src/blockchain/blockchain-integration.ts(227,39): error TS18046: 'error' is of type 'unknown'.
+src/blockchain/blockchain-integration.ts(241,43): error TS2551: Property 'claimRewards' does not exist on type 'ChainAdapter & RebasedAdapter'. Did you mean 'claimUserRewards'?
+src/blockchain/blockchain-integration.ts(257,47): error TS2339: Property 'claimRewards' does not exist on type 'TokenEngine'.
+src/blockchain/blockchain-integration.ts(266,39): error TS18046: 'error' is of type 'unknown'.
+src/blockchain/blockchain-integration.ts(285,62): error TS2551: Property 'createRecommendation' does not exist on type 'RecommendationEngine'. Did you mean 'getRecommendations'?
+src/blockchain/blockchain-integration.ts(294,43): error TS2339: Property 'submitActionForReward' does not exist on type 'ChainAdapter & RebasedAdapter'.
+src/blockchain/blockchain-integration.ts(319,39): error TS18046: 'error' is of type 'unknown'.
+src/blockchain/blockchain-integration.ts(345,49): error TS2339: Property 'getRewardInfo' does not exist on type 'ChainAdapter & RebasedAdapter'.
+src/blockchain/blockchain-integration.ts(349,37): error TS2339: Property 'hash' does not exist on type 'MoveCallResult'.
+src/blockchain/blockchain-integration.ts(357,37): error TS2339: Property 'addEndorsement' does not exist on type 'ReputationEngine'.
+src/blockchain/blockchain-integration.ts(367,39): error TS18046: 'error' is of type 'unknown'.
+src/blockchain/blockchain-integration.ts(376,47): error TS2339: Property 'getRewardInfo' does not exist on type 'ChainAdapter & RebasedAdapter'.
+src/blockchain/blockchain-integration.ts(423,43): error TS2339: Property 'claimReward' does not exist on type 'ChainAdapter & RebasedAdapter'.
+src/blockchain/blockchain-integration.ts(439,53): error TS2339: Property 'distributeReward' does not exist on type 'TokenEngine'.
+src/blockchain/blockchain-integration.ts(453,39): error TS18046: 'error' is of type 'unknown'.
+src/blockchain/blockchain-integration.ts(474,43): error TS2339: Property 'createProposal' does not exist on type 'ChainAdapter & RebasedAdapter'.
+src/blockchain/blockchain-integration.ts(486,13): error TS2554: Expected 1 arguments, but got 4.
+src/blockchain/blockchain-integration.ts(503,11): error TS2554: Expected 1 arguments, but got 4.
+src/blockchain/blockchain-integration.ts(510,32): error TS2339: Property 'id' does not exist on type 'string'.
+src/blockchain/blockchain-integration.ts(516,39): error TS18046: 'error' is of type 'unknown'.
+src/blockchain/blockchain-integration.ts(534,43): error TS2339: Property 'vote' does not exist on type 'ChainAdapter & RebasedAdapter'.
+src/blockchain/blockchain-integration.ts(538,39): error TS2339: Property 'vote' does not exist on type 'GovernanceEngine'.
+src/blockchain/blockchain-integration.ts(550,37): error TS2339: Property 'vote' does not exist on type 'GovernanceEngine'.
+src/blockchain/blockchain-integration.ts(560,39): error TS18046: 'error' is of type 'unknown'.
+src/blockchain/blockchain-integration.ts(573,42): error TS2551: Property 'getTokenBalance' does not exist on type 'ChainAdapter & RebasedAdapter'. Did you mean 'getBalance'?
+src/blockchain/blockchain-integration.ts(574,30): error TS2339: Property 'updateUserBalance' does not exist on type 'TokenEngine'.
+src/blockchain/blockchain-integration.ts(582,45): error TS2551: Property 'getTrustScore' does not exist on type 'ChainAdapter & RebasedAdapter'. Did you mean 'getUserTrustScore'?
+src/blockchain/blockchain-integration.ts(583,50): error TS2551: Property 'getReputationScore' does not exist on type 'ChainAdapter & RebasedAdapter'. Did you mean 'getUserReputationScore'?
+src/blockchain/blockchain-integration.ts(587,9): error TS2554: Expected 1-2 arguments, but got 3.
+src/blockchain/blockchain-integration.ts(628,27): error TS2339: Property 'isConnected' does not exist on type 'boolean'.
+src/blockchain/blockchain-integration.ts(629,29): error TS2339: Property 'latestBlock' does not exist on type 'boolean'.
+src/blockchain/blockchain-integration.ts(651,48): error TS2339: Property 'getHalvingInfo' does not exist on type 'ChainAdapter & RebasedAdapter'.
+src/config/environment.ts(4,10): error TS2305: Module '"../types"' has no exported member 'AppConfig'.
+src/config/environment.ts(4,21): error TS2305: Module '"../types"' has no exported member 'DatabaseConfig'.
+src/config/environment.ts(4,37): error TS2305: Module '"../types"' has no exported member 'RedisConfig'.
+src/config/environment.ts(4,50): error TS2305: Module '"../types"' has no exported member 'IpfsConfig'.
+src/config/index.ts(7,1): error TS2308: Module './environment-manager' has already exported a member named 'EnvironmentName'. Consider explicitly re-exporting to resolve the ambiguity.
+src/config/index.ts(7,1): error TS2308: Module './environment-manager' has already exported a member named 'EnvironmentStatus'. Consider explicitly re-exporting to resolve the ambiguity.
+src/config/types.ts(8,3): error TS2724: '"./network-config.js"' has no exported member named 'EnvironmentName'. Did you mean 'ENVIRONMENTS'?
+src/config/types.ts(9,3): error TS2724: '"./network-config.js"' has no exported member named 'EnvironmentStatus'. Did you mean 'ENVIRONMENTS'?
+src/config/types.ts(19,16): error TS2304: Cannot find name 'EnvironmentName'.
+src/examples/adapter-usage-example.ts(15,10): error TS2724: '"../types/recommendation-adapters"' has no exported member named 'RecommendationData'. Did you mean 'recommendationActionMap'?
+src/examples/adapter-usage-example.ts(16,10): error TS2305: Module '"../types/chain"' has no exported member 'AdapterConnectionOptions'.
+src/examples/adapter-usage-example.ts(27,46): error TS2339: Property 'MOCK' does not exist on type 'typeof AdapterType'.
+src/examples/adapter-usage-example.ts(27,52): error TS2554: Expected 1 arguments, but got 2.
+src/examples/adapter-usage-example.ts(33,55): error TS2554: Expected 1 arguments, but got 2.
+src/examples/adapter-usage-example.ts(40,51): error TS2554: Expected 1 arguments, but got 2.
+src/examples/adapter-usage-example.ts(65,29): error TS2339: Property 'getWalletAddress' does not exist on type 'ChainAdapter'.
+src/examples/adapter-usage-example.ts(85,34): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/examples/adapter-usage-example.ts(90,43): error TS2339: Property 'queryObjects' does not exist on type 'ChainAdapter'.
+src/examples/adapter-usage-example.ts(95,36): error TS2339: Property 'subscribeToEvents' does not exist on type 'ChainAdapter'.
+src/examples/adapter-usage-example.ts(95,80): error TS7006: Parameter 'event' implicitly has an 'any' type.
+src/examples/adapter-usage-example.ts(118,61): error TS2339: Property 'queryObjects' does not exist on type 'ChainAdapter'.
+src/examples/adapter-usage-example.ts(122,23): error TS2339: Property 'unsubscribeFromEvents' does not exist on type 'ChainAdapter'.
+src/examples/adapter-usage-example.ts(161,39): error TS2339: Property 'getWalletAddress' does not exist on type 'ChainAdapter'.
+src/examples/adapter-usage-example.ts(181,18): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/examples/adapter-usage-example.ts(193,28): error TS2339: Property 'isConnectedToNode' does not exist on type 'ChainAdapter'.
+src/examples/adapter-usage-example.ts(216,55): error TS2339: Property 'MOCK' does not exist on type 'typeof AdapterType'.
+src/examples/adapter-usage-example.ts(219,59): error TS2339: Property 'MOCK' does not exist on type 'typeof AdapterType'.
+src/governance/engine.ts(249,48): error TS2339: Property 'getBalance' does not exist on type 'TokenEngine'.
+src/governance/engine.ts(255,52): error TS2339: Property 'getTrustScore' does not exist on type 'ReputationEngine'.
+src/governance/engine.ts(276,28): error TS2339: Property 'lockTokens' does not exist on type 'TokenEngine'.
+src/governance/engine.ts(282,29): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/governance/engine.ts(314,30): error TS2339: Property 'burnTokens' does not exist on type 'TokenEngine'.
+src/governance/engine.ts(315,30): error TS2339: Property 'unlockTokens' does not exist on type 'TokenEngine'.
+src/governance/engine.ts(318,30): error TS2339: Property 'unlockTokens' does not exist on type 'TokenEngine'.
+src/governance/engine.ts(322,29): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/governance/engine.ts(339,52): error TS2339: Property 'getTrustScore' does not exist on type 'ReputationEngine'.
+src/governance/engine.ts(362,51): error TS2339: Property 'store' does not exist on type 'StorageProvider'.
+src/governance/engine.ts(371,29): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/governance/engine.ts(399,29): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/governance/engine.ts(433,52): error TS2339: Property 'getTrustScore' does not exist on type 'ReputationEngine'.
+src/governance/engine.ts(453,29): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/governance/engine.ts(470,52): error TS2339: Property 'getTrustScore' does not exist on type 'ReputationEngine'.
+src/governance/engine.ts(537,29): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/governance/engine.ts(634,31): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/governance/engine.ts(715,35): error TS2339: Property 'submitTransaction' does not exist on type 'ChainAdapter'.
+src/index.ts(10,1): error TS2308: Module './types/recommendation' has already exported a member named 'TangleReference'. Consider explicitly re-exporting to resolve the ambiguity.
+src/index.ts(15,15): error TS2307: Cannot find module './adapters/mock-adapter' or its corresponding type declarations.
+src/recommendation/engine.ts(169,17): error TS2339: Property 'data' does not exist on type 'MediaItem'.
+src/recommendation/engine.ts(171,17): error TS2339: Property 'data' does not exist on type 'MediaItem'.
+src/recommendation/engine.ts(173,11): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'Record<string, any> | undefined'.
+src/recommendation/engine.ts(215,13): error TS2554: Expected 2 arguments, but got 1.
+src/recommendation/engine.ts(225,28): error TS2339: Property 'objectId' does not exist on type 'string'.
+src/recommendation/engine.ts(225,49): error TS2339: Property 'transactionId' does not exist on type 'string'.
+src/recommendation/engine.ts(226,32): error TS2339: Property 'commitNumber' does not exist on type 'string'.
+src/recommendation/engine.ts(265,40): error TS2339: Property 'data' does not exist on type 'MediaItem'.
+src/recommendation/engine.ts(270,17): error TS2353: Object literal may only specify known properties, and 'data' does not exist in type 'MediaItem'.
+src/recommendation/engine.ts(380,19): error TS2339: Property 'data' does not exist on type 'MediaItem'.
+src/recommendation/engine.ts(382,19): error TS2339: Property 'data' does not exist on type 'MediaItem'.
+src/recommendation/engine.ts(384,13): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'Record<string, any> | undefined'.
+src/recommendation/engine.ts(432,13): error TS2554: Expected 2 arguments, but got 1.
+src/recommendation/engine.ts(442,28): error TS2339: Property 'objectId' does not exist on type 'string'.
+src/recommendation/engine.ts(443,32): error TS2339: Property 'commitNumber' does not exist on type 'string'.
+src/recommendation/engine.ts(494,28): error TS2532: Object is possibly 'undefined'.
+src/recommendation/engine.ts(494,28): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/recommendation/engine.ts(500,38): error TS2339: Property 'data' does not exist on type 'MediaItem'.
+src/recommendation/engine.ts(505,15): error TS2353: Object literal may only specify known properties, and 'data' does not exist in type 'MediaItem'.
+src/recommendation/engine.ts(557,40): error TS2339: Property 'data' does not exist on type 'MediaItem'.
+src/recommendation/engine.ts(562,17): error TS2353: Object literal may only specify known properties, and 'data' does not exist in type 'MediaItem'.
+src/reputation/engine.ts(10,10): error TS2305: Module '"../adapters/types/reputation-adapters"' has no exported member 'formatReputationForChain'.
+src/reputation/engine.ts(193,28): error TS2339: Property 'objectId' does not exist on type 'string'.
+src/reputation/engine.ts(193,49): error TS2339: Property 'transactionId' does not exist on type 'string'.
+src/reputation/engine.ts(194,32): error TS2339: Property 'commitNumber' does not exist on type 'string'.
+src/reputation/engine.ts(207,28): error TS2532: Object is possibly 'undefined'.
+src/reputation/engine.ts(207,28): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/services/blockchain-reputation.ts(107,41): error TS2339: Property 'executeTransaction' does not exist on type 'RebasedAdapter'.
+src/services/blockchain-reputation.ts(119,63): error TS18046: 'error' is of type 'unknown'.
+src/services/blockchain-reputation.ts(146,41): error TS2339: Property 'executeTransaction' does not exist on type 'RebasedAdapter'.
+src/services/blockchain-reputation.ts(158,63): error TS18046: 'error' is of type 'unknown'.
+src/services/blockchain-reputation.ts(181,41): error TS2339: Property 'executeTransaction' does not exist on type 'RebasedAdapter'.
+src/services/blockchain-reputation.ts(193,64): error TS18046: 'error' is of type 'unknown'.
+src/services/blockchain-reputation.ts(219,41): error TS2339: Property 'executeTransaction' does not exist on type 'RebasedAdapter'.
+src/services/blockchain-reputation.ts(231,69): error TS18046: 'error' is of type 'unknown'.
+src/services/blockchain-reputation.ts(257,41): error TS2339: Property 'executeTransaction' does not exist on type 'RebasedAdapter'.
+src/services/blockchain-reputation.ts(269,57): error TS18046: 'error' is of type 'unknown'.
+src/services/blockchain-reputation.ts(289,41): error TS2551: Property 'queryObject' does not exist on type 'RebasedAdapter'. Did you mean 'queryObjects'?
+src/services/blockchain-reputation.ts(312,63): error TS18046: 'error' is of type 'unknown'.
+src/services/blockchain-reputation.ts(325,41): error TS2339: Property 'queryEvents' does not exist on type 'RebasedAdapter'.
+src/services/blockchain-reputation.ts(361,63): error TS18046: 'error' is of type 'unknown'.
+src/services/blockchain-reputation.ts(420,41): error TS18046: 'error' is of type 'unknown'.
+src/services/blockchain-reputation.ts(468,33): error TS2345: Argument of type 'string' is not assignable to parameter of type '() => void'.
+src/services/blockchain-reputation.ts(493,22): error TS2339: Property 'getLatestSuiSystemState' does not exist on type 'RebasedAdapter'.
+src/services/blockchain-reputation.ts(494,22): error TS2551: Property 'queryObject' does not exist on type 'RebasedAdapter'. Did you mean 'queryObjects'?
+src/services/engine.ts(250,28): error TS2532: Object is possibly 'undefined'.
+src/services/engine.ts(250,28): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/services/engine.ts(281,26): error TS2532: Object is possibly 'undefined'.
+src/services/engine.ts(281,26): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/services/engine.ts(349,5): error TS2322: Type '{ services: Service[]; total: number; pagination?: { offset: number; limit: number; hasMore: boolean; } | undefined; }' is not assignable to type '{ services: Service[]; total: number; pagination: { offset: number; limit: number; hasMore: boolean; }; }'.
+src/services/engine.ts(470,28): error TS2532: Object is possibly 'undefined'.
+src/services/engine.ts(470,28): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/services/engine.ts(499,28): error TS2532: Object is possibly 'undefined'.
+src/services/engine.ts(499,28): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/services/engine.ts(639,26): error TS2532: Object is possibly 'undefined'.
+src/services/engine.ts(639,26): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/services/engine.ts(671,28): error TS2532: Object is possibly 'undefined'.
+src/services/engine.ts(671,28): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/services/engine.ts(825,26): error TS2532: Object is possibly 'undefined'.
+src/services/engine.ts(825,26): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/token/engine.ts(165,28): error TS2532: Object is possibly 'undefined'.
+src/token/engine.ts(165,28): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/token/engine.ts(209,7): error TS2353: Object literal may only specify known properties, and 'transactionId' does not exist in type 'TokenTransactionData'.
+src/token/engine.ts(222,18): error TS2693: 'TokenActionType' only refers to a type, but is being used as a value here.
+src/token/engine.ts(225,18): error TS2693: 'TokenActionType' only refers to a type, but is being used as a value here.
+src/token/engine.ts(228,18): error TS2693: 'TokenActionType' only refers to a type, but is being used as a value here.
+src/token/engine.ts(231,18): error TS2693: 'TokenActionType' only refers to a type, but is being used as a value here.
+src/token/engine.ts(234,18): error TS2693: 'TokenActionType' only refers to a type, but is being used as a value here.
+src/token/engine.ts(237,18): error TS2693: 'TokenActionType' only refers to a type, but is being used as a value here.
+src/token/engine.ts(243,15): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'Record<TokenActionType, string>'.
+src/token/engine.ts(254,5): error TS2739: Type '{ tangle: { objectId: any; commitNumber: any; }; userId: string; amount: number; tokenType: "reward" | "stake" | "TOK"; action: TokenActionType; metadata?: Record<string, any> | undefined; }' is missing the following properties from type 'TokenTransaction': transactionId, sender, recipient, timestamp, type
+src/token/engine.ts(257,28): error TS2339: Property 'objectId' does not exist on type 'string'.
+src/token/engine.ts(257,49): error TS2339: Property 'transactionId' does not exist on type 'string'.
+src/token/engine.ts(258,32): error TS2339: Property 'commitNumber' does not exist on type 'string'.
+src/token/engine.ts(279,58): error TS2339: Property 'minTrustThreshold' does not exist on type 'RewardSystemParams'.
+src/token/engine.ts(290,54): error TS2339: Property 'maxTrustMultiplier' does not exist on type 'RewardSystemParams'.
+src/token/engine.ts(379,58): error TS2339: Property 'minTrustThreshold' does not exist on type 'RewardSystemParams'.
+src/token/engine.ts(605,28): error TS2532: Object is possibly 'undefined'.
+src/token/engine.ts(605,28): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/token/reward-engine.ts(310,39): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ restaurant: Decimal; travel: Decimal; wellness: Decimal; entertainment: Decimal; }'.
+src/types/chain.ts(274,3): error TS2386: Overload signatures must all be optional or required.
+src/types/index.ts(9,1): error TS2308: Module './chain' has already exported a member named 'TransactionType'. Consider explicitly re-exporting to resolve the ambiguity.
+src/types/index.ts(9,1): error TS2308: Module './recommendation' has already exported a member named 'TangleReference'. Consider explicitly re-exporting to resolve the ambiguity.
+src/types/index.ts(15,1): error TS2308: Module './token' has already exported a member named 'TokenActionType'. Consider explicitly re-exporting to resolve the ambiguity.
+src/types/recommendation-adapters.ts(15,8): error TS2307: Cannot find module '../../types/recommendation' or its corresponding type declarations.
+src/types/recommendation-adapters.ts(143,34): error TS7006: Parameter 'media' implicitly has an 'any' type.

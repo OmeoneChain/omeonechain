@@ -5,10 +5,10 @@
  */
 
 // Export types
-export * from './types/recommendation';
-export * from './types/reputation';
-export * from './types/token';
-export * from './types/service';
+export * from './type/recommendation';
+export * from './type/reputation';
+export * from './type/token';
+export * from './type/service';
 
 // Export adapters
 export * from './adapters/chain-adapter';

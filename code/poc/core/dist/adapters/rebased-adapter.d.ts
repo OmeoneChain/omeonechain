@@ -1,4 +1,4 @@
-import { ChainAdapter, Transaction, TransactionResult, StateQuery, EventFilter, Event } from '../types/chain';
+import { ChainAdapter, Transaction, TransactionResult, StateQuery, EventFilter, ChainEvent, NetworkInfo, TokenBalance } from '../type/chain';
 /**
  * Move Contract Function Mappings
  * Maps OmeoneChain operations to specific Move contract functions
@@ -109,7 +109,7 @@ export declare class RebasedAdapter implements ChainAdapter {
     private nodeUrl;
     private apiKey;
     private wallet;
-    private isConnected;
+    private _isConnected;
     private eventSubscribers;
     private lastCommitNumber;
     private config;
@@ -119,6 +119,43 @@ export declare class RebasedAdapter implements ChainAdapter {
     private moveContracts;
     private readonly DEFAULT_OPTIONS;
     constructor(configOrNodeUrl: RebasedConfig | string, apiKey?: string, seed?: string);
+    /**
+     * FIXED: isConnected should return Promise<boolean>, not boolean
+     */
+    isConnected(): Promise<boolean>;
+    /**
+     * FIXED: connect should return Promise<boolean>, not Promise<void>
+     */
+    connect(options?: Record<string, any>): Promise<boolean>;
+    /**
+     * ADDED: Missing store method required by ChainAdapter
+     */
+    store(key: string, value: any): Promise<void>;
+    /**
+     * ADDED: Missing retrieve method required by ChainAdapter
+     */
+    retrieve(key: string): Promise<any>;
+    /**
+     * ADDED: Missing submitActionForReward method required by ChainAdapter
+     */
+    submitActionForReward(userId: string, actionData: any): Promise<TransactionResult>;
+    /**
+     * FIXED: getBalance to return proper TokenBalance type
+     */
+    getBalance(address: string): Promise<TokenBalance>;
+    /**
+     * FIXED: getNetworkInfo to return proper NetworkInfo type
+     */
+    getNetworkInfo(): Promise<NetworkInfo>;
+    /**
+     * FIXED: watchEvents to return proper AsyncIterator<ChainEvent>
+     */
+    watchEvents(filter: EventFilter): AsyncIterator<ChainEvent>;
+    /**
+     * FIXED: subscribeToEvents signature to match ChainAdapter interface
+     */
+    subscribeToEvents(eventType: string, callback: (event: ChainEvent) => void): string;
+    subscribeToEvents(filter: EventFilter): AsyncIterator<ChainEvent>;
     /**
      * Call a Move contract function with automatic sponsor wallet handling
      *
@@ -136,6 +173,29 @@ export declare class RebasedAdapter implements ChainAdapter {
      * Enhanced submitTx with Move contract integration
      */
     submitTx(tx: OmeoneTransaction): Promise<TransactionResult>;
+    /**
+     * Query objects from the chain - ADDED for ChainAdapter compatibility
+     */
+    queryObjects(filter: any): Promise<any[]>;
+    /**
+     * Unsubscribe from chain events - ADDED for ChainAdapter compatibility
+     */
+    unsubscribeFromEvents(subscriptionId: string): Promise<void>;
+    /**
+     * Check if connected to node - ADDED for ChainAdapter compatibility
+     */
+    isConnectedToNode(): Promise<boolean>;
+    /**
+     * Get wallet address - ADDED for ChainAdapter compatibility
+     */
+    getWalletAddress(publicKey?: string): Promise<string>;
+    /**
+     * Health check for the adapter - ADDED for ChainAdapter compatibility
+     */
+    healthCheck(): Promise<{
+        healthy: boolean;
+        details: any;
+    }>;
     /**
      * Token Operations
      */
@@ -164,90 +224,21 @@ export declare class RebasedAdapter implements ChainAdapter {
     }>;
     distributeOnboardingReward(userAddress: string, milestone: number): Promise<MoveCallResult>;
     distributeLeaderboardReward(userAddress: string, position: number): Promise<MoveCallResult>;
-    /**
-     * Update user reputation on blockchain (Phase 5B integration)
-     */
-    updateUserReputationOnChain(userId: string, reputationScore: number, verificationLevel: number, socialConnections?: Array<{
-        targetId: string;
-        trustWeight: number;
-        connectionType: number;
-    }>): Promise<MoveCallResult>;
-    /**
-     * Submit community verification (Phase 5B)
-     */
-    submitCommunityVerificationOnChain(verifierId: string, targetUserId: string, evidence: string, category: string, verificationHash: string): Promise<MoveCallResult>;
-    /**
-     * Add social connection to blockchain (Phase 5B)
-     */
-    addSocialConnectionOnChain(followerId: string, followedId: string, trustWeight: number, connectionType?: number): Promise<MoveCallResult>;
-    /**
-     * Remove social connection from blockchain (Phase 5B)
-     */
-    removeSocialConnectionOnChain(followerId: string, followedId: string): Promise<MoveCallResult>;
-    /**
-     * Claim discovery incentive bonus (Phase 5B)
-     */
-    claimDiscoveryBonusOnChain(userId: string, campaignId: string, recommendationIds: string[]): Promise<MoveCallResult>;
-    /**
-     * Get user's on-chain reputation data (Phase 5B)
-     */
-    getOnChainReputationData(userId: string): Promise<{
-        reputationScore: number;
-        verificationLevel: number;
-        socialConnections: number;
-        lastUpdated: string;
-        verificationCount: number;
+    getChainId(): Promise<string>;
+    queryState<T>(query: StateQuery): Promise<{
+        results: T[];
+        total: number;
+        pagination?: {
+            offset: number;
+            limit: number;
+            hasMore: boolean;
+        };
     }>;
-    /**
-     * Get active discovery campaigns from blockchain (Phase 5B)
-     */
-    getActiveDiscoveryCampaignsOnChain(region?: string, category?: string): Promise<Array<{
-        campaignId: string;
-        region: string;
-        category: string;
-        bonusMultiplier: number;
-        targetRecommendations: number;
-        expiresAt: string;
-        minTrustScore: number;
-        bonusPool: number;
-        participantCount: number;
-    }>>;
-    /**
-     * Calculate trust score between users on blockchain (Phase 5B)
-     */
-    calculateTrustScoreOnChain(sourceUserId: string, targetUserId: string, maxDepth?: number): Promise<{
-        trustScore: number;
-        directConnection: boolean;
-        shortestPath: number;
-        socialDistance: number;
-    }>;
-    /**
-     * Sync reputation data between off-chain and on-chain (Phase 5B)
-     */
-    syncReputationWithBlockchain(userId: string, offChainData: {
-        reputationScore: number;
-        verificationLevel: string;
-        socialConnections: number;
-    }): Promise<{
-        synced: boolean;
-        discrepancies: string[];
-        transactionId?: string;
-    }>;
-    /**
-     * Governance Operations
-     */
-    createGovernanceProposal(proposerAddress: string, title: string, description: string, proposalType: string): Promise<MoveCallResult>;
-    voteOnProposal(voterAddress: string, proposalId: string, support: boolean): Promise<MoveCallResult>;
-    /**
-     * System State Queries
-     */
-    getCurrentRewardRate(): Promise<number>;
-    getTotalRewardsDistributed(): Promise<number>;
-    getSystemStats(): Promise<{
-        currentRewardRate: number;
-        totalDistributed: number;
-        activeUsers: number;
-    }>;
+    getCurrentCommit(): Promise<number>;
+    estimateFee(tx: Transaction): Promise<number>;
+    disconnect(): Promise<void>;
+    private initializeWallet;
+    submitTransaction(transaction: any): Promise<any>;
     private routeToMoveContract;
     private handleTokenTransaction;
     private handleRewardTransaction;
@@ -260,58 +251,62 @@ export declare class RebasedAdapter implements ChainAdapter {
     private stringToBytes;
     private getCurrentTimestamp;
     private initializeClient;
-    getChainId(): Promise<string>;
-    queryState<T>(query: StateQuery): Promise<{
-        results: T[];
-        total: number;
-        pagination?: {
-            offset: number;
-            limit: number;
-            hasMore: boolean;
-        };
-    }>;
-    watchEvents(filter: EventFilter): AsyncIterator<Event>;
-    getCurrentCommit(): Promise<number>;
-    estimateFee(tx: Transaction): Promise<number>;
-    connect(options?: Record<string, any>): Promise<void>;
-    disconnect(): Promise<void>;
-    private initializeWallet;
-    submitTransaction(transaction: any): Promise<any>;
     private getContractTypeFromObjectType;
     private getContractTypeFromEventType;
     private formatQueryArgs;
     private getTxTypeFromPayload;
     private deserializeFromMoveVM;
-    /**
-    * Query objects from the chain
-    */
-    queryObjects(filter: any): Promise<any[]>;
-    /**
-     * Subscribe to chain events
-     */
-    subscribeToEvents(eventFilter: any, callback: (event: any) => void): Promise<string>;
-    /**
-     * Unsubscribe from chain events
-     */
-    unsubscribeFromEvents(subscriptionId: string): Promise<void>;
-    /**
-     * Check if connected to node
-     */
-    isConnectedToNode(): Promise<boolean>;
-    /**
-     * Get wallet address
-     */
-    getWalletAddress(): Promise<string>;
-    /**
-     * Health check for the adapter
-     */
-    healthCheck(): Promise<{
-        success: boolean;
-        message?: string;
+    private pollForEvents;
+    updateUserReputationOnChain(userId: string, reputationScore: number, verificationLevel: number, socialConnections?: Array<{
+        targetId: string;
+        trustWeight: number;
+        connectionType: number;
+    }>): Promise<MoveCallResult>;
+    submitCommunityVerificationOnChain(verifierId: string, targetUserId: string, evidence: string, category: string, verificationHash: string): Promise<MoveCallResult>;
+    addSocialConnectionOnChain(followerId: string, followedId: string, trustWeight: number, connectionType?: number): Promise<MoveCallResult>;
+    removeSocialConnectionOnChain(followerId: string, followedId: string): Promise<MoveCallResult>;
+    claimDiscoveryBonusOnChain(userId: string, campaignId: string, recommendationIds: string[]): Promise<MoveCallResult>;
+    getOnChainReputationData(userId: string): Promise<{
+        reputationScore: number;
+        verificationLevel: number;
+        socialConnections: number;
+        lastUpdated: string;
+        verificationCount: number;
     }>;
-    /**
-     * Get network information
-     */
-    getNetworkInfo(): Promise<any>;
+    getActiveDiscoveryCampaignsOnChain(region?: string, category?: string): Promise<Array<{
+        campaignId: string;
+        region: string;
+        category: string;
+        bonusMultiplier: number;
+        targetRecommendations: number;
+        expiresAt: string;
+        minTrustScore: number;
+        bonusPool: number;
+        participantCount: number;
+    }>>;
+    calculateTrustScoreOnChain(sourceUserId: string, targetUserId: string, maxDepth?: number): Promise<{
+        trustScore: number;
+        directConnection: boolean;
+        shortestPath: number;
+        socialDistance: number;
+    }>;
+    syncReputationWithBlockchain(userId: string, offChainData: {
+        reputationScore: number;
+        verificationLevel: string;
+        socialConnections: number;
+    }): Promise<{
+        synced: boolean;
+        discrepancies: string[];
+        transactionId?: string;
+    }>;
+    createGovernanceProposal(proposerAddress: string, title: string, description: string, proposalType: string): Promise<MoveCallResult>;
+    voteOnProposal(voterAddress: string, proposalId: string, support: boolean): Promise<MoveCallResult>;
+    getCurrentRewardRate(): Promise<number>;
+    getTotalRewardsDistributed(): Promise<number>;
+    getSystemStats(): Promise<{
+        currentRewardRate: number;
+        totalDistributed: number;
+        activeUsers: number;
+    }>;
 }
 export {};

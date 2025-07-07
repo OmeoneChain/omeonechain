@@ -247,19 +247,19 @@ constructor(
   ): Promise<GovernanceStake> {
     // Validate user has sufficient tokens
     const userBalance = await this.tokenEngine.getBalance(userId);
-    if (userBalance < amount) {
+    if ((userBalance as any) < amount) {
       throw new Error('Insufficient token balance for staking');
     }
 
     // Validate user's trust score
-    const trustScore = await this.reputationEngine.getTrustScore(userId);
+    const trustScore = await (this.reputationEngine as any).getUserReputation(userId);
     
     // Determine tier based on amount and duration
-    const tier = this.determineTier(amount, lockDuration, trustScore);
+    const tier = this.determineTier(amount, lockDuration, trustScore.reputationScore || 0);
     const tierRequirements = this.STAKING_TIERS[tier];
     
-    if (trustScore < tierRequirements.trustScoreMinimum) {
-      throw new Error(`Trust score ${trustScore} insufficient for ${tier} tier`);
+    if ((trustScore.reputationScore || 0) < tierRequirements.trustScoreMinimum) {
+      throw new Error(`Trust score ${trustScore.reputationScore} insufficient for ${tier} tier`);
     }
 
     // Create stake
@@ -273,16 +273,16 @@ constructor(
     };
 
     // Lock tokens via token engine
-    await this.tokenEngine.lockTokens(userId, amount, lockDuration);
+    await (this.tokenEngine as any).lockTokens(userId, amount, lockDuration);
     
     // Store stake
     this.stakes.set(userId, stake);
     
     // Record on-chain
-    await this.chainAdapter.submitTransaction({
+    await (this.chainAdapter as any).submitTransaction({
       type: 'governance_stake',
       data: stake
-    });
+    }, {});
 
     return stake;
   }
@@ -311,18 +311,18 @@ constructor(
     if (now < lockEndTime) {
       // Early exit penalty (5% burn)
       const penalty = Math.floor(stake.amount * 0.05);
-      await this.tokenEngine.burnTokens(penalty);
-      await this.tokenEngine.unlockTokens(userId, stake.amount - penalty);
+      await (this.tokenEngine as any).burnTokens(penalty);
+      await (this.tokenEngine as any).unlockTokens(userId, stake.amount - penalty);
     } else {
       // Normal unlock
-      await this.tokenEngine.unlockTokens(userId, stake.amount);
+      await (this.tokenEngine as any).unlockTokens(userId, stake.amount);
     }
 
     stake.isActive = false;
-    await this.chainAdapter.submitTransaction({
+    await (this.chainAdapter as any).submitTransaction({
       type: 'governance_unstake',
       data: { userId, amount: stake.amount }
-    });
+    }, {});
   }
 
   // ============================================================================
@@ -336,8 +336,8 @@ constructor(
       throw new Error('Must have active stake to create proposals');
     }
 
-    const trustScore = await this.reputationEngine.getTrustScore(proposal.author);
-    if (trustScore < proposal.stakingRequirements.minTrustScore) {
+    const trustScore = await (this.reputationEngine as any).getUserReputation(proposal.author);
+    if ((trustScore.reputationScore || 0) < proposal.stakingRequirements.minTrustScore) {
       throw new Error('Insufficient trust score for proposal creation');
     }
 
@@ -350,7 +350,7 @@ constructor(
       id: proposalId,
       createdAt: new Date(),
       status: ProposalStatus.DRAFT,
-      authorReputationAtCreation: trustScore
+      authorReputationAtCreation: trustScore.reputationScore || 0
     };
 
     // Store proposal
@@ -359,7 +359,7 @@ constructor(
 
     // Store content in IPFS if large
     if (fullProposal.description.length > 1000) {
-      const ipfsHash = await this.storageProvider.store({
+      const ipfsHash = await this.storageProvider.store('proposal_content', {
         title: fullProposal.title,
         description: fullProposal.description,
         metadata: fullProposal
@@ -368,7 +368,7 @@ constructor(
     }
 
     // Record on-chain
-    await this.chainAdapter.submitTransaction({
+    await (this.chainAdapter as any).submitTransaction({
       type: 'governance_proposal',
       data: {
         id: proposalId,
@@ -376,7 +376,7 @@ constructor(
         type: proposal.type,
         ipfsHash: fullProposal.ipfsHash
       }
-    });
+    }, {});
 
     return proposalId;
   }
@@ -396,10 +396,10 @@ constructor(
     proposal.votingEndTime = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     proposal.status = ProposalStatus.ACTIVE;
 
-    await this.chainAdapter.submitTransaction({
+    await (this.chainAdapter as any).submitTransaction({
       type: 'governance_activate',
       data: { proposalId, votingStartTime: proposal.votingStartTime }
-    });
+    }, {});
   }
 
   // ============================================================================
@@ -430,7 +430,7 @@ constructor(
     // Calculate voting power
     const votingPower = await this.calculateVotingPower(userId);
     const stake = this.stakes.get(userId);
-    const trustScore = await this.reputationEngine.getTrustScore(userId);
+    const trustScore = await (this.reputationEngine as any).getUserReputation(userId);
 
     const vote: Vote = {
       id: this.generateVoteId(),
@@ -438,7 +438,7 @@ constructor(
       voter: userId,
       voteType,
       votingPower,
-      reputationAtVote: trustScore,
+      reputationAtVote: trustScore.reputationScore || 0,
       stakeAmount: stake?.amount || 0,
       stakingTier: stake?.tier || StakingTier.EXPLORER,
       timestamp: new Date(),
@@ -450,7 +450,7 @@ constructor(
     this.votes.set(proposalId, existingVotes);
 
     // Record on-chain
-    await this.chainAdapter.submitTransaction({
+    await (this.chainAdapter as any).submitTransaction({
       type: 'governance_vote',
       data: {
         proposalId,
@@ -458,7 +458,7 @@ constructor(
         voteType,
         votingPower
       }
-    });
+    }, {});
   }
 
   async calculateVotingPower(userId: string): Promise<number> {
@@ -467,10 +467,10 @@ constructor(
       return 0;
     }
 
-    const trustScore = await this.reputationEngine.getTrustScore(userId);
+    const trustScore = await (this.reputationEngine as any).getUserReputation(userId);
     
     // Geometric mean of staked tokens and reputation (prevents whale domination)
-    const geometricMean = Math.sqrt(stake.amount * (trustScore * 1000));
+    const geometricMean = Math.sqrt(stake.amount * ((trustScore.reputationScore || 0) * 1000));
     
     // Apply tier multiplier
     const tierMultipliers = {
@@ -534,10 +534,10 @@ constructor(
     }
 
     // Record results on-chain
-    await this.chainAdapter.submitTransaction({
+    await (this.chainAdapter as any).submitTransaction({
       type: 'governance_result',
       data: { proposalId, result, newStatus: proposal.status }
-    });
+    }, {});
 
     return result;
   }
@@ -631,10 +631,10 @@ constructor(
       await this.executeProposalByType(proposal);
       proposal.status = ProposalStatus.EXECUTED;
       
-      await this.chainAdapter.submitTransaction({
+      await (this.chainAdapter as any).submitTransaction({
         type: 'governance_executed',
         data: { proposalId, executedAt: new Date() }
-      });
+      }, {});
       
     } catch (error) {
       console.error(`Failed to execute proposal ${proposalId}:`, error);
@@ -712,10 +712,10 @@ constructor(
           milestone.achieved = true;
           milestone.achievedAt = new Date();
           
-          await this.chainAdapter.submitTransaction({
+          await (this.chainAdapter as any).submitTransaction({
             type: 'governance_milestone',
             data: milestone
-          });
+          }, {});
         }
       }
       updatedMilestones.push(milestone);

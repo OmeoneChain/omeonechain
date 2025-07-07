@@ -1,4 +1,10 @@
-import { ChainAdapter, TransactionResult, QueryResult } from './chain-adapter';
+import { ChainAdapter, TransactionResult } from './chain-adapter';
+export interface QueryResult {
+    success: boolean;
+    data?: any;
+    error?: string;
+    timestamp: Date;
+}
 export interface ConnectionPool {
     primary: string;
     fallbacks: string[];
@@ -65,8 +71,8 @@ export declare class ProductionRebasedAdapter implements ChainAdapter {
     private callMoveFunction;
     private queryMoveFunction;
     submitTransaction(txData: any): Promise<TransactionResult>;
-    queryState(query: any): Promise<QueryResult>;
-    watchEvents(eventFilter: any, callback: (event: any) => void): Promise<void>;
+    queryState(query: any): Promise<any>;
+    watchEvents: any;
     /**
      * Get adapter performance metrics
      */

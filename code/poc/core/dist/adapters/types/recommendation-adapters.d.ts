@@ -1,4 +1,4 @@
-import { ChainTransaction } from '../../types/chain';
+import { ChainTransaction } from '../../type/chain';
 export interface RecommendationTransactionData {
     id: string;
     author: string;

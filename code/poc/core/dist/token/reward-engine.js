@@ -166,20 +166,26 @@ class RewardEngine {
                 return new decimal_js_1.Decimal('0');
         }
     }
+    // PHASE 2C FIX: Safe category checking with type guard
+    isValidCategory(category) {
+        return ['restaurant', 'travel', 'wellness', 'entertainment'].includes(category);
+    }
+    // PHASE 2C FIX: Safe category bonus calculation
+    getCategoryBonus(category) {
+        const normalizedCategory = category.toLowerCase();
+        if (this.isValidCategory(normalizedCategory)) {
+            return RewardEngine.CATEGORY_BONUSES[normalizedCategory];
+        }
+        return new decimal_js_1.Decimal('0'); // Default for unknown categories
+    }
     /**
      * Calculate quality bonus based on action metadata
      */
     calculateQualityBonus(action) {
         let qualityBonus = new decimal_js_1.Decimal('0');
-        // Bonus for high-quality categories
+        // PHASE 2C FIX: Safe category bonus calculation (fixes line 310 error)
         if (action.metadata.category) {
-            const categoryBonuses = {
-                'restaurant': new decimal_js_1.Decimal('0.1'),
-                'travel': new decimal_js_1.Decimal('0.15'),
-                'wellness': new decimal_js_1.Decimal('0.1'),
-                'entertainment': new decimal_js_1.Decimal('0.05')
-            };
-            qualityBonus = qualityBonus.add(categoryBonuses[action.metadata.category] || new decimal_js_1.Decimal('0'));
+            qualityBonus = qualityBonus.add(this.getCategoryBonus(action.metadata.category));
         }
         // Apply any manual multiplier
         if (action.metadata.rewardMultiplier) {
@@ -398,5 +404,12 @@ RewardEngine.CAPS = {
     MAX_REWARD_PER_POST: new decimal_js_1.Decimal('5.0'),
     MAX_DAILY_USER_REWARDS: new decimal_js_1.Decimal('50.0'),
     MAX_WEEKLY_IMPACT_SCORE: new decimal_js_1.Decimal('100.0')
+};
+// PHASE 2C FIX: Define category bonuses with proper typing
+RewardEngine.CATEGORY_BONUSES = {
+    restaurant: new decimal_js_1.Decimal('0.1'),
+    travel: new decimal_js_1.Decimal('0.15'),
+    wellness: new decimal_js_1.Decimal('0.1'),
+    entertainment: new decimal_js_1.Decimal('0.05')
 };
 //# sourceMappingURL=reward-engine.js.map

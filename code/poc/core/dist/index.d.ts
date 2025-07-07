@@ -3,10 +3,10 @@
  *
  * Main entry point for the OmeoneChain core functionality
  */
-export * from './types/recommendation';
-export * from './types/reputation';
-export * from './types/token';
-export * from './types/service';
+export * from './type/recommendation';
+export * from './type/reputation';
+export * from './type/token';
+export * from './type/service';
 export * from './adapters/chain-adapter';
 export * from './adapters/mock-adapter';
 export * from './storage/storage-provider';

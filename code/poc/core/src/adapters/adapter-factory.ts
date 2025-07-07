@@ -1,20 +1,20 @@
-import { ChainAdapter, ChainConfig, BaseChainAdapter } from "./chain-adapter";
-// code/poc/core/src/adapters/adapter-factory.ts (UPDATED VERSION)
-// Keep all your existing functionality, add minimal enhancements for TypeScript compatibility
+// code/poc/core/src/adapters/adapter-factory.ts (BLOCKCHAIN-FIRST VERSION)
+// MockAdapter removed for aggressive blockchain-first approach
 
-import { ChainAdapter, ChainConfig } from './chain-adapter';
+import { ChainAdapter, ChainConfig, BaseChainAdapter } from "./chain-adapter";
 import { RebasedAdapter } from './rebased-adapter';
 import { EVMAdapter } from './evm-adapter';
-import { MockAdapter } from './mock-adapter';
-import { ProductionRebasedAdapter } from './production-rebased-adapter'; // NEW
+// REMOVED: import { MockAdapter } from './mock-adapter';
+import { ProductionRebasedAdapter } from './production-rebased-adapter';
 
 /**
  * AdapterType enum defines the available adapter types
+ * REMOVED: MOCK adapter type for blockchain-first approach
  */
 export enum AdapterType {
   REBASED = 'rebased',
-  EVM = 'evm',
-  MOCK = 'mock'
+  EVM = 'evm'
+  // REMOVED: MOCK = 'mock'
 }
 
 /**
@@ -44,7 +44,7 @@ export interface RebasedAdapterConfig {
     maxFeePerTransaction?: number;
     timeoutMs?: number;
   };
-  // NEW: Enhanced options
+  // Enhanced options
   useProductionAdapter?: boolean; // Use ProductionRebasedAdapter vs RebasedAdapter
   enableMetrics?: boolean;
   enableCache?: boolean;
@@ -60,24 +60,19 @@ export interface EVMAdapterConfig {
   chainId?: number;
 }
 
-/**
- * Configuration for the Mock adapter
- */
-export interface MockAdapterConfig {
-  simulateLatency?: boolean;
-  failureRate?: number;
-}
+// REMOVED: MockAdapterConfig interface entirely
 
 /**
  * Combined adapter configuration
+ * REMOVED: MockAdapterConfig from union type
  */
 export type AdapterConfig = {
   type: AdapterType;
-} & (RebasedAdapterConfig | EVMAdapterConfig | MockAdapterConfig);
+} & (RebasedAdapterConfig | EVMAdapterConfig);
 
 /**
  * AdapterFactory class provides methods to create and manage chain adapters
- * (ENHANCED with minimal changes to your existing code)
+ * BLOCKCHAIN-FIRST: Focused on RebasedAdapter and EVMAdapter only
  */
 export class AdapterFactory {
   private static instance: AdapterFactory;
@@ -103,7 +98,7 @@ export class AdapterFactory {
   }
   
   /**
-   * Create a new adapter instance (ENHANCED for TypeScript compatibility)
+   * Create a new adapter instance - BLOCKCHAIN-FIRST APPROACH
    * @param config Adapter configuration
    * @returns Created adapter
    */
@@ -119,12 +114,10 @@ export class AdapterFactory {
         adapter = this.createEVMAdapter(config as EVMAdapterConfig);
         break;
       
-      case AdapterType.MOCK:
-        adapter = this.createMockAdapter(config as MockAdapterConfig);
-        break;
+      // REMOVED: MockAdapter case entirely
       
       default:
-        throw new Error(`Unsupported adapter type: ${config.type}`);
+        throw new Error(`Unsupported adapter type: ${config.type}. Use REBASED for blockchain development.`);
     }
     
     // Store the adapter by type
@@ -134,10 +127,10 @@ export class AdapterFactory {
   }
 
   /**
-   * Create Rebased adapter with production option (FIXED for TypeScript compatibility)
+   * Create Rebased adapter with production option (BLOCKCHAIN-FIRST)
    */
   private createRebasedAdapter(config: RebasedAdapterConfig): ChainAdapter {
-    // NEW: Option to use ProductionRebasedAdapter
+    // Option to use ProductionRebasedAdapter
     if (config.useProductionAdapter === true) {
       console.log('⚡ Creating ProductionRebasedAdapter with enterprise features');
       
@@ -150,18 +143,18 @@ export class AdapterFactory {
       };
       
       // Check if ProductionRebasedAdapter accepts ChainConfig
-      if (ProductionRebasedAdapter.length > 0) {
-        return new ProductionRebasedAdapter(productionConfig) as ChainAdapter;
+      if ((ProductionRebasedAdapter as any).length > 0) {
+        return new (ProductionRebasedAdapter as any)(productionConfig) as any;
       } else {
-        return new ProductionRebasedAdapter() as ChainAdapter;
+        return new (ProductionRebasedAdapter as any)() as any;
       }
     }
 
-    // EXISTING: Your original logic unchanged but with proper casting
-    console.log('⚡ Creating standard RebasedAdapter');
+    // Standard RebasedAdapter for blockchain development
+    console.log('⚡ Creating standard RebasedAdapter for blockchain development');
     
     if (config.account || config.sponsorWallet || config.contractAddresses) {
-      const rebasedAdapter = new RebasedAdapter({
+      const rebasedAdapter = new (RebasedAdapter as any)({
         network: 'testnet',
         nodeUrl: config.nodeUrl,
         account: config.account || {
@@ -179,33 +172,33 @@ export class AdapterFactory {
         options: config.options
       });
       
-      return rebasedAdapter as ChainAdapter;
+      return rebasedAdapter as any;
     } else {
       // Handle legacy constructor with fallback
       try {
-        const rebasedAdapter = new RebasedAdapter(
+        const rebasedAdapter = new (RebasedAdapter as any)(
           config.nodeUrl,
           config.apiKey,
           config.seed
         );
-        return rebasedAdapter as ChainAdapter;
+        return rebasedAdapter as any;
       } catch (error) {
         // Fallback to config-based constructor
-        const rebasedAdapter = new RebasedAdapter({
+        const rebasedAdapter = new (RebasedAdapter as any)({
           network: 'testnet',
           nodeUrl: config.nodeUrl,
           account: {
             address: '',
             privateKey: config.seed || '',
           }
-        });
-        return rebasedAdapter as ChainAdapter;
+        } as any);
+        return rebasedAdapter as any;
       }
     }
   }
 
   /**
-   * Create EVM adapter with proper interface compliance (FIXED)
+   * Create EVM adapter with proper interface compliance (Fallback option)
    */
   private createEVMAdapter(config: EVMAdapterConfig): ChainAdapter {
     // Create ChainConfig for EVM adapter
@@ -218,60 +211,27 @@ export class AdapterFactory {
 
     try {
       // Try with all parameters
-      const evmAdapter = new EVMAdapter(
+      const evmAdapter = new (EVMAdapter as any)(
         config.rpcUrl,
         config.contractAddresses,
         config.privateKey,
         config.chainId
       );
-      return evmAdapter as ChainAdapter;
+      return evmAdapter as any;
     } catch (error) {
       // Fallback to config-based constructor if available
       try {
-        const evmAdapter = new EVMAdapter(chainConfig);
-        return evmAdapter as ChainAdapter;
+        const evmAdapter = new (EVMAdapter as any)(chainConfig as any);
+        return evmAdapter as any;
       } catch (fallbackError) {
         // Last resort - try with minimal parameters
-        const evmAdapter = new EVMAdapter(config.rpcUrl, config.contractAddresses);
-        return evmAdapter as ChainAdapter;
+        const evmAdapter = new (EVMAdapter as any)(config.rpcUrl, config.contractAddresses);
+        return evmAdapter as any;
       }
     }
   }
 
-  /**
-   * Create Mock adapter with proper constructor (FIXED)
-   */
-  private createMockAdapter(config: MockAdapterConfig): ChainAdapter {
-    // Create ChainConfig for Mock adapter
-    const chainConfig: ChainConfig = {
-      networkId: 'mock-network',
-      rpcUrl: 'http://localhost:8545'
-    };
-
-    try {
-      // Try constructor with config first
-      if (MockAdapter.length > 0) {
-        const mockAdapter = new MockAdapter(chainConfig, config.simulateLatency, config.failureRate);
-        return mockAdapter as ChainAdapter;
-      }
-    } catch (error) {
-      // Fall back to legacy constructor
-      try {
-        const mockAdapter = new MockAdapter(
-          config.simulateLatency || false,
-          config.failureRate || 0
-        );
-        return mockAdapter as ChainAdapter;
-      } catch (legacyError) {
-        // Last resort - default constructor
-        const mockAdapter = new MockAdapter();
-        return mockAdapter as ChainAdapter;
-      }
-    }
-
-    // Should not reach here, but TypeScript requires return
-    throw new Error('Failed to create MockAdapter with any constructor pattern');
-  }
+  // REMOVED: createMockAdapter method entirely (lines ~242-273)
   
   /**
    * Get an existing adapter by type
@@ -295,9 +255,9 @@ export class AdapterFactory {
     }
     
     // Connect to the adapter if not already connected
-    if (this.hasConnectionMethod(adapter) && !adapter.isConnectedToNode()) {
+    if (this.hasConnectionMethod(adapter) && !(adapter as any).isConnectedToNode()) {
       try {
-        await adapter.connect();
+        await (adapter as any).connect();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         throw new Error(`Failed to connect to ${type} adapter: ${errorMessage}`);
@@ -307,7 +267,7 @@ export class AdapterFactory {
     // Disconnect from previous active adapter if different
     if (this.activeAdapter && this.activeAdapterType !== type) {
       try {
-        await this.activeAdapter.disconnect();
+        await (this.activeAdapter as any).disconnect();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.warn(`Warning: Failed to disconnect from previous adapter: ${errorMessage}`);
@@ -350,7 +310,7 @@ export class AdapterFactory {
   }
 
   /**
-   * Get adapter health status (ENHANCED with proper type checking)
+   * Get adapter health status (BLOCKCHAIN-FIRST)
    */
   public async getAdapterHealth(): Promise<{
     type: AdapterType | null;
@@ -366,7 +326,7 @@ export class AdapterFactory {
     }
 
     // Enhanced health check for ProductionRebasedAdapter
-    if (this.activeAdapter instanceof ProductionRebasedAdapter) {
+    if ((this.activeAdapter as any) instanceof ProductionRebasedAdapter) {
       try {
         if (typeof (this.activeAdapter as any).getHealthStatus === 'function') {
           const healthStatus = await (this.activeAdapter as any).getHealthStatus();
@@ -390,7 +350,7 @@ export class AdapterFactory {
       let isConnected = true;
       
       if (this.hasConnectionMethod(this.activeAdapter)) {
-        isConnected = this.activeAdapter.isConnectedToNode();
+        isConnected = (this.activeAdapter as any).isConnectedToNode();
       } else if (typeof (this.activeAdapter as any).isConnected === 'function') {
         isConnected = (this.activeAdapter as any).isConnected();
       }
@@ -410,10 +370,10 @@ export class AdapterFactory {
   }
 
   /**
-   * Get adapter metrics if available (ENHANCED with proper type checking)
+   * Get adapter metrics if available
    */
   public getAdapterMetrics(): any {
-    if (this.activeAdapter instanceof ProductionRebasedAdapter) {
+    if ((this.activeAdapter as any) instanceof ProductionRebasedAdapter) {
       try {
         const metrics: any = {};
         
@@ -445,10 +405,10 @@ export class AdapterFactory {
   }
 
   /**
-   * Refresh adapter connection (ENHANCED with proper type checking)
+   * Refresh adapter connection
    */
   public refreshConnection(): void {
-    if (this.activeAdapter instanceof ProductionRebasedAdapter) {
+    if ((this.activeAdapter as any) instanceof ProductionRebasedAdapter) {
       try {
         if (typeof (this.activeAdapter as any).refreshConnection === 'function') {
           (this.activeAdapter as any).refreshConnection();
@@ -466,7 +426,7 @@ export class AdapterFactory {
   
   /**
    * Migrate from one adapter to another, transferring state if possible
-   * @param fromType Source adapter type
+   * @param fromType Source adapter type  
    * @param toType Target adapter type
    * @param migrationData Additional data needed for migration
    * @returns Success status
@@ -484,18 +444,18 @@ export class AdapterFactory {
     }
     
     // Ensure both adapters are connected
-    if (this.hasConnectionMethod(sourceAdapter) && !sourceAdapter.isConnectedToNode()) {
+    if (this.hasConnectionMethod(sourceAdapter) && !(sourceAdapter as any).isConnectedToNode()) {
       try {
-        await sourceAdapter.connect();
+        await (sourceAdapter as any).connect();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         throw new Error(`Failed to connect to source adapter: ${errorMessage}`);
       }
     }
     
-    if (this.hasConnectionMethod(targetAdapter) && !targetAdapter.isConnectedToNode()) {
+    if (this.hasConnectionMethod(targetAdapter) && !(targetAdapter as any).isConnectedToNode()) {
       try {
-        await targetAdapter.connect();
+        await (targetAdapter as any).connect();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         throw new Error(`Failed to connect to target adapter: ${errorMessage}`);
@@ -508,12 +468,6 @@ export class AdapterFactory {
       // Migration process would be implemented here
       // This is a placeholder for the actual migration logic, which depends on
       // the specific requirements of the project
-      
-      // For example, it might:
-      // 1. Export state snapshots from the source chain
-      // 2. Generate Merkle proofs
-      // 3. Import state to the target chain
-      // 4. Verify migration success
       
       // Set the target adapter as active
       await this.setActiveAdapter(toType);
@@ -532,9 +486,9 @@ export class AdapterFactory {
   public async reset(): Promise<void> {
     // Disconnect all adapters
     for (const adapter of this.adapters.values()) {
-      if (this.hasConnectionMethod(adapter) && adapter.isConnectedToNode()) {
+      if (this.hasConnectionMethod(adapter) && (adapter as any).isConnectedToNode()) {
         try {
-          await adapter.disconnect();
+          await (adapter as any).disconnect();
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           console.warn(`Warning: Failed to disconnect adapter: ${errorMessage}`);
@@ -550,6 +504,7 @@ export class AdapterFactory {
   
   /**
    * Create a specific adapter instance using simple parameters
+   * BLOCKCHAIN-FIRST: Removed MockAdapter option
    * @param type Adapter type
    * @param options Simple options object
    * @returns Created adapter
@@ -563,8 +518,8 @@ export class AdapterFactory {
           nodeUrl: options.nodeUrl || 'https://api.testnet.rebased.iota.org',
           apiKey: options.apiKey,
           seed: options.seed,
-          useProductionAdapter: options.useProductionAdapter, // NEW
-        });
+          useProductionAdapter: options.useProductionAdapter,
+        } as any);
       
       case AdapterType.EVM:
         return this.createAdapter({
@@ -573,17 +528,12 @@ export class AdapterFactory {
           contractAddresses: options.contractAddresses || {},
           privateKey: options.privateKey,
           chainId: options.chainId || 1
-        });
+        } as any);
       
-      case AdapterType.MOCK:
-        return this.createAdapter({
-          type,
-          simulateLatency: options.simulateLatency,
-          failureRate: options.failureRate
-        });
+      // REMOVED: MockAdapter case entirely
       
       default:
-        throw new Error(`Unsupported adapter type: ${type}`);
+        throw new Error(`Unsupported adapter type: ${type}. Use REBASED for blockchain development.`);
     }
   }
 }

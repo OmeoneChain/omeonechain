@@ -1,6 +1,6 @@
 // src/adapters/types/recommendation-adapters.ts
 
-import { ChainTransaction } from '../../types/chain';
+import { ChainTransaction } from '../../type/chain';
 
 export interface RecommendationTransactionData {
   id: string;

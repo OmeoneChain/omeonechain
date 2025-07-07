@@ -19,7 +19,7 @@ import {
   PaginationOptions,
   ExperienceOptions,
   ExperienceResult
-} from '../../types/service-adapters';
+} from '../../type/service-adapters';
 
 /**
  * Create service routes

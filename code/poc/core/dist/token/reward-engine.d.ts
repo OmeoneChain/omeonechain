@@ -83,6 +83,7 @@ export declare class RewardEngine {
     private static readonly MAX_SOCIAL_MULTIPLIER;
     private static readonly BASE_REWARDS;
     private static readonly CAPS;
+    private static readonly CATEGORY_BONUSES;
     private rewardPoolState;
     constructor(initialPoolState?: Partial<RewardPoolState>);
     /**
@@ -117,6 +118,8 @@ export declare class RewardEngine {
      * Get value for different interaction types
      */
     private getInteractionValue;
+    private isValidCategory;
+    private getCategoryBonus;
     /**
      * Calculate quality bonus based on action metadata
      */

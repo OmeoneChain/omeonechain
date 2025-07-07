@@ -130,12 +130,12 @@ class GovernanceEngine {
             throw new Error('Insufficient token balance for staking');
         }
         // Validate user's trust score
-        const trustScore = await this.reputationEngine.getTrustScore(userId);
+        const trustScore = await this.reputationEngine.getUserReputation(userId);
         // Determine tier based on amount and duration
-        const tier = this.determineTier(amount, lockDuration, trustScore);
+        const tier = this.determineTier(amount, lockDuration, trustScore.reputationScore || 0);
         const tierRequirements = this.STAKING_TIERS[tier];
-        if (trustScore < tierRequirements.trustScoreMinimum) {
-            throw new Error(`Trust score ${trustScore} insufficient for ${tier} tier`);
+        if ((trustScore.reputationScore || 0) < tierRequirements.trustScoreMinimum) {
+            throw new Error(`Trust score ${trustScore.reputationScore} insufficient for ${tier} tier`);
         }
         // Create stake
         const stake = {
@@ -154,7 +154,7 @@ class GovernanceEngine {
         await this.chainAdapter.submitTransaction({
             type: 'governance_stake',
             data: stake
-        });
+        }, {});
         return stake;
     }
     determineTier(amount, duration, trustScore) {
@@ -189,7 +189,7 @@ class GovernanceEngine {
         await this.chainAdapter.submitTransaction({
             type: 'governance_unstake',
             data: { userId, amount: stake.amount }
-        });
+        }, {});
     }
     // ============================================================================
     // PROPOSAL MANAGEMENT
@@ -200,8 +200,8 @@ class GovernanceEngine {
         if (!stake || !stake.isActive) {
             throw new Error('Must have active stake to create proposals');
         }
-        const trustScore = await this.reputationEngine.getTrustScore(proposal.author);
-        if (trustScore < proposal.stakingRequirements.minTrustScore) {
+        const trustScore = await this.reputationEngine.getUserReputation(proposal.author);
+        if ((trustScore.reputationScore || 0) < proposal.stakingRequirements.minTrustScore) {
             throw new Error('Insufficient trust score for proposal creation');
         }
         // Generate proposal ID
@@ -212,14 +212,14 @@ class GovernanceEngine {
             id: proposalId,
             createdAt: new Date(),
             status: ProposalStatus.DRAFT,
-            authorReputationAtCreation: trustScore
+            authorReputationAtCreation: trustScore.reputationScore || 0
         };
         // Store proposal
         this.proposals.set(proposalId, fullProposal);
         this.votes.set(proposalId, []);
         // Store content in IPFS if large
         if (fullProposal.description.length > 1000) {
-            const ipfsHash = await this.storageProvider.store({
+            const ipfsHash = await this.storageProvider.store('proposal_content', {
                 title: fullProposal.title,
                 description: fullProposal.description,
                 metadata: fullProposal
@@ -235,7 +235,7 @@ class GovernanceEngine {
                 type: proposal.type,
                 ipfsHash: fullProposal.ipfsHash
             }
-        });
+        }, {});
         return proposalId;
     }
     async activateProposal(proposalId) {
@@ -253,7 +253,7 @@ class GovernanceEngine {
         await this.chainAdapter.submitTransaction({
             type: 'governance_activate',
             data: { proposalId, votingStartTime: proposal.votingStartTime }
-        });
+        }, {});
     }
     // ============================================================================
     // ENHANCED VOTING SYSTEM
@@ -274,14 +274,14 @@ class GovernanceEngine {
         // Calculate voting power
         const votingPower = await this.calculateVotingPower(userId);
         const stake = this.stakes.get(userId);
-        const trustScore = await this.reputationEngine.getTrustScore(userId);
+        const trustScore = await this.reputationEngine.getUserReputation(userId);
         const vote = {
             id: this.generateVoteId(),
             proposalId,
             voter: userId,
             voteType,
             votingPower,
-            reputationAtVote: trustScore,
+            reputationAtVote: trustScore.reputationScore || 0,
             stakeAmount: stake?.amount || 0,
             stakingTier: stake?.tier || StakingTier.EXPLORER,
             timestamp: new Date(),
@@ -299,16 +299,16 @@ class GovernanceEngine {
                 voteType,
                 votingPower
             }
-        });
+        }, {});
     }
     async calculateVotingPower(userId) {
         const stake = this.stakes.get(userId);
         if (!stake || !stake.isActive) {
             return 0;
         }
-        const trustScore = await this.reputationEngine.getTrustScore(userId);
+        const trustScore = await this.reputationEngine.getUserReputation(userId);
         // Geometric mean of staked tokens and reputation (prevents whale domination)
-        const geometricMean = Math.sqrt(stake.amount * (trustScore * 1000));
+        const geometricMean = Math.sqrt(stake.amount * ((trustScore.reputationScore || 0) * 1000));
         // Apply tier multiplier
         const tierMultipliers = {
             [StakingTier.EXPLORER]: 1.0,
@@ -362,7 +362,7 @@ class GovernanceEngine {
         await this.chainAdapter.submitTransaction({
             type: 'governance_result',
             data: { proposalId, result, newStatus: proposal.status }
-        });
+        }, {});
         return result;
     }
     calculateVotingResult(proposal, votes) {
@@ -445,7 +445,7 @@ class GovernanceEngine {
             await this.chainAdapter.submitTransaction({
                 type: 'governance_executed',
                 data: { proposalId, executedAt: new Date() }
-            });
+            }, {});
         }
         catch (error) {
             console.error(`Failed to execute proposal ${proposalId}:`, error);
@@ -515,7 +515,7 @@ class GovernanceEngine {
                     await this.chainAdapter.submitTransaction({
                         type: 'governance_milestone',
                         data: milestone
-                    });
+                    }, {});
                 }
             }
             updatedMilestones.push(milestone);

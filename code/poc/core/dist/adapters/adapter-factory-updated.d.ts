@@ -1,5 +1,5 @@
 import { ChainConfig, StateQuery, StateQueryResult, Transaction, TransactionResult, Event, EventFilter, BaseChainAdapter } from './chain-adapter';
-import { ChainEvent, ChainTransaction, ChainState } from '../types/chain';
+import { ChainEvent, ChainTransaction, ChainState } from '../type/chain';
 /**
  * MockAdapter (Version 2) - Implementation of ChainAdapter for testing and development
  *

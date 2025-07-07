@@ -1,4 +1,4 @@
-import { ChainAdapter, ChainEvent, ChainTransaction, ChainState } from '../types/chain';
+import { ChainAdapter, ChainTransaction, ChainState, NetworkInfo, TransactionResult } from '../type/chain';
 /**
  * EVMAdapter - Fallback implementation of ChainAdapter interface for EVM chains
  *
@@ -7,7 +7,7 @@ import { ChainAdapter, ChainEvent, ChainTransaction, ChainState } from '../types
  */
 export declare class EVMAdapter implements ChainAdapter {
     private web3;
-    private isConnected;
+    isConnected: any;
     private eventSubscribers;
     private contracts;
     private accountAddress;
@@ -44,9 +44,9 @@ export declare class EVMAdapter implements ChainAdapter {
     /**
      * Submit a transaction to the EVM chain
      * @param transaction Transaction data to submit
-     * @returns Transaction ID and metadata
+     * @returns Transaction result with proper typing
      */
-    submitTransaction(transaction: ChainTransaction): Promise<any>;
+    submitTransaction(transaction: ChainTransaction): Promise<TransactionResult>;
     /**
      * Execute a contract method based on transaction type
      * @param transaction Transaction data
@@ -62,11 +62,10 @@ export declare class EVMAdapter implements ChainAdapter {
     private generateObjectId;
     /**
      * Query the current state for a given object type and ID
-     * @param objectType Type of object to query
-     * @param objectId ID of the object
+     * @param query Query parameters with object type and ID
      * @returns Current state of the object
      */
-    queryState(objectType: string, objectId: string): Promise<ChainState>;
+    queryState(query: any): Promise<any>;
     /**
      * Parse proposal status enum from contract
      * @param statusCode Status code from contract
@@ -85,17 +84,41 @@ export declare class EVMAdapter implements ChainAdapter {
         offset: number;
     }): Promise<ChainState[]>;
     /**
+     * Store data (for engines that expect this method)
+     * @param key Storage key
+     * @param value Data to store
+     * @returns Success status
+     */
+    store(key: any, value: any): Promise<any>;
+    /**
+     * Retrieve data (for engines that expect this method)
+     * @param key Storage key
+     * @returns Retrieved data or null
+     */
+    retrieve(key: string): Promise<any | null>;
+    /**
+     * Get network information
+     * @returns Network information
+     */
+    getNetworkInfo(): Promise<NetworkInfo>;
+    /**
+     * Get token balance for an address
+     * @param address Wallet address
+     * @returns Token balance information
+     */
+    getBalance(address: any): Promise<any>;
+    /**
      * Subscribe to events of a specific type
      * @param eventType Type of events to subscribe to
      * @param callback Function to call when events occur
      * @returns Subscription ID
      */
-    subscribeToEvents(eventType: string, callback: (event: ChainEvent) => void): string;
+    subscribeToEvents(eventType: any, callback: any): any;
     /**
      * Unsubscribe from events
      * @param subscriptionId ID of the subscription to cancel
      */
-    unsubscribeFromEvents(subscriptionId: string): void;
+    unsubscribeFromEvents(subscriptionId: any): any;
     /**
      * Start event listener to monitor the chain for new events
      */

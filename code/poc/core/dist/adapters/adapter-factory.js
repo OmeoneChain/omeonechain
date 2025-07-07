@@ -1,22 +1,25 @@
 "use strict";
+// code/poc/core/src/adapters/adapter-factory.ts (BLOCKCHAIN-FIRST VERSION)
+// MockAdapter removed for aggressive blockchain-first approach
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdapterFactory = exports.AdapterType = void 0;
 const rebased_adapter_1 = require("./rebased-adapter");
 const evm_adapter_1 = require("./evm-adapter");
-const mock_adapter_1 = require("./mock-adapter");
-const production_rebased_adapter_1 = require("./production-rebased-adapter"); // NEW
+// REMOVED: import { MockAdapter } from './mock-adapter';
+const production_rebased_adapter_1 = require("./production-rebased-adapter");
 /**
  * AdapterType enum defines the available adapter types
+ * REMOVED: MOCK adapter type for blockchain-first approach
  */
 var AdapterType;
 (function (AdapterType) {
     AdapterType["REBASED"] = "rebased";
     AdapterType["EVM"] = "evm";
-    AdapterType["MOCK"] = "mock";
+    // REMOVED: MOCK = 'mock'
 })(AdapterType || (exports.AdapterType = AdapterType = {}));
 /**
  * AdapterFactory class provides methods to create and manage chain adapters
- * (ENHANCED with minimal changes to your existing code)
+ * BLOCKCHAIN-FIRST: Focused on RebasedAdapter and EVMAdapter only
  */
 class AdapterFactory {
     /**
@@ -38,7 +41,7 @@ class AdapterFactory {
         return AdapterFactory.instance;
     }
     /**
-     * Create a new adapter instance (ENHANCED for TypeScript compatibility)
+     * Create a new adapter instance - BLOCKCHAIN-FIRST APPROACH
      * @param config Adapter configuration
      * @returns Created adapter
      */
@@ -51,21 +54,19 @@ class AdapterFactory {
             case AdapterType.EVM:
                 adapter = this.createEVMAdapter(config);
                 break;
-            case AdapterType.MOCK:
-                adapter = this.createMockAdapter(config);
-                break;
+            // REMOVED: MockAdapter case entirely
             default:
-                throw new Error(`Unsupported adapter type: ${config.type}`);
+                throw new Error(`Unsupported adapter type: ${config.type}. Use REBASED for blockchain development.`);
         }
         // Store the adapter by type
         this.adapters.set(config.type, adapter);
         return adapter;
     }
     /**
-     * Create Rebased adapter with production option (FIXED for TypeScript compatibility)
+     * Create Rebased adapter with production option (BLOCKCHAIN-FIRST)
      */
     createRebasedAdapter(config) {
-        // NEW: Option to use ProductionRebasedAdapter
+        // Option to use ProductionRebasedAdapter
         if (config.useProductionAdapter === true) {
             console.log('⚡ Creating ProductionRebasedAdapter with enterprise features');
             // Create ProductionRebasedAdapter with proper ChainConfig
@@ -83,8 +84,8 @@ class AdapterFactory {
                 return new production_rebased_adapter_1.ProductionRebasedAdapter();
             }
         }
-        // EXISTING: Your original logic unchanged but with proper casting
-        console.log('⚡ Creating standard RebasedAdapter');
+        // Standard RebasedAdapter for blockchain development
+        console.log('⚡ Creating standard RebasedAdapter for blockchain development');
         if (config.account || config.sponsorWallet || config.contractAddresses) {
             const rebasedAdapter = new rebased_adapter_1.RebasedAdapter({
                 network: 'testnet',
@@ -126,7 +127,7 @@ class AdapterFactory {
         }
     }
     /**
-     * Create EVM adapter with proper interface compliance (FIXED)
+     * Create EVM adapter with proper interface compliance (Fallback option)
      */
     createEVMAdapter(config) {
         // Create ChainConfig for EVM adapter
@@ -154,37 +155,7 @@ class AdapterFactory {
             }
         }
     }
-    /**
-     * Create Mock adapter with proper constructor (FIXED)
-     */
-    createMockAdapter(config) {
-        // Create ChainConfig for Mock adapter
-        const chainConfig = {
-            networkId: 'mock-network',
-            rpcUrl: 'http://localhost:8545'
-        };
-        try {
-            // Try constructor with config first
-            if (mock_adapter_1.MockAdapter.length > 0) {
-                const mockAdapter = new mock_adapter_1.MockAdapter(chainConfig, config.simulateLatency, config.failureRate);
-                return mockAdapter;
-            }
-        }
-        catch (error) {
-            // Fall back to legacy constructor
-            try {
-                const mockAdapter = new mock_adapter_1.MockAdapter(config.simulateLatency || false, config.failureRate || 0);
-                return mockAdapter;
-            }
-            catch (legacyError) {
-                // Last resort - default constructor
-                const mockAdapter = new mock_adapter_1.MockAdapter();
-                return mockAdapter;
-            }
-        }
-        // Should not reach here, but TypeScript requires return
-        throw new Error('Failed to create MockAdapter with any constructor pattern');
-    }
+    // REMOVED: createMockAdapter method entirely (lines ~242-273)
     /**
      * Get an existing adapter by type
      * @param type Adapter type
@@ -250,7 +221,7 @@ class AdapterFactory {
         return this.activeAdapterType;
     }
     /**
-     * Get adapter health status (ENHANCED with proper type checking)
+     * Get adapter health status (BLOCKCHAIN-FIRST)
      */
     async getAdapterHealth() {
         if (!this.activeAdapter) {
@@ -304,7 +275,7 @@ class AdapterFactory {
         }
     }
     /**
-     * Get adapter metrics if available (ENHANCED with proper type checking)
+     * Get adapter metrics if available
      */
     getAdapterMetrics() {
         if (this.activeAdapter instanceof production_rebased_adapter_1.ProductionRebasedAdapter) {
@@ -334,7 +305,7 @@ class AdapterFactory {
         };
     }
     /**
-     * Refresh adapter connection (ENHANCED with proper type checking)
+     * Refresh adapter connection
      */
     refreshConnection() {
         if (this.activeAdapter instanceof production_rebased_adapter_1.ProductionRebasedAdapter) {
@@ -392,11 +363,6 @@ class AdapterFactory {
             // Migration process would be implemented here
             // This is a placeholder for the actual migration logic, which depends on
             // the specific requirements of the project
-            // For example, it might:
-            // 1. Export state snapshots from the source chain
-            // 2. Generate Merkle proofs
-            // 3. Import state to the target chain
-            // 4. Verify migration success
             // Set the target adapter as active
             await this.setActiveAdapter(toType);
             console.log(`Migration from ${fromType} to ${toType} completed successfully.`);
@@ -430,6 +396,7 @@ class AdapterFactory {
     }
     /**
      * Create a specific adapter instance using simple parameters
+     * BLOCKCHAIN-FIRST: Removed MockAdapter option
      * @param type Adapter type
      * @param options Simple options object
      * @returns Created adapter
@@ -443,7 +410,7 @@ class AdapterFactory {
                     nodeUrl: options.nodeUrl || 'https://api.testnet.rebased.iota.org',
                     apiKey: options.apiKey,
                     seed: options.seed,
-                    useProductionAdapter: options.useProductionAdapter, // NEW
+                    useProductionAdapter: options.useProductionAdapter,
                 });
             case AdapterType.EVM:
                 return this.createAdapter({
@@ -453,14 +420,9 @@ class AdapterFactory {
                     privateKey: options.privateKey,
                     chainId: options.chainId || 1
                 });
-            case AdapterType.MOCK:
-                return this.createAdapter({
-                    type,
-                    simulateLatency: options.simulateLatency,
-                    failureRate: options.failureRate
-                });
+            // REMOVED: MockAdapter case entirely
             default:
-                throw new Error(`Unsupported adapter type: ${type}`);
+                throw new Error(`Unsupported adapter type: ${type}. Use REBASED for blockchain development.`);
         }
     }
 }

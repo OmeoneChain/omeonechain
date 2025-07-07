@@ -6,7 +6,7 @@
  */
 
 // Updated imports to use new adapter structure
-import { ChainAdapter, ChainTransaction } from '../types/chain';
+import { ChainAdapter, ChainTransaction } from '../type/chain';
 import { formatReputationForChain } from '../adapters/types/reputation-adapters';
 import { 
   UserReputation, 
@@ -14,8 +14,8 @@ import {
   ReputationFilter,
   UserRelationship,
   TrustScoreParams
-} from '../types/reputation';
-import { RecommendationAction, RecommendationActionType } from '../types/recommendation';
+} from '../type/reputation';
+import { RecommendationAction, RecommendationActionType } from '../type/recommendation';
 import { v4 as uuidv4 } from 'uuid';
 
 /**

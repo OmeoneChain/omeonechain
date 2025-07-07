@@ -71,6 +71,9 @@ export interface RewardCalculationResult {
   };
 }
 
+// PHASE 2C FIX: Define proper category type for safe indexing
+type RecommendationCategory = 'restaurant' | 'travel' | 'wellness' | 'entertainment';
+
 /**
  * Reward Logic Engine - Implements OmeoneChain's Trust-Weighted Token Economics
  * 
@@ -107,6 +110,14 @@ export class RewardEngine {
     MAX_REWARD_PER_POST: new Decimal('5.0'),
     MAX_DAILY_USER_REWARDS: new Decimal('50.0'),
     MAX_WEEKLY_IMPACT_SCORE: new Decimal('100.0')
+  };
+
+  // PHASE 2C FIX: Define category bonuses with proper typing
+  private static readonly CATEGORY_BONUSES: Record<RecommendationCategory, Decimal> = {
+    restaurant: new Decimal('0.1'),
+    travel: new Decimal('0.15'),
+    wellness: new Decimal('0.1'),
+    entertainment: new Decimal('0.05')
   };
 
   private rewardPoolState: RewardPoolState;
@@ -292,22 +303,31 @@ export class RewardEngine {
     }
   }
 
+  // PHASE 2C FIX: Safe category checking with type guard
+  private isValidCategory(category: string): category is RecommendationCategory {
+    return ['restaurant', 'travel', 'wellness', 'entertainment'].includes(category);
+  }
+
+  // PHASE 2C FIX: Safe category bonus calculation
+  private getCategoryBonus(category: string): Decimal {
+    const normalizedCategory = category.toLowerCase();
+    
+    if (this.isValidCategory(normalizedCategory)) {
+      return RewardEngine.CATEGORY_BONUSES[normalizedCategory];
+    }
+    
+    return new Decimal('0'); // Default for unknown categories
+  }
+
   /**
    * Calculate quality bonus based on action metadata
    */
   private calculateQualityBonus(action: RewardableAction): Decimal {
     let qualityBonus = new Decimal('0');
 
-    // Bonus for high-quality categories
+    // PHASE 2C FIX: Safe category bonus calculation (fixes line 310 error)
     if (action.metadata.category) {
-      const categoryBonuses = {
-        'restaurant': new Decimal('0.1'),
-        'travel': new Decimal('0.15'),
-        'wellness': new Decimal('0.1'),
-        'entertainment': new Decimal('0.05')
-      };
-      
-      qualityBonus = qualityBonus.add(categoryBonuses[action.metadata.category] || new Decimal('0'));
+      qualityBonus = qualityBonus.add(this.getCategoryBonus(action.metadata.category));
     }
 
     // Apply any manual multiplier

@@ -7,7 +7,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServiceEngine = void 0;
-const service_1 = require("../types/service");
+const service_1 = require("../type/service");
 const uuid_1 = require("uuid");
 /**
  * Default service engine options
@@ -135,8 +135,16 @@ class ServiceEngine {
      */
     async getServiceById(serviceId) {
         try {
-            const result = await this.adapter.queryState('service', serviceId);
-            return result.data;
+            const result = await this.adapter.queryState({
+                objectType: 'service',
+                filter: { id: serviceId }
+            });
+            if (result.results && result.results.length > 0) {
+                return result.results[0];
+            }
+            else {
+                throw new Error(`Service not found: ${serviceId}`);
+            }
         }
         catch (error) {
             throw new Error(`Service not found: ${serviceId}`);
@@ -150,19 +158,23 @@ class ServiceEngine {
      */
     async queryServices(filter) {
         // Query the blockchain for services with updated interface
-        const result = await this.adapter.queryObjects('service', {
-            ...(filter.nameSearch && { nameSearch: filter.nameSearch }),
-            ...(filter.category && { category: filter.category }),
-            ...(filter.subcategories && { subcategories: filter.subcategories }),
-            ...(filter.minRating && { minRating: filter.minRating }),
-            ...(filter.verificationStatus && { verificationStatus: filter.verificationStatus }),
-            ...(filter.city && { city: filter.city }),
-            ...(filter.country && { country: filter.country }),
-            ...(filter.nearLocation && { nearLocation: filter.nearLocation })
-        }, filter.pagination);
+        const result = await this.adapter.queryState({
+            objectType: 'service',
+            filter: {
+                ...(filter.nameSearch && { nameSearch: filter.nameSearch }),
+                ...(filter.category && { category: filter.category }),
+                ...(filter.subcategories && { subcategories: filter.subcategories }),
+                ...(filter.minRating && { minRating: filter.minRating }),
+                ...(filter.verificationStatus && { verificationStatus: filter.verificationStatus }),
+                ...(filter.city && { city: filter.city }),
+                ...(filter.country && { country: filter.country }),
+                ...(filter.nearLocation && { nearLocation: filter.nearLocation })
+            },
+            pagination: filter.pagination
+        });
         // Transform results
-        const services = result.map(state => state.data);
-        const total = result.length;
+        const services = result.results;
+        const total = result.total;
         // Calculate pagination
         const pagination = filter.pagination ? {
             offset: filter.pagination.offset,
@@ -289,13 +301,12 @@ class ServiceEngine {
     async getVerificationRequestByServiceId(serviceId) {
         try {
             // Query the blockchain for verification requests with updated interface
-            const result = await this.adapter.queryObjects('verification_request', {
-                serviceId
-            }, {
-                offset: 0,
-                limit: 1
+            const result = await this.adapter.queryState({
+                objectType: 'verification_request',
+                filter: { serviceId },
+                pagination: { offset: 0, limit: 1 }
             });
-            return result.length > 0 ? result[0].data : null;
+            return result.results.length > 0 ? result.results[0] : null;
         }
         catch (error) {
             return null;
@@ -313,8 +324,14 @@ class ServiceEngine {
     async reviewVerificationRequest(reviewerId, requestId, approved, notes) {
         try {
             // Get verification request with updated interface
-            const result = await this.adapter.queryState('verification_request', requestId);
-            const request = result.data;
+            const result = await this.adapter.queryState({
+                objectType: 'verification_request',
+                filter: { id: requestId }
+            });
+            if (!result.results || result.results.length === 0) {
+                throw new Error(`Verification request not found: ${requestId}`);
+            }
+            const request = result.results[0];
             // Validate request is pending
             if (request.status !== 'pending') {
                 throw new Error(`Verification request already processed: ${requestId}`);
@@ -406,13 +423,17 @@ class ServiceEngine {
      */
     async getServiceExperiences(serviceId, activeOnly = true, pagination = { offset: 0, limit: 20 }) {
         // Query the blockchain for experiences with updated interface
-        const result = await this.adapter.queryObjects('service_experience', {
-            serviceId,
-            ...(activeOnly && { isActive: true })
-        }, pagination);
+        const result = await this.adapter.queryState({
+            objectType: 'service_experience',
+            filter: {
+                serviceId,
+                ...(activeOnly && { isActive: true })
+            },
+            pagination
+        });
         // Transform results
-        const experiences = result.map(state => state.data);
-        const total = result.length;
+        const experiences = result.results;
+        const total = result.total;
         return {
             experiences,
             total,
@@ -431,8 +452,16 @@ class ServiceEngine {
      */
     async getExperienceById(experienceId) {
         try {
-            const result = await this.adapter.queryState('service_experience', experienceId);
-            return result.data;
+            const result = await this.adapter.queryState({
+                objectType: 'service_experience',
+                filter: { id: experienceId }
+            });
+            if (result.results && result.results.length > 0) {
+                return result.results[0];
+            }
+            else {
+                throw new Error(`Experience not found: ${experienceId}`);
+            }
         }
         catch (error) {
             throw new Error(`Experience not found: ${experienceId}`);
@@ -545,14 +574,15 @@ class ServiceEngine {
      */
     async getPopularServices(category, limit = 10) {
         // Query the blockchain for services with updated interface
-        const result = await this.adapter.queryObjects('service', {
-            ...(category && { category })
-        }, {
-            offset: 0,
-            limit
+        const result = await this.adapter.queryState({
+            objectType: 'service',
+            filter: {
+                ...(category && { category })
+            },
+            pagination: { offset: 0, limit }
         });
         // Transform results and sort by upvotes
-        const services = result.map(state => state.data);
+        const services = result.results;
         return services.sort((a, b) => b.totalUpvotes - a.totalUpvotes);
     }
     /**

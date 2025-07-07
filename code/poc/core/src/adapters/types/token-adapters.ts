@@ -1,5 +1,5 @@
 // File: code/poc/core/src/adapters/types/token-adapters.ts
-import { ChainTransaction } from '../../types/chain';
+import { ChainTransaction } from '../../type/chain';
 
 export interface TokenTransactionData {
   userId: string;
@@ -43,7 +43,7 @@ export function formatTokenForChain(data: TokenTransactionData): ChainTransactio
 // ===================================================================
 
 // File: code/poc/core/src/adapters/types/reputation-adapters.ts
-import { ChainTransaction } from '../../types/chain';
+import { ChainTransaction } from '../../type/chain';
 
 export interface ReputationTransactionData {
   userId: string;
@@ -70,7 +70,7 @@ export function formatReputationForChain(data: ReputationTransactionData): Chain
 // ===================================================================
 
 // File: code/poc/core/src/adapters/types/recommendation-adapters.ts
-import { ChainTransaction } from '../../types/chain';
+import { ChainTransaction } from '../../type/chain';
 
 export interface RecommendationTransactionData {
   id: string;

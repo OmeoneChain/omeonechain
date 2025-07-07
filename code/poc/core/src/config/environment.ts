@@ -1,7 +1,7 @@
 // code/poc/core/src/config/environment.ts
 // Centralized environment configuration with validation
 
-import { AppConfig, DatabaseConfig, RedisConfig, IpfsConfig, ChainConfig } from '../types';
+import { AppConfig, DatabaseConfig, RedisConfig, IpfsConfig, ChainConfig } from '../type';
 
 export class EnvironmentConfig {
   static load(): AppConfig {

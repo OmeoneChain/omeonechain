@@ -1,11 +1,11 @@
 import { ChainAdapter } from "./chain-adapter";
 /**
  * AdapterType enum defines the available adapter types
+ * REMOVED: MOCK adapter type for blockchain-first approach
  */
 export declare enum AdapterType {
     REBASED = "rebased",
-    EVM = "evm",
-    MOCK = "mock"
+    EVM = "evm"
 }
 /**
  * Configuration for the Rebased adapter (ENHANCED)
@@ -48,21 +48,15 @@ export interface EVMAdapterConfig {
     chainId?: number;
 }
 /**
- * Configuration for the Mock adapter
- */
-export interface MockAdapterConfig {
-    simulateLatency?: boolean;
-    failureRate?: number;
-}
-/**
  * Combined adapter configuration
+ * REMOVED: MockAdapterConfig from union type
  */
 export type AdapterConfig = {
     type: AdapterType;
-} & (RebasedAdapterConfig | EVMAdapterConfig | MockAdapterConfig);
+} & (RebasedAdapterConfig | EVMAdapterConfig);
 /**
  * AdapterFactory class provides methods to create and manage chain adapters
- * (ENHANCED with minimal changes to your existing code)
+ * BLOCKCHAIN-FIRST: Focused on RebasedAdapter and EVMAdapter only
  */
 export declare class AdapterFactory {
     private static instance;
@@ -79,23 +73,19 @@ export declare class AdapterFactory {
      */
     static getInstance(): AdapterFactory;
     /**
-     * Create a new adapter instance (ENHANCED for TypeScript compatibility)
+     * Create a new adapter instance - BLOCKCHAIN-FIRST APPROACH
      * @param config Adapter configuration
      * @returns Created adapter
      */
     createAdapter(config: AdapterConfig): ChainAdapter;
     /**
-     * Create Rebased adapter with production option (FIXED for TypeScript compatibility)
+     * Create Rebased adapter with production option (BLOCKCHAIN-FIRST)
      */
     private createRebasedAdapter;
     /**
-     * Create EVM adapter with proper interface compliance (FIXED)
+     * Create EVM adapter with proper interface compliance (Fallback option)
      */
     private createEVMAdapter;
-    /**
-     * Create Mock adapter with proper constructor (FIXED)
-     */
-    private createMockAdapter;
     /**
      * Get an existing adapter by type
      * @param type Adapter type
@@ -123,7 +113,7 @@ export declare class AdapterFactory {
      */
     getActiveAdapterType(): AdapterType | null;
     /**
-     * Get adapter health status (ENHANCED with proper type checking)
+     * Get adapter health status (BLOCKCHAIN-FIRST)
      */
     getAdapterHealth(): Promise<{
         type: AdapterType | null;
@@ -131,11 +121,11 @@ export declare class AdapterFactory {
         details: any;
     }>;
     /**
-     * Get adapter metrics if available (ENHANCED with proper type checking)
+     * Get adapter metrics if available
      */
     getAdapterMetrics(): any;
     /**
-     * Refresh adapter connection (ENHANCED with proper type checking)
+     * Refresh adapter connection
      */
     refreshConnection(): void;
     /**
@@ -152,6 +142,7 @@ export declare class AdapterFactory {
     reset(): Promise<void>;
     /**
      * Create a specific adapter instance using simple parameters
+     * BLOCKCHAIN-FIRST: Removed MockAdapter option
      * @param type Adapter type
      * @param options Simple options object
      * @returns Created adapter

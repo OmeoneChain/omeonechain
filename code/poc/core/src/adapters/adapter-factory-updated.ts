@@ -1,8 +1,8 @@
 import { ChainAdapter, ChainConfig, StateQuery, StateQueryResult, Transaction, TransactionResult, Event, EventFilter, BaseChainAdapter } from './chain-adapter';
-import { ChainEvent, ChainTransaction, ChainState } from '../types/chain';
+import { ChainEvent, ChainTransaction, ChainState } from '../type/chain';
 import * as crypto from 'crypto';
-import { RecommendationTransactionData } from '../types/recommendation-adapters';
-import { ReputationTransactionData, TokenTransactionData } from '../types/reputation-adapters';
+import { RecommendationTransactionData } from '../type/recommendation-adapters';
+import { ReputationTransactionData, TokenTransactionData } from '../type/reputation-adapters';
 
 /**
  * MockAdapter (Version 2) - Implementation of ChainAdapter for testing and development

@@ -20,4 +20,4 @@ export {
 } from './adapter-factory';
 
 // Re-export core types
-export type { ChainAdapter, ChainEvent, ChainTransaction, ChainState } from '../types/chain';
+export type { ChainAdapter, ChainEvent, ChainTransaction, ChainState } from '../type/chain';

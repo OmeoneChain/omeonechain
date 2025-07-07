@@ -3,9 +3,31 @@
  *
  * Core business logic for token rewards, distribution, and token economics
  * Based on Technical Specifications A.3.2
+ * PHASE 2C: Fixed property/method mapping and type issues
  */
-import { ChainAdapter } from '../types/chain';
-import { TokenTransaction, TransactionType, RewardCalculation, RewardSystemParams, TokenBalance } from '../types/token';
+import { ChainAdapter } from '../type/chain';
+import { TokenActionType } from '../adapters/types/token-adapters';
+import { TokenTransaction, TransactionType, RewardCalculation, RewardSystemParams as BaseRewardSystemParams, TokenBalance } from '../type/token';
+import { UserReputation } from '../type/reputation';
+import { StorageProvider } from '../storage/storage-provider';
+interface RewardSystemParams extends BaseRewardSystemParams {
+    minTrustThreshold: number;
+    maxTrustMultiplier: number;
+    baseRecommendationReward: number;
+    socialDecayFactor: number;
+    qualityBonus: number;
+    upvoteReward: {
+        count: number;
+        amount: number;
+    };
+    maxUpvoteReward: number;
+    curationReward: number;
+    curatorRewardShare: number;
+    abuseReportReward: number;
+    reporterSlashShare: number;
+    currentHalvingEpoch: number;
+    halvingFactor: number;
+}
 /**
  * Options for the token engine
  */
@@ -17,7 +39,7 @@ export interface TokenEngineOptions {
     /**
      * Reward system parameters
      */
-    rewardParams?: RewardSystemParams;
+    rewardParams?: Partial<RewardSystemParams>;
     /**
      * Sponsor wallet for fee payments
      */
@@ -51,24 +73,33 @@ export interface TokenEngineOptions {
 /**
  * Implementation of the Token Reward Engine
  * Handles token rewards, distribution, and token economics
+ * PHASE 2C: Fixed with correct property mapping and TangleReference structure
  */
 export declare class TokenEngine {
     private adapter;
+    private storageProvider;
     private options;
+    private rewardParams;
     private chainId;
     /**
      * Create a new TokenEngine instance
      *
      * @param adapter Chain adapter for blockchain interactions
+     * @param storageProvider Storage provider for off-chain data
      * @param options Engine options
      */
-    constructor(adapter: ChainAdapter, options?: TokenEngineOptions);
+    constructor(adapter: ChainAdapter, storageProvider?: StorageProvider, options?: TokenEngineOptions);
+    private createDefaultStorage;
     /**
      * Initialize the engine
      *
      * @returns Promise resolving when initialized
      */
     initialize(): Promise<void>;
+    createUserAccount(address: string, metadata?: Record<string, any>): Promise<{
+        success: boolean;
+        userId: string;
+    }>;
     /**
      * Get a user's token balance
      *
@@ -76,6 +107,23 @@ export declare class TokenEngine {
      * @returns Token balance
      */
     getTokenBalance(userId: string): Promise<TokenBalance>;
+    getBalance(userId: string): Promise<TokenBalance>;
+    lockTokens(userId: string, amount: number, duration: number): Promise<{
+        success: boolean;
+    }>;
+    unlockTokens(userId: string, amount: number): Promise<{
+        success: boolean;
+    }>;
+    burnTokens(userId: string, amount: number): Promise<{
+        success: boolean;
+    }>;
+    processTransaction(transactionData: any): Promise<TokenTransaction>;
+    private createActionTypeMapping;
+    calculateReward(userId: string, actionType: TokenActionType, trustScore: number, socialConnections: UserReputation[]): Promise<number>;
+    private calculateSocialMultiplier;
+    private generateTransactionId;
+    private generateObjectId;
+    private createTangleReference;
     /**
      * Create a token transaction
      *
@@ -87,6 +135,7 @@ export declare class TokenEngine {
      * @returns Created transaction
      */
     createTransaction(sender: string, recipient: string, amount: number, type: TransactionType, actionReference?: string): Promise<TokenTransaction>;
+    private getActionFromType;
     /**
      * Calculate and issue reward for a recommendation
      *
@@ -223,3 +272,4 @@ export declare class TokenEngine {
      */
     private updateStakedBalance;
 }
+export {};

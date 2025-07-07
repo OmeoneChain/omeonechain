@@ -3,14 +3,200 @@
  * 
  * This file provides adapter-specific types and utilities for working with
  * reputation data across different blockchain implementations.
- * Updated to include missing TypeScript exports
  */
 
-// Import your existing reputation types here
-// import { ... } from '../../types/reputation';
+/**
+ * Core reputation score information
+ */
+export interface ReputationScore {
+  /**
+   * Overall reputation score (0-1)
+   */
+  score: number;
+  
+  /**
+   * Trust level based on score
+   */
+  trustLevel: 'low' | 'medium' | 'high' | 'expert';
+  
+  /**
+   * Confidence in the score (0-1)
+   */
+  confidence: number;
+  
+  /**
+   * Last update timestamp
+   */
+  lastUpdated: number;
+}
 
 /**
- * Reputation data format for chain transactions
+ * Detailed reputation breakdown
+ */
+export interface ReputationBreakdown {
+  /**
+   * Content quality score
+   */
+  contentQuality: number;
+  
+  /**
+   * Social trust score
+   */
+  socialTrust: number;
+  
+  /**
+   * Engagement quality
+   */
+  engagementQuality: number;
+  
+  /**
+   * Verification bonus
+   */
+  verificationBonus: number;
+  
+  /**
+   * Penalty deductions
+   */
+  penalties: number;
+}
+
+/**
+ * User reputation profile
+ */
+export interface UserReputation {
+  /**
+   * User identifier
+   */
+  userId: string;
+  
+  /**
+   * Current reputation score
+   */
+  reputation: ReputationScore;
+  
+  /**
+   * Detailed breakdown
+   */
+  breakdown: ReputationBreakdown;
+  
+  /**
+   * Verification status
+   */
+  verification: UserVerification;
+  
+  /**
+   * Activity metrics
+   */
+  activity: UserActivity;
+  
+  /**
+   * Social connections
+   */
+  social: SocialMetrics;
+}
+
+/**
+ * User verification information
+ */
+export interface UserVerification {
+  /**
+   * Verification level
+   */
+  level: 'basic' | 'verified' | 'expert';
+  
+  /**
+   * Verification timestamp
+   */
+  verifiedAt?: number;
+  
+  /**
+   * Verification method
+   */
+  method?: 'email' | 'phone' | 'identity' | 'expert_review';
+  
+  /**
+   * Verification expiry
+   */
+  expiresAt?: number;
+  
+  /**
+   * Specialization areas
+   */
+  specializations: string[];
+}
+
+/**
+ * User activity metrics
+ */
+export interface UserActivity {
+  /**
+   * Total recommendations created
+   */
+  totalRecommendations: number;
+  
+  /**
+   * Total upvotes received
+   */
+  upvotesReceived: number;
+  
+  /**
+   * Total downvotes received
+   */
+  downvotesReceived: number;
+  
+  /**
+   * Total saves received
+   */
+  savesReceived: number;
+  
+  /**
+   * Average recommendation rating
+   */
+  averageRating: number;
+  
+  /**
+   * Activity streak (days)
+   */
+  streak: number;
+  
+  /**
+   * Last activity timestamp
+   */
+  lastActive: number;
+}
+
+/**
+ * Social metrics for reputation
+ */
+export interface SocialMetrics {
+  /**
+   * Number of followers
+   */
+  followers: number;
+  
+  /**
+   * Number of following
+   */
+  following: number;
+  
+  /**
+   * Social graph density
+   */
+  networkDensity: number;
+  
+  /**
+   * Trust connections (mutual follows with high reputation)
+   */
+  trustConnections: number;
+  
+  /**
+   * Influence score based on network
+   */
+  influenceScore: number;
+}
+
+/**
+ * Reputation transaction data format
  * Used when submitting reputation updates to blockchain adapters
  */
 export interface ReputationTransactionData {
@@ -76,7 +262,133 @@ export interface ReputationTransaction {
 }
 
 /**
- * Token transaction data format
+ * Reputation update event
+ */
+export interface ReputationUpdateEvent {
+  /**
+   * User whose reputation changed
+   */
+  userId: string;
+  
+  /**
+   * Previous reputation score
+   */
+  previousScore: number;
+  
+  /**
+   * New reputation score
+   */
+  newScore: number;
+  
+  /**
+   * Reason for the update
+   */
+  reason: 'recommendation_created' | 'upvote_received' | 'downvote_received' | 
+          'verification_updated' | 'penalty_applied' | 'bonus_awarded';
+  
+  /**
+   * Related object (recommendation, vote, etc.)
+   */
+  relatedId?: string;
+  
+  /**
+   * Update timestamp
+   */
+  timestamp: number;
+  
+  /**
+   * Score change amount
+   */
+  scoreChange: number;
+}
+
+/**
+ * Trust relationship between users
+ */
+export interface TrustRelationship {
+  /**
+   * User who trusts
+   */
+  trustor: string;
+  
+  /**
+   * User being trusted
+   */
+  trustee: string;
+  
+  /**
+   * Trust weight (0-1)
+   */
+  weight: number;
+  
+  /**
+   * Relationship type
+   */
+  type: 'follow' | 'mutual' | 'verified' | 'expert';
+  
+  /**
+   * When relationship was established
+   */
+  establishedAt: number;
+  
+  /**
+   * Last interaction timestamp
+   */
+  lastInteraction: number;
+}
+
+/**
+ * Reputation penalty record
+ */
+export interface ReputationPenalty {
+  /**
+   * User receiving penalty
+   */
+  userId: string;
+  
+  /**
+   * Penalty type
+   */
+  type: 'spam' | 'abuse' | 'fake_content' | 'manipulation' | 'other';
+  
+  /**
+   * Penalty severity
+   */
+  severity: 'minor' | 'moderate' | 'major' | 'severe';
+  
+  /**
+   * Score reduction amount
+   */
+  scoreReduction: number;
+  
+  /**
+   * Penalty duration (in seconds, 0 = permanent)
+   */
+  duration: number;
+  
+  /**
+   * Reason for penalty
+   */
+  reason: string;
+  
+  /**
+   * Who applied the penalty
+   */
+  appliedBy: 'system' | 'moderator' | 'community';
+  
+  /**
+   * When penalty was applied
+   */
+  appliedAt: number;
+  
+  /**
+   * When penalty expires (if duration > 0)
+   */
+  expiresAt?: number;
+}
+
+/**
+ * Token transaction data format (used in reputation context)
  * Used when submitting token operations to blockchain adapters
  */
 export interface TokenTransactionData {
@@ -268,13 +580,41 @@ export interface GenericTransaction<T = TransactionData> {
 }
 
 /**
+ * Reputation adapter interface
+ */
+export interface ReputationAdapter {
+  /**
+   * Calculate reputation score
+   */
+  calculateReputation(userId: string, activity: UserActivity, social: SocialMetrics): Promise<ReputationScore>;
+  
+  /**
+   * Update user reputation
+   */
+  updateReputation(userId: string, event: ReputationUpdateEvent): Promise<void>;
+  
+  /**
+   * Get user reputation
+   */
+  getUserReputation(userId: string): Promise<UserReputation>;
+  
+  /**
+   * Apply reputation penalty
+   */
+  applyPenalty(penalty: ReputationPenalty): Promise<void>;
+  
+  /**
+   * Get trust relationships
+   */
+  getTrustRelationships(userId: string): Promise<TrustRelationship[]>;
+}
+
+/**
  * Helper function to format reputation data for chain submission
  * @param reputationData Original reputation data
  * @returns Formatted reputation data for chain transaction
  */
 export function formatReputationForChain(reputationData: any): ReputationTransactionData {
-  // Implementation would depend on your existing reputation data structure
-  // This is a placeholder that would be filled with actual mapping logic
   return {
     userId: reputationData.userId,
     totalRecommendations: reputationData.totalRecommendations || 0,
@@ -322,6 +662,31 @@ export function formatSocialActionForChain(actionData: any): SocialActionTransac
 }
 
 /**
+ * Calculate trust weight between users
+ * @param trustor User doing the trusting
+ * @param trustee User being trusted
+ * @param socialDistance Social distance (1 = direct, 2 = friend-of-friend)
+ * @returns Trust weight (0-1)
+ */
+export function calculateTrustWeight(
+  trustor: UserReputation, 
+  trustee: UserReputation, 
+  socialDistance: number
+): number {
+  // Base weight by social distance
+  let baseWeight = socialDistance === 1 ? 0.75 : 0.25;
+  
+  // Adjust by reputation scores
+  const reputationMultiplier = (trustor.reputation.score + trustee.reputation.score) / 2;
+  
+  // Apply verification bonus
+  const verificationBonus = trustee.verification.level === 'expert' ? 1.2 : 
+                           trustee.verification.level === 'verified' ? 1.1 : 1.0;
+  
+  return Math.min(1.0, baseWeight * reputationMultiplier * verificationBonus);
+}
+
+/**
  * Type guard to check if data is ReputationTransactionData
  */
 export function isReputationTransactionData(data: any): data is ReputationTransactionData {
@@ -340,4 +705,14 @@ export function isTokenTransactionData(data: any): data is TokenTransactionData 
     typeof data.to === 'string' &&
     typeof data.amount === 'number' &&
     typeof data.timestamp === 'number';
+}
+
+/**
+ * Type guard for UserReputation
+ */
+export function isUserReputation(data: any): data is UserReputation {
+  return data &&
+    typeof data.userId === 'string' &&
+    data.reputation &&
+    typeof data.reputation.score === 'number';
 }

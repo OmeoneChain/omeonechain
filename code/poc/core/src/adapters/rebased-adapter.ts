@@ -1,7 +1,7 @@
 // code/poc/core/src/adapters/rebased-adapter.ts
 // Enhanced version with Move contract integration
 
-import { ChainAdapter, Transaction, TransactionResult, StateQuery, EventFilter, Event } from '../types/chain';
+import { ChainAdapter, Transaction, TransactionResult, StateQuery, EventFilter, Event, ChainEvent, NetworkInfo, TokenBalance } from '../type/chain';
 import axios from 'axios';
 import { IotaWallet } from '@iota/wallet';
 import { Ed25519Seed } from '@iota/crypto.js';
@@ -121,7 +121,7 @@ export class RebasedAdapter implements ChainAdapter {
   private nodeUrl: string;
   private apiKey: string;
   private wallet: any;
-  private isConnected: boolean = false;
+  private _isConnected: boolean = false;
   private eventSubscribers: Map<string, Function[]> = new Map();
   private lastCommitNumber: number = 0;
   private config: RebasedConfig;
@@ -152,6 +152,8 @@ export class RebasedAdapter implements ChainAdapter {
       distributeLeaderboardReward: 'reward_distribution::distribute_leaderboard_reward',
       isEligibleForReward: 'reward_distribution::is_eligible_for_reward',
       getPendingRewardInfo: 'reward_distribution::get_pending_reward_info',
+      claimDiscoveryBonus: 'discovery_incentives::claim_discovery_bonus',
+      getActiveCampaigns: 'discovery_incentives::get_active_campaigns',
     },
     governance: {
       createProposal: 'governance::create_proposal',
@@ -164,6 +166,10 @@ export class RebasedAdapter implements ChainAdapter {
       updateUserReputation: 'reputation::update_user_reputation',
       getSocialWeight: 'reputation::get_social_weight',
       calculateTrustScore: 'reputation::calculate_trust_score',
+      submitCommunityVerification: 'reputation::submit_community_verification',
+      addSocialConnection: 'reputation::add_social_connection',
+      removeSocialConnection: 'reputation::remove_social_connection',
+      getUserReputation: 'reputation::get_user_reputation',
     },
   };
   
@@ -221,6 +227,348 @@ export class RebasedAdapter implements ChainAdapter {
     this.initializeClient();
   }
 
+  // ========== FIXED CHAINADAPTER INTERFACE METHODS ==========
+
+  /**
+   * FIXED: isConnected should return Promise<boolean>, not boolean
+   */
+  async isConnected(): Promise<boolean> {
+    return this._isConnected && this.client !== null;
+  }
+
+  /**
+   * FIXED: connect should return Promise<boolean>, not Promise<void>
+   */
+  async connect(options?: Record<string, any>): Promise<boolean> {
+    try {
+      const nodeInfo = await this.client.getNodeInfo();
+      
+      console.log(`Connected to IOTA Rebased ${this.config.network} node:`, nodeInfo.version);
+      console.log(`Network: ${nodeInfo.network}`);
+      
+      this.currentChainId = nodeInfo.network || `rebased-${this.config.network}`;
+      this.pollForEvents();
+      this._isConnected = true;
+      return true;
+    } catch (error) {
+      console.error('Failed to connect to IOTA Rebased node:', error);
+      this._isConnected = false;
+      return false;
+    }
+  }
+
+  /**
+   * ADDED: Missing store method required by ChainAdapter
+   */
+  async store(key: string, value: any): Promise<void> {
+    try {
+      // Store data using IPFS or other off-chain storage
+      const serializedValue = JSON.stringify(value);
+      
+      // For now, use a simple in-memory storage approach
+      // In production, this would integrate with IPFS
+      const storageResult = await this.callMoveFunction('token', 'storeData', [
+        key,
+        this.stringToBytes(serializedValue)
+      ]);
+      
+      if (!storageResult.success) {
+        throw new Error(storageResult.error || 'Failed to store data');
+      }
+    } catch (error) {
+      console.error('Error storing data:', error);
+      throw new Error(`Failed to store data for key ${key}: ${error}`);
+    }
+  }
+
+  /**
+   * ADDED: Missing retrieve method required by ChainAdapter
+   */
+  async retrieve(key: string): Promise<any> {
+    try {
+      // Retrieve data from IPFS or other off-chain storage
+      const retrievalResult = await this.callMoveFunction('token', 'retrieveData', [key]);
+      
+      if (retrievalResult.success && retrievalResult.result) {
+        try {
+          return JSON.parse(retrievalResult.result);
+        } catch (parseError) {
+          // If not JSON, return as string
+          return retrievalResult.result;
+        }
+      }
+      
+      throw new Error('Data not found');
+    } catch (error) {
+      console.error('Error retrieving data:', error);
+      throw new Error(`Failed to retrieve data for key ${key}: ${error}`);
+    }
+  }
+
+  /**
+   * ADDED: Missing submitActionForReward method required by ChainAdapter
+   */
+  async submitActionForReward(userId: string, actionData: any): Promise<TransactionResult> {
+    try {
+      const actionId = actionData.actionId || crypto.randomUUID();
+      const actionType = actionData.actionType || 1;
+      
+      const result = await this.submitRecommendationForReward(userId, actionId, actionType);
+      
+      return {
+        id: result.result?.transaction_id || crypto.randomUUID(),
+        status: result.success ? 'confirmed' : 'failed',
+        timestamp: new Date().toISOString(),
+        commitNumber: result.result?.commit_number,
+        objectId: result.result?.object_id,
+        gasUsed: result.gasUsed,
+        events: result.events,
+        details: result.result,
+        error: result.success ? undefined : result.error
+      };
+    } catch (error) {
+      console.error('Error submitting action for reward:', error);
+      return {
+        id: '',
+        status: 'failed',
+        timestamp: new Date().toISOString(),
+        error: (error as Error).message
+      };
+    }
+  }
+
+  /**
+   * FIXED: getBalance to return proper TokenBalance type
+   */
+  async getBalance(address: string): Promise<TokenBalance> {
+    try {
+      // Use existing getUserBalance method if available for this address
+      if (address === this.config.account.address) {
+        const balance = await this.getUserBalance(address);
+        return {
+          confirmed: balance.liquid.toString(),
+          pending: balance.pendingRewards.toString(),
+          value: (balance.liquid + balance.staked).toString(),
+          decimals: 6,
+          symbol: 'TOK'
+        };
+      }
+      
+      // Generic balance query
+      const result = await this.callMoveFunction('token', 'getBalance', [address]);
+      
+      return {
+        confirmed: result.success ? (result.result?.liquid || '0') : '0',
+        pending: result.success ? (result.result?.pending_rewards || '0') : '0',
+        value: result.success ? (result.result?.liquid || '0') : '0',
+        decimals: 6,
+        symbol: 'TOK'
+      };
+    } catch (error) {
+      console.error('Error getting balance:', error);
+      return { 
+        confirmed: '0', 
+        pending: '0', 
+        value: '0', 
+        decimals: 6, 
+        symbol: 'TOK' 
+      };
+    }
+  }
+
+  /**
+   * FIXED: getNetworkInfo to return proper NetworkInfo type
+   */
+  async getNetworkInfo(): Promise<NetworkInfo> {
+    try {
+      if (!this._isConnected) {
+        await this.connect();
+      }
+      
+      const nodeInfo = await this.client.getNodeInfo();
+      const currentCommit = await this.getCurrentCommit();
+      
+      return {
+        chainId: this.currentChainId || this.config.network,
+        networkName: `IOTA Rebased ${this.config.network}`,
+        networkType: this.config.network,
+        blockHeight: currentCommit,
+        latestCheckpoint: currentCommit.toString(),
+        isHealthy: true
+      };
+    } catch (error) {
+      console.error('Error getting network info:', error);
+      return {
+        chainId: this.config.network,
+        networkName: `IOTA Rebased ${this.config.network}`,
+        networkType: this.config.network,
+        blockHeight: 0,
+        latestCheckpoint: '0',
+        isHealthy: false
+      };
+    }
+  }
+
+  /**
+   * FIXED: watchEvents to return proper AsyncIterator<ChainEvent>
+   */
+  async *watchEvents(filter: EventFilter): AsyncIterator<ChainEvent> {
+    if (!this._isConnected) {
+      await this.connect();
+    }
+    
+    if (this.eventIterator) {
+      try {
+        await this.eventIterator.return?.();
+      } catch (error) {
+        console.warn('Error closing previous event iterator:', error);
+      }
+    }
+    
+    const eventQueue: ChainEvent[] = [];
+    let resolveNext: ((value: IteratorResult<ChainEvent>) => void) | null = null;
+    let isActive = true;
+    
+    const unsubscribeFunctions: (() => void)[] = [];
+    
+    for (const eventType of filter.eventTypes) {
+      try {
+        const contractType = this.getContractTypeFromEventType(eventType);
+        const contractAddress = this.getContractAddress(contractType);
+        
+        const unsubscribe = await this.client.watchEvents(
+          contractAddress,
+          eventType,
+          (eventData: any) => {
+            if (!isActive) return;
+            
+            if (filter.fromCommit && eventData.commitNumber < filter.fromCommit) {
+              return;
+            }
+            
+            if (filter.address && eventData.address !== filter.address) {
+              return;
+            }
+            
+            // Convert Event to ChainEvent
+            const chainEvent: ChainEvent = {
+              type: eventType,
+              commitNumber: eventData.commitNumber,
+              timestamp: new Date().toISOString(),
+              address: eventData.address || contractAddress,
+              data: this.deserializeFromMoveVM(eventData.data),
+              transactionId: eventData.transactionId,
+              blockHeight: eventData.commitNumber
+            };
+            
+            if (resolveNext) {
+              const resolver = resolveNext;
+              resolveNext = null;
+              resolver({
+                done: false,
+                value: chainEvent
+              });
+            } else {
+              eventQueue.push(chainEvent);
+            }
+          }
+        );
+        
+        unsubscribeFunctions.push(unsubscribe);
+      } catch (error) {
+        console.error(`Failed to watch events for type ${eventType}:`, error);
+      }
+    }
+    
+    // Create new iterator
+    const iterator: AsyncIterator<ChainEvent> = {
+      next: async (): Promise<IteratorResult<ChainEvent>> => {
+        if (!isActive) {
+          return { done: true, value: undefined };
+        }
+        
+        if (eventQueue.length > 0) {
+          return {
+            done: false,
+            value: eventQueue.shift()!
+          };
+        }
+        
+        return new Promise<IteratorResult<ChainEvent>>(resolve => {
+          resolveNext = resolve;
+        });
+      },
+      
+      return: async (): Promise<IteratorResult<ChainEvent>> => {
+        isActive = false;
+        
+        for (const unsubscribe of unsubscribeFunctions) {
+          unsubscribe();
+        }
+        
+        if (resolveNext) {
+          resolveNext({ done: true, value: undefined });
+          resolveNext = null;
+        }
+        
+        return { done: true, value: undefined };
+      }
+    };
+    
+    this.eventIterator = iterator as any;
+    
+    // Yield events from the iterator
+    try {
+      while (true) {
+        const result = await iterator.next();
+        if (result.done) {
+          break;
+        }
+        yield result.value;
+      }
+    } finally {
+      await iterator.return?.();
+    }
+  }
+
+  /**
+   * FIXED: subscribeToEvents signature to match ChainAdapter interface
+   */
+  subscribeToEvents(eventType: string, callback: (event: ChainEvent) => void): string;
+  subscribeToEvents(filter: EventFilter): AsyncIterator<ChainEvent>;
+  subscribeToEvents(
+    filterOrEventType: EventFilter | string, 
+    callback?: (event: ChainEvent) => void
+  ): string | AsyncIterator<ChainEvent> {
+    if (typeof filterOrEventType === 'string' && callback) {
+      // String + callback overload
+      const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const filter: EventFilter = {
+        eventTypes: [filterOrEventType],
+        fromCommit: undefined,
+        address: undefined
+      };
+      
+      // Start the event watcher in the background
+      (async () => {
+        try {
+          for await (const event of this.watchEvents(filter)) {
+            callback(event);
+          }
+        } catch (error) {
+          console.error(`Event subscription ${subscriptionId} error:`, error);
+        }
+      })();
+      
+      console.log('Event subscription created:', subscriptionId);
+      return subscriptionId;
+    } else {
+      // EventFilter overload
+      return this.watchEvents(filterOrEventType as EventFilter);
+    }
+  }
+
   // ========== Enhanced Move Contract Integration ==========
 
   /**
@@ -241,7 +589,7 @@ export class RebasedAdapter implements ChainAdapter {
       sender?: string;
     } = {}
   ): Promise<MoveCallResult> {
-    if (!this.isConnected) {
+    if (!this._isConnected) {
       await this.connect();
     }
 
@@ -294,7 +642,7 @@ export class RebasedAdapter implements ChainAdapter {
    * Enhanced submitTx with Move contract integration
    */
   async submitTx(tx: OmeoneTransaction): Promise<TransactionResult> {
-    if (!this.isConnected) {
+    if (!this._isConnected) {
       await this.connect();
     }
 
@@ -367,40 +715,6 @@ export class RebasedAdapter implements ChainAdapter {
   }
 
   /**
-   * Subscribe to chain events - ADDED for ChainAdapter compatibility
-   */
-  async subscribeToEvents(eventFilter: any, callback: (event: any) => void): Promise<string> {
-    try {
-      const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Use existing watchEvents method
-      const filter: EventFilter = {
-        eventTypes: eventFilter.eventTypes || ['recommendation_created'],
-        fromCommit: eventFilter.fromCommit,
-        address: eventFilter.address,
-        filter: eventFilter.filter
-      };
-      
-      // Start the event watcher in the background
-      (async () => {
-        try {
-          for await (const event of this.watchEvents(filter)) {
-            callback(event);
-          }
-        } catch (error) {
-          console.error(`Event subscription ${subscriptionId} error:`, error);
-        }
-      })();
-      
-      console.log('Event subscription created:', subscriptionId);
-      return subscriptionId;
-    } catch (error) {
-      console.error('Error subscribing to events:', error);
-      throw new Error(`Failed to subscribe to events: ${error}`);
-    }
-  }
-
-  /**
    * Unsubscribe from chain events - ADDED for ChainAdapter compatibility
    */
   async unsubscribeFromEvents(subscriptionId: string): Promise<void> {
@@ -422,7 +736,7 @@ export class RebasedAdapter implements ChainAdapter {
    */
   async isConnectedToNode(): Promise<boolean> {
     try {
-      return this.isConnected && this.client !== null;
+      return this._isConnected && this.client !== null;
     } catch (error) {
       console.error('Error checking node connection:', error);
       return false;
@@ -486,58 +800,6 @@ export class RebasedAdapter implements ChainAdapter {
         healthy: false, 
         details: { error: `Health check failed: ${error}` }
       };
-    }
-  }
-
-  /**
-   * Get network information - ADDED for ChainAdapter compatibility
-   */
-  async getNetworkInfo(): Promise<{ chainId: string; networkType: string; latestCheckpoint: string }> {
-    try {
-      if (!this.isConnected) {
-        await this.connect();
-      }
-      
-      const nodeInfo = await this.client.getNodeInfo();
-      const currentCommit = await this.getCurrentCommit();
-      
-      return {
-        chainId: this.currentChainId || this.config.network,
-        networkType: this.config.network,
-        latestCheckpoint: currentCommit.toString()
-      };
-    } catch (error) {
-      console.error('Error getting network info:', error);
-      throw new Error(`Failed to get network info: ${error}`);
-    }
-  }
-
-  /**
-   * Get balance - ADDED for ChainAdapter compatibility
-   */
-  async getBalance(address: string, coinType?: string): Promise<{ value: string; decimals: number; symbol: string }> {
-    try {
-      // Use existing getUserBalance method if available for this address
-      if (address === this.config.account.address) {
-        const balance = await this.getUserBalance(address);
-        return {
-          value: (balance.liquid + balance.staked).toString(),
-          decimals: 6, // TOK token decimals
-          symbol: coinType || 'TOK'
-        };
-      }
-      
-      // Generic balance query
-      const result = await this.callMoveFunction('token', 'getBalance', [address]);
-      
-      return {
-        value: result.success ? (result.result?.liquid || '0') : '0',
-        decimals: 6,
-        symbol: coinType || 'TOK'
-      };
-    } catch (error) {
-      console.error('Error getting balance:', error);
-      return { value: '0', decimals: 6, symbol: coinType || 'TOK' };
     }
   }
 
@@ -690,329 +952,192 @@ export class RebasedAdapter implements ChainAdapter {
     ]);
   }
 
-  // ========== Phase 5C Reputation Integration Methods ==========
-
-  /**
-   * Update user reputation on blockchain (Phase 5B integration)
-   */
-  async updateUserReputationOnChain(
-    userId: string,
-    reputationScore: number,
-    verificationLevel: number,
-    socialConnections: Array<{
-      targetId: string;
-      trustWeight: number;
-      connectionType: number;
-    }> = []
-  ): Promise<MoveCallResult> {
-    return await this.callMoveFunction('reputation', 'updateUserReputation', [
-      userId,
-      Math.floor(reputationScore), // Convert to integer
-      verificationLevel, // 0=basic, 1=verified, 2=expert
-      JSON.stringify(socialConnections),
-      this.getCurrentTimestamp()
-    ]);
-  }
-
-  /**
-   * Submit community verification (Phase 5B)
-   */
-  async submitCommunityVerificationOnChain(
-    verifierId: string,
-    targetUserId: string,
-    evidence: string,
-    category: string,
-    verificationHash: string
-  ): Promise<MoveCallResult> {
-    return await this.callMoveFunction('reputation', 'submitCommunityVerification', [
-      verifierId,
-      targetUserId,
-      this.stringToBytes(evidence),
-      this.stringToBytes(category),
-      this.stringToBytes(verificationHash),
-      this.getCurrentTimestamp()
-    ]);
-  }
-
-  /**
-   * Add social connection to blockchain (Phase 5B)
-   */
-  async addSocialConnectionOnChain(
-    followerId: string,
-    followedId: string,
-    trustWeight: number,
-    connectionType: number = 1
-  ): Promise<MoveCallResult> {
-    return await this.callMoveFunction('reputation', 'addSocialConnection', [
-      followerId,
-      followedId,
-      Math.floor(trustWeight * 1000), // Convert 0.75 -> 750
-      connectionType, // 1=direct, 2=friend-of-friend
-      this.getCurrentTimestamp()
-    ]);
-  }
-
-  /**
-   * Remove social connection from blockchain (Phase 5B)
-   */
-  async removeSocialConnectionOnChain(
-    followerId: string,
-    followedId: string
-  ): Promise<MoveCallResult> {
-    return await this.callMoveFunction('reputation', 'removeSocialConnection', [
-      followerId,
-      followedId,
-      this.getCurrentTimestamp()
-    ]);
-  }
-
-  /**
-   * Claim discovery incentive bonus (Phase 5B)
-   */
-  async claimDiscoveryBonusOnChain(
-    userId: string,
-    campaignId: string,
-    recommendationIds: string[]
-  ): Promise<MoveCallResult> {
-    return await this.callMoveFunction('rewards', 'claimDiscoveryBonus', [
-      this.config.contractAddresses.rewards,
-      userId,
-      this.stringToBytes(campaignId),
-      recommendationIds.map(id => this.stringToBytes(id)),
-      this.getCurrentTimestamp()
-    ]);
-  }
-
-  /**
-   * Get user's on-chain reputation data (Phase 5B)
-   */
-  async getOnChainReputationData(userId: string): Promise<{
-    reputationScore: number;
-    verificationLevel: number;
-    socialConnections: number;
-    lastUpdated: string;
-    verificationCount: number;
-  }> {
-    const result = await this.callMoveFunction('reputation', 'getUserReputation', [userId]);
-    
-    if (result.success && result.result) {
-      return {
-        reputationScore: parseInt(result.result.reputation_score || '0') / 100, // Convert from integer
-        verificationLevel: parseInt(result.result.verification_level || '0'),
-        socialConnections: parseInt(result.result.connection_count || '0'),
-        lastUpdated: result.result.last_updated || new Date().toISOString(),
-        verificationCount: parseInt(result.result.verification_count || '0'),
-      };
+  // ========== All other existing methods remain the same ==========
+  
+  async getChainId(): Promise<string> {
+    if (!this._isConnected) {
+      await this.connect();
     }
     
-    return {
-      reputationScore: 0,
-      verificationLevel: 0,
-      socialConnections: 0,
-      lastUpdated: new Date().toISOString(),
-      verificationCount: 0,
+    if (!this.currentChainId) {
+      try {
+        const info = await this.client.getNodeInfo();
+        this.currentChainId = info.network || `rebased-${this.config.network}`;
+      } catch (error) {
+        console.error('Failed to get chain ID:', error);
+        throw new Error('Could not retrieve chain ID');
+      }
+    }
+    
+    return this.currentChainId;
+  }
+
+  async queryState<T>(query: StateQuery): Promise<{
+    results: T[];
+    total: number;
+    pagination?: {
+      offset: number;
+      limit: number;
+      hasMore: boolean;
     };
-  }
-
-  /**
-   * Get active discovery campaigns from blockchain (Phase 5B)
-   */
-  async getActiveDiscoveryCampaignsOnChain(region?: string, category?: string): Promise<Array<{
-    campaignId: string;
-    region: string;
-    category: string;
-    bonusMultiplier: number;
-    targetRecommendations: number;
-    expiresAt: string;
-    minTrustScore: number;
-    bonusPool: number;
-    participantCount: number;
-  }>> {
-    const result = await this.callMoveFunction('rewards', 'getActiveCampaigns', [
-      this.config.contractAddresses.rewards,
-      region || '',
-      category || ''
-    ]);
-    
-    if (result.success && result.result && Array.isArray(result.result)) {
-      return result.result.map((campaign: any) => ({
-        campaignId: campaign.campaign_id || '',
-        region: campaign.region || '',
-        category: campaign.category || '',
-        bonusMultiplier: (parseInt(campaign.bonus_multiplier || '100') / 100), // Convert from integer
-        targetRecommendations: parseInt(campaign.target_recommendations || '0'),
-        expiresAt: campaign.expires_at || '',
-        minTrustScore: (parseInt(campaign.min_trust_score || '25') / 100), // Convert from integer
-        bonusPool: parseInt(campaign.bonus_pool || '0'),
-        participantCount: parseInt(campaign.participant_count || '0'),
-      }));
-    }
-    
-    return [];
-  }
-
-  /**
-   * Calculate trust score between users on blockchain (Phase 5B)
-   */
-  async calculateTrustScoreOnChain(
-    sourceUserId: string,
-    targetUserId: string,
-    maxDepth: number = 2
-  ): Promise<{
-    trustScore: number;
-    directConnection: boolean;
-    shortestPath: number;
-    socialDistance: number;
   }> {
-    const result = await this.callMoveFunction('reputation', 'calculateTrustScore', [
-      sourceUserId,
-      targetUserId,
-      maxDepth.toString()
-    ]);
-    
-    if (result.success && result.result) {
-      return {
-        trustScore: (parseInt(result.result.trust_score || '0') / 1000), // Convert from integer
-        directConnection: result.result.direct_connection || false,
-        shortestPath: parseInt(result.result.shortest_path || '999'),
-        socialDistance: parseInt(result.result.social_distance || '999'),
-      };
+    if (!this._isConnected) {
+      await this.connect();
     }
     
-    return {
-      trustScore: 0,
-      directConnection: false,
-      shortestPath: 999,
-      socialDistance: 999,
-    };
-  }
-
-  /**
-   * Sync reputation data between off-chain and on-chain (Phase 5B)
-   */
-  async syncReputationWithBlockchain(
-    userId: string,
-    offChainData: {
-      reputationScore: number;
-      verificationLevel: string;
-      socialConnections: number;
-    }
-  ): Promise<{
-    synced: boolean;
-    discrepancies: string[];
-    transactionId?: string;
-  }> {
     try {
-      // Get on-chain data
-      const onChainData = await this.getOnChainReputationData(userId);
+      const contractType = this.getContractTypeFromObjectType(query.objectType);
+      const contractAddress = this.getContractAddress(contractType);
       
-      const discrepancies: string[] = [];
-      
-      // Check reputation score (allow 10 point difference for rounding)
-      const scoreDiff = Math.abs(offChainData.reputationScore - (onChainData.reputationScore * 1000));
-      if (scoreDiff > 10) {
-        discrepancies.push(`Reputation score: off-chain ${offChainData.reputationScore}, on-chain ${onChainData.reputationScore * 1000}`);
+      let method = 'get';
+      if (query.filter && query.filter.id) {
+        method = `get_${query.objectType}`;
+      } else {
+        method = `list_${query.objectType}s`;
       }
       
-      // Check verification level
-      const verificationLevelMap = { 'basic': 0, 'verified': 1, 'expert': 2 };
-      const expectedLevel = verificationLevelMap[offChainData.verificationLevel as keyof typeof verificationLevelMap] || 0;
-      if (expectedLevel !== onChainData.verificationLevel) {
-        discrepancies.push(`Verification level: off-chain ${offChainData.verificationLevel}, on-chain ${onChainData.verificationLevel}`);
-      }
+      const args = this.formatQueryArgs(query);
+      const result = await this.client.queryContract(contractAddress, method, args);
       
-      // If discrepancies found, update on-chain
-      if (discrepancies.length > 0) {
-        const updateResult = await this.updateUserReputationOnChain(
-          userId,
-          offChainData.reputationScore,
-          expectedLevel
-        );
-        
-        return {
-          synced: updateResult.success,
-          discrepancies,
-          transactionId: updateResult.result?.transaction_id,
-        };
-      }
+      const items = Array.isArray(result) ? result : [result];
+      const deserializedItems = items.map(item => this.deserializeFromMoveVM(item)) as T[];
+      
+      const pagination = query.pagination ? {
+        offset: query.pagination.offset,
+        limit: query.pagination.limit,
+        hasMore: deserializedItems.length >= query.pagination.limit
+      } : undefined;
       
       return {
-        synced: true,
-        discrepancies: [],
+        results: deserializedItems,
+        total: pagination ? items.length + pagination.offset : items.length,
+        pagination
       };
     } catch (error) {
-      return {
-        synced: false,
-        discrepancies: [`Sync failed: ${(error as Error).message}`],
-      };
+      console.error('Failed to query state:', error);
+      throw new Error(`State query failed: ${(error as Error).message}`);
     }
   }
 
-  /**
-   * Governance Operations
-   */
-  async createGovernanceProposal(
-    proposerAddress: string,
-    title: string,
-    description: string,
-    proposalType: string
-  ): Promise<MoveCallResult> {
-    return await this.callMoveFunction('governance', 'createProposal', [
-      this.config.contractAddresses.governance,
-      proposerAddress,
-      this.stringToBytes(title),
-      this.stringToBytes(description),
-      this.stringToBytes(proposalType),
-      this.getCurrentTimestamp()
-    ]);
-  }
-
-  async voteOnProposal(
-    voterAddress: string,
-    proposalId: string,
-    support: boolean
-  ): Promise<MoveCallResult> {
-    return await this.callMoveFunction('governance', 'vote', [
-      this.config.contractAddresses.governance,
-      voterAddress,
-      this.stringToBytes(proposalId),
-      support.toString(),
-      this.getCurrentTimestamp()
-    ]);
-  }
-
-  /**
-   * System State Queries
-   */
-  async getCurrentRewardRate(): Promise<number> {
-    const result = await this.callMoveFunction('token', 'getCurrentRewardRate', [
-      this.config.contractAddresses.token
-    ]);
-    return result.success ? parseInt(result.result || '1000') : 1000;
-  }
-
-  async getTotalRewardsDistributed(): Promise<number> {
-    const result = await this.callMoveFunction('token', 'getTotalRewardsDistributed', [
-      this.config.contractAddresses.token
-    ]);
-    return result.success ? parseInt(result.result || '0') : 0;
-  }
-
-  async getSystemStats(): Promise<{
-    currentRewardRate: number;
-    totalDistributed: number;
-    activeUsers: number;
-  }> {
-    const [rewardRate, totalDistributed] = await Promise.all([
-      this.getCurrentRewardRate(),
-      this.getTotalRewardsDistributed()
-    ]);
+  async getCurrentCommit(): Promise<number> {
+    if (!this._isConnected) {
+      await this.connect();
+    }
     
-    return {
-      currentRewardRate: rewardRate,
-      totalDistributed,
-      activeUsers: 0, // Would need separate tracking
-    };
+    try {
+      const info = await this.client.getNodeInfo();
+      return info.latestCommitNumber || 0;
+    } catch (error) {
+      console.error('Failed to get current commit number:', error);
+      throw new Error('Could not retrieve current commit number');
+    }
+  }
+
+  async estimateFee(tx: Transaction): Promise<number> {
+    const baseFee = 5;
+    let complexityMultiplier = 1;
+    
+    const txType = this.getTxTypeFromPayload(tx.payload);
+    
+    switch (txType) {
+      case 'createRecommendation':
+        complexityMultiplier = 2;
+        break;
+      case 'submitProposal':
+        complexityMultiplier = 3;
+        break;
+      case 'registerService':
+        complexityMultiplier = 2;
+        break;
+      default:
+        complexityMultiplier = 1;
+    }
+    
+    const payloadSize = JSON.stringify(tx.payload).length;
+    const sizeMultiplier = Math.ceil(payloadSize / 1024);
+    
+    let estimatedFee = baseFee * complexityMultiplier * sizeMultiplier;
+    const maxFee = this.config.options?.maxFeePerTransaction || 50;
+    estimatedFee = Math.min(estimatedFee, maxFee);
+    
+    return estimatedFee;
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.eventIterator) {
+      try {
+        await this.eventIterator.return?.();
+      } catch (error) {
+        console.warn('Error closing event iterator:', error);
+      }
+      this.eventIterator = null;
+    }
+    
+    this._isConnected = false;
+    console.log('Disconnected from IOTA Rebased node');
+  }
+
+  private async initializeWallet(seed: string): Promise<void> {
+    try {
+      const seedBytes = Ed25519Seed.fromMnemonic(seed);
+      
+      this.wallet = new IotaWallet({
+        storagePath: './wallet-database',
+        clientOptions: {
+          nodes: [this.nodeUrl],
+          localPow: true,
+        },
+        secretManager: {
+          stronghold: {
+            password: crypto.randomBytes(32).toString('hex'),
+            snapshotPath: './wallet.stronghold',
+          },
+        },
+      });
+      
+      const account = await this.wallet.createAccount({
+        alias: 'OmeoneChain',
+      });
+      
+      console.log('Wallet initialized successfully');
+      console.log(`Address: ${(await account.addresses())[0].address}`);
+    } catch (error) {
+      console.error('Failed to initialize wallet:', error);
+      throw new Error('Wallet initialization failed');
+    }
+  }
+
+  // Legacy method support
+  public async submitTransaction(transaction: any): Promise<any> {
+    if (!this._isConnected) {
+      await this.connect();
+    }
+    
+    try {
+      const tx: OmeoneTransaction = {
+        sender: transaction.sender,
+        payload: {
+          type: transaction.type,
+          action: transaction.action,
+          data: transaction.data
+        },
+        feeOptions: {
+          maxFee: transaction.fee
+        }
+      };
+      
+      const result = await this.submitTx(tx);
+      
+      return {
+        transactionId: result.id,
+        objectId: result.objectId,
+        commitNumber: result.commitNumber,
+        timestamp: result.timestamp
+      };
+    } catch (error) {
+      console.error('Transaction submission failed:', error);
+      throw new Error(`Failed to submit transaction: ${(error as Error).message}`);
+    }
   }
 
   // ========== Helper Methods ==========
@@ -1162,8 +1287,6 @@ export class RebasedAdapter implements ChainAdapter {
     return Math.floor(Date.now() / 1000).toString(); // Unix timestamp
   }
 
-  // ========== Keep All Existing Methods ==========
-  
   private async initializeClient(): Promise<void> {
     try {
       this.client = {
@@ -1219,319 +1342,6 @@ export class RebasedAdapter implements ChainAdapter {
     } catch (error) {
       console.error('Failed to initialize IOTA Rebased client:', error);
       throw new Error(`RebasedAdapter initialization failed: ${(error as Error).message}`);
-    }
-  }
-
-  async getChainId(): Promise<string> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    if (!this.currentChainId) {
-      try {
-        const info = await this.client.getNodeInfo();
-        this.currentChainId = info.network || `rebased-${this.config.network}`;
-      } catch (error) {
-        console.error('Failed to get chain ID:', error);
-        throw new Error('Could not retrieve chain ID');
-      }
-    }
-    
-    return this.currentChainId;
-  }
-
-  async queryState<T>(query: StateQuery): Promise<{
-    results: T[];
-    total: number;
-    pagination?: {
-      offset: number;
-      limit: number;
-      hasMore: boolean;
-    };
-  }> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    try {
-      const contractType = this.getContractTypeFromObjectType(query.objectType);
-      const contractAddress = this.getContractAddress(contractType);
-      
-      let method = 'get';
-      if (query.filter && query.filter.id) {
-        method = `get_${query.objectType}`;
-      } else {
-        method = `list_${query.objectType}s`;
-      }
-      
-      const args = this.formatQueryArgs(query);
-      const result = await this.client.queryContract(contractAddress, method, args);
-      
-      const items = Array.isArray(result) ? result : [result];
-      const deserializedItems = items.map(item => this.deserializeFromMoveVM(item)) as T[];
-      
-      const pagination = query.pagination ? {
-        offset: query.pagination.offset,
-        limit: query.pagination.limit,
-        hasMore: deserializedItems.length >= query.pagination.limit
-      } : undefined;
-      
-      return {
-        results: deserializedItems,
-        total: pagination ? items.length + pagination.offset : items.length,
-        pagination
-      };
-    } catch (error) {
-      console.error('Failed to query state:', error);
-      throw new Error(`State query failed: ${(error as Error).message}`);
-    }
-  }
-
-  async *watchEvents(filter: EventFilter): AsyncIterator<Event> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    if (this.eventIterator) {
-      try {
-        await this.eventIterator.return?.();
-      } catch (error) {
-        console.warn('Error closing previous event iterator:', error);
-      }
-    }
-    
-    const eventQueue: Event[] = [];
-    let resolveNext: ((value: IteratorResult<Event>) => void) | null = null;
-    let isActive = true;
-    
-    const unsubscribeFunctions: (() => void)[] = [];
-    
-    for (const eventType of filter.eventTypes) {
-      try {
-        const contractType = this.getContractTypeFromEventType(eventType);
-        const contractAddress = this.getContractAddress(contractType);
-        
-        const unsubscribe = await this.client.watchEvents(
-          contractAddress,
-          eventType,
-          (eventData: any) => {
-            if (!isActive) return;
-            
-            if (filter.fromCommit && eventData.commitNumber < filter.fromCommit) {
-              return;
-            }
-            
-            if (filter.address && eventData.address !== filter.address) {
-              return;
-            }
-            
-            if (filter.filter) {
-              for (const key in filter.filter) {
-                if (eventData.data[key] !== filter.filter[key]) {
-                  return;
-                }
-              }
-            }
-            
-            const event: Event = {
-              type: eventType,
-              commitNumber: eventData.commitNumber,
-              timestamp: eventData.timestamp,
-              address: eventData.address || contractAddress,
-              data: this.deserializeFromMoveVM(eventData.data)
-            };
-            
-            if (resolveNext) {
-              const resolver = resolveNext;
-              resolveNext = null;
-              resolver({
-                done: false,
-                value: event
-              });
-            } else {
-              eventQueue.push(event);
-            }
-          }
-        );
-        
-        unsubscribeFunctions.push(unsubscribe);
-      } catch (error) {
-        console.error(`Failed to watch events for type ${eventType}:`, error);
-      }
-    }
-    
-    this.eventIterator = {
-      next: async (): Promise<IteratorResult<Event>> => {
-        if (!isActive) {
-          return { done: true, value: undefined };
-        }
-        
-        if (eventQueue.length > 0) {
-          return {
-            done: false,
-            value: eventQueue.shift()!
-          };
-        }
-        
-        return new Promise<IteratorResult<Event>>(resolve => {
-          resolveNext = resolve;
-        });
-      },
-      
-      return: async (): Promise<IteratorResult<Event>> => {
-        isActive = false;
-        
-        for (const unsubscribe of unsubscribeFunctions) {
-          unsubscribe();
-        }
-        
-        if (resolveNext) {
-          resolveNext({ done: true, value: undefined });
-          resolveNext = null;
-        }
-        
-        return { done: true, value: undefined };
-      }
-    };
-    
-    return this.eventIterator;
-  }
-
-  async getCurrentCommit(): Promise<number> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    try {
-      const info = await this.client.getNodeInfo();
-      return info.latestCommitNumber || 0;
-    } catch (error) {
-      console.error('Failed to get current commit number:', error);
-      throw new Error('Could not retrieve current commit number');
-    }
-  }
-
-  async estimateFee(tx: Transaction): Promise<number> {
-    const baseFee = 5;
-    let complexityMultiplier = 1;
-    
-    const txType = this.getTxTypeFromPayload(tx.payload);
-    
-    switch (txType) {
-      case 'createRecommendation':
-        complexityMultiplier = 2;
-        break;
-      case 'submitProposal':
-        complexityMultiplier = 3;
-        break;
-      case 'registerService':
-        complexityMultiplier = 2;
-        break;
-      default:
-        complexityMultiplier = 1;
-    }
-    
-    const payloadSize = JSON.stringify(tx.payload).length;
-    const sizeMultiplier = Math.ceil(payloadSize / 1024);
-    
-    let estimatedFee = baseFee * complexityMultiplier * sizeMultiplier;
-    const maxFee = this.config.options?.maxFeePerTransaction || 50;
-    estimatedFee = Math.min(estimatedFee, maxFee);
-    
-    return estimatedFee;
-  }
-
-  async connect(options?: Record<string, any>): Promise<void> {
-    try {
-      const nodeInfo = await this.client.getNodeInfo();
-      
-      console.log(`Connected to IOTA Rebased ${this.config.network} node:`, nodeInfo.version);
-      console.log(`Network: ${nodeInfo.network}`);
-      
-      this.currentChainId = nodeInfo.network || `rebased-${this.config.network}`;
-      this.pollForEvents();
-      this.isConnected = true;
-    } catch (error) {
-      console.error('Failed to connect to IOTA Rebased node:', error);
-      this.isConnected = false;
-      throw new Error(`Connection failed: ${(error as Error).message}`);
-    }
-  }
-
-  async disconnect(): Promise<void> {
-    if (this.eventIterator) {
-      try {
-        await this.eventIterator.return?.();
-      } catch (error) {
-        console.warn('Error closing event iterator:', error);
-      }
-      this.eventIterator = null;
-    }
-    
-    this.isConnected = false;
-    console.log('Disconnected from IOTA Rebased node');
-  }
-
-  private async initializeWallet(seed: string): Promise<void> {
-    try {
-      const seedBytes = Ed25519Seed.fromMnemonic(seed);
-      
-      this.wallet = new IotaWallet({
-        storagePath: './wallet-database',
-        clientOptions: {
-          nodes: [this.nodeUrl],
-          localPow: true,
-        },
-        secretManager: {
-          stronghold: {
-            password: crypto.randomBytes(32).toString('hex'),
-            snapshotPath: './wallet.stronghold',
-          },
-        },
-      });
-      
-      const account = await this.wallet.createAccount({
-        alias: 'OmeoneChain',
-      });
-      
-      console.log('Wallet initialized successfully');
-      console.log(`Address: ${(await account.addresses())[0].address}`);
-    } catch (error) {
-      console.error('Failed to initialize wallet:', error);
-      throw new Error('Wallet initialization failed');
-    }
-  }
-
-  // Legacy method support
-  public async submitTransaction(transaction: any): Promise<any> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-    
-    try {
-      const tx: OmeoneTransaction = {
-        sender: transaction.sender,
-        payload: {
-          type: transaction.type,
-          action: transaction.action,
-          data: transaction.data
-        },
-        feeOptions: {
-          maxFee: transaction.fee
-        }
-      };
-      
-      const result = await this.submitTx(tx);
-      
-      return {
-        transactionId: result.id,
-        objectId: result.objectId,
-        commitNumber: result.commitNumber,
-        timestamp: result.timestamp
-      };
-    } catch (error) {
-      console.error('Transaction submission failed:', error);
-      throw new Error(`Failed to submit transaction: ${(error as Error).message}`);
     }
   }
 
@@ -1661,5 +1471,296 @@ export class RebasedAdapter implements ChainAdapter {
   private pollForEvents(): void {
     // Implementation for polling events if needed
     // Your existing implementation here
+  }
+
+  // Add the missing discovery campaign and reputation methods that were in the original
+  async updateUserReputationOnChain(
+    userId: string,
+    reputationScore: number,
+    verificationLevel: number,
+    socialConnections: Array<{
+      targetId: string;
+      trustWeight: number;
+      connectionType: number;
+    }> = []
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('reputation', 'updateUserReputation', [
+      userId,
+      Math.floor(reputationScore), // Convert to integer
+      verificationLevel, // 0=basic, 1=verified, 2=expert
+      JSON.stringify(socialConnections),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async submitCommunityVerificationOnChain(
+    verifierId: string,
+    targetUserId: string,
+    evidence: string,
+    category: string,
+    verificationHash: string
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('reputation', 'submitCommunityVerification', [
+      verifierId,
+      targetUserId,
+      this.stringToBytes(evidence),
+      this.stringToBytes(category),
+      this.stringToBytes(verificationHash),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async addSocialConnectionOnChain(
+    followerId: string,
+    followedId: string,
+    trustWeight: number,
+    connectionType: number = 1
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('reputation', 'addSocialConnection', [
+      followerId,
+      followedId,
+      Math.floor(trustWeight * 1000), // Convert 0.75 -> 750
+      connectionType, // 1=direct, 2=friend-of-friend
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async removeSocialConnectionOnChain(
+    followerId: string,
+    followedId: string
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('reputation', 'removeSocialConnection', [
+      followerId,
+      followedId,
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async claimDiscoveryBonusOnChain(
+    userId: string,
+    campaignId: string,
+    recommendationIds: string[]
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('rewards', 'claimDiscoveryBonus', [
+      this.config.contractAddresses.rewards,
+      userId,
+      this.stringToBytes(campaignId),
+      recommendationIds.map(id => this.stringToBytes(id)),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async getOnChainReputationData(userId: string): Promise<{
+    reputationScore: number;
+    verificationLevel: number;
+    socialConnections: number;
+    lastUpdated: string;
+    verificationCount: number;
+  }> {
+    const result = await this.callMoveFunction('reputation', 'getUserReputation', [userId]);
+    
+    if (result.success && result.result) {
+      return {
+        reputationScore: parseInt(result.result.reputation_score || '0') / 100, // Convert from integer
+        verificationLevel: parseInt(result.result.verification_level || '0'),
+        socialConnections: parseInt(result.result.connection_count || '0'),
+        lastUpdated: result.result.last_updated || new Date().toISOString(),
+        verificationCount: parseInt(result.result.verification_count || '0'),
+      };
+    }
+    
+    return {
+      reputationScore: 0,
+      verificationLevel: 0,
+      socialConnections: 0,
+      lastUpdated: new Date().toISOString(),
+      verificationCount: 0,
+    };
+  }
+
+  async getActiveDiscoveryCampaignsOnChain(region?: string, category?: string): Promise<Array<{
+    campaignId: string;
+    region: string;
+    category: string;
+    bonusMultiplier: number;
+    targetRecommendations: number;
+    expiresAt: string;
+    minTrustScore: number;
+    bonusPool: number;
+    participantCount: number;
+  }>> {
+    const result = await this.callMoveFunction('rewards', 'getActiveCampaigns', [
+      this.config.contractAddresses.rewards,
+      region || '',
+      category || ''
+    ]);
+    
+    if (result.success && result.result && Array.isArray(result.result)) {
+      return result.result.map((campaign: any) => ({
+        campaignId: campaign.campaign_id || '',
+        region: campaign.region || '',
+        category: campaign.category || '',
+        bonusMultiplier: (parseInt(campaign.bonus_multiplier || '100') / 100), // Convert from integer
+        targetRecommendations: parseInt(campaign.target_recommendations || '0'),
+        expiresAt: campaign.expires_at || '',
+        minTrustScore: (parseInt(campaign.min_trust_score || '25') / 100), // Convert from integer
+        bonusPool: parseInt(campaign.bonus_pool || '0'),
+        participantCount: parseInt(campaign.participant_count || '0'),
+      }));
+    }
+    
+    return [];
+  }
+
+  async calculateTrustScoreOnChain(
+    sourceUserId: string,
+    targetUserId: string,
+    maxDepth: number = 2
+  ): Promise<{
+    trustScore: number;
+    directConnection: boolean;
+    shortestPath: number;
+    socialDistance: number;
+  }> {
+    const result = await this.callMoveFunction('reputation', 'calculateTrustScore', [
+      sourceUserId,
+      targetUserId,
+      maxDepth.toString()
+    ]);
+    
+    if (result.success && result.result) {
+      return {
+        trustScore: (parseInt(result.result.trust_score || '0') / 1000), // Convert from integer
+        directConnection: result.result.direct_connection || false,
+        shortestPath: parseInt(result.result.shortest_path || '999'),
+        socialDistance: parseInt(result.result.social_distance || '999'),
+      };
+    }
+    
+    return {
+      trustScore: 0,
+      directConnection: false,
+      shortestPath: 999,
+      socialDistance: 999,
+    };
+  }
+
+  async syncReputationWithBlockchain(
+    userId: string,
+    offChainData: {
+      reputationScore: number;
+      verificationLevel: string;
+      socialConnections: number;
+    }
+  ): Promise<{
+    synced: boolean;
+    discrepancies: string[];
+    transactionId?: string;
+  }> {
+    try {
+      // Get on-chain data
+      const onChainData = await this.getOnChainReputationData(userId);
+      
+      const discrepancies: string[] = [];
+      
+      // Check reputation score (allow 10 point difference for rounding)
+      const scoreDiff = Math.abs(offChainData.reputationScore - (onChainData.reputationScore * 1000));
+      if (scoreDiff > 10) {
+        discrepancies.push(`Reputation score: off-chain ${offChainData.reputationScore}, on-chain ${onChainData.reputationScore * 1000}`);
+      }
+      
+      // Check verification level
+      const verificationLevelMap = { 'basic': 0, 'verified': 1, 'expert': 2 };
+      const expectedLevel = verificationLevelMap[offChainData.verificationLevel as keyof typeof verificationLevelMap] || 0;
+      if (expectedLevel !== onChainData.verificationLevel) {
+        discrepancies.push(`Verification level: off-chain ${offChainData.verificationLevel}, on-chain ${onChainData.verificationLevel}`);
+      }
+      
+      // If discrepancies found, update on-chain
+      if (discrepancies.length > 0) {
+        const updateResult = await this.updateUserReputationOnChain(
+          userId,
+          offChainData.reputationScore,
+          expectedLevel
+        );
+        
+        return {
+          synced: updateResult.success,
+          discrepancies,
+          transactionId: updateResult.result?.transaction_id,
+        };
+      }
+      
+      return {
+        synced: true,
+        discrepancies: [],
+      };
+    } catch (error) {
+      return {
+        synced: false,
+        discrepancies: [`Sync failed: ${(error as Error).message}`],
+      };
+    }
+  }
+
+  async createGovernanceProposal(
+    proposerAddress: string,
+    title: string,
+    description: string,
+    proposalType: string
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('governance', 'createProposal', [
+      this.config.contractAddresses.governance,
+      proposerAddress,
+      this.stringToBytes(title),
+      this.stringToBytes(description),
+      this.stringToBytes(proposalType),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async voteOnProposal(
+    voterAddress: string,
+    proposalId: string,
+    support: boolean
+  ): Promise<MoveCallResult> {
+    return await this.callMoveFunction('governance', 'vote', [
+      this.config.contractAddresses.governance,
+      voterAddress,
+      this.stringToBytes(proposalId),
+      support.toString(),
+      this.getCurrentTimestamp()
+    ]);
+  }
+
+  async getCurrentRewardRate(): Promise<number> {
+    const result = await this.callMoveFunction('token', 'getCurrentRewardRate', [
+      this.config.contractAddresses.token
+    ]);
+    return result.success ? parseInt(result.result || '1000') : 1000;
+  }
+
+  async getTotalRewardsDistributed(): Promise<number> {
+    const result = await this.callMoveFunction('token', 'getTotalRewardsDistributed', [
+      this.config.contractAddresses.token
+    ]);
+    return result.success ? parseInt(result.result || '0') : 0;
+  }
+
+  async getSystemStats(): Promise<{
+    currentRewardRate: number;
+    totalDistributed: number;
+    activeUsers: number;
+  }> {
+    const [rewardRate, totalDistributed] = await Promise.all([
+      this.getCurrentRewardRate(),
+      this.getTotalRewardsDistributed()
+    ]);
+    
+    return {
+      currentRewardRate: rewardRate,
+      totalDistributed,
+      activeUsers: 0, // Would need separate tracking
+    };
   }
 }

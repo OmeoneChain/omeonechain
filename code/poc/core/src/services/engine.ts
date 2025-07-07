@@ -6,7 +6,7 @@
  */
 
 // Updated imports to use new adapter structure
-import { ChainAdapter, ChainTransaction } from '../types/chain';
+import { ChainAdapter, ChainTransaction } from '../type/chain';
 import { StorageProvider } from '../storage/storage-provider';
 import { 
   Service, 
@@ -14,8 +14,8 @@ import {
   ServiceLocation,
   VerificationStatus,
   ServiceExperience
-} from '../types/service';
-import { Result } from '../types/common';
+} from '../type/service';
+import { Result } from '../type/common';
 import { v4 as uuidv4 } from 'uuid';
 
 /**

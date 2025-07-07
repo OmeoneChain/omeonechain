@@ -98,7 +98,7 @@ export interface ChainEvent {
     timestamp: string;
 }
 /**
- * Legacy Transaction type (used by existing MockAdapter)
+ * Transaction for submission to chain
  */
 export interface Transaction {
     id?: string;
@@ -111,18 +111,24 @@ export interface Transaction {
     options?: any;
 }
 /**
- * Legacy TransactionResult type
+ * Result of transaction submission
  */
 export interface TransactionResult {
-    id: string;
+    id?: string;
     status: string;
     timestamp: string;
-    commitNumber: number;
+    commitNumber?: number;
     objectId?: string;
     details?: any;
+    success: boolean;
+    data?: {
+        hash?: string;
+        transactionHash?: string;
+        [key: string]: any;
+    };
 }
 /**
- * Legacy StateQuery type
+ * Query for blockchain state
  */
 export interface StateQuery {
     objectType: string;
@@ -137,7 +143,19 @@ export interface StateQuery {
     };
 }
 /**
- * Legacy EventFilter type
+ * Query result structure
+ */
+export interface QueryResult<T = any> {
+    results: T[];
+    total: number;
+    pagination?: {
+        offset: number;
+        limit: number;
+        hasMore: boolean;
+    };
+}
+/**
+ * Filter for blockchain events
  */
 export interface EventFilter {
     eventTypes: string[];
@@ -145,7 +163,7 @@ export interface EventFilter {
     fromCommit?: number;
 }
 /**
- * Legacy Event type
+ * Blockchain event
  */
 export interface Event {
     type: string;
@@ -155,93 +173,134 @@ export interface Event {
     data: any;
 }
 /**
+ * Network information
+ */
+export interface NetworkInfo {
+    chainId: string;
+    networkName: string;
+    blockHeight: number;
+    isHealthy: boolean;
+}
+/**
+ * Token balance information
+ */
+export interface TokenBalance {
+    confirmed: number;
+    pending: number;
+}
+/**
+ * Object query for chain operations
+ */
+export interface ObjectQuery {
+    objectType: string;
+    filters?: any;
+    pagination?: {
+        limit: number;
+        offset: number;
+    };
+}
+/**
  * ChainAdapter interface defines methods for interacting with a chain
- * Implementations include RebasedAdapter, EVMAdapter, and MockAdapter
+ * FIXED: Unified interface that engines expect with consistent method signatures
  */
 export interface ChainAdapter {
     /**
      * Connect to the chain
-     * @returns Success status (updated to return boolean for compatibility)
      */
-    connect(): Promise<boolean | void>;
+    connect(): Promise<boolean>;
     /**
      * Disconnect from the chain
      */
     disconnect(): Promise<void>;
     /**
-     * Submit a transaction to the chain (NEW FORMAT - used by GovernanceEngine)
-     * @param transaction Transaction to submit
-     * @returns Transaction ID
+     * Check if connected to chain
      */
-    submitTransaction(transaction: Partial<ChainTransaction>): Promise<string>;
+    isConnected(): Promise<boolean>;
     /**
-     * Query the current state of an object
-     * @param objectType Type of object to query
-     * @param objectId ID of the object
-     * @returns Current state of the object
+     * Check connection to node
      */
-    queryState(objectType: string, objectId: string): Promise<ChainState>;
+    isConnectedToNode(): Promise<boolean>;
     /**
-     * Query objects by type with optional filters (OVERLOADED for compatibility)
+     * Submit a transaction to the chain
+     * FIXED: Single signature that engines expect
+     */
+    submitTransaction(transaction: ChainTransaction | Transaction | Partial<ChainTransaction>): Promise<TransactionResult>;
+    /**
+     * Query objects by type with filters
+     * FIXED: Method signature that engines expect
      */
     queryObjects(objectType: string, filters?: any, pagination?: {
         limit: number;
         offset: number;
     }): Promise<ChainState[]>;
     /**
-     * Subscribe to events of a specific type
-     * @param eventType Type of events to subscribe to
-     * @param callback Function to call when events occur
-     * @returns Subscription ID
+     * Query state with structured query
+     * FIXED: Single signature with generic support
+     */
+    queryState<T = any>(query: StateQuery): Promise<QueryResult<T>>;
+    /**
+     * Store data on chain
+     * FIXED: Added method that engines expect
+     */
+    store(key: string, value: any): Promise<string>;
+    /**
+     * Retrieve data from chain
+     * FIXED: Added method that engines expect
+     */
+    retrieve(key: string): Promise<any>;
+    /**
+     * Watch for events matching filter
+     */
+    watchEvents(filter: EventFilter): AsyncIterator<ChainEvent>;
+    /**
+     * Subscribe to events (legacy compatibility)
      */
     subscribeToEvents(eventType: string, callback: (event: ChainEvent) => void): string;
+    subscribeToEvents(filter: EventFilter): AsyncIterator<ChainEvent>;
     /**
      * Unsubscribe from events
-     * @param subscriptionId ID of the subscription to cancel
      */
     unsubscribeFromEvents(subscriptionId: string): void;
     /**
-     * Check connection status
-     * @returns Whether connected to the chain
-     */
-    isConnectedToNode(): boolean;
-    /**
-     * Get the wallet address
-     * @returns Wallet address
+     * Get wallet address
      */
     getWalletAddress(): Promise<string>;
     /**
-     * Legacy: Get chain ID
+     * Get user balance
      */
-    getChainId?(): Promise<string>;
+    getBalance(address: string): Promise<TokenBalance>;
     /**
-     * Legacy: Submit transaction (old format)
+     * Get user trust score
      */
-    submitTx?(tx: Transaction): Promise<TransactionResult>;
+    getUserTrustScore(address: string): Promise<number>;
     /**
-     * Legacy: Query state with different signature
+     * Get user reputation score
      */
-    queryState?<T>(query: StateQuery): Promise<{
-        results: T[];
-        total: number;
-        pagination?: {
-            offset: number;
-            limit: number;
-            hasMore: boolean;
-        };
-    }>;
+    getUserReputationScore(address: string): Promise<any>;
     /**
-     * Legacy: Watch events
+     * Submit action for reward
      */
-    watchEvents?(filter: EventFilter): AsyncIterator<Event>;
+    submitActionForReward(userId: string, action: string, metadata?: any): Promise<TransactionResult>;
     /**
-     * Legacy: Get current commit
+     * Claim user rewards
      */
-    getCurrentCommit?(): Promise<number>;
+    claimUserRewards(userId: string): Promise<TransactionResult>;
     /**
-     * Legacy: Estimate fee
+     * Get network information
      */
-    estimateFee?(tx: Transaction): Promise<number>;
+    getNetworkInfo(): Promise<NetworkInfo>;
+    /**
+     * Get chain ID
+     */
+    getChainId(): Promise<string>;
+    /**
+     * Get current commit number
+     */
+    getCurrentCommit(): Promise<number>;
+    /**
+     * Estimate transaction fee
+     */
+    estimateFee(tx: Transaction): Promise<number>;
 }
 /**
  * Transaction types used throughout the system
@@ -255,3 +314,42 @@ export type ObjectType = 'recommendation' | 'user_profile' | 'service' | 'govern
  * Event types emitted by the chain
  */
 export type EventType = 'recommendation_created' | 'vote_cast' | 'reputation_updated' | 'token_transferred' | 'governance_stake_created' | 'governance_proposal_created' | 'governance_vote_cast';
+/**
+ * IOTA Rebased adapter configuration
+ */
+export interface RebasedConfig {
+    network: 'mainnet' | 'testnet' | 'devnet';
+    nodeUrl?: string;
+    account?: {
+        address: string;
+        privateKey: string;
+    };
+}
+/**
+ * EVM adapter configuration
+ */
+export interface EVMConfig {
+    chainId: number;
+    rpcUrl: string;
+    contractAddresses: {
+        recommendation: string;
+        reputation: string;
+        token: string;
+        governance: string;
+    };
+    account: {
+        address: string;
+        privateKey: string;
+    };
+}
+/**
+ * Chain adapter types
+ */
+export declare enum AdapterType {
+    REBASED = "rebased",
+    EVM = "evm"
+}
+/**
+ * Union type for adapter configurations
+ */
+export type AdapterConfig = RebasedConfig | EVMConfig;

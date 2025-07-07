@@ -4,7 +4,7 @@ import { TokenEngine } from '../token/engine';
 import { ReputationEngine } from '../reputation/engine';
 import { RecommendationEngine } from '../recommendation/engine';
 export interface BlockchainConfig {
-    mode: 'mock' | 'rebased';
+    mode: 'rebased' | 'evm';
     rebased?: RebasedConfig;
     autoSync?: boolean;
     syncInterval?: number;
@@ -29,8 +29,8 @@ export interface RewardStatus {
 }
 /**
  * Blockchain Integration Service
+ * UPDATED: Aligned with Phase 2B interface fixes - blockchain-first approach
  * Coordinates between existing OmeoneChain engines and blockchain adapters
- * Provides seamless migration from MockAdapter to RebasedAdapter
  */
 export declare class BlockchainIntegrationService {
     private adapter;

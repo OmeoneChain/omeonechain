@@ -4,9 +4,9 @@
  * Core business logic for managing service entities and experiences
  * Based on Technical Specifications A.3.4
  */
-import { ChainAdapter } from '../types/chain';
+import { ChainAdapter } from '../type/chain';
 import { StorageProvider } from '../storage/storage-provider';
-import { Service, ServiceFilter, ServiceExperience } from '../types/service';
+import { Service, ServiceFilter, ServiceExperience } from '../type/service';
 /**
  * Options for the service engine
  */

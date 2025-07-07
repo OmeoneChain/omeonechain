@@ -4,9 +4,9 @@
  * Core business logic for managing user reputation and trust scores
  * Based on Technical Specifications A.3.3
  */
-import { ChainAdapter } from '../types/chain';
-import { UserReputation, ReputationFilter, UserRelationship, TrustScoreParams } from '../types/reputation';
-import { RecommendationAction } from '../types/recommendation';
+import { ChainAdapter } from '../type/chain';
+import { UserReputation, ReputationFilter, UserRelationship, TrustScoreParams } from '../type/reputation';
+import { RecommendationAction } from '../type/recommendation';
 /**
  * Options for the reputation engine
  */

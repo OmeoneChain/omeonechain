@@ -20,10 +20,10 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 // Export types
-__exportStar(require("./types/recommendation"), exports);
-__exportStar(require("./types/reputation"), exports);
-__exportStar(require("./types/token"), exports);
-__exportStar(require("./types/service"), exports);
+__exportStar(require("./type/recommendation"), exports);
+__exportStar(require("./type/reputation"), exports);
+__exportStar(require("./type/token"), exports);
+__exportStar(require("./type/service"), exports);
 // Export adapters
 __exportStar(require("./adapters/chain-adapter"), exports);
 __exportStar(require("./adapters/mock-adapter"), exports);

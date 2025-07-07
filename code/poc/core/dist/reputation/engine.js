@@ -8,8 +8,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReputationEngine = void 0;
 const reputation_adapters_1 = require("../adapters/types/reputation-adapters");
-const reputation_1 = require("../types/reputation");
-const recommendation_1 = require("../types/recommendation");
+const reputation_1 = require("../type/reputation");
+const recommendation_1 = require("../type/recommendation");
 /**
  * Default trust score parameters
  */
