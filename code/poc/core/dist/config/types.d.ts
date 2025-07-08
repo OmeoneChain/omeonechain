@@ -1,4 +1,7 @@
-export type { NetworkConfig, ContractAddresses, NetworkEnvironment, EnvironmentName, EnvironmentStatus, } from './network-config.js';
+type EnvironmentName = string;
+type EnvironmentStatus = string;
+export type { NetworkConfig, ContractAddresses, NetworkEnvironment, } from './network-config.js';
+export type { EnvironmentName, EnvironmentStatus };
 export type { ContractMetadata, DeploymentInfo, } from './contract-registry.js';
 export interface ConfigurationState {
     environment: EnvironmentName;

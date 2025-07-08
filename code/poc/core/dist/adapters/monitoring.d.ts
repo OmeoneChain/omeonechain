@@ -118,7 +118,7 @@ export declare class AdapterMonitoring {
             environment: string;
             alerts: MonitoringAlert[];
             metrics: HealthMetrics[];
-            summary: ReturnType<typeof this.getMetricsSummary>;
+            summary: any;
         };
     };
     /**

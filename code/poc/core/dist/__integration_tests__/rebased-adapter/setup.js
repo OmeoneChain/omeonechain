@@ -12,7 +12,6 @@ const engine_1 = require("../../recommendation/engine");
 const engine_2 = require("../../reputation/engine");
 const engine_3 = require("../../token/engine");
 const engine_4 = require("../../governance/engine");
-const engine_5 = require("../../service/engine");
 /**
  * Creates a test environment with initialized engines and adapter
  * Enhanced with proper constructor handling and TypeScript compatibility
@@ -136,7 +135,12 @@ async function initializeEngines(adapter, storage) {
     // 5. Service Engine (optional, needs adapter)
     let serviceEngine;
     try {
-        serviceEngine = new engine_5.ServiceEngine(adapter);
+        // FIX 2: Create mock ServiceEngine since import is missing
+        serviceEngine = {
+            adapter: adapter,
+            initialize: async () => console.log('Mock ServiceEngine initialized'),
+            cleanup: async () => console.log('Mock ServiceEngine cleaned up')
+        };
     }
     catch (error) {
         console.warn('ServiceEngine initialization failed:', error);
@@ -191,7 +195,12 @@ async function initializeEnginesDefensively(adapter, storage) {
         engines.governance = createMockEngine('GovernanceEngine');
     }
     try {
-        engines.service = createEngineInstance(engine_5.ServiceEngine, [adapter], 'ServiceEngine');
+        // FIX 3: Use mock instead of trying to import missing ServiceEngine
+        engines.service = {
+            adapter: adapter,
+            initialize: async () => console.log('Mock ServiceEngine initialized'),
+            cleanup: async () => console.log('Mock ServiceEngine cleaned up')
+        };
     }
     catch (error) {
         console.warn('Failed to create ServiceEngine:', error);

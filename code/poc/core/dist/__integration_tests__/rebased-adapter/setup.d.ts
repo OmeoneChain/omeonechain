@@ -3,7 +3,7 @@ import { RecommendationEngine } from '../../recommendation/engine';
 import { ReputationEngine } from '../../reputation/engine';
 import { TokenEngine } from '../../token/engine';
 import { GovernanceEngine } from '../../governance/engine';
-import { ServiceEngine } from '../../service/engine';
+type ServiceEngine = any;
 export interface TestSetup {
     adapter: RebasedAdapter;
     engines: {
@@ -59,3 +59,4 @@ export declare function createTestData(): {
  * Legacy function for backward compatibility
  */
 export declare function setupTestEnvironmentLegacy(): Promise<TestSetup>;
+export {};

@@ -11,8 +11,6 @@ var rebased_adapter_1 = require("./rebased-adapter");
 Object.defineProperty(exports, "RebasedAdapter", { enumerable: true, get: function () { return rebased_adapter_1.RebasedAdapter; } });
 var evm_adapter_1 = require("./evm-adapter");
 Object.defineProperty(exports, "EVMAdapter", { enumerable: true, get: function () { return evm_adapter_1.EVMAdapter; } });
-var mock_adapter_1 = require("./mock-adapter");
-Object.defineProperty(exports, "MockAdapter", { enumerable: true, get: function () { return mock_adapter_1.MockAdapter; } });
 // Export adapter factory
 var adapter_factory_1 = require("./adapter-factory");
 Object.defineProperty(exports, "AdapterFactory", { enumerable: true, get: function () { return adapter_factory_1.AdapterFactory; } });

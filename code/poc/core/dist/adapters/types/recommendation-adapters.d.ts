@@ -23,4 +23,3 @@ export interface ReputationUpdateData {
 }
 export declare function toTransactionData(type: 'recommendation' | 'vote' | 'reputation_update', data: RecommendationTransactionData | VoteTransactionData | ReputationUpdateData): ChainTransaction;
 export declare function getActionDetail(transaction: ChainTransaction): string;
-export type { RecommendationTransactionData, VoteTransactionData, ReputationUpdateData };

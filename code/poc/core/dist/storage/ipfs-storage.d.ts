@@ -149,11 +149,12 @@ export declare class IPFSStorage implements StorageProvider {
     getGatewayUrl(cid: string): string;
     /**
      * Store data and return result with error handling
+     * Conservative fix: Match StorageProvider interface signature
      *
      * @param data Data to store
-     * @returns Storage result
+     * @returns Storage result as string (CID)
      */
-    store(data: any): Promise<IpfsStorageResult>;
+    store(data: any): Promise<string>;
     /**
      * Retrieve data with error handling
      *
@@ -190,16 +191,45 @@ export declare class IPFSStorage implements StorageProvider {
     static createHash(data: any): Promise<string>;
     /**
      * Check if client is connected
+     * Conservative fix: Match StorageProvider interface signature (async)
      *
-     * @returns Connection status
+     * @returns Connection status as Promise
      */
-    isConnected(): boolean;
+    isConnected(): Promise<boolean>;
     /**
      * Get current options
      *
      * @returns Current IPFS options
      */
     getOptions(): IPFSStorageOptions;
+    /**
+     * Conservative fix: Add missing StorageProvider interface methods
+     */
+    /**
+     * Store data with result metadata
+     * @param key Storage key
+     * @param value Data to store
+     * @returns Storage result with metadata
+     */
+    storeWithResult(key: string, value: any): Promise<any>;
+    /**
+     * Retrieve data with metadata
+     * @param key Storage key/CID
+     * @returns Data with metadata
+     */
+    retrieveWithMetadata(key: string): Promise<any>;
+    /**
+     * Check if content exists
+     * @param key Storage key/CID
+     * @returns Existence status
+     */
+    exists(key: string): Promise<boolean>;
+    /**
+     * Get content metadata
+     * @param key Storage key/CID
+     * @returns Metadata
+     */
+    getMetadata(key: string): Promise<any>;
     /**
      * Ensure the client is connected
      *

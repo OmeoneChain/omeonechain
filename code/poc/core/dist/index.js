@@ -19,14 +19,12 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// Export types
-__exportStar(require("./type/recommendation"), exports);
+// Export types (remove duplicate TangleReference exports)
 __exportStar(require("./type/reputation"), exports);
 __exportStar(require("./type/token"), exports);
 __exportStar(require("./type/service"), exports);
-// Export adapters
+// Export adapters (remove non-existent mock-adapter)
 __exportStar(require("./adapters/chain-adapter"), exports);
-__exportStar(require("./adapters/mock-adapter"), exports);
 // Export storage
 __exportStar(require("./storage/storage-provider"), exports);
 __exportStar(require("./storage/ipfs-storage"), exports);

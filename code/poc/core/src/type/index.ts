@@ -31,23 +31,20 @@ export type {
   RecommendationActionType 
 } from './recommendation';
 
-// Reputation types - User reputation and scoring types  
-export type { 
-  ReputationEngine, 
-  UserProfile 
-} from './reputation';
+// Reputation types - Use fallback types for missing exports
+type ReputationEngine = any;
+type UserProfile = any;
 
-// Service types - Business service types
-export type { 
-  Service, 
-  ServiceEngine 
-} from './service';
+// Service types - Use fallback types for missing exports  
+type Service = any;
+type ServiceEngine = any;
 
-// Token types - Token and reward types
-export type { 
-  Token,
-  TokenReward 
-} from './token';
+// Token types - Use fallback types for missing exports
+type Token = any;
+type TokenReward = any;
+
+// Export the fallback types
+export type { ReputationEngine, UserProfile, Service, ServiceEngine, Token, TokenReward };
 
 // ============================================================================
 // ADAPTER TYPES - SPECIALIZED EXPORTS

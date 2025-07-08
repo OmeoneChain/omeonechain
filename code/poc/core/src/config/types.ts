@@ -1,13 +1,18 @@
 // code/poc/core/src/config/types.ts
 
+// Conservative fix: Define fallback types for missing exports
+type EnvironmentName = string;
+type EnvironmentStatus = string;
+
 // Re-export all configuration types for easy importing
 export type {
   NetworkConfig,
   ContractAddresses,
   NetworkEnvironment,
-  EnvironmentName,
-  EnvironmentStatus,
 } from './network-config.js';
+
+// Export our fallback types
+export type { EnvironmentName, EnvironmentStatus };
 
 export type {
   ContractMetadata,

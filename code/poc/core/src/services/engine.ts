@@ -346,7 +346,18 @@ export class ServiceEngine {
       pagination
     };
     
-    return this.queryServices(locationFilter);
+    const result = await this.queryServices(locationFilter);
+    
+    // CONSERVATIVE FIX: Ensure pagination is always defined
+    return {
+      services: result.services,
+      total: result.total,
+      pagination: result.pagination || {
+        offset: pagination.offset,
+        limit: pagination.limit,
+        hasMore: false
+      }
+    };
   }
   
   /**

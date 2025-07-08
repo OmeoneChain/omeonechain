@@ -148,14 +148,18 @@ export declare class RebasedAdapter implements ChainAdapter {
      */
     getNetworkInfo(): Promise<NetworkInfo>;
     /**
-     * FIXED: watchEvents to return proper AsyncIterator<ChainEvent>
+     * FIXED: watchEvents to return proper AsyncGenerator<ChainEvent> instead of AsyncIterator
      */
-    watchEvents(filter: EventFilter): AsyncIterator<ChainEvent>;
+    watchEvents(filter: EventFilter): AsyncGenerator<ChainEvent>;
     /**
      * FIXED: subscribeToEvents signature to match ChainAdapter interface
      */
     subscribeToEvents(eventType: string, callback: (event: ChainEvent) => void): string;
     subscribeToEvents(filter: EventFilter): AsyncIterator<ChainEvent>;
+    /**
+     * FIXED: submitTransaction method required by ChainAdapter interface
+     */
+    submitTransaction(transaction: Transaction): Promise<TransactionResult>;
     /**
      * Call a Move contract function with automatic sponsor wallet handling
      *
@@ -201,7 +205,8 @@ export declare class RebasedAdapter implements ChainAdapter {
      */
     createUserWallet(userAddress: string): Promise<MoveCallResult>;
     stakeTokens(userAddress: string, amount: number, stakeType: number, lockPeriodMonths: number): Promise<MoveCallResult>;
-    claimUserRewards(userAddress: string): Promise<MoveCallResult>;
+    claimRewards(userAddress: string): Promise<MoveCallResult>;
+    claimUserRewards(userId: string): Promise<TransactionResult>;
     getUserBalance(userAddress: string): Promise<{
         liquid: number;
         staked: number;
@@ -238,7 +243,7 @@ export declare class RebasedAdapter implements ChainAdapter {
     estimateFee(tx: Transaction): Promise<number>;
     disconnect(): Promise<void>;
     private initializeWallet;
-    submitTransaction(transaction: any): Promise<any>;
+    submitTransactionLegacy(transaction: any): Promise<any>;
     private routeToMoveContract;
     private handleTokenTransaction;
     private handleRewardTransaction;

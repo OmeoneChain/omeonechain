@@ -21,11 +21,9 @@ exports.getNetworkCapabilities = getNetworkCapabilities;
 exports.performQuickHealthCheck = performQuickHealthCheck;
 exports.initializeConfiguration = initializeConfiguration;
 exports.cleanupConfiguration = cleanupConfiguration;
-// Main configuration exports
+// Main configuration exports - Conservative fix: explicit exports to avoid conflicts
 __exportStar(require("./network-config"), exports);
-__exportStar(require("./environment-manager"), exports);
 __exportStar(require("./contract-registry"), exports);
-__exportStar(require("./types"), exports);
 // Convenience exports for common use cases
 var environment_manager_1 = require("./environment-manager");
 Object.defineProperty(exports, "environmentManager", { enumerable: true, get: function () { return environment_manager_1.environmentManager; } });

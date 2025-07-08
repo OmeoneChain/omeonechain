@@ -54,7 +54,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
      */
     constructor(config, simulateLatency = false, failureRate = 0) {
         super(config);
-        this.isConnected = false;
+        this.isConnectedPrivate = false; // FIX 1: Renamed to avoid base class conflict
         this.eventSubscribers = new Map();
         // Mock data storage
         this.recommendations = new Map();
@@ -110,7 +110,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
      * @returns Transaction result
      */
     async submitTx(tx) {
-        if (!this.isConnected) {
+        if (!this.isConnectedPrivate) {
             throw new Error('Not connected to mock adapter');
         }
         await this.simulateDelay();
@@ -150,7 +150,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
      * @returns Query results
      */
     async queryState(query) {
-        if (!this.isConnected) {
+        if (!this.isConnectedPrivate) {
             throw new Error('Not connected to mock adapter');
         }
         await this.simulateDelay();
@@ -226,7 +226,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
     async *watchEvents(filter) {
         let eventCounter = 0;
         const maxEvents = 10; // Limit for testing
-        while (eventCounter < maxEvents && this.isConnected) {
+        while (eventCounter < maxEvents && this.isConnectedPrivate) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             const eventType = filter.eventTypes[0] || 'test_event';
             yield {
@@ -265,7 +265,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
         this.simulateFailure();
         console.log('Connected to mock adapter v2');
         this.connected = true;
-        this.isConnected = true;
+        this.isConnectedPrivate = true;
     }
     /**
      * Disconnect from the blockchain network
@@ -274,7 +274,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
         await this.simulateDelay();
         this.simulateFailure();
         this.connected = false;
-        this.isConnected = false;
+        this.isConnectedPrivate = false;
         console.log('Disconnected from mock adapter v2');
     }
     // Legacy methods for backward compatibility
@@ -284,7 +284,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
      * @returns Transaction ID and metadata
      */
     async submitTransaction(transaction) {
-        if (!this.isConnected) {
+        if (!this.isConnectedPrivate) {
             throw new Error('Not connected to mock adapter');
         }
         await this.simulateDelay();
@@ -322,7 +322,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
             default:
                 objectId = this.generateObjectId(transaction.type);
         }
-        // Emit event for the transaction
+        // Emit event for the transaction - FIX 2: Using type assertion
         this.emitEvent({
             eventId: `event-${crypto.randomBytes(8).toString('hex')}`,
             eventType: `${transaction.type}_${transaction.action}`,
@@ -470,7 +470,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
      * @returns Current state of the object
      */
     async queryStateById(objectType, objectId) {
-        if (!this.isConnected) {
+        if (!this.isConnectedPrivate) {
             throw new Error('Not connected to mock adapter');
         }
         await this.simulateDelay();
@@ -512,7 +512,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
      * @returns Array of matching objects
      */
     async queryObjects(objectType, filters, pagination) {
-        if (!this.isConnected) {
+        if (!this.isConnectedPrivate) {
             throw new Error('Not connected to mock adapter');
         }
         await this.simulateDelay();
@@ -595,7 +595,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
      * @param event Event to emit
      */
     emitEvent(event) {
-        // Notify subscribers for this event type
+        // Notify subscribers for this event type - FIX: Type assertion for optional eventType
         if (this.eventSubscribers.has(event.eventType)) {
             for (const callback of this.eventSubscribers.get(event.eventType)) {
                 callback(event);
@@ -613,7 +613,7 @@ class MockAdapterV2 extends chain_adapter_1.BaseChainAdapter {
      * @returns Connection status
      */
     isConnectedToNode() {
-        return this.isConnected;
+        return this.isConnectedPrivate;
     }
     /**
      * Get the wallet address

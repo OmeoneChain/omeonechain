@@ -421,11 +421,12 @@ export class IPFSStorage implements StorageProvider {
   
   /**
    * Store data and return result with error handling
+   * Conservative fix: Match StorageProvider interface signature
    * 
    * @param data Data to store
-   * @returns Storage result
+   * @returns Storage result as string (CID)
    */
-  async store(data: any): Promise<IpfsStorageResult> {
+  async store(data: any): Promise<string> {
     try {
       // Convert data to buffer
       const buffer = Buffer.from(JSON.stringify(data), 'utf8');
@@ -436,16 +437,11 @@ export class IPFSStorage implements StorageProvider {
         cidVersion: 1
       });
 
-      return {
-        success: true,
-        cid: result.cid.toString(),
-        size: result.size
-      };
+      // Conservative fix: Return CID string instead of result object
+      return result.cid.toString();
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown IPFS storage error'
-      };
+      // Conservative fix: Return error string instead of result object
+      throw new Error(error instanceof Error ? error.message : 'Unknown IPFS storage error');
     }
   }
 
@@ -550,11 +546,12 @@ export class IPFSStorage implements StorageProvider {
   
   /**
    * Check if client is connected
+   * Conservative fix: Match StorageProvider interface signature (async)
    * 
-   * @returns Connection status
+   * @returns Connection status as Promise
    */
-  isConnected(): boolean {
-    return this.connected && this.client !== null;
+  async isConnected(): Promise<boolean> {
+    return Promise.resolve(this.connected && this.client !== null);
   }
   
   /**
@@ -566,6 +563,61 @@ export class IPFSStorage implements StorageProvider {
     return { ...this.options };
   }
   
+  /**
+   * Conservative fix: Add missing StorageProvider interface methods
+   */
+
+  /**
+   * Store data with result metadata
+   * @param key Storage key
+   * @param value Data to store
+   * @returns Storage result with metadata
+   */
+  async storeWithResult(key: string, value: any): Promise<any> {
+    try {
+      const cid = await this.store(value);
+      return { success: true, key, cid, size: JSON.stringify(value).length };
+    } catch (error) {
+      return { success: false, error: (error as any).message };
+    }
+  }
+
+  /**
+   * Retrieve data with metadata
+   * @param key Storage key/CID
+   * @returns Data with metadata
+   */
+  async retrieveWithMetadata(key: string): Promise<any> {
+    try {
+      const result = await this.retrieve(key);
+      return { ...result, key };
+    } catch (error) {
+      return { success: false, error: (error as any).message };
+    }
+  }
+
+  /**
+   * Check if content exists
+   * @param key Storage key/CID
+   * @returns Existence status
+   */
+  async exists(key: string): Promise<boolean> {
+    return this.fileExists(key);
+  }
+
+  /**
+   * Get content metadata
+   * @param key Storage key/CID
+   * @returns Metadata
+   */
+  async getMetadata(key: string): Promise<any> {
+    try {
+      return await this.getFileMetadata(key);
+    } catch (error) {
+      return { error: (error as any).message };
+    }
+  }
+
   /**
    * Ensure the client is connected
    * 

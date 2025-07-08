@@ -70,6 +70,23 @@ export declare class ProductionRebasedAdapter implements ChainAdapter {
     private updateMetrics;
     private callMoveFunction;
     private queryMoveFunction;
+    getChainId(): Promise<string>;
+    submitTx(tx: any): Promise<TransactionResult>;
+    getCurrentCommit(): Promise<any>;
+    estimateFee(tx: any): Promise<any>;
+    claimUserRewards(userId: string): Promise<any>;
+    store(key: string, value: any): Promise<void>;
+    retrieve(key: string): Promise<any>;
+    queryObjects(query: any): Promise<any>;
+    connect(options?: Record<string, any>): Promise<void>;
+    disconnect(): Promise<void>;
+    healthCheck(): Promise<boolean>;
+    getNetworkInfo(): Promise<{
+        chainId: string;
+        currentCommit: number;
+        networkStatus: "healthy" | "degraded" | "down";
+        lastUpdate: string;
+    }>;
     submitTransaction(txData: any): Promise<TransactionResult>;
     queryState(query: any): Promise<any>;
     watchEvents: any;

@@ -1,4 +1,4 @@
-import { AppConfig } from '../type';
+type AppConfig = any;
 export declare class EnvironmentConfig {
     static load(): AppConfig;
     private static getEnv;
@@ -11,3 +11,4 @@ export declare class EnvironmentConfig {
     static isProduction(): boolean;
     static getPrivateKey(): string | undefined;
 }
+export {};

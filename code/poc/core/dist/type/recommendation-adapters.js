@@ -73,17 +73,20 @@ function formatContentReferences(content) {
     // Generate content hash from available content properties
     let contentText = '';
     if ('text' in content && content.text) {
-        contentText = content.text;
+        // Conservative fix: Type assertion to string
+        contentText = content.text || '';
     }
     else if ('description' in content && content.description) {
-        contentText = content.description;
+        // Conservative fix: Type assertion to string  
+        contentText = content.description || '';
     }
     else if ('title' in content && content.title) {
-        contentText = content.title;
+        contentText = content.title || '';
     }
     return {
+        // Conservative fix: Ensure string return types
         contentCid: contentText ? generateContentHash(contentText) : generateContentHash('empty'),
-        mediaCids: content.media ? content.media.map(media => media.ipfsHash || '') : []
+        mediaCids: content.media ? content.media.map(media => media.ipfsHash || 'fallback-hash') : []
     };
 }
 /**

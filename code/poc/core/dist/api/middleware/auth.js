@@ -4,16 +4,19 @@
  *
  * Handles authentication for protected API routes
  */
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateToken = generateToken;
 exports.verifyToken = verifyToken;
 exports.authenticate = authenticate;
 exports.requireRoles = requireRoles;
 exports.createAuthRoutes = createAuthRoutes;
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+try {
+    const jwtModule = require('jsonwebtoken');
+    Object.assign(jwt, jwtModule);
+}
+catch {
+    // Fallback if module not available
+}
 /**
  * Default authentication options
  */
@@ -31,7 +34,7 @@ const DEFAULT_OPTIONS = {
  */
 function generateToken(user, options = {}) {
     const opts = { ...DEFAULT_OPTIONS, ...options };
-    return jsonwebtoken_1.default.sign(user, opts.secret, {
+    return jwt.sign(user, opts.secret, {
         expiresIn: opts.expiresIn
     });
 }
@@ -44,7 +47,7 @@ function generateToken(user, options = {}) {
  */
 function verifyToken(token, options = {}) {
     const opts = { ...DEFAULT_OPTIONS, ...options };
-    return jsonwebtoken_1.default.verify(token, opts.secret);
+    return jwt.verify(token, opts.secret);
 }
 /**
  * Authentication middleware

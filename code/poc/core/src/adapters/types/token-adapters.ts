@@ -37,13 +37,14 @@ export function formatTokenForChain(data: TokenTransactionData): ChainTransactio
       metadata: data.metadata || {}
     },
     timestamp: new Date().toISOString()
-  };
+  } as any;
 }
 
 // ===================================================================
 
 // File: code/poc/core/src/adapters/types/reputation-adapters.ts
-import { ChainTransaction } from '../../type/chain';
+// Note: Import removed to avoid duplicate identifier error
+type ChainTransactionReputation = any;
 
 export interface ReputationTransactionData {
   userId: string;
@@ -53,7 +54,7 @@ export interface ReputationTransactionData {
   metadata?: Record<string, any>;
 }
 
-export function formatReputationForChain(data: ReputationTransactionData): ChainTransaction {
+export function formatReputationForChain(data: ReputationTransactionData): ChainTransactionReputation {
   return {
     type: 'update_reputation',
     data: {
@@ -64,13 +65,14 @@ export function formatReputationForChain(data: ReputationTransactionData): Chain
       metadata: data.metadata || {}
     },
     timestamp: new Date().toISOString()
-  };
+  } as any;
 }
 
 // ===================================================================
 
 // File: code/poc/core/src/adapters/types/recommendation-adapters.ts
-import { ChainTransaction } from '../../type/chain';
+// Note: Import removed to avoid duplicate identifier error
+type ChainTransactionRecommendation = any;
 
 export interface RecommendationTransactionData {
   id: string;
@@ -81,7 +83,7 @@ export interface RecommendationTransactionData {
   metadata?: Record<string, any>;
 }
 
-export function formatRecommendationForChain(data: RecommendationTransactionData): ChainTransaction {
+export function formatRecommendationForChain(data: RecommendationTransactionData): ChainTransactionRecommendation {
   return {
     type: 'create_recommendation',
     data: {
@@ -93,5 +95,5 @@ export function formatRecommendationForChain(data: RecommendationTransactionData
       metadata: data.metadata || {}
     },
     timestamp: new Date().toISOString()
-  };
+  } as any;
 }

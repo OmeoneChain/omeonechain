@@ -4,15 +4,13 @@
  * Main entry point for the OmeoneChain core functionality
  */
 
-// Export types
-export * from './type/recommendation';
+// Export types (remove duplicate TangleReference exports)
 export * from './type/reputation';
 export * from './type/token';
 export * from './type/service';
 
-// Export adapters
+// Export adapters (remove non-existent mock-adapter)
 export * from './adapters/chain-adapter';
-export * from './adapters/mock-adapter';
 
 // Export storage
 export * from './storage/storage-provider';

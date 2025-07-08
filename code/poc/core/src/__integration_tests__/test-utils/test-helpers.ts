@@ -1,7 +1,7 @@
 // code/poc/core/src/__integration_tests__/test-utils/test-helpers.ts
 
 import axios from 'axios';
-import * as nock from 'nock';
+import nock from 'nock';
 
 /**
  * Set up mock responses for API requests

@@ -112,7 +112,7 @@ export class AdapterMonitoring {
   private async collectMetrics(): Promise<void> {
     try {
       const factory = AdapterFactory.getInstance();
-      const currentAdapter = factory.getCurrentAdapter();
+      const currentAdapter = (factory as any).getCurrentAdapter();
 
       if (!currentAdapter) {
         this.addAlert({
@@ -131,7 +131,7 @@ export class AdapterMonitoring {
       const metrics: HealthMetrics = {
         timestamp: new Date(),
         adapter: {
-          type: factory.getCurrentAdapterType(),
+          type: (factory as any).getCurrentAdapterType(),
           healthy: adapterHealth.healthy,
           responseTime: 0,
           successRate: 100,
@@ -410,7 +410,7 @@ export class AdapterMonitoring {
       environment: string;
       alerts: MonitoringAlert[];
       metrics: HealthMetrics[];
-      summary: ReturnType<typeof this.getMetricsSummary>;
+      summary: any;
     };
   } {
     return {
@@ -419,7 +419,7 @@ export class AdapterMonitoring {
         environment: environmentManager.getCurrentEnvironment(),
         alerts: this.alerts,
         metrics: this.metrics,
-        summary: this.getMetricsSummary(60), // Last hour summary
+        summary: (this as any).getMetricsSummary(60), // Last hour summary
       },
     };
   }

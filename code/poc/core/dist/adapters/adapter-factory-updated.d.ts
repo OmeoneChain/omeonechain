@@ -10,7 +10,7 @@ import { ChainEvent, ChainTransaction, ChainState } from '../type/chain';
  * and implements the ChainAdapter interface properly.
  */
 export declare class MockAdapterV2 extends BaseChainAdapter {
-    private isConnected;
+    private isConnectedPrivate;
     private eventSubscribers;
     private simulateLatency;
     private failureRate;

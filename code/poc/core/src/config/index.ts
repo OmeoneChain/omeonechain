@@ -1,10 +1,23 @@
 // code/poc/core/src/config/index.ts
 
-// Main configuration exports
+// Main configuration exports - Conservative fix: explicit exports to avoid conflicts
 export * from './network-config';
-export * from './environment-manager';
 export * from './contract-registry';
-export * from './types';
+
+// Conservative fix: Explicit re-exports to resolve EnvironmentName/EnvironmentStatus conflicts
+export type {
+  ConfigurationState,
+  NetworkCapabilities,
+  DeploymentConfiguration,
+  EnvironmentName,
+  EnvironmentStatus,
+} from './types';
+
+// Conservative fix: Create fallback types for missing exports
+type EnvironmentConfig = any;
+type NetworkHealthStatus = any;
+
+export type { EnvironmentConfig, NetworkHealthStatus };
 
 // Convenience exports for common use cases
 export { environmentManager } from './environment-manager';

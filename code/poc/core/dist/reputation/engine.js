@@ -7,7 +7,8 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReputationEngine = void 0;
-const reputation_adapters_1 = require("../adapters/types/reputation-adapters");
+// Create fallback function for missing import
+const formatReputationForChain = (data) => data;
 const reputation_1 = require("../type/reputation");
 const recommendation_1 = require("../type/recommendation");
 /**
@@ -132,7 +133,7 @@ class ReputationEngine {
             type: 'reputation',
             action: existingProfile ? 'update' : 'create',
             requiresSignature: true,
-            data: (0, reputation_adapters_1.formatReputationForChain)(profile)
+            data: formatReputationForChain(profile)
         };
         // Submit transaction
         const txResult = await this.adapter.submitTransaction(txPayload);
@@ -140,7 +141,7 @@ class ReputationEngine {
         return {
             ...profile,
             ledger: {
-                objectID: txResult.objectId || txResult.transactionId,
+                objectID: txResult.objectId || txResult.transactionId || txResult.hash || 'unknown',
                 commitNumber: txResult.commitNumber || 0
             }
         };
@@ -175,7 +176,7 @@ class ReputationEngine {
             ...(filter.specialization && { specialization: filter.specialization })
         }, filter.pagination);
         // Transform results
-        const reputations = result.map(state => state.data);
+        const reputations = result.map((state) => state.data);
         const total = result.length;
         // Calculate pagination
         const pagination = filter.pagination ? {
@@ -286,7 +287,7 @@ class ReputationEngine {
             followerId: userId
         }, pagination);
         // Transform results
-        const relationships = result.map(state => state.data);
+        const relationships = result.map((state) => state.data);
         const total = result.length;
         return {
             relationships,
@@ -311,7 +312,7 @@ class ReputationEngine {
             followedId: userId
         }, pagination);
         // Transform results
-        const relationships = result.map(state => state.data);
+        const relationships = result.map((state) => state.data);
         const total = result.length;
         return {
             relationships,

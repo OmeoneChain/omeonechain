@@ -197,7 +197,7 @@ export function errorHandler(
   
   // Default to 500 Internal Server Error
   let statusCode = 500;
-  let errorResponse = {
+  let errorResponse: any = {
     error: {
       message: 'Internal server error',
       code: 'INTERNAL_ERROR'
@@ -218,7 +218,7 @@ export function errorHandler(
         code: 'VALIDATION_ERROR',
         details: (err as any).details || err.message
       }
-    };
+    } as any;
   }
   // Handle JWT errors
   else if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
@@ -228,7 +228,7 @@ export function errorHandler(
         message: 'Invalid or expired token',
         code: 'INVALID_TOKEN'
       }
-    };
+    } as any;
   }
   
   // Add request ID if available
@@ -236,7 +236,7 @@ export function errorHandler(
     errorResponse.error = {
       ...errorResponse.error,
       requestId: req.headers['x-request-id']
-    };
+    } as any;
   }
   
   // In development, include stack trace
@@ -244,7 +244,7 @@ export function errorHandler(
     errorResponse.error = {
       ...errorResponse.error,
       stack: err.stack
-    };
+    } as any;
   }
   
   // Send error response

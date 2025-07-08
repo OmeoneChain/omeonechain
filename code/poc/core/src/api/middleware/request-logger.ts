@@ -64,7 +64,7 @@ const DEFAULT_OPTIONS: RequestLoggerOptions = {
   level: 'info',
   timestampFormat: 'ISO',
   logger: (message: string, level: string = 'info') => {
-    console[level](message);
+    (console as any)[level](message);
   }
 };
 
@@ -216,7 +216,7 @@ export function createRequestLogger(options: RequestLoggerOptions = {}) {
       opts.logger?.(`RESPONSE: ${JSON.stringify(responseLogData)}`, opts.level);
       
       // Call the original end method
-      return originalEnd.call(this, chunk, ...rest);
+      return (originalEnd as any).call(this, chunk, ...rest);
     };
     
     next();

@@ -1,7 +1,9 @@
 export * from './network-config';
-export * from './environment-manager';
 export * from './contract-registry';
-export * from './types';
+export type { ConfigurationState, NetworkCapabilities, DeploymentConfiguration, EnvironmentName, EnvironmentStatus, } from './types';
+type EnvironmentConfig = any;
+type NetworkHealthStatus = any;
+export type { EnvironmentConfig, NetworkHealthStatus };
 export { environmentManager } from './environment-manager';
 export { contractRegistry } from './contract-registry';
 import type { ConfigurationState, NetworkCapabilities } from './types';

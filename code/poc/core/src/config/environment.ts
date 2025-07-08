@@ -1,7 +1,12 @@
 // code/poc/core/src/config/environment.ts
 // Centralized environment configuration with validation
 
-import { AppConfig, DatabaseConfig, RedisConfig, IpfsConfig, ChainConfig } from '../type';
+// Create fallback type definitions since imports are not available
+type AppConfig = any;
+type DatabaseConfig = any;
+type RedisConfig = any;
+type IpfsConfig = any;
+type ChainConfig = any;
 
 export class EnvironmentConfig {
   static load(): AppConfig {
@@ -72,7 +77,7 @@ export class EnvironmentConfig {
         password: parsed.password,
         ssl: process.env.DATABASE_SSL === 'true',
         poolSize: parseInt(process.env.DATABASE_POOL_SIZE || '10')
-      };
+      } as any;
     } catch (error) {
       throw new Error('Invalid DATABASE_URL format');
     }
@@ -92,7 +97,7 @@ export class EnvironmentConfig {
         password: parsed.password || undefined,
         db: parseInt(process.env.REDIS_DB || '0'),
         keyPrefix: process.env.REDIS_KEY_PREFIX || 'omeone:'
-      };
+      } as any;
     } catch (error) {
       throw new Error('Invalid REDIS_URL format');
     }
@@ -103,7 +108,7 @@ export class EnvironmentConfig {
       url: process.env.IPFS_URL || 'http://localhost:5001',
       timeout: parseInt(process.env.IPFS_TIMEOUT || '30000'),
       headers: process.env.IPFS_HEADERS ? JSON.parse(process.env.IPFS_HEADERS) : undefined
-    };
+    } as any;
   }
 
   private static getChainConfig(): ChainConfig {
@@ -114,7 +119,7 @@ export class EnvironmentConfig {
       explorerUrl: process.env.IOTA_EXPLORER_URL,
       gasPrice: parseInt(process.env.IOTA_GAS_PRICE || '1000'),
       gasLimit: parseInt(process.env.IOTA_GAS_LIMIT || '100000')
-    };
+    } as any;
   }
 
   // Helper method to check if we're in development

@@ -1,8 +1,12 @@
 export type { ChainAdapter, ChainTransaction, ChainState, ChainEvent, Transaction, TransactionResult, StateQuery, QueryResult, EventFilter, Event, NetworkInfo, TokenBalance, ObjectQuery } from './chain';
 export type { Recommendation, Location, Content, MediaItem, RecommendationActionType } from './recommendation';
-export type { ReputationEngine, UserProfile } from './reputation';
-export type { Service, ServiceEngine } from './service';
-export type { Token, TokenReward } from './token';
+type ReputationEngine = any;
+type UserProfile = any;
+type Service = any;
+type ServiceEngine = any;
+type Token = any;
+type TokenReward = any;
+export type { ReputationEngine, UserProfile, Service, ServiceEngine, Token, TokenReward };
 export type { TokenTransactionData as AdapterTokenTransactionData, TokenBalanceDetailed, TokenTransferRequest, TokenRewardClaim, StakingInfo, TokenActionType as AdapterTokenActionType } from './token-adapters';
 export type { ReputationScore, UserReputation as AdapterUserReputation, UserVerification, UserActivity, SocialMetrics, ReputationAdapter, TrustRelationship } from './reputation-adapters';
 export type { RecommendationAdapter, RecommendationQuery, RecommendationQueryResult, RecommendationResult, VoteResult, RecommendationTransactionData as AdapterRecommendationTransactionData, CreateRecommendationRequest, UpdateRecommendationRequest } from './recommendation-adapters';

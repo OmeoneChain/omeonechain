@@ -60,10 +60,3 @@ export function getActionDetail(transaction: ChainTransaction): string {
       return `Unknown action: ${transaction.type}`;
   }
 }
-
-// Export all types for easy import
-export type {
-  RecommendationTransactionData,
-  VoteTransactionData, 
-  ReputationUpdateData
-};

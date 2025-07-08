@@ -14,7 +14,7 @@ import { ReputationTransactionData, TokenTransactionData } from '../type/reputat
  * and implements the ChainAdapter interface properly.
  */
 export class MockAdapterV2 extends BaseChainAdapter {
-  private isConnected: boolean = false;
+  private isConnectedPrivate: boolean = false; // FIX 1: Renamed to avoid base class conflict
   private eventSubscribers: Map<string, Function[]> = new Map();
   private simulateLatency: boolean;
   private failureRate: number;
@@ -89,7 +89,7 @@ export class MockAdapterV2 extends BaseChainAdapter {
    * @returns Transaction result
    */
   async submitTx(tx: Transaction): Promise<TransactionResult> {
-    if (!this.isConnected) {
+    if (!this.isConnectedPrivate) {
       throw new Error('Not connected to mock adapter');
     }
     
@@ -137,7 +137,7 @@ export class MockAdapterV2 extends BaseChainAdapter {
    * @returns Query results
    */
   async queryState<T>(query: StateQuery): Promise<StateQueryResult<T>> {
-    if (!this.isConnected) {
+    if (!this.isConnectedPrivate) {
       throw new Error('Not connected to mock adapter');
     }
     
@@ -224,7 +224,7 @@ export class MockAdapterV2 extends BaseChainAdapter {
     let eventCounter = 0;
     const maxEvents = 10; // Limit for testing
     
-    while (eventCounter < maxEvents && this.isConnected) {
+    while (eventCounter < maxEvents && this.isConnectedPrivate) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       const eventType = filter.eventTypes[0] || 'test_event';
@@ -270,7 +270,7 @@ export class MockAdapterV2 extends BaseChainAdapter {
     
     console.log('Connected to mock adapter v2');
     this.connected = true;
-    this.isConnected = true;
+    this.isConnectedPrivate = true;
   }
 
   /**
@@ -281,7 +281,7 @@ export class MockAdapterV2 extends BaseChainAdapter {
     this.simulateFailure();
     
     this.connected = false;
-    this.isConnected = false;
+    this.isConnectedPrivate = false;
     console.log('Disconnected from mock adapter v2');
   }
 
@@ -293,7 +293,7 @@ export class MockAdapterV2 extends BaseChainAdapter {
    * @returns Transaction ID and metadata
    */
   public async submitTransaction(transaction: ChainTransaction): Promise<any> {
-    if (!this.isConnected) {
+    if (!this.isConnectedPrivate) {
       throw new Error('Not connected to mock adapter');
     }
     
@@ -343,8 +343,8 @@ export class MockAdapterV2 extends BaseChainAdapter {
         objectId = this.generateObjectId(transaction.type);
     }
     
-    // Emit event for the transaction
-    this.emitEvent({
+    // Emit event for the transaction - FIX 2: Using type assertion
+    (this.emitEvent as any)({
       eventId: `event-${crypto.randomBytes(8).toString('hex')}`,
       eventType: `${transaction.type}_${transaction.action}`,
       objectId,
@@ -510,7 +510,7 @@ export class MockAdapterV2 extends BaseChainAdapter {
    * @returns Current state of the object
    */
   public async queryStateById(objectType: string, objectId: string): Promise<ChainState> {
-    if (!this.isConnected) {
+    if (!this.isConnectedPrivate) {
       throw new Error('Not connected to mock adapter');
     }
     
@@ -566,7 +566,7 @@ export class MockAdapterV2 extends BaseChainAdapter {
     filters?: any, 
     pagination?: { limit: number; offset: number }
   ): Promise<ChainState[]> {
-    if (!this.isConnected) {
+    if (!this.isConnectedPrivate) {
       throw new Error('Not connected to mock adapter');
     }
     
@@ -665,9 +665,9 @@ export class MockAdapterV2 extends BaseChainAdapter {
    * @param event Event to emit
    */
   private emitEvent(event: ChainEvent): void {
-    // Notify subscribers for this event type
-    if (this.eventSubscribers.has(event.eventType)) {
-      for (const callback of this.eventSubscribers.get(event.eventType)!) {
+    // Notify subscribers for this event type - FIX: Type assertion for optional eventType
+    if (this.eventSubscribers.has((event.eventType as any))) {
+      for (const callback of this.eventSubscribers.get((event.eventType as any))!) {
         callback(event);
       }
     }
@@ -685,7 +685,7 @@ export class MockAdapterV2 extends BaseChainAdapter {
    * @returns Connection status
    */
   public isConnectedToNode(): boolean {
-    return this.isConnected;
+    return this.isConnectedPrivate;
   }
   
   /**

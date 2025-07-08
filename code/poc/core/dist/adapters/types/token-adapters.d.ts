@@ -9,6 +9,7 @@ export interface TokenTransactionData {
 export type TokenActionType = 'mint_reward' | 'transfer' | 'stake' | 'unstake' | 'burn' | 'governance_vote';
 export declare const tokenActionMap: Record<TokenActionType, string>;
 export declare function formatTokenForChain(data: TokenTransactionData): ChainTransaction;
+type ChainTransactionReputation = any;
 export interface ReputationTransactionData {
     userId: string;
     reputationChange: number;
@@ -16,7 +17,8 @@ export interface ReputationTransactionData {
     sourceId?: string;
     metadata?: Record<string, any>;
 }
-export declare function formatReputationForChain(data: ReputationTransactionData): ChainTransaction;
+export declare function formatReputationForChain(data: ReputationTransactionData): ChainTransactionReputation;
+type ChainTransactionRecommendation = any;
 export interface RecommendationTransactionData {
     id: string;
     author: string;
@@ -25,4 +27,5 @@ export interface RecommendationTransactionData {
     rating: number;
     metadata?: Record<string, any>;
 }
-export declare function formatRecommendationForChain(data: RecommendationTransactionData): ChainTransaction;
+export declare function formatRecommendationForChain(data: RecommendationTransactionData): ChainTransactionRecommendation;
+export {};

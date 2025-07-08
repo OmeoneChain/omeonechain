@@ -1,4 +1,4 @@
-import { ChainAdapter, ChainTransaction, ChainState, NetworkInfo, TransactionResult } from '../type/chain';
+import { ChainAdapter, ChainEvent, ChainTransaction, ChainState, NetworkInfo, TransactionResult } from '../type/chain';
 /**
  * EVMAdapter - Fallback implementation of ChainAdapter interface for EVM chains
  *
@@ -113,7 +113,8 @@ export declare class EVMAdapter implements ChainAdapter {
      * @param callback Function to call when events occur
      * @returns Subscription ID
      */
-    subscribeToEvents(eventType: any, callback: any): any;
+    subscribeToEvents(eventType: string, callback: (event: ChainEvent) => void): string;
+    subscribeToEvents(filter: any): any;
     /**
      * Unsubscribe from events
      * @param subscriptionId ID of the subscription to cancel
@@ -154,10 +155,46 @@ export declare class EVMAdapter implements ChainAdapter {
      * Check if connected to the chain
      * @returns Connection status
      */
-    isConnectedToNode(): boolean;
+    isConnectedToNode(): any;
     /**
      * Get the wallet address
      * @returns Wallet address
      */
     getWalletAddress(): Promise<string>;
+    /**
+     * Watch events with an async iterator
+     */
+    watchEvents(filter?: any): AsyncIterator<ChainEvent>;
+    /**
+     * Get user trust score
+     */
+    getUserTrustScore(userAddress: string): Promise<number>;
+    /**
+     * Get user reputation score
+     */
+    getUserReputationScore(userAddress: string): Promise<any>;
+    /**
+     * Submit action for reward
+     */
+    submitActionForReward(action: any): Promise<any>;
+    /**
+     * Get chain ID
+     */
+    getChainId(): Promise<string>;
+    /**
+     * Submit transaction (alias for submitTransaction)
+     */
+    submitTx(transaction: any): Promise<any>;
+    /**
+     * Get current commit number
+     */
+    getCurrentCommit(): Promise<number>;
+    /**
+     * Estimate transaction fee
+     */
+    estimateFee(transaction: any): Promise<any>;
+    /**
+     * Claim user rewards - CONSERVATIVE FIX: Added missing ChainAdapter method
+     */
+    claimUserRewards(userAddress: string): Promise<any>;
 }
