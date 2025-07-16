@@ -1,0 +1,16 @@
+{
+  "name": "omeonechain-mainnet-testing",
+  "version": "1.0.0",
+  "description": "IOTA Rebased mainnet testing tools for OmeoneChain",
+  "main": "mainnet-rpc-test.js",
+  "scripts": {
+    "test-rpc": "node mainnet-rpc-test.js",
+    "deploy": "node deploy-mainnet.js deploy",
+    "setup": "node deploy-mainnet.js setup"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "author": "OmeoneChain",
+  "license": "MIT"
+}
