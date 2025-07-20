@@ -1,13 +1,11 @@
 [package]
-name = "OmeoneChainRecommendation"
-version = "0.1.0"
-authors = ["OmeoneChain Team"]
+name = "recommendation"
+version = "1.0.0"
+edition = "2024.beta"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/iota-foundation/move-stdlib.git", rev = "main" }
-OmeoneChainShared = { local = "../shared" }
-OmeoneChainReputation = { local = "../reputation" }
+MoveStdlib = { git = "https://github.com/iotaledger/iota", subdir = "crates/iota-framework/packages/move-stdlib", rev = "framework/testnet" }
+Iota = { git = "https://github.com/iotaledger/iota", subdir = "crates/iota-framework/packages/iota-framework", rev = "framework/testnet" }
 
 [addresses]
-std = "0x1"
-omeonechain = "0x42"
+omeone = "0x0"
