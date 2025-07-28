@@ -1,16 +1,12 @@
 [package]
-name = "omeone_token"
-version = "0.1.0"
+name = "token"
 edition = "2024.beta"
 
 [dependencies]
-Sui = { git = "https://github.com/iotaledger/iota.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+Iota = { git = "https://github.com/iotaledger/iota.git", subdir = "crates/iota-framework/packages/iota-framework", rev = "framework/testnet" }
 
 [addresses]
 omeone = "0x0"
-omeonechain = "0x0"  # Keep for compatibility with your existing code
-sui = "0x2"
-
-[dev-addresses]
-omeone = "0xCAFE"
-omeonechain = "0xCAFE"
+omeonechain = "0x0"
+omeone_token = "0x0"
+token = "0x0"
