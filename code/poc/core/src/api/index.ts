@@ -20,6 +20,10 @@ const serviceRoutes = require('./routes/services') as any;
 const tokenRoutes = require('./routes/tokens') as any;
 const governanceRoutes = require('./routes/governance') as any;
 const developerRoutes = require('./routes/developer') as any;
+const socialRoutes = require('./routes/social') as any;
+
+// Import auth routes
+import authRoutes from './routes/auth';
 
 // Import middleware
 import { errorHandler } from './middleware/error-handler';
@@ -91,7 +95,7 @@ export interface ApiServerConfig {
 const DEFAULT_CONFIG: ApiServerConfig = {
   port: 3000,
   cors: true,
-  corsOrigins: ['http://localhost:3001'],
+  corsOrigins: ['http://localhost:3000', 'http://localhost:3001'],
   enableWebSocket: true,
   maxRequestSize: '5mb',
   enableRateLimit: true,
@@ -205,22 +209,28 @@ export class ApiServer {
       res.status(200).json({ status: 'ok' });
     });
     
+    // Authentication routes (public - no auth required)
+    this.app.use(`${apiPrefix}/auth`, authRoutes);
+
     // Public routes (no auth) - Conservative fix: use 'as any' for route functions
     this.app.use(`${apiPrefix}/recommendations`, (recommendationRoutes as any)(this.recommendationEngine));
-    
+
     // Protected routes (require auth) - Conservative fix: use 'as any' for middleware and route functions
     this.app.use(`${apiPrefix}/users`, (authenticate as any), (userRoutes as any)(this.reputationEngine));
     this.app.use(`${apiPrefix}/services`, (authenticate as any), (serviceRoutes as any)(this.serviceEngine));
     this.app.use(`${apiPrefix}/wallet`, (authenticate as any), (tokenRoutes as any)(this.tokenEngine));
     this.app.use(`${apiPrefix}/governance`, (authenticate as any), (governanceRoutes as any)(this.governanceEngine));
-    
+
+    // Social routes (require auth) - Note: different pattern since social routes export router directly
+    this.app.use(`${apiPrefix}/social`, (authenticate as any), socialRoutes);
+
     // Developer API routes - Conservative fix: use 'as any' for complex object parameter
     this.app.use(`${apiPrefix}/developer`, (authenticate as any), (developerRoutes as any)({
-      recommendationEngine: this.recommendationEngine,
-      reputationEngine: this.reputationEngine,
-      serviceEngine: this.serviceEngine
+  recommendationEngine: this.recommendationEngine,
+  reputationEngine: this.reputationEngine,
+  serviceEngine: this.serviceEngine
     } as any));
-    
+
     // 404 handler
     this.app.use((req: Request, res: Response) => {
       res.status(404).json({ error: 'Not found' });

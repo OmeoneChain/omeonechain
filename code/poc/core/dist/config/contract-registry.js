@@ -7,13 +7,29 @@ class ContractRegistry {
     constructor() {
         this.contracts = new Map();
         this.deployments = new Map();
-        this.initializeRegistry();
+        this.initialized = false;
+        // Don't initialize immediately - wait for environment to be ready
     }
-    initializeRegistry() {
-        // Initialize with mock contracts for development
+    async initializeRegistry() {
+        if (this.initialized) {
+            return;
+        }
+        try {
+            // Load contract addresses from current environment
+            await this.loadContractsFromEnvironment();
+            this.initialized = true;
+        }
+        catch (error) {
+            console.warn('Failed to load contracts from environment, using fallback initialization:', error);
+            this.initializeFallbackContracts();
+            this.initialized = true;
+        }
+    }
+    initializeFallbackContracts() {
+        // Fallback initialization with empty addresses that will be populated from environment
         this.registerContract({
             name: 'OmeoneToken',
-            address: '0x1111111111111111111111111111111111111111',
+            address: '', // Will be populated from environment
             version: '1.0.0',
             isUpgradeable: false,
             verified: true,
@@ -21,7 +37,7 @@ class ContractRegistry {
         });
         this.registerContract({
             name: 'RewardDistribution',
-            address: '0x2222222222222222222222222222222222222222',
+            address: '', // Will be populated from environment
             version: '1.0.0',
             isUpgradeable: true,
             verified: true,
@@ -29,7 +45,7 @@ class ContractRegistry {
         });
         this.registerContract({
             name: 'Governance',
-            address: '0x3333333333333333333333333333333333333333',
+            address: '', // Will be populated from environment
             version: '1.0.0',
             isUpgradeable: true,
             verified: true,
@@ -37,15 +53,23 @@ class ContractRegistry {
         });
         this.registerContract({
             name: 'Reputation',
-            address: '0x4444444444444444444444444444444444444444',
+            address: '', // Will be populated from environment
             version: '1.0.0',
             isUpgradeable: false,
             verified: true,
             moduleId: 'omeone_chain::reputation::ReputationSystem',
         });
         this.registerContract({
+            name: 'Recommendation',
+            address: '', // Will be populated from environment
+            version: '1.0.0',
+            isUpgradeable: true,
+            verified: true,
+            moduleId: 'omeone_chain::recommendation::RecommendationSystem',
+        });
+        this.registerContract({
             name: 'NFTTickets',
-            address: '0x5555555555555555555555555555555555555555',
+            address: '', // Will be populated from environment (optional)
             version: '1.0.0',
             isUpgradeable: true,
             verified: true,
@@ -58,7 +82,10 @@ class ContractRegistry {
             deployedAt: new Date(),
         };
         this.contracts.set(metadata.name, fullMetadata);
-        console.log(`📋 Registered contract: ${metadata.name} at ${metadata.address}`);
+        // Only log if address is not empty (avoid spamming logs with empty addresses)
+        if (metadata.address && metadata.address.length > 0) {
+            console.log(`📋 Registered contract: ${metadata.name} at ${metadata.address}`);
+        }
     }
     async updateContractAddress(contractName, newAddress, deploymentInfo) {
         const contract = this.contracts.get(contractName);
@@ -83,25 +110,30 @@ class ContractRegistry {
         }
         console.log(`✅ Updated contract ${contractName} address to ${newAddress}`);
     }
-    getContract(contractName) {
+    async getContract(contractName) {
+        await this.ensureInitialized();
         return this.contracts.get(contractName);
     }
-    getContractAddress(contractName) {
+    async getContractAddress(contractName) {
+        await this.ensureInitialized();
         const contract = this.contracts.get(contractName);
         if (!contract) {
             throw new Error(`Contract '${contractName}' not found in registry`);
         }
         return contract.address;
     }
-    getAllContracts() {
+    async getAllContracts() {
+        await this.ensureInitialized();
         return new Map(this.contracts);
     }
-    getContractsByNetwork(networkName) {
+    async getContractsByNetwork(networkName) {
+        await this.ensureInitialized();
         // In a full implementation, this would filter by network
         // For now, return all contracts
         return Array.from(this.contracts.values());
     }
-    isContractDeployed(contractName) {
+    async isContractDeployed(contractName) {
+        await this.ensureInitialized();
         const contract = this.contracts.get(contractName);
         return contract !== undefined && contract.address.length > 0 && contract.address !== '0x0000000000000000000000000000000000000000';
     }
@@ -110,6 +142,7 @@ class ContractRegistry {
         return this.deployments.get(`${contractName}:${env}`);
     }
     async verifyContract(contractName, verified = true) {
+        await this.ensureInitialized();
         const contract = this.contracts.get(contractName);
         if (!contract) {
             throw new Error(`Contract '${contractName}' not found in registry`);
@@ -117,7 +150,8 @@ class ContractRegistry {
         contract.verified = verified;
         console.log(`${verified ? '✅' : '❌'} Contract ${contractName} verification status: ${verified}`);
     }
-    getContractUrl(contractName) {
+    async getContractUrl(contractName) {
+        await this.ensureInitialized();
         const contract = this.contracts.get(contractName);
         if (!contract) {
             throw new Error(`Contract '${contractName}' not found in registry`);
@@ -141,21 +175,23 @@ class ContractRegistry {
         const environment = environment_manager_1.environmentManager.getCurrentEnvironment();
         switch (environment) {
             case 'testnet':
-                return 'https://explorer.testnet.rebased.iota.org';
+                return 'https://explorer.iota.org/testnet'; // Updated to match the working explorer URL
             case 'production':
-                return 'https://explorer.rebased.iota.org';
+                return 'https://explorer.iota.org';
             case 'evm-testnet':
                 return 'https://mumbai.polygonscan.com';
             default:
                 return 'http://localhost:3000/explorer';
         }
     }
-    generateContractReport() {
+    async generateContractReport() {
+        await this.ensureInitialized();
         const contracts = Array.from(this.contracts.values());
+        const deployedCount = await Promise.all(contracts.map(c => this.isContractDeployed(c.name))).then(results => results.filter(Boolean).length);
         return {
             summary: {
                 totalContracts: contracts.length,
-                deployedContracts: contracts.filter(c => this.isContractDeployed(c.name)).length,
+                deployedContracts: deployedCount,
                 verifiedContracts: contracts.filter(c => c.verified).length,
                 upgradeableContracts: contracts.filter(c => c.isUpgradeable).length,
             },
@@ -168,21 +204,39 @@ class ContractRegistry {
         try {
             const environment = await environment_manager_1.environmentManager.getEnvironment();
             const contractAddresses = environment.contracts;
+            // If no contracts exist yet, initialize with empty ones
+            if (this.contracts.size === 0) {
+                this.initializeFallbackContracts();
+            }
             // Update registry with addresses from environment
             for (const [contractKey, address] of Object.entries(contractAddresses)) {
                 // Map contract keys to contract names
                 const contractName = this.mapContractKey(contractKey);
-                if (contractName && address && address.length > 0) {
+                if (contractName) {
                     const existingContract = this.contracts.get(contractName);
                     if (existingContract) {
                         existingContract.address = address;
-                        console.log(`📋 Loaded ${contractName} address: ${address}`);
+                        if (address && address.length > 0) {
+                            console.log(`📋 Loaded ${contractName} from environment: ${address}`);
+                        }
+                    }
+                    else {
+                        // Create new contract if it doesn't exist
+                        this.registerContract({
+                            name: contractName,
+                            address: address,
+                            version: '1.0.0',
+                            isUpgradeable: true,
+                            verified: true,
+                            moduleId: `omeone_chain::${contractKey}::${contractName}`,
+                        });
                     }
                 }
             }
         }
         catch (error) {
             console.error('Failed to load contracts from environment:', error);
+            throw error;
         }
     }
     mapContractKey(key) {
@@ -191,11 +245,13 @@ class ContractRegistry {
             rewardDistribution: 'RewardDistribution',
             governance: 'Governance',
             reputation: 'Reputation',
+            recommendation: 'Recommendation', // Added recommendation mapping
             nftTickets: 'NFTTickets',
         };
         return mapping[key];
     }
     async saveContractAddresses() {
+        await this.ensureInitialized();
         // In a full implementation, this would save to a persistent store
         // For now, just log the current state
         console.log('💾 Current contract addresses:');
@@ -203,7 +259,8 @@ class ContractRegistry {
             console.log(`  ${name}: ${contract.address}`);
         }
     }
-    exportContractAddresses() {
+    async exportContractAddresses() {
+        await this.ensureInitialized();
         const addresses = {};
         for (const [name, contract] of this.contracts) {
             const key = this.mapContractNameToKey(name);
@@ -219,11 +276,13 @@ class ContractRegistry {
             RewardDistribution: 'rewardDistribution',
             Governance: 'governance',
             Reputation: 'reputation',
+            Recommendation: 'recommendation', // Added recommendation mapping
             NFTTickets: 'nftTickets',
         };
         return mapping[name];
     }
-    validateContractAddresses() {
+    async validateContractAddresses() {
+        await this.ensureInitialized();
         const errors = [];
         const networkInfo = environment_manager_1.environmentManager.getNetworkInfo();
         for (const [name, contract] of this.contracts) {
@@ -231,14 +290,16 @@ class ContractRegistry {
             if (networkInfo.name === 'Mock Network') {
                 continue;
             }
-            // Check if address is set
+            // Check if address is set (skip optional contracts like NFTTickets)
             if (!contract.address || contract.address.length === 0) {
-                errors.push(`Contract '${name}' has no address set`);
+                if (name !== 'NFTTickets') { // NFTTickets is optional
+                    errors.push(`Contract '${name}' has no address set`);
+                }
                 continue;
             }
             // Check address format based on network type
             if (networkInfo.isMoveVM) {
-                // Move VM addresses are different format
+                // Move VM addresses are longer hex strings
                 if (!this.isValidMoveAddress(contract.address)) {
                     errors.push(`Contract '${name}' has invalid Move address format`);
                 }
@@ -259,9 +320,19 @@ class ContractRegistry {
         return /^0x[a-fA-F0-9]{40}$/.test(address);
     }
     isValidMoveAddress(address) {
-        // Move addresses can be various formats
-        // For now, accept any non-empty string that doesn't look like EVM
-        return address.length > 0 && !address.startsWith('0x');
+        // Move addresses are longer hex strings starting with 0x
+        return /^0x[a-fA-F0-9]{64,}$/.test(address);
+    }
+    async ensureInitialized() {
+        if (!this.initialized) {
+            await this.initializeRegistry();
+        }
+    }
+    // Method to refresh contracts from environment (useful for testing)
+    async refreshFromEnvironment() {
+        this.initialized = false;
+        this.contracts.clear();
+        await this.initializeRegistry();
     }
 }
 exports.ContractRegistry = ContractRegistry;

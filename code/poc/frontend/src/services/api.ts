@@ -1,7 +1,18 @@
-// Enhanced version of your existing code/poc/frontend/src/services/api.ts
-// This adds Trust Score functionality to your existing API service
+// code/poc/frontend/src/services/api.ts
+// ENHANCED VERSION: Added social API functions to existing client
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1';
+// FIXED: Use environment variables properly
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api';
+const WS_BASE_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:3001';
+
+// Log the URLs being used
+console.log('🔗 DEBUG: Using environment URLs:', {
+  API_BASE_URL,
+  WS_BASE_URL,
+  REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+  REACT_APP_WS_URL: process.env.REACT_APP_WS_URL,
+  NODE_ENV: process.env.NODE_ENV
+});
 
 interface ApiResponse<T> {
   success: boolean;
@@ -46,7 +57,47 @@ interface RecommendationWithTrust {
   updatedAt: string;
 }
 
-// Base API client (keeping your existing structure)
+// NEW: Social API interfaces
+export interface User {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  bio?: string;
+  reputation_score: number;
+  trust_score?: number;
+  followers_count: number;
+  following_count: number;
+  recommendations_count: number;
+  avg_trust_score: number;
+  verification_status: 'basic' | 'verified' | 'expert';
+  verification_level: 'basic' | 'verified' | 'expert';
+  is_following: boolean;
+  is_own_profile?: boolean;
+  location_city?: string;
+  created_at: string;
+}
+
+export interface FollowersResponse {
+  followers: User[];
+  total_count: number;
+  page: number;
+  per_page: number;
+}
+
+export interface FollowingResponse {
+  following: User[];
+  total_count: number;
+  page: number;
+  per_page: number;
+}
+
+export interface DiscoverUsersResponse {
+  users: User[];
+  total_count: number;
+}
+
+// Base API client
 class ApiClient {
   private baseUrl: string;
   private headers: Record<string, string>;
@@ -55,36 +106,71 @@ class ApiClient {
     this.baseUrl = baseUrl;
     this.headers = {
       'Content-Type': 'application/json',
-      'x-user-id': 'user1' // Mock user ID - replace with actual auth
+      'Accept': 'application/json',
     };
+    
+    // Log the base URL being used
+    console.log('🚀 ApiClient initialized with URL:', this.baseUrl);
   }
 
-  setUserId(userId: string) {
-    this.headers['x-user-id'] = userId;
+  // FIXED: Add authentication headers
+  private getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('omeone_auth_token');
+    const headers = { ...this.headers };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    return headers;
   }
 
   private async request<T>(
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    // FIXED: Remove /api prefix since it's already in base URL
+    const cleanEndpoint = endpoint.startsWith('/api') ? endpoint.substring(4) : endpoint;
+    const fullUrl = `${this.baseUrl}${cleanEndpoint}`;
+    
+    // Log each request for debugging
+    console.log(`📡 API Request: ${options.method || 'GET'} ${fullUrl}`);
+    
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(fullUrl, {
         ...options,
         headers: {
-          ...this.headers,
+          ...this.getAuthHeaders(),
           ...options.headers,
         },
       });
 
-      const data = await response.json();
-      
+      console.log(`📊 API Response: ${response.status} ${response.statusText}`);
+
       if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        // Try to get error details
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If response isn't JSON, use the status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
+      const data = await response.json();
+      console.log('✅ API Success:', data);
+      
       return data;
     } catch (error) {
-      console.error('API request failed:', error);
+      console.error('❌ API request failed:', {
+        url: fullUrl,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -110,6 +196,13 @@ class ApiClient {
     });
   }
 
+  async patch<T>(endpoint: string, data: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
@@ -118,57 +211,132 @@ class ApiClient {
 // Initialize API client
 const apiClient = new ApiClient();
 
-// NEW: Trust Score API
-export const trustScoreApi = {
-  async getTrustScore(recommendationId: string, userId?: string): Promise<ApiResponse<TrustScore>> {
-    const params = userId ? `?userId=${userId}` : '';
-    return apiClient.get(`/recommendations/${recommendationId}/trust-score${params}`);
-  },
-
-  async getTrustScoreBreakdown(recommendationId: string, userId: string): Promise<ApiResponse<TrustScore>> {
-    return apiClient.get(`/recommendations/${recommendationId}/trust-breakdown?userId=${userId}`);
-  },
-
-  async getUserTrustScore(userId: string): Promise<ApiResponse<{ overallScore: number; reputationLevel: string }>> {
-    return apiClient.get(`/users/${userId}/trust-score`);
-  },
-
-  async updateTrustSignal(recommendationId: string, signalType: 'save' | 'upvote' | 'share'): Promise<ApiResponse<{ success: boolean; newTrustScore: number }>> {
-    return apiClient.post(`/recommendations/${recommendationId}/trust-signal`, {
-      userId: 'user1', // Replace with actual user ID
-      signalType
+// AUTH API - FIXED: Removed /v1/ prefix to match working backend routes
+export const authApi = {
+  async getChallenge(walletAddress: string): Promise<ApiResponse<{ challenge: string; message: string }>> {
+    console.log('🔐 Getting auth challenge for:', walletAddress);
+    return apiClient.post('/auth/challenge', {
+      walletAddress: walletAddress
     });
   },
 
-  // Mock data generator for testing while backend is being set up
-  generateMockTrustScore(recommendationId: string): TrustScore {
-    const mockEndorsers = [
-      { userId: 'friend1', weight: 0.75, reputation: 0.8, socialDistance: 1 as const },
-      { userId: 'friend2', weight: 0.75, reputation: 0.9, socialDistance: 1 as const },
-      { userId: 'friend_of_friend1', weight: 0.25, reputation: 0.7, socialDistance: 2 as const },
-    ];
+  async verifySignature(walletAddress: string, signature: string, challenge: string): Promise<ApiResponse<{ token: string; user: any }>> {
+    console.log('🔐 Verifying signature for:', walletAddress);
+    return apiClient.post('/auth/login', {
+      walletAddress,
+      signature,
+      challenge
+    });
+  },
 
-    const baseScore = 0.3;
-    const socialMultiplier = mockEndorsers.reduce((sum, endorser) => sum + (endorser.weight * endorser.reputation), 0);
-    const finalScore = Math.min(baseScore * (1 + socialMultiplier), 1.0);
+  async getCurrentUser(): Promise<any> {
+    const response = await apiClient.get('/auth/me');
+    return response.data || response; // Handle both ApiResponse<T> and direct data
+  },
 
-    return {
-      score: finalScore,
-      socialDistance: 1.2,
-      breakdown: {
-        directFriends: 2,
-        friendsOfFriends: 1,
-        totalEndorsements: 3,
-        baseScore,
-        socialMultiplier
-      },
-      endorsers: mockEndorsers,
-      timestamp: new Date().toISOString()
-    };
+  async updateProfile(profileData: any): Promise<ApiResponse<any>> {
+    return apiClient.patch('/auth/profile', profileData);
   }
 };
 
-// Enhanced Recommendations API (keeping your existing structure + adding trust scores)
+// NEW: Social API functions
+export const socialApi = {
+  // Get user's followers
+  async getFollowers(userId: string, page: number = 1, perPage: number = 20): Promise<FollowersResponse> {
+    console.log(`📱 Getting followers for user: ${userId}, page: ${page}`);
+    const response = await apiClient.get(`/social/users/${userId}/followers?page=${page}&per_page=${perPage}`);
+    
+    // Handle both direct response and ApiResponse wrapper
+    if (response.data) {
+      return response.data;
+    }
+    return response as FollowersResponse;
+  },
+
+  // Get users that this user is following
+  async getFollowing(userId: string, page: number = 1, perPage: number = 20): Promise<FollowingResponse> {
+    console.log(`📱 Getting following for user: ${userId}, page: ${page}`);
+    const response = await apiClient.get(`/social/users/${userId}/following?page=${page}&per_page=${perPage}`);
+    
+    // Handle both direct response and ApiResponse wrapper
+    if (response.data) {
+      return response.data;
+    }
+    return response as FollowingResponse;
+  },
+
+  // Follow a user
+  async followUser(userId: string): Promise<{ success: boolean; message: string }> {
+    console.log(`👤 Following user: ${userId}`);
+    const response = await apiClient.post(`/social/users/${userId}/follow`, {});
+    
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    
+    return response.data || response;
+  },
+
+  // Unfollow a user
+  async unfollowUser(userId: string): Promise<{ success: boolean; message: string }> {
+    console.log(`👤 Unfollowing user: ${userId}`);
+    const response = await apiClient.post(`/social/users/${userId}/unfollow`, {});
+    
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    
+    return response.data || response;
+  },
+
+  // Get user profile with follow status
+  async getUserProfile(userId: string): Promise<User> {
+    console.log(`👤 Getting profile for user: ${userId}`);
+    const response = await apiClient.get(`/social/users/${userId}/profile`);
+    
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    
+    return response.data || response;
+  },
+
+  // Discover users
+  async discoverUsers(limit: number = 10, city?: string): Promise<DiscoverUsersResponse> {
+    console.log(`🔍 Discovering users, limit: ${limit}, city: ${city}`);
+    const params = new URLSearchParams();
+    params.append('limit', limit.toString());
+    if (city) {
+      params.append('city', city);
+    }
+
+    const response = await apiClient.get(`/social/users/discover?${params}`);
+    
+    // Handle both direct response and ApiResponse wrapper
+    if (response.data) {
+      return response.data;
+    }
+    return response as DiscoverUsersResponse;
+  },
+
+  // Check follow status
+  async getFollowStatus(userId: string): Promise<{ is_following: boolean; is_followed_by: boolean; relationship_type: string }> {
+    console.log(`🔍 Checking follow status for user: ${userId}`);
+    const response = await apiClient.get(`/social/follow/status/${userId}`);
+    
+    return response.data || response;
+  },
+
+  // Get social stats
+  async getSocialStats(userId: string): Promise<any> {
+    console.log(`📊 Getting social stats for user: ${userId}`);
+    const response = await apiClient.get(`/social/users/${userId}/stats`);
+    
+    return response.data || response;
+  }
+};
+
+// Rest of your existing APIs with corrected endpoints
 export const recommendationApi = {
   async getRecommendations(params?: {
     category?: string;
@@ -182,13 +350,13 @@ export const recommendationApi = {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.includeTrustScore) queryParams.append('includeTrustScore', 'true');
     
-    const endpoint = `/recommendations${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/v1/recommendations${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return apiClient.get(endpoint);
   },
 
   async getRecommendation(id: string, includeTrustScore: boolean = true): Promise<ApiResponse<RecommendationWithTrust>> {
     const params = includeTrustScore ? '?includeTrustScore=true' : '';
-    return apiClient.get(`/recommendations/${id}${params}`);
+    return apiClient.get(`/v1/recommendations/${id}${params}`);
   },
 
   async createRecommendation(recommendation: {
@@ -197,33 +365,26 @@ export const recommendationApi = {
     content: string;
     tags?: string[];
   }): Promise<ApiResponse<RecommendationWithTrust>> {
-    return apiClient.post('/recommendations', {
-      ...recommendation,
-      userId: 'user1' // Replace with actual user ID
-    });
+    return apiClient.post('/v1/recommendations', recommendation);
   },
 
   async upvoteRecommendation(id: string): Promise<ApiResponse<{ success: boolean; newTrustScore?: number }>> {
-    return apiClient.post(`/recommendations/${id}/upvote`, {
-      userId: 'user1' // Replace with actual user ID
-    });
+    return apiClient.post(`/v1/recommendations/${id}/upvote`, {});
   },
 
   async saveRecommendation(id: string): Promise<ApiResponse<{ success: boolean; newTrustScore?: number }>> {
-    return apiClient.post(`/recommendations/${id}/save`, {
-      userId: 'user1' // Replace with actual user ID
-    });
+    return apiClient.post(`/v1/recommendations/${id}/save`, {});
   }
 };
 
-// Enhanced User API (keeping your existing + adding social graph)
+// ENHANCED: Updated userApi with social functions
 export const userApi = {
   async getCurrentUser() {
-    return apiClient.get('/users/me');
+    return apiClient.get('/auth/me');
   },
 
   async getTrustScore(userId: string) {
-    return apiClient.get(`/users/${userId}/trust-score`);
+    return apiClient.get(`/v1/users/${userId}/trust-score`);
   },
 
   async getSocialGraph(userId: string): Promise<ApiResponse<{
@@ -232,221 +393,38 @@ export const userApi = {
     mutualConnections: string[];
     socialDistance: Record<string, number>;
   }>> {
-    return apiClient.get(`/users/${userId}/social-graph`);
+    return apiClient.get(`/v1/users/${userId}/social-graph`);
   },
 
+  // DEPRECATED: Use socialApi.followUser instead
   async followUser(userId: string): Promise<ApiResponse<{ success: boolean }>> {
-    return apiClient.post(`/users/${userId}/follow`, {
-      followerId: 'user1' // Replace with actual user ID
+    return apiClient.post(`/v1/follow`, {
+      following_id: userId
     });
   },
 
+  // DEPRECATED: Use socialApi.unfollowUser instead
   async unfollowUser(userId: string): Promise<ApiResponse<{ success: boolean }>> {
-    return apiClient.post(`/users/${userId}/unfollow`, {
-      followerId: 'user1' // Replace with actual user ID
-    });
+    return apiClient.delete(`/v1/follow/${userId}`);
   }
 };
-
-// Keep your existing APIs exactly as they are
-export const governanceApi = {
-  async getProposals() {
-    return apiClient.get('/governance/proposals');
-  },
-
-  async getProposal(id: string) {
-    return apiClient.get(`/governance/proposals/${id}`);
-  },
-
-  async createProposal(proposal: {
-    title: string;
-    description: string;
-    category: string;
-    executionParams?: any;
-  }) {
-    return apiClient.post('/governance/proposals', {
-      ...proposal,
-      userId: 'user1' // Replace with actual user ID
-    });
-  },
-
-  async vote(proposalId: string, support: boolean) {
-    return apiClient.post(`/governance/proposals/${proposalId}/vote`, {
-      userId: 'user1', // Replace with actual user ID
-      support
-    });
-  },
-
-  async stake(amount: number, duration: number) {
-    return apiClient.post('/governance/stake', {
-      userId: 'user1', // Replace with actual user ID
-      amount,
-      duration
-    });
-  },
-
-  async getStakingInfo(userId: string = 'user1') {
-    return apiClient.get(`/governance/staking/${userId}`);
-  }
-};
-
-export const tokenApi = {
-  async getBalance(userId: string = 'user1') {
-    return apiClient.get(`/tokens/balance/${userId}`);
-  },
-
-  async transfer(to: string, amount: number) {
-    return apiClient.post('/tokens/transfer', {
-      from: 'user1', // Replace with actual user ID
-      to,
-      amount
-    });
-  }
-};
-
-// Enhanced WebSocket service with Trust Score updates
-class WebSocketService {
-  private ws: WebSocket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectInterval = 1000;
-
-  connect() {
-    try {
-      const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:3001';
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.onopen = () => {
-        console.log('WebSocket connected');
-        this.reconnectAttempts = 0;
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          this.handleMessage(data);
-        } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
-        }
-      };
-
-      this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        this.attemptReconnect();
-      };
-
-      this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-    } catch (error) {
-      console.error('Failed to connect WebSocket:', error);
-    }
-  }
-
-  private attemptReconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      
-      setTimeout(() => {
-        this.connect();
-      }, this.reconnectInterval * this.reconnectAttempts);
-    } else {
-      console.log('Max reconnection attempts reached');
-    }
-  }
-
-  private handleMessage(data: any) {
-    // Handle different types of real-time updates
-    switch (data.type) {
-      case 'PROPOSAL_CREATED':
-        window.dispatchEvent(new CustomEvent('proposalCreated', { detail: data.payload }));
-        break;
-      case 'VOTE_CAST':
-        window.dispatchEvent(new CustomEvent('voteCast', { detail: data.payload }));
-        break;
-      case 'TOKEN_REWARD':
-        window.dispatchEvent(new CustomEvent('tokenReward', { detail: data.payload }));
-        break;
-      case 'TRUST_SCORE_UPDATED':
-        // NEW: Handle trust score updates
-        window.dispatchEvent(new CustomEvent('trustScoreUpdated', { detail: data.payload }));
-        break;
-      case 'RECOMMENDATION_ENDORSED':
-        // NEW: Handle recommendation endorsements
-        window.dispatchEvent(new CustomEvent('recommendationEndorsed', { detail: data.payload }));
-        break;
-      default:
-        console.log('Unknown WebSocket message type:', data.type);
-    }
-  }
-
-  disconnect() {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-  }
-}
-
-export const wsService = new WebSocketService();
 
 // Enhanced Health check
 export const healthApi = {
   async check() {
     try {
-      const response = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/health`);
-      return await response.json();
+      const healthUrl = API_BASE_URL.replace('/api', '') + '/health';
+      console.log('🏥 Health check URL:', healthUrl);
+      
+      const response = await fetch(healthUrl);
+      const result = await response.json();
+      console.log('🏥 Health check result:', result);
+      return result;
     } catch (error) {
+      console.error('❌ Health check failed:', error);
       return { status: 'unhealthy', error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  },
-
-  async checkTrustScoreService() {
-    try {
-      // Test a basic trust score endpoint
-      const response = await trustScoreApi.getUserTrustScore('user1');
-      return { trustScoreService: response.success ? 'healthy' : 'unhealthy' };
-    } catch (error) {
-      return { trustScoreService: 'unhealthy', error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 };
-
-// NEW: React Hook for Trust Scores
-export function useTrustScore(recommendationId: string, userId?: string) {
-  const [trustScore, setTrustScore] = React.useState<TrustScore | null>(null);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    const fetchTrustScore = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const response = await trustScoreApi.getTrustScore(recommendationId, userId);
-        if (response.success && response.data) {
-          setTrustScore(response.data);
-        } else {
-          // Fallback to mock data for development
-          setTrustScore(trustScoreApi.generateMockTrustScore(recommendationId));
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch trust score');
-        // Use mock data on error
-        setTrustScore(trustScoreApi.generateMockTrustScore(recommendationId));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (recommendationId) {
-      fetchTrustScore();
-    }
-  }, [recommendationId, userId]);
-
-  return { trustScore, loading, error };
-}
 
 export default apiClient;

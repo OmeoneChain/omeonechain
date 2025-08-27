@@ -13,7 +13,7 @@ export async function GET(
     console.log(`Proxying stats request for user ${id} to Express API`);
     
     // Forward the request to your Express API
-    const expressUrl = `${EXPRESS_API_BASE}/social/users/${id}/stats`;
+    const expressUrl = `${EXPRESS_API_BASE}/social/users/${id}/`;
     
     const response = await fetch(expressUrl, {
       method: 'GET',

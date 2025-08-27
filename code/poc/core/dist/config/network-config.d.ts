@@ -19,6 +19,7 @@ export interface ContractAddresses {
     rewardDistribution: string;
     governance: string;
     reputation: string;
+    recommendation: string;
     nftTickets?: string;
 }
 export interface NetworkEnvironment {

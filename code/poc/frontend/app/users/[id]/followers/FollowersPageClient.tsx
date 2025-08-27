@@ -3,100 +3,52 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Users, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { socialApi, type User } from '../../../src/services/api';
 
 interface FollowersPageClientProps {
   userId: string;
 }
 
-// Mock data for testing
-const mockFollowers = [
-  {
-    id: '1',
-    username: 'alice_foodie',
-    display_name: 'Alice Chen',
-    avatar_url: null,
-    followers_count: 245,
-    recommendations_count: 89,
-    avg_trust_score: 0.85,
-    verification_status: 'verified',
-    is_following: false
-  },
-  {
-    id: '2',
-    username: 'bob_explorer',
-    display_name: 'Bob Martinez',
-    avatar_url: null,
-    followers_count: 156,
-    recommendations_count: 34,
-    avg_trust_score: 0.72,
-    verification_status: 'basic',
-    is_following: true
-  },
-  {
-    id: '3',
-    username: 'chef_sarah',
-    display_name: 'Sarah Thompson',
-    avatar_url: null,
-    followers_count: 892,
-    recommendations_count: 156,
-    avg_trust_score: 0.94,
-    verification_status: 'expert',
-    is_following: false
-  }
-];
-
 export default function FollowersPageClient({ userId }: FollowersPageClientProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [followers, setFollowers] = useState<any[]>([]);
-  const [useRealAPI, setUseRealAPI] = useState(true);
+  const [followers, setFollowers] = useState<User[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     console.log('Loading followers for user:', userId);
-    loadData();
-  }, [userId, useRealAPI]);
+    loadFollowers();
+  }, [userId, page]);
 
-  const loadData = async () => {
+  const loadFollowers = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      if (!useRealAPI) {
-        // Use mock data for now
-        console.log('Using mock data');
-        setTimeout(() => {
-          setFollowers(mockFollowers);
-          setLoading(false);
-        }, 1000); // Simulate loading time
-        return;
-      }
-
-      // Real API call
-      const response = await fetch(`/api/social/users/${userId}/followers?page=1&per_page=20`);
+      console.log(`Fetching followers for user ${userId}, page ${page}`);
       
-      console.log('API Response status:', response.status);
+      const response = await socialApi.getFollowers(userId, page, 20);
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('API Response data:', data);
-        
-        if (data.followers && Array.isArray(data.followers)) {
-          setFollowers(data.followers);
-        } else if (Array.isArray(data)) {
-          setFollowers(data);
-        } else {
-          console.log('Unexpected data structure:', data);
-          setFollowers([]);
-        }
+      console.log('API Response:', response);
+      
+      if (page === 1) {
+        setFollowers(response.followers || []);
       } else {
-        const errorText = await response.text();
-        console.error('API Error:', response.status, errorText);
-        setError(`API Error: ${response.status} - The followers endpoint doesn't exist yet`);
+        setFollowers(prev => [...prev, ...(response.followers || [])]);
       }
+      
+      setTotalCount(response.total_count || 0);
+      setHasMore((response.followers || []).length === 20);
+
     } catch (err) {
-      console.error('Network Error:', err);
-      setError('Network error - check console for details');
+      console.error('Error loading followers:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load followers');
+      
+      // Don't fall back to mock data - show the error
+      setFollowers([]);
     } finally {
       setLoading(false);
     }
@@ -106,16 +58,40 @@ export default function FollowersPageClient({ userId }: FollowersPageClientProps
     router.push(`/users/${userId}`);
   };
 
-  const handleFollowToggle = (targetUserId: string, isCurrentlyFollowing: boolean) => {
-    setFollowers(followers.map(user => 
-      user.id === targetUserId 
-        ? { 
-            ...user, 
-            is_following: !isCurrentlyFollowing,
-            followers_count: user.followers_count + (isCurrentlyFollowing ? -1 : 1)
-          }
-        : user
-    ));
+  const handleFollowToggle = async (targetUserId: string, isCurrentlyFollowing: boolean) => {
+    try {
+      console.log(`${isCurrentlyFollowing ? 'Unfollowing' : 'Following'} user ${targetUserId}`);
+      
+      if (isCurrentlyFollowing) {
+        await socialApi.unfollowUser(targetUserId);
+      } else {
+        await socialApi.followUser(targetUserId);
+      }
+
+      // Update the local state optimistically
+      setFollowers(followers.map(user => 
+        user.id === targetUserId 
+          ? { 
+              ...user, 
+              is_following: !isCurrentlyFollowing,
+              followers_count: user.followers_count + (isCurrentlyFollowing ? -1 : 1)
+            }
+          : user
+      ));
+
+      console.log(`Successfully ${isCurrentlyFollowing ? 'unfollowed' : 'followed'} user`);
+      
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      // Show error to user but don't revert optimistic update
+      // In a production app, you might want to revert the change and show a toast
+    }
+  };
+
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      setPage(prev => prev + 1);
+    }
   };
 
   const getVerificationBadge = (status: string) => {
@@ -137,48 +113,13 @@ export default function FollowersPageClient({ userId }: FollowersPageClientProps
     }
   };
 
-  if (loading) {
+  if (loading && page === 1) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
           <p className="text-gray-600">Loading followers...</p>
           <p className="text-sm text-gray-400 mt-2">User ID: {userId}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <Users className="w-16 h-16 mx-auto mb-4 text-red-400" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">API Not Ready</h3>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <div className="space-x-3">
-            <button
-              onClick={() => {
-                setUseRealAPI(false);
-                loadData();
-              }}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-            >
-              Use Mock Data
-            </button>
-            <button
-              onClick={loadData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              Try Real API
-            </button>
-            <button
-              onClick={handleBack}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-            >
-              Go Back
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -201,34 +142,42 @@ export default function FollowersPageClient({ userId }: FollowersPageClientProps
             <div>
               <h1 className="text-xl font-bold text-gray-900">Followers</h1>
               <p className="text-gray-600">
-                {followers.length} {followers.length === 1 ? 'follower' : 'followers'}
+                {totalCount} {totalCount === 1 ? 'follower' : 'followers'}
               </p>
             </div>
             
-            {/* API Mode Toggle */}
+            {/* Real API indicator */}
             <div className="text-sm">
-              <button
-                onClick={() => setUseRealAPI(!useRealAPI)}
-                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  useRealAPI 
-                    ? 'bg-red-100 text-red-700' 
-                    : 'bg-green-100 text-green-700'
-                }`}
-              >
-                {useRealAPI ? 'Real API (404)' : 'Mock Data'}
-              </button>
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                Real API
+              </span>
             </div>
           </div>
+          
+          {/* Error message if any */}
+          {error && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800">{error}</p>
+              <button 
+                onClick={() => loadFollowers()}
+                className="text-sm text-red-600 hover:text-red-800 underline mt-1"
+              >
+                Try again
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="max-w-2xl mx-auto p-6">
-        {followers.length === 0 ? (
+        {followers.length === 0 && !loading ? (
           <div className="text-center py-12">
             <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No followers yet</h3>
-            <p className="text-gray-500">This user doesn't have any followers yet.</p>
+            <p className="text-gray-500">
+              {error ? 'Could not load followers.' : 'This user doesn\'t have any followers yet.'}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -240,7 +189,7 @@ export default function FollowersPageClient({ userId }: FollowersPageClientProps
                 {/* Avatar */}
                 <div className="relative">
                   <img
-                    src={follower.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${follower.username}`}
+                    src={follower.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${follower.username || follower.id}`}
                     alt={follower.display_name}
                     className="w-12 h-12 rounded-full object-cover"
                   />
@@ -254,7 +203,7 @@ export default function FollowersPageClient({ userId }: FollowersPageClientProps
                 {/* User Info */}
                 <div className="flex-1">
                   <h3 className="font-medium text-gray-900">
-                    {follower.display_name || follower.name || follower.username || 'Unknown User'}
+                    {follower.display_name || follower.username || 'Unknown User'}
                   </h3>
                   <p className="text-sm text-gray-600 mb-1">
                     @{follower.username || follower.id}
@@ -290,6 +239,26 @@ export default function FollowersPageClient({ userId }: FollowersPageClientProps
                 </div>
               </div>
             ))}
+
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="text-center py-4">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Load More'
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

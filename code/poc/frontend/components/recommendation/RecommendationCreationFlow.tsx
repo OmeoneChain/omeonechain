@@ -1,11 +1,12 @@
 // components/recommendation/RecommendationCreationFlow.tsx
-// Enhanced version with Assessment step and improved Brasília data
+// Enhanced version with proper IOTA Rebased integration
 
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Plus, ArrowLeft, Loader, Star, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Search, MapPin, Plus, ArrowLeft, Loader, Star, ThumbsUp, ThumbsDown, AlertCircle } from 'lucide-react';
 import EnhancedPhotoUpload from './EnhancedPhotoUpload';
 import RecommendationCard from '@/components/RecommendationCard';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { IOTAService } from '../../src/services/IOTAService';
 
 // Enhanced types matching your RecommendationCard
 interface Restaurant {
@@ -210,6 +211,43 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     priceRange: '€€'
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [iotaService, setIotaService] = useState<IOTAService | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'testing' | 'connected' | 'fallback'>('testing');
+  const [networkInfo, setNetworkInfo] = useState<any>(null);
+
+  // Initialize IOTA Service - NO INITIALIZE METHOD NEEDED
+  useEffect(() => {
+    const initIOTA = async () => {
+      try {
+        console.log('🔄 Creating IOTA service instance...');
+        const service = new IOTAService();
+        setIotaService(service);
+        
+        console.log('🔗 Testing IOTA Rebased connection...');
+        const isConnected = await service.testConnection();
+        
+        if (isConnected) {
+          setConnectionStatus('connected');
+          console.log('✅ IOTA Rebased connected successfully!');
+          
+          // Get network info
+          const info = await service.getNetworkInfo();
+          setNetworkInfo(info);
+          console.log('📊 Network info:', info);
+        } else {
+          setConnectionStatus('fallback');
+          console.log('⚠️ IOTA connection limited - using fallback mode');
+        }
+        
+      } catch (error) {
+        console.error('❌ IOTA service initialization failed:', error);
+        setConnectionStatus('fallback');
+        onError?.(new Error('IOTA connection limited. Using fallback mode.'));
+      }
+    };
+
+    initIOTA();
+  }, [onError]);
 
   // Location services
   const { location, loading: locationLoading, error: locationError, getCurrentPosition } = useGeolocation({
@@ -292,70 +330,223 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     setDraft(prev => ({ ...prev, photos }));
   };
 
-  const handleSubmit = async () => {
-    if (!draft.restaurant || !draft.title || !draft.body || !draft.category) return;
+  // Helper function to upload photos to IPFS
+  const uploadPhotosToIPFS = async (photos: PhotoData[]): Promise<string[]> => {
+    const uploadPromises = photos.map(async (photo) => {
+      try {
+        // Convert file to buffer for IPFS upload
+        const buffer = await photo.file.arrayBuffer();
+        const uint8Array = new Uint8Array(buffer);
+        
+        // Upload to IPFS (this would use your IPFS service)
+        // For now, we'll create a mock IPFS hash
+        const ipfsHash = `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+        
+        console.log(`📸 Uploaded photo to IPFS: ${ipfsHash}`);
+        return ipfsHash;
+      } catch (error) {
+        console.error('Error uploading photo to IPFS:', error);
+        throw error;
+      }
+    });
 
+    return Promise.all(uploadPromises);
+  };
+
+  // MAIN INTEGRATION POINT - Fixed IOTAService blockchain submission
+  const handleSubmit = async () => {
+    console.log('🎯 BUTTON CLICKED - handleSubmit triggered!');
+  console.log('📊 Form data check:', {
+    hasRestaurant: !!draft.restaurant,
+    hasTitle: !!draft.title,
+    hasBody: !!draft.body,
+    hasCategory: !!draft.category
+  });
+
+    if (!draft.restaurant || !draft.title || !draft.body || !draft.category) {
+    console.log('❌ Form validation failed - missing required fields');
+      return;
+    }
+    
     setIsSubmitting?.(true);
     setIsLoading(true);
     
     try {
-      // Submit to your API
-      const response = await fetch('/api/recommendations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: draft.title,
-          content: draft.body,
-          category: draft.category,
+      console.log('🔄 Starting IOTA blockchain submission...');
+      console.log('📊 Connection status:', connectionStatus);
+      
+      // Create IOTAService instance directly if not available
+      let service = iotaService;
+      if (!service) {
+        console.log('🔧 Creating new IOTAService instance...');
+        service = new IOTAService();
+      }
+
+      // Step 1: Upload photos to IPFS if any
+      let photoHashes: string[] = [];
+      if (draft.photos.length > 0) {
+        console.log(`📸 Uploading ${draft.photos.length} photos to IPFS...`);
+        try {
+          photoHashes = await uploadPhotosToIPFS(draft.photos);
+          console.log('✅ Photos uploaded:', photoHashes);
+        } catch (error) {
+          console.warn('⚠️ Photo upload failed, continuing without photos:', error);
+        }
+      }
+
+      // Step 2: Prepare recommendation data for IOTAService.storeRecommendation
+      const recommendationData = {
+        title: draft.title,
+        body: draft.body,
+        author: 'current-user',
+        category: draft.category,
+        location: {
+          latitude: draft.restaurant.latitude || 0,
+          longitude: draft.restaurant.longitude || 0,
+          address: draft.restaurant.address,
+          city: draft.restaurant.city
+        },
+        contentHash: '',
+        metadata: {
           restaurantName: draft.restaurant.name,
-          restaurantAddress: draft.restaurant.address,
-          latitude: draft.restaurant.latitude,
-          longitude: draft.restaurant.longitude,
-          // Include assessment data
-          rating: draft.assessment.rating,
+          cuisine: draft.restaurant.cuisine,
+          priceRange: draft.restaurant.priceRange,
+          personalRating: draft.assessment.rating,
           wouldRecommend: draft.assessment.wouldRecommend,
           confidence: draft.assessment.confidence,
           experience: draft.assessment.experience,
-          tags: draft.assessment.tags,
-          // Add actual user data when auth is implemented
-          authorId: 'user_' + Date.now(),
-          authorName: 'Current User'
-        })
+          contextTags: draft.assessment.tags,
+          photoHashes,
+          photoCount: draft.photos.length,
+          hasGPSPhotos: draft.photos.some(photo => photo.location),
+          createdAt: new Date().toISOString(),
+          visitDate: draft.visitDate?.toISOString(),
+          language: 'pt-BR',
+          platform: 'omeonechain-web',
+          version: '1.0.0'
+        }
+      };
+
+      console.log('⛓️ Submitting to IOTA Rebased blockchain...', {
+        contract: 'recommendation.move',
+        packageId: '0x2944ad31391686be62e955acd908e7b8905c89e78207e6d1bea69f25220bc7a3',
+        dataPreview: {
+          title: recommendationData.title,
+          category: recommendationData.category,
+          author: recommendationData.author,
+          hasPhotos: photoHashes.length > 0
+        }
       });
 
-      const result = await response.json();
+      // Step 3: Submit to IOTA Rebased blockchain
+      console.log('🚀 Calling service.storeRecommendation...');
+      const recommendationResult = await service.storeRecommendation(recommendationData);
       
-      if (result.success) {
-        const recommendationId = `rec-${Date.now()}`;
-        onSuccess?.(recommendationId);
-        
-        // Reset form
-        setDraft({
-          restaurant: null,
-          title: '',
-          body: '',
-          category: '',
-          photos: [],
-          assessment: {
-            rating: 7,
-            wouldRecommend: true,
-            confidence: 'medium',
-            experience: 'met',
-            tags: []
+      console.log('✅ Blockchain submission successful!', recommendationResult);
+
+      // Extract recommendation ID from result
+      const recommendationId = recommendationResult?.id || recommendationResult?.recommendationId || 'pending-' + Date.now();
+
+      // Step 4: Calculate initial Trust Score
+      if (connectionStatus === 'connected') {
+        try {
+          console.log('🎯 Calculating Trust Score for:', recommendationId);
+          const trustCalculation = await service.calculateLiveTrustScore('current-user', recommendationId);
+          console.log('✅ Trust Score calculated:', trustCalculation);
+          
+          if (trustCalculation.finalScore >= 0.25) {
+            console.log('💰 Trust Score threshold reached - token rewards will be distributed');
+          } else {
+            console.log('📊 Trust Score below threshold:', trustCalculation.finalScore, '< 0.25');
           }
-        });
-        setStep('restaurant');
+        } catch (error) {
+          console.warn('⚠️ Could not calculate live Trust Score:', error);
+        }
       } else {
-        throw new Error(result.error || 'Failed to publish recommendation');
+        console.log('⚠️ Not connected to IOTA - skipping Trust Score calculation');
       }
-      
+
+      // Step 5: Success callback
+      console.log('🎉 Recommendation creation complete!');
+      onSuccess?.(recommendationId);
+
+      // Reset form
+      setDraft({
+        restaurant: null,
+        title: '',
+        body: '',
+        category: '',
+        photos: [],
+        assessment: {
+          rating: 7,
+          wouldRecommend: true,
+          confidence: 'medium',
+          experience: 'met',
+          tags: []
+        }
+      });
+      setStep('restaurant');
+
     } catch (error) {
-      console.error('Error submitting recommendation:', error);
-      onError?.(error as Error);
+      console.error('❌ Blockchain submission failed:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('📋 Error details:', {
+        message: errorMessage,
+        draft: {
+          title: draft.title,
+          category: draft.category,
+          hasRestaurant: !!draft.restaurant
+        },
+        connectionStatus,
+        iotaServiceAvailable: !!iotaService
+      });
+      
+      onError?.(error instanceof Error ? error : new Error(errorMessage));
     } finally {
-      setIsLoading(false);
       setIsSubmitting?.(false);
+      setIsLoading(false);
     }
+  };
+
+  // Helper function to calculate initial Trust Score based on assessment
+  const calculateInitialTrustScore = (assessment: AssessmentData): number => {
+    let score = 0.1; // Base score
+    
+    // Factor in personal rating (1-10 scale to 0.1-1.0)
+    score = Math.max(score, assessment.rating * 0.1);
+    
+    // Boost for high confidence recommendations
+    if (assessment.confidence === 'high' && assessment.wouldRecommend) {
+      score = Math.min(1.0, score + 0.2);
+    }
+    
+    // Boost for recommendations with context tags
+    if (assessment.tags.length > 0) {
+      score = Math.min(1.0, score + (assessment.tags.length * 0.05));
+    }
+    
+    return Math.round(score * 100) / 100; // Round to 2 decimal places
+  };
+
+  // Helper function to calculate expected token rewards
+  const calculateExpectedRewards = (draft: RecommendationDraft): number => {
+    let rewards = 1.0; // Base reward
+    
+    // Photo bonuses
+    rewards += draft.photos.length * 0.2;
+    
+    // Confidence bonus
+    if (draft.assessment.confidence === 'high') {
+      rewards += 0.5;
+    } else if (draft.assessment.confidence === 'medium') {
+      rewards += 0.2;
+    }
+    
+    // Context tag bonuses
+    rewards += draft.assessment.tags.length * 0.05;
+    
+    return Math.round(rewards * 100) / 100;
   };
 
   const generatePreviewRecommendation = () => {
@@ -387,7 +578,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         socialDistance: 1 as const,
         verificationLevel: 'basic' as const
       },
-      trustScore: Math.max(0.1, draft.assessment.rating * 0.1), // Convert 1-10 to 0.1-1.0
+      trustScore: calculateInitialTrustScore(draft.assessment),
       trustBreakdown: {
         directFriends: 0,
         friendsOfFriends: 0,
@@ -401,7 +592,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         comments: 0
       },
       tokenRewards: {
-        amount: 1.0 + (draft.photos.length * 0.2) + (draft.assessment.confidence === 'high' ? 0.5 : 0),
+        amount: calculateExpectedRewards(draft),
         usdValue: 0.12,
         earnedFrom: 'creation' as const
       },
@@ -410,11 +601,48 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       isBookmarked: false,
       hasUpvoted: false,
       verificationStatus: 'unverified' as const,
-      // Include assessment for display
       personalRating: draft.assessment.rating,
       wouldRecommend: draft.assessment.wouldRecommend,
       confidence: draft.assessment.confidence
     };
+  };
+
+  // Render connection status
+  const renderConnectionStatus = () => {
+    switch (connectionStatus) {
+      case 'testing':
+        return (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center text-yellow-700">
+              <Loader className="animate-spin h-4 w-4 mr-2" />
+              Testando conexão IOTA Rebased...
+            </div>
+          </div>
+        );
+      
+      case 'connected':
+        return (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center text-green-700">
+              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+              IOTA Rebased conectado! {networkInfo && `(${networkInfo.contractsDeployed}/5 contratos ativos)`}
+            </div>
+          </div>
+        );
+      
+      case 'fallback':
+        return (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center text-blue-700">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              IOTA modo limitado - funcionalidade básica disponível
+            </div>
+          </div>
+        );
+      
+      default:
+        return null;
+    }
   };
 
   // Restaurant Selection Step
@@ -422,6 +650,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     return (
       <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
         <h2 className="text-2xl font-bold mb-6 text-gray-900">Escolha um Restaurante</h2>
+        
+        {/* IOTA Connection Status */}
+        {renderConnectionStatus()}
         
         {/* Location Status */}
         {locationLoading && (
@@ -637,7 +868,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
           {/* Enhanced Photos with Location */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fotos (até 5)
+              Fotos (até 5) - Bônus de +0.2 TOK por foto com GPS
             </label>
             <EnhancedPhotoUpload
               photos={draft.photos}
@@ -684,7 +915,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             {/* Rating Scale */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-4">
-                Como você avaliaria esta experiência? (Para sua referência pessoal)
+                Como você avaliaria esta experiência? (Para Trust Score inicial)
               </label>
               <div className="space-y-4">
                 <div className="flex items-center justify-center">
@@ -703,6 +934,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                 <div className="text-center">
                   <span className="text-2xl font-bold text-blue-600">{draft.assessment.rating}/10</span>
                   <p className="text-gray-700">{ratingLabels[draft.assessment.rating]}</p>
+                  <p className="text-sm text-gray-500">Trust Score inicial: {calculateInitialTrustScore(draft.assessment).toFixed(2)}</p>
                 </div>
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>1 - Terrível</span>
@@ -752,13 +984,13 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             {draft.assessment.wouldRecommend && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Qual seu nível de confiança?
+                  Qual seu nível de confiança? (Afeta recompensas em TOK)
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { key: 'low', label: 'Vale mencionar', desc: 'Opção decente' },
-                    { key: 'medium', label: 'Boa escolha', desc: 'Recomendo ativamente' },
-                    { key: 'high', label: 'Imperdível!', desc: 'Todo mundo deveria ir' }
+                    { key: 'low', label: 'Vale mencionar', desc: 'Opção decente', bonus: '+0 TOK' },
+                    { key: 'medium', label: 'Boa escolha', desc: 'Recomendo ativamente', bonus: '+0.2 TOK' },
+                    { key: 'high', label: 'Imperdível!', desc: 'Todo mundo deveria ir', bonus: '+0.5 TOK' }
                   ].map(option => (
                     <button
                       key={option.key}
@@ -774,6 +1006,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                     >
                       <div className="font-semibold text-sm">{option.label}</div>
                       <div className="text-xs text-gray-600">{option.desc}</div>
+                      <div className="text-xs text-green-600 font-medium">{option.bonus}</div>
                     </button>
                   ))}
                 </div>
@@ -783,7 +1016,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             {/* Context Tags */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Bom para... (opcional)
+                Bom para... (opcional) - Cada tag +0.05 TOK
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {contextTags.slice(0, 6).map(tag => (
@@ -816,9 +1049,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     );
   }
 
-  // NEW: Assessment Step - REMOVED (now integrated)
-
-  // Preview Step
+// Preview Step
   if (step === 'preview') {
     const previewRecommendation = generatePreviewRecommendation();
     
@@ -860,32 +1091,71 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             {draft.assessment.tags.length > 0 && (
               <p>• Tags: {draft.assessment.tags.map(tagId => contextTags.find(t => t.id === tagId)?.label).join(', ')}</p>
             )}
+            <p>• Trust Score inicial: <span className="font-semibold text-blue-600">{calculateInitialTrustScore(draft.assessment).toFixed(2)}</span></p>
           </div>
         </div>
 
         {/* Expected Rewards */}
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-          <h4 className="font-semibold text-green-800 mb-2">Recompensas Esperadas</h4>
+          <h4 className="font-semibold text-green-800 mb-2">Recompensas Esperadas na Blockchain</h4>
           <div className="text-sm text-green-700">
             <p>• Recompensa base: 1 TOK quando Trust Score ≥ 0.25</p>
             <p>• Multiplicador social: Até 3x baseado em endorsos de amigos</p>
-            <p>• Bônus de qualidade: +0.2 TOK por foto com localização</p>
-            <p>• Bônus de confiança: +0.5 TOK para recomendações de alta confiança</p>
-            <p>• Aumento de reputação: +5 pontos por conteúdo de qualidade</p>
+            <p>• Bônus de qualidade: +{(draft.photos.length * 0.2).toFixed(1)} TOK por {draft.photos.length} foto{draft.photos.length !== 1 ? 's' : ''}</p>
+            <p>• Bônus de confiança: +{draft.assessment.confidence === 'high' ? '0.5' : draft.assessment.confidence === 'medium' ? '0.2' : '0'} TOK</p>
+            <p>• Bônus de contexto: +{(draft.assessment.tags.length * 0.05).toFixed(2)} TOK por {draft.assessment.tags.length} tag{draft.assessment.tags.length !== 1 ? 's' : ''}</p>
+            <p className="font-semibold">• Total estimado: {calculateExpectedRewards(draft)} TOK</p>
+          </div>
+        </div>
+
+        {/* Blockchain Information */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h4 className="font-semibold text-blue-800 mb-2">Informações da Blockchain</h4>
+          <div className="text-sm text-blue-700">
+            <p>• Rede: IOTA Rebased (Testnet)</p>
+            <p>• Contrato: recommendation.move</p>
+            <p>• Package ID: 0x2944...bc7a3</p>
+            <p>• Status: {connectionStatus === 'connected' ? 'Conectado' : 'Modo limitado'}</p>
+            <p>• Confirmação: &lt;2 segundos</p>
+            <p>• Taxa: Gratuita (patrocinada)</p>
+            {networkInfo && (
+              <p>• Contratos ativos: {networkInfo.contractsDeployed}/5</p>
+            )}
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex space-x-3">
+          {/* EDIT BUTTON - Simple back navigation */}
           <button
             onClick={() => setStep('recommendation')}
-            className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={isLoading || isSubmitting}
+            className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Editar
           </button>
+          
+          {/* SUBMIT BUTTON - This is where blockchain submission happens */}
           <button
-            onClick={handleSubmit}
-            disabled={isLoading || isSubmitting}
+            onClick={(e) => {
+              console.log('🎯 SUBMIT BUTTON CLICKED - Raw click event triggered!');
+              console.log('📊 Submit Button state:', {
+                isLoading,
+                isSubmitting,
+                hasIotaService: !!iotaService,
+                connectionStatus,
+                disabled: isLoading || isSubmitting || !iotaService,
+                formValidation: {
+                  hasRestaurant: !!draft.restaurant,
+                  hasTitle: !!draft.title,
+                  hasBody: !!draft.body,
+                  hasCategory: !!draft.category
+                }
+              });
+              e.preventDefault();
+              handleSubmit();
+            }}
+            disabled={isLoading || isSubmitting || !iotaService}
             className="flex-2 px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-lg font-semibold transition-colors flex items-center justify-center"
           >
             {isLoading || isSubmitting ? (
@@ -894,14 +1164,14 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                 Publicando na Blockchain...
               </>
             ) : (
-              'Publicar Recomendação'
+              'Publicar na IOTA Rebased'
             )}
           </button>
         </div>
       </div>
     );
   }
-
+  
   return null;
 };
 

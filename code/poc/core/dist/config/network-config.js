@@ -28,9 +28,9 @@ exports.NETWORKS = {
         name: "IOTA Rebased Testnet",
         chainId: "rebased-testnet-001",
         rpcEndpoint: "https://api.testnet.iota.cafe:443",
-        indexerEndpoint: "https://indexer.testnet.iota.cafe:443", // Added indexer endpoint
-        explorerUrl: "https://explorer.testnet.iota.cafe", // Updated explorer URL
-        faucetUrl: "https://faucet.testnet.iota.cafe", // Updated faucet URL
+        indexerEndpoint: "https://indexer.testnet.iota.cafe:443",
+        explorerUrl: "https://explorer.testnet.iota.cafe",
+        faucetUrl: "https://faucet.testnet.iota.cafe",
         gasPrice: 50, // μMIOTA - actual testnet gas price
         confirmationBlocks: 3,
         blockTime: 5000, // 5 seconds for testnet
@@ -71,7 +71,7 @@ exports.NETWORKS = {
             dagStructure: true,
         },
     },
-    // EVM fallback networks - MOVED INSIDE THE NETWORKS OBJECT
+    // EVM fallback networks
     "polygon-testnet": {
         name: "Polygon Mumbai Testnet",
         chainId: "80001",
@@ -102,7 +102,7 @@ exports.NETWORKS = {
             dagStructure: false,
         },
     },
-}; // ADDED MISSING CLOSING BRACE AND SEMICOLON
+};
 // Contract addresses by network
 exports.CONTRACT_ADDRESSES = {
     mock: {
@@ -110,15 +110,17 @@ exports.CONTRACT_ADDRESSES = {
         rewardDistribution: "0x2222222222222222222222222222222222222222",
         governance: "0x3333333333333333333333333333333333333333",
         reputation: "0x4444444444444444444444444444444444444444",
-        nftTickets: "0x5555555555555555555555555555555555555555",
+        recommendation: "0x5555555555555555555555555555555555555555",
+        nftTickets: "0x6666666666666666666666666666666666666666",
     },
     "rebased-testnet": {
-        // Will be populated after contract deployment
-        omeoneToken: "",
-        rewardDistribution: "",
-        governance: "",
-        reputation: "",
-        nftTickets: "",
+        // ✅ LIVE DEPLOYED CONTRACTS - Updated with real Package IDs from IOTA explorer
+        omeoneToken: "0x8e2115e374da187479791caf2a6591b5a3b8579c8550089e922ce673453e0f80",
+        rewardDistribution: "0x94be5e4138473ac370ff98227c25ff6c0a77bffe72d282854dd70c37e1fadf0f",
+        governance: "0x7429a0ec403c1ea8cc33637c946983047404f13e2e2ae801cbfe5df6b067b39a",
+        reputation: "0xd5b409715fc8b81866e362bc851c9ef6fc36d58e79d6595f280c04cc824e3955",
+        recommendation: "0x2944ad31391686be62e955acd908e7b8905c89e78207e6d1bea69f25220bc7a3",
+        nftTickets: "", // To be deployed later
     },
     "rebased-mainnet": {
         // Will be populated for mainnet deployment
@@ -126,6 +128,8 @@ exports.CONTRACT_ADDRESSES = {
         rewardDistribution: "",
         governance: "",
         reputation: "",
+        recommendation: "",
+        nftTickets: "",
     },
     "polygon-testnet": {
         // EVM fallback addresses
@@ -133,6 +137,8 @@ exports.CONTRACT_ADDRESSES = {
         rewardDistribution: "",
         governance: "",
         reputation: "",
+        recommendation: "",
+        nftTickets: "",
     },
     "arbitrum-testnet": {
         // EVM fallback addresses
@@ -140,6 +146,8 @@ exports.CONTRACT_ADDRESSES = {
         rewardDistribution: "",
         governance: "",
         reputation: "",
+        recommendation: "",
+        nftTickets: "",
     },
 };
 // Environment configurations
@@ -202,7 +210,10 @@ function validateContractAddresses(addresses) {
     return !!(addresses.omeoneToken &&
         addresses.rewardDistribution &&
         addresses.governance &&
-        addresses.reputation);
+        addresses.reputation &&
+        addresses.recommendation
+    // nftTickets is optional, so not required for validation
+    );
 }
 function isNetworkAvailable(networkName) {
     return networkName in exports.NETWORKS;

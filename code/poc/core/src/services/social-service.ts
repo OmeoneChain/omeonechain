@@ -1,146 +1,400 @@
-// Social service - backend logic for following functionality
-
 import { createClient } from '@supabase/supabase-js';
-import type { 
-  SocialUser, 
-  UserFollow, 
-  SocialStats, 
-  SocialConnection,
-  FollowersResponse,
-  FollowingResponse,
-  FollowSuggestionsResponse,
-  UserSearchFilters,
-  UserSearchResponse
-} from './social-types';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export class SocialService {
-  private supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!
-  );
+  // Removed: private userManager: UserManager;
+  // No UserManager dependency - direct database operations only
 
-  // Follow a user
-  async followUser(followerId: string, followingId: string): Promise<{ success: boolean; message: string }> {
-    try {
-      // Prevent self-following
-      if (followerId === followingId) {
-        return { success: false, message: 'Cannot follow yourself' };
-      }
-
-      // Check if already following
-      const { data: existing } = await this.supabase
-        .from('user_follows')
-        .select('id')
-        .eq('follower_id', followerId)
-        .eq('following_id', followingId)
-        .single();
-
-      if (existing) {
-        return { success: false, message: 'Already following this user' };
-      }
-
-      // Create follow relationship
-      const { error } = await this.supabase
-        .from('user_follows')
-        .insert({
-          follower_id: followerId,
-          following_id: followingId
-        });
-
-      if (error) throw error;
-
-      // Log social activity
-      await this.logSocialActivity({
-        type: 'follow',
-        user_id: followerId,
-        target_user_id: followingId
-      });
-
-      return { success: true, message: 'Successfully followed user' };
-    } catch (error) {
-      console.error('Error following user:', error);
-      return { success: false, message: 'Failed to follow user' };
-    }
+  constructor() {
+    // Removed: this.userManager = new UserManager();
+    console.log('SocialService initialized with database-first approach');
   }
 
-  // Unfollow a user
-  async unfollowUser(followerId: string, followingId: string): Promise<{ success: boolean; message: string }> {
+  // ========================================
+  // USER VALIDATION (Database-First)
+  // ========================================
+
+  private async validateUserInDatabase(userId: string): Promise<boolean> {
     try {
-      const { error } = await this.supabase
-        .from('user_follows')
-        .delete()
-        .eq('follower_id', followerId)
-        .eq('following_id', followingId);
-
-      if (error) throw error;
-
-      return { success: true, message: 'Successfully unfollowed user' };
-    } catch (error) {
-      console.error('Error unfollowing user:', error);
-      return { success: false, message: 'Failed to unfollow user' };
-    }
-  }
-
-  // Check if user A follows user B
-  async isFollowing(followerId: string, followingId: string): Promise<boolean> {
-    try {
-      const { data } = await this.supabase
-        .from('user_follows')
+      const { data: user, error } = await supabase
+        .from('users')
         .select('id')
-        .eq('follower_id', followerId)
-        .eq('following_id', followingId)
+        .eq('id', userId)
         .single();
 
-      return !!data;
+      if (error || !user) {
+        console.log(`User ${userId} not found in database`);
+        return false;
+      }
+
+      return true;
     } catch (error) {
+      console.error('Error validating user in database:', error);
       return false;
     }
   }
 
-  // Get user's followers
-  async getFollowers(userId: string, page: number = 1, perPage: number = 20): Promise<FollowersResponse> {
+  private async getAllUsersFromDatabase(): Promise<any[]> {
+    try {
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching users from database:', error);
+        return [];
+      }
+
+      return users || [];
+    } catch (error) {
+      console.error('Error in getAllUsersFromDatabase:', error);
+      return [];
+    }
+  }
+
+  // ========================================
+  // FOLLOW FUNCTIONALITY
+  // ========================================
+
+  async followUser(followerId: string, followeeId: string): Promise<{ success: boolean; message: string }> {
+    console.log(`Follow operation: ${followerId} → ${followeeId}`);
+
+    try {
+      // Validate both users exist in database
+      const followerExists = await this.validateUserInDatabase(followerId);
+      const followeeExists = await this.validateUserInDatabase(followeeId);
+
+      if (!followerExists) {
+        return { success: false, message: 'Follower not found in database' };
+      }
+
+      if (!followeeExists) {
+        return { success: false, message: 'User to follow not found in database' };
+      }
+
+      // Check if already following
+      const { data: existingConnection, error: checkError } = await supabase
+        .from('social_connections')
+        .select('id, is_active')
+        .eq('follower_id', followerId)
+        .eq('following_id', followeeId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing connection:', checkError);
+        return { success: false, message: 'Database error checking existing connection' };
+      }
+
+      if (existingConnection) {
+        if (existingConnection.is_active) {
+          return { success: false, message: 'Already following this user' };
+        } else {
+          // Reactivate existing connection
+          const { error: updateError } = await supabase
+            .from('social_connections')
+            .update({ 
+              is_active: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('follower_id', followerId)
+            .eq('following_id', followeeId);
+
+          if (updateError) {
+            console.error('Error reactivating connection:', updateError);
+            return { success: false, message: 'Failed to reactivate connection' };
+          }
+
+          console.log(`Reactivated connection: ${followerId} → ${followeeId}`);
+          return { success: true, message: 'Successfully started following user again' };
+        }
+      }
+
+      // Create new social connection
+      const { data: newConnection, error: insertError } = await supabase
+        .from('social_connections')
+        .insert({
+          follower_id: followerId,
+          following_id: followeeId,
+          trust_weight: 0.75,
+          connection_type: 'follow',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating social connection:', insertError);
+        return { 
+          success: false, 
+          message: `Failed to create connection: ${insertError.message}` 
+        };
+      }
+
+      console.log(`Created new social connection:`, newConnection.id);
+      return { 
+        success: true, 
+        message: 'Successfully started following user' 
+      };
+
+    } catch (error) {
+      console.error('Unexpected error in followUser:', error);
+      return { 
+        success: false, 
+        message: 'Unexpected error occurred' 
+      };
+    }
+  }
+
+  async unfollowUser(followerId: string, followeeId: string): Promise<{ success: boolean; message: string }> {
+    console.log(`Unfollow operation: ${followerId} → ${followeeId}`);
+
+    try {
+      // Validate both users exist in database
+      const followerExists = await this.validateUserInDatabase(followerId);
+      const followeeExists = await this.validateUserInDatabase(followeeId);
+
+      if (!followerExists || !followeeExists) {
+        return { success: false, message: 'One or both users not found in database' };
+      }
+
+      // Find and deactivate the connection
+      const { error: updateError } = await supabase
+        .from('social_connections')
+        .update({ 
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('follower_id', followerId)
+        .eq('following_id', followeeId)
+        .eq('is_active', true);
+
+      if (updateError) {
+        console.error('Error deactivating connection:', updateError);
+        return { success: false, message: 'Failed to unfollow user' };
+      }
+
+      console.log(`Deactivated connection: ${followerId} → ${followeeId}`);
+      return { success: true, message: 'Successfully unfollowed user' };
+
+    } catch (error) {
+      console.error('Unexpected error in unfollowUser:', error);
+      return { success: false, message: 'Unexpected error occurred' };
+    }
+  }
+
+  async isFollowing(followerId: string, followeeId: string): Promise<boolean> {
+    try {
+      const { data: connection, error } = await supabase
+        .from('social_connections')
+        .select('is_active')
+        .eq('follower_id', followerId)
+        .eq('following_id', followeeId)
+        .eq('is_active', true)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking follow status:', error);
+        return false;
+      }
+
+      return !!connection;
+    } catch (error) {
+      console.error('Error in isFollowing:', error);
+      return false;
+    }
+  }
+
+  // ========================================
+  // USER STATS AND PROFILES
+  // ========================================
+
+  async getUserStats(userId: string): Promise<any> {
+    try {
+      // Validate user exists in database
+      const userExists = await this.validateUserInDatabase(userId);
+      if (!userExists) {
+        return {
+          followers_count: 0,
+          following_count: 0,
+          recommendations_count: 0,
+          reputation_score: 0.0
+        };
+      }
+
+      // Get user stats from database
+      const { data: userStats, error } = await supabase
+        .from('users')
+        .select(`
+          followers_count,
+          following_count,
+          total_recommendations,
+          reputation_score
+        `)
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user stats:', error);
+        return {
+          followers_count: 0,
+          following_count: 0,
+          recommendations_count: 0,
+          reputation_score: 0.0
+        };
+      }
+
+      return {
+        followers_count: userStats.followers_count || 0,
+        following_count: userStats.following_count || 0,
+        recommendations_count: userStats.total_recommendations || 0,
+        reputation_score: userStats.reputation_score || 0.0
+      };
+
+    } catch (error) {
+      console.error('Error in getUserStats:', error);
+      return {
+        followers_count: 0,
+        following_count: 0,
+        recommendations_count: 0,
+        reputation_score: 0.0
+      };
+    }
+  }
+
+  async getDiscoverUsers(currentUserId?: string): Promise<any[]> {
+    try {
+      // Get all users from database
+      const users = await this.getAllUsersFromDatabase();
+      
+      // Filter out current user if specified
+      const filteredUsers = currentUserId 
+        ? users.filter(user => user.id !== currentUserId)
+        : users;
+      
+      // Transform to match the expected discover format
+      const discoveryUsers = filteredUsers.map(user => ({
+        id: user.id,
+        display_name: user.display_name || user.username || 'Anonymous',
+        username: user.username,
+        email: user.email,
+        bio: user.bio,
+        avatar_url: user.avatar_url,
+        reputation_score: user.reputation_score || 0.0,
+        followers_count: user.followers_count || 0,
+        following_count: user.following_count || 0,
+        location_city: user.location_city || 'Unknown',
+        verification_level: user.verification_level || 'basic',
+        is_following: false, // Will be updated if currentUserId provided
+        created_at: user.created_at
+      }));
+
+      // Update follow status if current user is provided
+      if (currentUserId) {
+        for (const user of discoveryUsers) {
+          user.is_following = await this.isFollowing(currentUserId, user.id);
+        }
+      }
+
+      return discoveryUsers;
+
+    } catch (error) {
+      console.error('Error in getDiscoverUsers:', error);
+      return [];
+    }
+  }
+
+  async getUserProfile(userId: string, currentUserId?: string): Promise<any> {
+    try {
+      // Get user data from database
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error || !user) {
+        console.log(`User ${userId} not found in database`);
+        return null;
+      }
+
+      // Check if current user is following this user
+      const isFollowing = currentUserId 
+        ? await this.isFollowing(currentUserId, userId) 
+        : false;
+
+      const profile = {
+        id: user.id,
+        username: user.username,
+        display_name: user.display_name || user.username || 'Anonymous',
+        bio: user.bio,
+        avatar_url: user.avatar_url,
+        reputation_score: user.reputation_score || 0.0,
+        followers_count: user.followers_count || 0,
+        following_count: user.following_count || 0,
+        total_recommendations: user.total_recommendations || 0,
+        location_city: user.location_city,
+        verification_level: user.verification_level || 'basic',
+        is_following: isFollowing,
+        created_at: user.created_at
+      };
+
+      return profile;
+
+    } catch (error) {
+      console.error('Error getting user profile:', error);
+      return null;
+    }
+  }
+
+  // ========================================
+  // FOLLOWERS/FOLLOWING LISTS
+  // ========================================
+
+  async getFollowers(userId: string, page: number = 1, perPage: number = 20): Promise<any> {
     try {
       const offset = (page - 1) * perPage;
-
-      const { data, error, count } = await this.supabase
-        .from('user_follows')
+      
+      const { data, error, count } = await supabase
+        .from('social_connections')
         .select(`
-          created_at,
-          follower:users!user_follows_follower_id_fkey (
+          follower_id,
+          users!social_connections_follower_id_fkey(
             id,
             username,
             display_name,
             avatar_url,
-            followers_count,
-            following_count,
-            reputation_score
+            reputation_score,
+            verification_level
           )
-        `)
+        `, { count: 'exact' })
         .eq('following_id', userId)
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
-        .range(offset, offset + perPage - 1)
-        .select('*', { count: 'exact' });
+        .range(offset, offset + perPage - 1);
 
       if (error) throw error;
 
-      const followers: SocialConnection[] = data?.map(follow => ({
-        user: {
-          ...follow.follower,
-          recommendations_count: 0, // TODO: Calculate from recommendations table
-          avg_trust_score: 0, // TODO: Calculate from recommendations
-          is_following: false, // TODO: Check if current user follows this follower
-          is_followed_by: true
-        },
-        connection_type: 'follower' as const,
-        connected_since: follow.created_at
-      })) || [];
+      const followers = (data || []).map(connection => ({
+        id: connection.users.id,
+        username: connection.users.username,
+        display_name: connection.users.display_name || 'Anonymous',
+        avatar_url: connection.users.avatar_url,
+        reputation_score: connection.users.reputation_score || 0.0,
+        verification_level: connection.users.verification_level || 'basic'
+      }));
 
       return {
         followers,
         total_count: count || 0,
         page,
-        per_page: perPage,
-        has_more: (count || 0) > offset + perPage
+        per_page: perPage
       };
     } catch (error) {
       console.error('Error getting followers:', error);
@@ -148,56 +402,49 @@ export class SocialService {
         followers: [],
         total_count: 0,
         page,
-        per_page: perPage,
-        has_more: false
+        per_page: perPage
       };
     }
   }
 
-  // Get users that this user follows
-  async getFollowing(userId: string, page: number = 1, perPage: number = 20): Promise<FollowingResponse> {
+  async getFollowing(userId: string, page: number = 1, perPage: number = 20): Promise<any> {
     try {
       const offset = (page - 1) * perPage;
-
-      const { data, error, count } = await this.supabase
-        .from('user_follows')
+      
+      const { data, error, count } = await supabase
+        .from('social_connections')
         .select(`
-          created_at,
-          following:users!user_follows_following_id_fkey (
+          following_id,
+          users!social_connections_following_id_fkey(
             id,
             username,
             display_name,
             avatar_url,
-            followers_count,
-            following_count,
-            reputation_score
+            reputation_score,
+            verification_level
           )
-        `)
+        `, { count: 'exact' })
         .eq('follower_id', userId)
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
-        .range(offset, offset + perPage - 1)
-        .select('*', { count: 'exact' });
+        .range(offset, offset + perPage - 1);
 
       if (error) throw error;
 
-      const following: SocialConnection[] = data?.map(follow => ({
-        user: {
-          ...follow.following,
-          recommendations_count: 0, // TODO: Calculate from recommendations table
-          avg_trust_score: 0, // TODO: Calculate from recommendations
-          is_following: true,
-          is_followed_by: false // TODO: Check if this user follows back
-        },
-        connection_type: 'following' as const,
-        connected_since: follow.created_at
-      })) || [];
+      const following = (data || []).map(connection => ({
+        id: connection.users.id,
+        username: connection.users.username,
+        display_name: connection.users.display_name || 'Anonymous',
+        avatar_url: connection.users.avatar_url,
+        reputation_score: connection.users.reputation_score || 0.0,
+        verification_level: connection.users.verification_level || 'basic'
+      }));
 
       return {
         following,
         total_count: count || 0,
         page,
-        per_page: perPage,
-        has_more: (count || 0) > offset + perPage
+        per_page: perPage
       };
     } catch (error) {
       console.error('Error getting following:', error);
@@ -205,197 +452,36 @@ export class SocialService {
         following: [],
         total_count: 0,
         page,
-        per_page: perPage,
-        has_more: false
+        per_page: perPage
       };
     }
   }
 
-  // Get mutual follows between two users
-  async getMutualFollows(userId1: string, userId2: string): Promise<SocialUser[]> {
+  // ========================================
+  // SIMPLE DEBUG (Minimal)
+  // ========================================
+
+  async getDebugInfo(): Promise<any> {
     try {
-      const { data, error } = await this.supabase
-        .rpc('get_mutual_follows', {
-          user_id_1: userId1,
-          user_id_2: userId2
-        });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error getting mutual follows:', error);
-      return [];
-    }
-  }
-
-  // Get social stats for a user
-  async getSocialStats(userId: string): Promise<SocialStats> {
-    try {
-      const { data, error } = await this.supabase
-        .from('user_social_stats')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) throw error;
-
-      // Get mutual follows count (requires current user context)
-      const mutualFollowsCount = 0; // TODO: Implement based on current user
-
+      const users = await this.getAllUsersFromDatabase();
+      
       return {
-        followers_count: data.followers_count || 0,
-        following_count: data.following_count || 0,
-        mutual_follows_count: mutualFollowsCount,
-        recommendations_count: data.recommendations_count || 0,
-        avg_trust_score: data.avg_trust_score || 0
+        service: 'SocialService',
+        timestamp: new Date().toISOString(),
+        realDatabaseUsers: {
+          count: users.length,
+          sample_users: users.slice(0, 3).map(u => ({
+            id: u.id,
+            display_name: u.display_name,
+            username: u.username
+          }))
+        }
       };
     } catch (error) {
-      console.error('Error getting social stats:', error);
       return {
-        followers_count: 0,
-        following_count: 0,
-        mutual_follows_count: 0,
-        recommendations_count: 0,
-        avg_trust_score: 0
+        service: 'SocialService',
+        error: error.message
       };
-    }
-  }
-
-  // Search users with filters
-  async searchUsers(filters: UserSearchFilters, page: number = 1, perPage: number = 20): Promise<UserSearchResponse> {
-    try {
-      let query = this.supabase
-        .from('user_social_stats')
-        .select('*', { count: 'exact' });
-
-      // Apply filters
-      if (filters.query) {
-        query = query.or(`username.ilike.%${filters.query}%,display_name.ilike.%${filters.query}%`);
-      }
-
-      if (filters.min_reputation) {
-        query = query.gte('reputation_score', filters.min_reputation);
-      }
-
-      if (filters.has_recommendations) {
-        query = query.gt('recommendations_count', 0);
-      }
-
-      // Apply sorting
-      const sortBy = filters.sort_by || 'reputation';
-      const sortOrder = filters.sort_order === 'asc' ? { ascending: true } : { ascending: false };
-
-      switch (sortBy) {
-        case 'followers':
-          query = query.order('followers_count', sortOrder);
-          break;
-        case 'recommendations':
-          query = query.order('recommendations_count', sortOrder);
-          break;
-        default:
-          query = query.order('reputation_score', sortOrder);
-      }
-
-      // Apply pagination
-      const offset = (page - 1) * perPage;
-      query = query.range(offset, offset + perPage - 1);
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-
-      const users: SocialUser[] = data?.map(user => ({
-        ...user,
-        is_following: false, // TODO: Check against current user
-        is_followed_by: false // TODO: Check against current user
-      })) || [];
-
-      return {
-        users,
-        total_count: count || 0,
-        page,
-        per_page: perPage,
-        has_more: (count || 0) > offset + perPage,
-        filters_applied: filters
-      };
-    } catch (error) {
-      console.error('Error searching users:', error);
-      return {
-        users: [],
-        total_count: 0,
-        page,
-        per_page: perPage,
-        has_more: false,
-        filters_applied: filters
-      };
-    }
-  }
-
-  // Get follow suggestions for a user
-  async getFollowSuggestions(userId: string, limit: number = 10): Promise<FollowSuggestionsResponse> {
-    try {
-      // This is a simplified version - in production, you'd want more sophisticated recommendation logic
-      const { data, error } = await this.supabase
-        .rpc('get_follow_suggestions', {
-          target_user_id: userId,
-          suggestion_limit: limit
-        });
-
-      if (error) throw error;
-
-      const suggestions = data || [];
-      const suggestionReasons: Record<string, string[]> = {};
-
-      // Generate reasons for each suggestion
-      suggestions.forEach((user: SocialUser) => {
-        suggestionReasons[user.id] = [
-          'High reputation in food recommendations',
-          'Active contributor to the community'
-        ];
-      });
-
-      return {
-        suggestions,
-        suggestion_reasons: suggestionReasons
-      };
-    } catch (error) {
-      console.error('Error getting follow suggestions:', error);
-      return {
-        suggestions: [],
-        suggestion_reasons: {}
-      };
-    }
-  }
-
-  // Log social activity for analytics
-  private async logSocialActivity(activity: {
-    type: string;
-    user_id: string;
-    target_user_id?: string;
-    target_recommendation_id?: string;
-    metadata?: Record<string, any>;
-  }) {
-    try {
-      await this.supabase
-        .from('social_activities')
-        .insert({
-          ...activity,
-          created_at: new Date().toISOString()
-        });
-    } catch (error) {
-      console.error('Error logging social activity:', error);
-      // Don't throw - this is analytics, not critical functionality
-    }
-  }
-
-  // Refresh materialized view (call periodically or after bulk operations)
-  async refreshSocialStats(): Promise<void> {
-    try {
-      await this.supabase.rpc('refresh_user_social_stats');
-    } catch (error) {
-      console.error('Error refreshing social stats:', error);
     }
   }
 }
-
-export const socialService = new SocialService();

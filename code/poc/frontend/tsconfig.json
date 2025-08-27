@@ -20,11 +20,14 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
+      "@/*": ["./*"],
       "@/components/*": ["./components/*"],
+      "@/hooks/*": ["./hooks/*"],
       "@/lib/*": ["./lib/*"],
       "@/types/*": ["./types/*"],
-      "@/app/*": ["./app/*"]
+      "@/app/*": ["./app/*"],
+      "@/services/*": ["./src/services/*"],
+      "@/config/*": ["./src/config/*"]
     },
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": true,
@@ -41,7 +44,8 @@
     "components/**/*",
     "app/**/*",
     "lib/**/*",
-    "src/**/*"
+    "src/**/*",
+    "hooks/**/*"
   ],
   "exclude": [
     "node_modules",

@@ -25,10 +25,12 @@ const serviceRoutes = require('./routes/services');
 const tokenRoutes = require('./routes/tokens');
 const governanceRoutes = require('./routes/governance');
 const developerRoutes = require('./routes/developer');
+// Import auth routes
+const auth_1 = __importDefault(require("./routes/auth"));
 // Import middleware
 const error_handler_1 = require("./middleware/error-handler");
 const request_logger_1 = require("./middleware/request-logger");
-const auth_1 = require("./middleware/auth");
+const auth_2 = require("./middleware/auth");
 // Import engines
 const engine_1 = require("../recommendation/engine");
 const engine_2 = require("../reputation/engine");
@@ -41,7 +43,7 @@ const engine_5 = require("../governance/engine");
 const DEFAULT_CONFIG = {
     port: 3000,
     cors: true,
-    corsOrigins: ['http://localhost:3001'],
+    corsOrigins: ['http://localhost:3000', 'http://localhost:3001'],
     enableWebSocket: true,
     maxRequestSize: '5mb',
     enableRateLimit: true,
@@ -125,15 +127,17 @@ class ApiServer {
         this.app.get('/health', (req, res) => {
             res.status(200).json({ status: 'ok' });
         });
+        // Authentication routes (public - no auth required)
+        this.app.use(`${apiPrefix}/auth`, auth_1.default);
         // Public routes (no auth) - Conservative fix: use 'as any' for route functions
         this.app.use(`${apiPrefix}/recommendations`, recommendationRoutes(this.recommendationEngine));
         // Protected routes (require auth) - Conservative fix: use 'as any' for middleware and route functions
-        this.app.use(`${apiPrefix}/users`, auth_1.authenticate, userRoutes(this.reputationEngine));
-        this.app.use(`${apiPrefix}/services`, auth_1.authenticate, serviceRoutes(this.serviceEngine));
-        this.app.use(`${apiPrefix}/wallet`, auth_1.authenticate, tokenRoutes(this.tokenEngine));
-        this.app.use(`${apiPrefix}/governance`, auth_1.authenticate, governanceRoutes(this.governanceEngine));
+        this.app.use(`${apiPrefix}/users`, auth_2.authenticate, userRoutes(this.reputationEngine));
+        this.app.use(`${apiPrefix}/services`, auth_2.authenticate, serviceRoutes(this.serviceEngine));
+        this.app.use(`${apiPrefix}/wallet`, auth_2.authenticate, tokenRoutes(this.tokenEngine));
+        this.app.use(`${apiPrefix}/governance`, auth_2.authenticate, governanceRoutes(this.governanceEngine));
         // Developer API routes - Conservative fix: use 'as any' for complex object parameter
-        this.app.use(`${apiPrefix}/developer`, auth_1.authenticate, developerRoutes({
+        this.app.use(`${apiPrefix}/developer`, auth_2.authenticate, developerRoutes({
             recommendationEngine: this.recommendationEngine,
             reputationEngine: this.reputationEngine,
             serviceEngine: this.serviceEngine

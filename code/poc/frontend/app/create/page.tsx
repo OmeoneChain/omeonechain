@@ -62,6 +62,18 @@ const RecommendationCreationFlow = dynamic(
   }
 );
 
+// Dynamically import DeveloperPanel with error handling
+const DeveloperPanel = dynamic(
+  () => import('@/components/DeveloperPanel').catch(() => {
+    // If the component doesn't exist, return empty component
+    return () => null;
+  }),
+  { 
+    ssr: false,
+    loading: () => null
+  }
+);
+
 const CreatePage: React.FC = () => {
   const [mounted, setMounted] = useState(false);
 
@@ -167,6 +179,9 @@ const CreatePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Developer Panel - Only shows in development/testing */}
+      <DeveloperPanel />
     </div>
   );
 };

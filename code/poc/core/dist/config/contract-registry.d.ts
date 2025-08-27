@@ -22,20 +22,22 @@ export interface DeploymentInfo {
 export declare class ContractRegistry {
     private contracts;
     private deployments;
+    private initialized;
     constructor();
     private initializeRegistry;
+    private initializeFallbackContracts;
     registerContract(metadata: Omit<ContractMetadata, 'deployedAt'>): void;
     updateContractAddress(contractName: string, newAddress: string, deploymentInfo?: Partial<DeploymentInfo>): Promise<void>;
-    getContract(contractName: string): ContractMetadata | undefined;
-    getContractAddress(contractName: string): string;
-    getAllContracts(): Map<string, ContractMetadata>;
-    getContractsByNetwork(networkName: string): ContractMetadata[];
-    isContractDeployed(contractName: string): boolean;
+    getContract(contractName: string): Promise<ContractMetadata | undefined>;
+    getContractAddress(contractName: string): Promise<string>;
+    getAllContracts(): Promise<Map<string, ContractMetadata>>;
+    getContractsByNetwork(networkName: string): Promise<ContractMetadata[]>;
+    isContractDeployed(contractName: string): Promise<boolean>;
     getDeploymentInfo(contractName: string, environment?: string): DeploymentInfo | undefined;
     verifyContract(contractName: string, verified?: boolean): Promise<void>;
-    getContractUrl(contractName: string): string;
+    getContractUrl(contractName: string): Promise<string>;
     private getExplorerBaseUrl;
-    generateContractReport(): {
+    generateContractReport(): Promise<{
         summary: {
             totalContracts: number;
             deployedContracts: number;
@@ -45,17 +47,19 @@ export declare class ContractRegistry {
         contracts: ContractMetadata[];
         environment: string;
         networkInfo: any;
-    };
+    }>;
     loadContractsFromEnvironment(): Promise<void>;
     private mapContractKey;
     saveContractAddresses(): Promise<void>;
-    exportContractAddresses(): Record<string, string>;
+    exportContractAddresses(): Promise<Record<string, string>>;
     private mapContractNameToKey;
-    validateContractAddresses(): {
+    validateContractAddresses(): Promise<{
         valid: boolean;
         errors: string[];
-    };
+    }>;
     private isValidEvmAddress;
     private isValidMoveAddress;
+    private ensureInitialized;
+    refreshFromEnvironment(): Promise<void>;
 }
 export declare const contractRegistry: ContractRegistry;

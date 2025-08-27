@@ -1,8 +1,8 @@
 /**
- * Users API Routes (v3 - Phase 5C Integration)
+ * Users API Routes (v3 - Phase 5C Integration + Profile Management)
  *
  * API endpoints for user management and reputation with Phase 5B integration
- * Includes social graph, discovery incentives, and community verification
+ * Includes social graph, discovery incentives, community verification, and profile updates
  */
 import { ReputationEngine } from '../../reputation/engine';
 /**

@@ -1,299 +1,387 @@
-// API routes for social functionality
+import express from 'express';
+import { SocialService } from '../../services/social-service';
+import { authenticate } from '../middleware/auth';
 
-import { Router } from 'express';
-import { socialService } from '../services/social-service';
-import { authMiddleware } from '../middleware/auth';
-import { validateRequest } from '../middleware/validation';
-import { z } from 'zod';
+const router = express.Router();
+const socialService = new SocialService();
 
-const router = Router();
+// ========================================
+// DISCOVER USERS
+// ========================================
 
-// Validation schemas
-const followSchema = z.object({
-  following_id: z.string().uuid('Invalid user ID')
+router.get('/users', async (req, res) => {
+  console.log('GET /api/social/users');
+  
+  try {
+    const currentUser = req.user;
+    const users = await socialService.getDiscoverUsers(currentUser?.id);
+    
+    console.log(`Returning ${users.length} users from database`);
+    
+    res.json({
+      success: true,
+      data: {
+        users: users,
+        total_count: users.length,
+        source: 'database'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in GET /api/social/users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users from database',
+      error: error.message
+    });
+  }
 });
 
-const paginationSchema = z.object({
-  page: z.string().optional().transform(val => val ? parseInt(val) : 1),
-  per_page: z.string().optional().transform(val => val ? Math.min(parseInt(val) || 20, 100) : 20)
+// ========================================
+// DISCOVER USERS - Frontend expects this specific path
+// ========================================
+router.get('/users/discover', async (req, res) => {
+  console.log('GET /api/social/users/discover');
+  
+  try {
+    const currentUser = req.user;
+    const limit = parseInt(req.query.limit as string) || 20;
+    
+    const users = await socialService.getDiscoverUsers(currentUser?.id);
+    
+    console.log(`Returning ${users.length} users from database for discover`);
+    
+    res.json({
+      success: true,
+      users: users.slice(0, limit), // Limit results as requested by frontend
+      total_count: users.length,
+      message: `Found ${users.length} users in database`,
+      source: 'database'
+    });
+    
+  } catch (error) {
+    console.error('Error in GET /api/social/users/discover:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users from database',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 });
 
-const userSearchSchema = z.object({
-  query: z.string().optional(),
-  min_reputation: z.string().optional().transform(val => val ? parseFloat(val) : undefined),
-  has_recommendations: z.string().optional().transform(val => val === 'true'),
-  location: z.string().optional(),
-  verification_status: z.enum(['verified', 'expert', 'basic']).optional(),
-  sort_by: z.enum(['reputation', 'followers', 'recent_activity', 'recommendations']).optional(),
-  sort_order: z.enum(['asc', 'desc']).optional(),
-  page: z.string().optional().transform(val => val ? parseInt(val) : 1),
-  per_page: z.string().optional().transform(val => val ? Math.min(parseInt(val) || 20, 100) : 20)
-});
+// ========================================
+// FOLLOW OPERATIONS
+// ========================================
 
-// Follow a user
-router.post('/follow', 
-  authMiddleware,
-  validateRequest(followSchema),
-  async (req, res) => {
-    try {
-      const { following_id } = req.body;
-      const follower_id = req.user.id;
+router.post('/users/:userId/follow', authenticate, async (req, res) => {
+  console.log('🔍 Follow route hit - authentication passed');
+  console.log('- User ID from URL:', req.params.userId);
+  console.log('- Authenticated user:', req.user);
+  console.log('- Request body:', req.body);
+  console.log('- Request headers:', req.headers);
+  console.log('POST /api/social/users/:userId/follow');
+  
+  try {
+    const followeeId = req.params.userId;
+    const currentUser = req.user;
+    
+    console.log('Follow request:', {
+      followerId: currentUser?.id,
+      followeeId: followeeId
+    });
 
-      const result = await socialService.followUser(follower_id, following_id);
-
-      if (result.success) {
-        // Get updated stats
-        const [followerStats, followingStats] = await Promise.all([
-          socialService.getSocialStats(follower_id),
-          socialService.getSocialStats(following_id)
-        ]);
-
-        res.json({
-          success: true,
-          message: result.message,
-          following: true,
-          follower_stats: followerStats,
-          following_stats: followingStats
-        });
-      } else {
-        res.status(400).json({
-          success: false,
-          message: result.message
-        });
-      }
-    } catch (error) {
-      console.error('Follow user error:', error);
-      res.status(500).json({
+    if (!currentUser?.id) {
+      console.log('No authenticated user found');
+      return res.status(401).json({
         success: false,
-        message: 'Internal server error'
+        message: 'Authentication required'
       });
     }
-  }
-);
 
-// Unfollow a user
-router.delete('/follow/:following_id',
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const { following_id } = req.params;
-      const follower_id = req.user.id;
-
-      // Validate UUID
-      if (!following_id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid user ID format'
-        });
-      }
-
-      const result = await socialService.unfollowUser(follower_id, following_id);
-
-      if (result.success) {
-        // Get updated stats
-        const [followerStats, followingStats] = await Promise.all([
-          socialService.getSocialStats(follower_id),
-          socialService.getSocialStats(following_id)
-        ]);
-
-        res.json({
-          success: true,
-          message: result.message,
-          following: false,
-          follower_stats: followerStats,
-          following_stats: followingStats
-        });
-      } else {
-        res.status(400).json({
-          success: false,
-          message: result.message
-        });
-      }
-    } catch (error) {
-      console.error('Unfollow user error:', error);
-      res.status(500).json({
+    if (currentUser.id === followeeId) {
+      console.log('User trying to follow themselves');
+      return res.status(400).json({
         success: false,
-        message: 'Internal server error'
+        message: 'Cannot follow yourself'
       });
     }
-  }
-);
 
-// Check if following a user
-router.get('/follow/status/:user_id',
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const { user_id } = req.params;
-      const current_user_id = req.user.id;
-
-      const [isFollowing, isFollowedBy] = await Promise.all([
-        socialService.isFollowing(current_user_id, user_id),
-        socialService.isFollowing(user_id, current_user_id)
-      ]);
-
-      res.json({
-        is_following: isFollowing,
-        is_followed_by: isFollowedBy,
-        relationship_type: isFollowing && isFollowedBy ? 'mutual' : 
-                         isFollowing ? 'following' : 
-                         isFollowedBy ? 'follower' : 'none'
-      });
-    } catch (error) {
-      console.error('Check follow status error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  }
-);
-
-// Get user's followers
-router.get('/users/:user_id/followers',
-  validateRequest(paginationSchema, 'query'),
-  async (req, res) => {
-    try {
-      const { user_id } = req.params;
-      const { page, per_page } = req.query;
-
-      const followers = await socialService.getFollowers(user_id, page, per_page);
-
-      res.json(followers);
-    } catch (error) {
-      console.error('Get followers error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  }
-);
-
-// Get users that this user follows
-router.get('/users/:user_id/following',
-  validateRequest(paginationSchema, 'query'),
-  async (req, res) => {
-    try {
-      const { user_id } = req.params;
-      const { page, per_page } = req.query;
-
-      const following = await socialService.getFollowing(user_id, page, per_page);
-
-      res.json(following);
-    } catch (error) {
-      console.error('Get following error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  }
-);
-
-// Get mutual follows between two users
-router.get('/users/:user_id/mutual/:other_user_id',
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const { user_id, other_user_id } = req.params;
-
-      const mutualFollows = await socialService.getMutualFollows(user_id, other_user_id);
-
-      res.json({
-        mutual_follows: mutualFollows,
-        count: mutualFollows.length
-      });
-    } catch (error) {
-      console.error('Get mutual follows error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  }
-);
-
-// Get social stats for a user
-router.get('/users/:user_id/stats',
-  async (req, res) => {
-    try {
-      const { user_id } = req.params;
-
-      const stats = await socialService.getSocialStats(user_id);
-
-      res.json(stats);
-    } catch (error) {
-      console.error('Get social stats error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  }
-);
-
-// Search users
-router.get('/users/search',
-  validateRequest(userSearchSchema, 'query'),
-  async (req, res) => {
-    try {
-      const { page, per_page, ...filters } = req.query;
-
-      const results = await socialService.searchUsers(filters, page, per_page);
-
-      res.json(results);
-    } catch (error) {
-      console.error('Search users error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  }
-);
-
-// Get follow suggestions for current user
-router.get('/suggestions',
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const limit = parseInt(req.query.limit as string) || 10;
-
-      const suggestions = await socialService.getFollowSuggestions(userId, Math.min(limit, 50));
-
-      res.json(suggestions);
-    } catch (error) {
-      console.error('Get follow suggestions error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  }
-);
-
-// Refresh social stats (admin only or scheduled job)
-router.post('/admin/refresh-stats',
-  authMiddleware,
-  async (req, res) => {
-    try {
-      // TODO: Add admin role check
-      await socialService.refreshSocialStats();
-
+    const result = await socialService.followUser(currentUser.id, followeeId);
+    
+    if (result.success) {
+      console.log('Follow operation successful');
       res.json({
         success: true,
-        message: 'Social stats refreshed successfully'
+        message: result.message,
+        data: {
+          follower_id: currentUser.id,
+          following_id: followeeId,
+          timestamp: new Date().toISOString()
+        }
       });
-    } catch (error) {
-      console.error('Refresh social stats error:', error);
-      res.status(500).json({
+    } else {
+      console.log(`Follow operation failed: ${result.message}`);
+      res.status(400).json({
         success: false,
-        message: 'Internal server error'
+        message: result.message
       });
     }
+
+  } catch (error) {
+    console.error('Unexpected error in follow route:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during follow operation',
+      error: error.message
+    });
   }
-);
+});
+
+router.delete('/users/:userId/follow', async (req, res) => {
+  console.log('DELETE /api/social/users/:userId/follow');
+  
+  try {
+    const followeeId = req.params.userId;
+    const currentUser = req.user;
+    
+    console.log('Unfollow request:', {
+      followerId: currentUser?.id,
+      followeeId: followeeId
+    });
+
+    if (!currentUser?.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const result = await socialService.unfollowUser(currentUser.id, followeeId);
+    
+    if (result.success) {
+      console.log('Unfollow operation successful');
+      res.json({
+        success: true,
+        message: result.message,
+        data: {
+          follower_id: currentUser.id,
+          following_id: followeeId,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } else {
+      console.log(`Unfollow operation failed: ${result.message}`);
+      res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+  } catch (error) {
+    console.error('Unexpected error in unfollow route:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during unfollow operation',
+      error: error.message
+    });
+  }
+});
+
+// ========================================
+// FOLLOW STATUS CHECK
+// ========================================
+
+router.get('/users/:userId/follow-status', async (req, res) => {
+  console.log('GET /api/social/users/:userId/follow-status');
+  
+  try {
+    const followeeId = req.params.userId;
+    const currentUser = req.user;
+    
+    if (!currentUser?.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const isFollowing = await socialService.isFollowing(currentUser.id, followeeId);
+    const userStats = await socialService.getUserStats(followeeId);
+    
+    console.log(`Follow status check: ${currentUser.id} → ${followeeId} = ${isFollowing}`);
+    
+    res.json({
+      success: true,
+      data: {
+        is_following: isFollowing,
+        user_stats: userStats,
+        checked_at: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error checking follow status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check follow status',
+      error: error.message
+    });
+  }
+});
+
+// ========================================
+// USER PROFILES AND STATS
+// ========================================
+
+router.get('/users/:userId/profile', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const currentUser = req.user;
+    
+    console.log(`Fetching profile for user: ${userId}`);
+
+    const profile = await socialService.getUserProfile(userId, currentUser?.id);
+    
+    if (!profile) {
+      console.log('User not found');
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
+
+    console.log('Profile retrieved successfully');
+    res.json(profile);
+
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Internal server error',
+      error: error.message 
+    });
+  }
+});
+
+router.get('/users/:userId/stats', async (req, res) => {
+  console.log('GET /api/social/users/:userId/stats');
+  
+  try {
+    const userId = req.params.userId;
+    const stats = await socialService.getUserStats(userId);
+    
+    console.log(`Retrieved stats for user ${userId}`);
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+
+  } catch (error) {
+    console.error('Error fetching user stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user stats',
+      error: error.message
+    });
+  }
+});
+
+// ========================================
+// FOLLOWERS AND FOLLOWING
+// ========================================
+
+router.get('/users/:userId/followers', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const page = parseInt(req.query.page as string) || 1;
+    const perPage = parseInt(req.query.per_page as string) || 20;
+    
+    console.log(`Fetching followers for user: ${userId}, page: ${page}`);
+
+    const result = await socialService.getFollowers(userId, page, perPage);
+
+    console.log(`Returning ${result.followers.length} followers`);
+    res.json(result);
+
+  } catch (error) {
+    console.error('Error getting followers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+router.get('/users/:userId/following', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const page = parseInt(req.query.page as string) || 1;
+    const perPage = parseInt(req.query.per_page as string) || 20;
+    
+    console.log(`Fetching following for user: ${userId}, page: ${page}`);
+
+    const result = await socialService.getFollowing(userId, page, perPage);
+
+    console.log(`Returning ${result.following.length} following`);
+    res.json(result);
+
+  } catch (error) {
+    console.error('Error getting following:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// ========================================
+// SIMPLE DEBUG (Minimal)
+// ========================================
+
+router.get('/debug/info', async (req, res) => {
+  try {
+    const debugInfo = await socialService.getDebugInfo();
+    
+    res.json({
+      success: true,
+      message: 'Debug info retrieved',
+      data: debugInfo
+    });
+    
+  } catch (error) {
+    console.error('Error in debug info:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug info failed',
+      error: error.message
+    });
+  }
+});
+
+// ========================================
+// HEALTH CHECK
+// ========================================
+
+router.get('/health', async (req, res) => {
+  try {
+    const debugInfo = await socialService.getDebugInfo();
+    const userCount = debugInfo.realDatabaseUsers?.count || 0;
+    
+    res.json({
+      status: 'healthy',
+      service: 'social-service',
+      database_users: userCount,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 export default router;

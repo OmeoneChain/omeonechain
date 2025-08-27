@@ -5,7 +5,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
@@ -139,6 +139,28 @@ app.post('/api/v1/recommendations', (req, res) => {
   db.users[author].totalRecommendations += 1;
   
   res.status(201).json(recommendation);
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Get all users endpoint
+app.get('/api/v1/users', (req, res) => {
+  res.json(Object.values(db.users));
+});
+
+// Auth challenge endpoint (basic version)
+app.post('/api/v1/auth/challenge', (req, res) => {
+  const { address } = req.body;
+  const challenge = crypto.randomBytes(32).toString('hex');
+  
+  res.json({
+    challenge,
+    timestamp: Date.now(),
+    nonce: crypto.randomBytes(16).toString('hex')
+  });
 });
 
 // Upvote a recommendation

@@ -1,0 +1,378 @@
+// File: code/poc/core/src/middleware/auth.ts
+// Real backend authentication middleware
+
+import { Request, Response, NextFunction } from 'express';
+import { JWTUtils, SignatureUtils, UserManager } from '../utils/jwt';
+
+// Extend Request type for user data
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        address: string;
+        username?: string;
+        display_name?: string;
+        verification_status?: 'basic' | 'verified' | 'expert';
+      };
+    }
+  }
+}
+
+// Authentication middleware
+export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = JWTUtils.extractTokenFromHeader(authHeader);
+
+    if (!token) {
+      res.status(401).json({
+        success: false,
+        message: 'Access token required',
+      });
+      return;
+    }
+
+    // Verify token
+    const payload = JWTUtils.verifyToken(token);
+    
+    // Get user data
+    const user = UserManager.findById(payload.userId);
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Add user to request
+    req.user = {
+      id: user.id,
+      address: user.address,
+      username: user.username,
+      display_name: user.display_name,
+      verification_status: user.verification_status,
+    };
+
+    next();
+  } catch (error: any) {
+    console.error('Authentication error:', error);
+    
+    if (error.message === 'Token expired') {
+      res.status(401).json({
+        success: false,
+        message: 'Token expired',
+        code: 'TOKEN_EXPIRED',
+      });
+    } else if (error.message === 'Invalid token') {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid token',
+        code: 'INVALID_TOKEN',
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication failed',
+      });
+    }
+  }
+};
+
+// Optional authentication middleware (doesn't fail if no token)
+export const optionalAuth = (req: Request, res: Response, next: NextFunction): void => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = JWTUtils.extractTokenFromHeader(authHeader);
+
+    if (!token) {
+      next();
+      return;
+    }
+
+    // Try to verify token
+    const payload = JWTUtils.verifyToken(token);
+    const user = UserManager.findById(payload.userId);
+    
+    if (user) {
+      req.user = {
+        id: user.id,
+        address: user.address,
+        username: user.username,
+        display_name: user.display_name,
+        verification_status: user.verification_status,
+      };
+    }
+
+    next();
+  } catch (error) {
+    // Ignore authentication errors for optional auth
+    next();
+  }
+};
+
+// Authentication routes
+export const createAuthRoutes = () => {
+  const router = require('express').Router();
+
+  // Get authentication challenge
+  router.post('/challenge', (req: Request, res: Response): void => {
+    try {
+      const { address } = req.body;
+
+      if (!address) {
+        res.status(400).json({
+          success: false,
+          message: 'Wallet address is required',
+        });
+        return;
+      }
+
+      // Validate Ethereum address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid Ethereum address format',
+        });
+        return;
+      }
+
+      const { challenge, expires_at } = JWTUtils.generateChallenge(address);
+
+      res.json({
+        success: true,
+        challenge,
+        expires_at: expires_at.toISOString(),
+        message: JWTUtils.createAuthMessage(challenge, address),
+      });
+    } catch (error) {
+      console.error('Challenge generation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate challenge',
+      });
+    }
+  });
+
+  // Verify signature and authenticate
+  router.post('/verify', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { address, signature, challenge } = req.body;
+
+      if (!address || !signature || !challenge) {
+        res.status(400).json({
+          success: false,
+          message: 'Address, signature, and challenge are required',
+        });
+        return;
+      }
+
+      // Verify challenge
+      if (!JWTUtils.verifyChallenge(challenge, address)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid or expired challenge',
+        });
+        return;
+      }
+
+      // Create message and verify signature
+      const message = JWTUtils.createAuthMessage(challenge, address);
+      const isValidSignature = await SignatureUtils.verifyWeb3Signature(message, signature, address);
+
+      if (!isValidSignature) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid signature',
+        });
+        return;
+      }
+
+      // Find or create user
+      let user = UserManager.findByAddress(address);
+      if (!user) {
+        user = UserManager.createUser(address);
+      }
+
+      // Generate JWT token
+      const token = JWTUtils.generateToken({
+        userId: user.id,
+        address: user.address,
+      });
+
+      // Get user stats
+      const stats = UserManager.getUserStats(user.id);
+
+      res.json({
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          address: user.address,
+          username: user.username,
+          display_name: user.display_name,
+          avatar_url: user.avatar_url,
+          verification_status: user.verification_status,
+          created_at: user.created_at,
+          ...stats,
+        },
+      });
+    } catch (error) {
+      console.error('Signature verification error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Authentication failed',
+      });
+    }
+  });
+
+  // Get current user
+  router.get('/me', authenticateToken, (req: Request, res: Response): void => {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'User not found',
+        });
+        return;
+      }
+
+      const user = UserManager.findById(req.user.id);
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+        return;
+      }
+
+      const stats = UserManager.getUserStats(user.id);
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          address: user.address,
+          username: user.username,
+          display_name: user.display_name,
+          avatar_url: user.avatar_url,
+          verification_status: user.verification_status,
+          created_at: user.created_at,
+          ...stats,
+        },
+      });
+    } catch (error) {
+      console.error('Get user error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get user information',
+      });
+    }
+  });
+
+  // Refresh token
+  router.post('/refresh', authenticateToken, (req: Request, res: Response): void => {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'User not found',
+        });
+        return;
+      }
+
+      const user = UserManager.findById(req.user.id);
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+        return;
+      }
+
+      // Generate new token
+      const newToken = JWTUtils.generateToken({
+        userId: user.id,
+        address: user.address,
+      });
+
+      const stats = UserManager.getUserStats(user.id);
+
+      res.json({
+        success: true,
+        token: newToken,
+        user: {
+          id: user.id,
+          address: user.address,
+          username: user.username,
+          display_name: user.display_name,
+          avatar_url: user.avatar_url,
+          verification_status: user.verification_status,
+          created_at: user.created_at,
+          ...stats,
+        },
+      });
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to refresh token',
+      });
+    }
+  });
+
+  // Update user profile
+  router.put('/profile', authenticateToken, (req: Request, res: Response): void => {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          message: 'User not found',
+        });
+        return;
+      }
+
+      const { username, display_name, avatar_url } = req.body;
+      const updates: any = {};
+
+      if (username) updates.username = username;
+      if (display_name) updates.display_name = display_name;
+      if (avatar_url) updates.avatar_url = avatar_url;
+
+      const updatedUser = UserManager.updateUser(req.user.id, updates);
+      if (!updatedUser) {
+        res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+        return;
+      }
+
+      const stats = UserManager.getUserStats(updatedUser.id);
+
+      res.json({
+        success: true,
+        user: {
+          id: updatedUser.id,
+          address: updatedUser.address,
+          username: updatedUser.username,
+          display_name: updatedUser.display_name,
+          avatar_url: updatedUser.avatar_url,
+          verification_status: updatedUser.verification_status,
+          created_at: updatedUser.created_at,
+          updated_at: updatedUser.updated_at,
+          ...stats,
+        },
+      });
+    } catch (error) {
+      console.error('Profile update error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update profile',
+      });
+    }
+  });
+
+  return router;
+};

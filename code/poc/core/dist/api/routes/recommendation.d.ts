@@ -1,15 +1,21 @@
+import { NextRequest } from 'next/server';
 /**
- * Recommendations API Routes (v2 - Updated with adapter-specific types)
- *
- * API endpoints for recommendations management
- * Based on Technical Specifications A.4.1
+ * POST /api/recommendations
+ * Create a new recommendation with comprehensive validation
  */
-import { RecommendationEngine } from '../../recommendation/engine';
+export declare function POST(request: NextRequest): Promise<any>;
 /**
- * Create recommendation routes
- *
- * @param engine Recommendation engine instance
- * @returns Express router
+ * GET /api/recommendations
+ * List recommendations with advanced filtering and Trust Score calculation
  */
-export declare function createRecommendationRoutes(engine: RecommendationEngine): import("express-serve-static-core").Router;
-export default createRecommendationRoutes;
+export declare function GET(request: NextRequest): Promise<any>;
+/**
+ * PUT /api/recommendations
+ * Update a recommendation (for future implementation)
+ */
+export declare function PUT(request: NextRequest): Promise<any>;
+/**
+ * DELETE /api/recommendations
+ * Delete a recommendation (for future implementation)
+ */
+export declare function DELETE(request: NextRequest): Promise<any>;
