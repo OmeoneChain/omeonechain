@@ -127,7 +127,7 @@ const authAPI = {
   getCurrentUser: async (token: string): Promise<User> => {
     console.log('🔍 Getting current user from backend...');
     
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -172,7 +172,7 @@ const authAPI = {
   refreshToken: async (token: string): Promise<{ token: string; user: User }> => {
     console.log('🔄 Refreshing auth token...');
     
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/verify`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -235,7 +235,7 @@ const authAPI = {
   updateProfile: async (token: string, profileData: any): Promise<User> => {
     console.log('📝 Updating profile via API...', profileData);
     
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -279,7 +279,7 @@ const authAPI = {
 
   // Check username availability - FIXED: Correct endpoint
   checkUsernameAvailability: async (username: string): Promise<{ available: boolean; suggestions?: string[] }> => {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile/availability/${username}`);
+    const response = await fetch(`${API_BASE_URL}/api/auth/profile/availability/${username}`);
     
     if (!response.ok) {
       throw new Error('Failed to check username availability');
@@ -423,7 +423,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Try to logout on backend
     if (token) {
       try {
-        await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
+        await fetch(`${API_BASE_URL}/api/auth/logout`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -694,7 +694,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (token) {
       try {
         console.log('🔄 Refreshing auth with real API...');
-        const user = await authAPI.getCurrentUser(token); // 🎯 Now calls correct /api/v1/auth/me endpoint!
+        const user = await authAPI.getCurrentUser(token); // 🎯 Now calls correct /api/auth/me endpoint!
         const authMode = getAuthMode(user);
         
         console.log('✅ Got real user data from backend:', user);

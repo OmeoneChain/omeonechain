@@ -256,48 +256,48 @@ The platform exposes the following primary API endpoints:
 
 **Recommendation Management**
 ```
-GET /api/v1/recommendations # List recommendations with filtering
-POST /api/v1/recommendations # Create recommendation
-GET /api/v1/recommendations/{id} # Get single recommendation
-PUT /api/v1/recommendations/{id} # Update recommendation (author only)
-DELETE /api/v1/recommendations/{id} # Mark recommendation as deleted
-POST /api/v1/recommendations/{id}/upvote # Upvote recommendation
-POST /api/v1/recommendations/{id}/downvote # Downvote recommendation
+GET /api/recommendations # List recommendations with filtering
+POST /api/recommendations # Create recommendation
+GET /api/recommendations/{id} # Get single recommendation
+PUT /api/recommendations/{id} # Update recommendation (author only)
+DELETE /api/recommendations/{id} # Mark recommendation as deleted
+POST /api/recommendations/{id}/upvote # Upvote recommendation
+POST /api/recommendations/{id}/downvote # Downvote recommendation
 ```
 
 **User and Account Management**
 ```
-POST /api/v1/users # Create user account
-GET /api/v1/users/{id} # Get user profile
-PUT /api/v1/users/{id} # Update user profile
-GET /api/v1/users/{id}/recommendations # Get user's recommendations
-GET /api/v1/users/{id}/reputation # Get reputation details
-POST /api/v1/users/{id}/follow # Follow user
-POST /api/v1/users/{id}/unfollow # Unfollow user
+POST /api/users # Create user account
+GET /api/users/{id} # Get user profile
+PUT /api/users/{id} # Update user profile
+GET /api/users/{id}/recommendations # Get user's recommendations
+GET /api/users/{id}/reputation # Get reputation details
+POST /api/users/{id}/follow # Follow user
+POST /api/users/{id}/unfollow # Unfollow user
 ```
 
 **Token and Wallet Operations**
 ```
-GET /api/v1/wallet # Get wallet balance
-GET /api/v1/wallet/transactions # List transactions
-POST /api/v1/wallet/transfer # Transfer tokens
-GET /api/v1/rewards # Get reward statistics
+GET /api/wallet # Get wallet balance
+GET /api/wallet/transactions # List transactions
+POST /api/wallet/transfer # Transfer tokens
+GET /api/rewards # Get reward statistics
 ```
 
 **Service and Discovery**
 ```
-GET /api/v1/services # List services with filtering
-GET /api/v1/services/{id} # Get service details
-POST /api/v1/services # Register new service
-GET /api/v1/services/{id}/recommendations # Get recommendations for service
+GET /api/services # List services with filtering
+GET /api/services/{id} # Get service details
+POST /api/services # Register new service
+GET /api/services/{id}/recommendations # Get recommendations for service
 ```
 
 **NFT and Experience Management**
 ```
-GET /api/v1/nfts # List available NFTs
-POST /api/v1/nfts # Create NFT (for service providers)
-GET /api/v1/nfts/{id} # Get NFT details
-POST /api/v1/nfts/{id}/purchase # Purchase NFT
+GET /api/nfts # List available NFTs
+POST /api/nfts # Create NFT (for service providers)
+GET /api/nfts/{id} # Get NFT details
+POST /api/nfts/{id}/purchase # Purchase NFT
 ```
 
 **Move-script entrypoints (gas-optimized)**
@@ -310,10 +310,10 @@ POST /api/v1/nfts/{id}/purchase # Purchase NFT
 The platform provides additional endpoints for third-party developers:
 
 ```
-GET /api/v1/developer/recommendation-stats # Get aggregated recommendation statistics
-GET /api/v1/developer/trending # Get trending recommendations/services
-POST /api/v1/developer/webhook # Register webhook for events
-GET /api/v1/developer/categories # Get category taxonomy
+GET /api/developer/recommendation-stats # Get aggregated recommendation statistics
+GET /api/developer/trending # Get trending recommendations/services
+POST /api/developer/webhook # Register webhook for events
+GET /api/developer/categories # Get category taxonomy
 ```
 
 **[PLACEHOLDER: Detailed API schema with request/response formats and authentication requirements]**

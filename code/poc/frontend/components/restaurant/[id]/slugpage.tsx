@@ -31,8 +31,12 @@ interface Recommendation {
 
 export default function RestaurantDetailPage() {
   const params = useParams();
-  const restaurantId = params?.id as string;
+  const restaurantIdParam = params?.id as string;
   const slug = params?.slug as string;
+
+  // Parse and validate restaurant ID as integer
+  const restaurantId = restaurantIdParam ? parseInt(restaurantIdParam, 10) : null;
+  const isValidId = restaurantId !== null && !isNaN(restaurantId) && restaurantId > 0;
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -42,18 +46,38 @@ export default function RestaurantDetailPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'friends' | 'recent'>('all');
   const [sortBy, setSortBy] = useState<'trustScore' | 'recent' | 'social'>('trustScore');
 
+  // Debug information in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Restaurant Detail Page Debug:', {
+        restaurantIdParam,
+        restaurantId,
+        isValidId,
+        slug
+      });
+    }
+  }, [restaurantIdParam, restaurantId, isValidId, slug]);
+
   // Load restaurant data
   useEffect(() => {
-    if (restaurantId) {
-      loadRestaurant();
-      loadRecommendations();
-      checkBookmarkStatus();
+    if (!isValidId) {
+      setError('ID de restaurante inválido');
+      setLoading(false);
+      return;
     }
-  }, [restaurantId]);
+
+    loadRestaurant();
+    loadRecommendations();
+    checkBookmarkStatus();
+  }, [restaurantId, isValidId]);
 
   const loadRestaurant = async () => {
+    if (!isValidId || restaurantId === null) return;
+
     try {
       setLoading(true);
+      setError(null);
+      
       const data = await restaurantService.getRestaurant(restaurantId);
       
       if (!data) {
@@ -71,8 +95,11 @@ export default function RestaurantDetailPage() {
   };
 
   const loadRecommendations = async () => {
+    if (!isValidId || restaurantId === null) return;
+
     try {
       // Mock recommendations for now - replace with actual API call
+      // In real implementation: const recommendations = await recommendationService.getByRestaurant(restaurantId);
       const mockRecommendations: Recommendation[] = [
         {
           id: '1',
@@ -134,11 +161,14 @@ export default function RestaurantDetailPage() {
   };
 
   const checkBookmarkStatus = () => {
+    if (!isValidId || restaurantId === null) return;
+
     try {
       const saved = localStorage.getItem('bookmarkedRestaurants');
       if (saved) {
         const bookmarks = new Set(JSON.parse(saved));
-        setIsBookmarked(bookmarks.has(restaurantId));
+        // Convert to string for localStorage compatibility but maintain integer logic
+        setIsBookmarked(bookmarks.has(restaurantId.toString()));
       }
     } catch (error) {
       console.warn('Could not load bookmarks:', error);
@@ -146,14 +176,19 @@ export default function RestaurantDetailPage() {
   };
 
   const handleBookmark = () => {
+    if (!isValidId || restaurantId === null) return;
+
     try {
       const saved = localStorage.getItem('bookmarkedRestaurants');
       const bookmarks = new Set(saved ? JSON.parse(saved) : []);
       
+      // Use string representation for localStorage compatibility
+      const restaurantIdStr = restaurantId.toString();
+      
       if (isBookmarked) {
-        bookmarks.delete(restaurantId);
+        bookmarks.delete(restaurantIdStr);
       } else {
-        bookmarks.add(restaurantId);
+        bookmarks.add(restaurantIdStr);
       }
       
       localStorage.setItem('bookmarkedRestaurants', JSON.stringify([...bookmarks]));
@@ -227,6 +262,42 @@ export default function RestaurantDetailPage() {
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-gray-600">Carregando restaurante...</p>
+          {process.env.NODE_ENV === 'development' && (
+            <p className="text-xs text-gray-400 mt-2">
+              Debug: Loading restaurant ID {restaurantId} (valid: {isValidId ? 'yes' : 'no'})
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!isValidId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            ID de Restaurante Inválido
+          </h1>
+          <p className="text-gray-600 mb-4">
+            O ID do restaurante "{restaurantIdParam}" não é um número válido.
+          </p>
+          <Link 
+            href="/discover"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar para Descobrir
+          </Link>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-3 bg-yellow-100 rounded-lg text-left text-xs">
+              <strong>Debug Info:</strong><br />
+              URL Param: {restaurantIdParam}<br />
+              Parsed ID: {restaurantId}<br />
+              Is Valid: {isValidId ? 'true' : 'false'}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -241,7 +312,10 @@ export default function RestaurantDetailPage() {
             {error || 'Restaurante não encontrado'}
           </h1>
           <p className="text-gray-600 mb-4">
-            O restaurante que você está procurando não existe ou foi removido.
+            {error === 'Restaurante não encontrado' 
+              ? `O restaurante com ID ${restaurantId} não existe ou foi removido.`
+              : 'Ocorreu um erro ao carregar os dados do restaurante.'
+            }
           </p>
           <Link 
             href="/discover"
@@ -250,6 +324,14 @@ export default function RestaurantDetailPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar para Descobrir
           </Link>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-3 bg-red-100 rounded-lg text-left text-xs">
+              <strong>Debug Info:</strong><br />
+              Restaurant ID: {restaurantId}<br />
+              Error: {error}<br />
+              Restaurant Data: {restaurant ? 'Found' : 'Not found'}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -268,6 +350,11 @@ export default function RestaurantDetailPage() {
               <ArrowLeft className="h-5 w-5 mr-1" />
               Voltar
             </Link>
+            {process.env.NODE_ENV === 'development' && (
+              <span className="text-xs text-gray-400">
+                Restaurant ID: {restaurantId} | Slug: {slug}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col md:flex-row gap-6">

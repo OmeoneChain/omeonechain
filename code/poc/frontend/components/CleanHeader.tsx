@@ -43,10 +43,9 @@ const CleanHeader: React.FC<CleanHeaderProps> = ({ currentPath = '/' }) => {
   const pendingTokens = 0; // You can add this to your user model
   const canEarnTokens = authMode === 'wallet';
 
-  // Dynamic Community link based on auth state
+  // FIXED: Always return /community - let the Community page handle the logic
   const getCommunityLink = () => {
     return '/community';
-    
   };
 
   const toggleMobileMenu = () => {
@@ -98,7 +97,8 @@ const CleanHeader: React.FC<CleanHeaderProps> = ({ currentPath = '/' }) => {
           key={item.href}
           href={item.href} 
           className={`font-medium transition-colors relative ${mobile ? 'block py-3 flex items-center gap-2' : ''} ${
-            pathname === item.href 
+            // FIXED: Check for /community path specifically for Community nav highlighting
+            pathname === item.href || (item.href === '/community' && pathname === '/community')
               ? 'text-trust-600' 
               : 'text-network-600 hover:text-network-900'
           }`}
@@ -106,7 +106,7 @@ const CleanHeader: React.FC<CleanHeaderProps> = ({ currentPath = '/' }) => {
         >
           {mobile && item.icon && <item.icon size={16} />}
           {item.label}
-          {!mobile && pathname === item.href && (
+          {!mobile && (pathname === item.href || (item.href === '/community' && pathname === '/community')) && (
             <motion.div
               layoutId="activeTab"
               className="absolute -bottom-4 left-0 right-0 h-0.5 bg-trust-600"

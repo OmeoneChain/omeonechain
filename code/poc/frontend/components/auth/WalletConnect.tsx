@@ -341,7 +341,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
       {process.env.NODE_ENV === 'development' && (
         <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-gray-500">
           <p>Debug: Backend should be running on port 3001</p>
-          <p>API endpoint: /api/v1/auth/challenge</p>
+          <p>API endpoint: /api/auth/challenge</p>
           <p>Account change detection: Active</p>
         </div>
       )}

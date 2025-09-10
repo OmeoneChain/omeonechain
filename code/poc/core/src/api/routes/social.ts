@@ -47,7 +47,13 @@ router.get('/users/discover', async (req, res) => {
     const currentUser = req.user;
     const limit = parseInt(req.query.limit as string) || 20;
     
-    const users = await socialService.getDiscoverUsers(currentUser?.id);
+    // Extract currentUserId from the authenticated user
+    const currentUserId = currentUser?.id;
+    
+    console.log(`Fetching discover users for currentUserId: ${currentUserId}`);
+    
+    // Pass currentUserId to the socialService method
+    const users = await socialService.getDiscoverUsers(currentUserId);
     
     console.log(`Returning ${users.length} users from database for discover`);
     
@@ -56,7 +62,8 @@ router.get('/users/discover', async (req, res) => {
       users: users.slice(0, limit), // Limit results as requested by frontend
       total_count: users.length,
       message: `Found ${users.length} users in database`,
-      source: 'database'
+      source: 'database',
+      currentUserId: currentUserId // Include for debugging purposes
     });
     
   } catch (error) {

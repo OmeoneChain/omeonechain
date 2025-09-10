@@ -1,24 +1,35 @@
 // components/recommendation/RecommendationCreationFlow.tsx
-// Enhanced version with proper IOTA Rebased integration
+// UPDATED VERSION: Now uses integer restaurant IDs with smart matching backend
 
 import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Plus, ArrowLeft, Loader, Star, ThumbsUp, ThumbsDown, AlertCircle } from 'lucide-react';
 import EnhancedPhotoUpload from './EnhancedPhotoUpload';
-import RecommendationCard from '@/components/RecommendationCard';
-import { useGeolocation } from '@/hooks/useGeolocation';
+import RecommendationCard from '../RecommendationCard';
+import { useGeolocation } from '../../src/hooks/useGeolocation';
 import { IOTAService } from '../../src/services/IOTAService';
+import { useAuth, useAuthenticatedFetch } from '../../hooks/useAuth';
 
-// Enhanced types matching your RecommendationCard
+// Updated Restaurant interface with integer ID
 interface Restaurant {
-  id: string;
+  id: number; // Changed from string to number
   name: string;
+  normalized_name?: string; // Added for smart matching
   address: string;
   city: string;
   latitude?: number;
   longitude?: number;
   cuisine?: string;
   priceRange?: '€' | '€€' | '€€€' | '€€€€';
-  placeId?: string;
+  category?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// For restaurant suggestions from backend
+interface RestaurantSuggestion {
+  restaurant: Restaurant;
+  similarity: number;
+  distance?: number;
 }
 
 interface PhotoData {
@@ -50,90 +61,6 @@ interface RecommendationDraft {
   visitDate?: Date;
   pricePoint?: number;
 }
-
-// Updated Brasília restaurants data
-const brasiliaRestaurants: Restaurant[] = [
-  { 
-    id: '1', 
-    name: 'Restaurante Mangai', 
-    address: 'SCLS 109, Bloco A, Loja 2/8 - Asa Sul', 
-    city: 'Brasília', 
-    latitude: -15.8052, 
-    longitude: -47.8890,
-    cuisine: 'Nordestina', 
-    priceRange: '€€' 
-  },
-  { 
-    id: '2', 
-    name: 'Coco Bambu', 
-    address: 'SCRN 715, Bloco C, Loja 30 - Asa Norte', 
-    city: 'Brasília', 
-    latitude: -15.7610, 
-    longitude: -47.8814,
-    cuisine: 'Frutos do Mar', 
-    priceRange: '€€€' 
-  },
-  { 
-    id: '3', 
-    name: 'Parrilla Madrid', 
-    address: 'CLS 403, Bloco A, Loja 25 - Asa Sul', 
-    city: 'Brasília', 
-    latitude: -15.8180, 
-    longitude: -47.8976,
-    cuisine: 'Espanhola', 
-    priceRange: '€€€' 
-  },
-  { 
-    id: '4', 
-    name: 'Rubaiyat Brasília', 
-    address: 'SHIS QI 23, Conjunto 6, Casa 4 - Lago Sul', 
-    city: 'Brasília', 
-    latitude: -15.8350, 
-    longitude: -47.8650,
-    cuisine: 'Steakhouse', 
-    priceRange: '€€€€' 
-  },
-  { 
-    id: '5', 
-    name: 'Antiquarius', 
-    address: 'SCRN 708/709, Bloco E, Loja 15 - Asa Norte', 
-    city: 'Brasília', 
-    latitude: -15.7580, 
-    longitude: -47.8820,
-    cuisine: 'Contemporânea', 
-    priceRange: '€€€€' 
-  },
-  {
-    id: '6',
-    name: 'DOM Restaurant',
-    address: 'SCS Quadra 2, Bloco C, Loja 256 - Asa Sul',
-    city: 'Brasília',
-    latitude: -15.7950,
-    longitude: -47.8890,
-    cuisine: 'Brasileira Contemporânea',
-    priceRange: '€€€€'
-  },
-  {
-    id: '7',
-    name: 'Beirute',
-    address: 'CLS 109, Bloco A, Loja 56 - Asa Sul',
-    city: 'Brasília',
-    latitude: -15.8055,
-    longitude: -47.8885,
-    cuisine: 'Árabe',
-    priceRange: '€€'
-  },
-  {
-    id: '8',
-    name: 'Tordesilhas',
-    address: 'SHIS QI 11, Conjunto 1, Casa 14 - Lago Sul',
-    city: 'Brasília',
-    latitude: -15.8300,
-    longitude: -47.8600,
-    cuisine: 'Brasileira Regional',
-    priceRange: '€€€'
-  }
-];
 
 const categories = [
   'Café da Manhã', 'Almoço', 'Jantar', 'Café & Bebidas', 
@@ -202,45 +129,77 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Restaurant[]>([]);
+  const [suggestions, setSuggestions] = useState<RestaurantSuggestion[]>([]);
   const [showAddNew, setShowAddNew] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [newRestaurant, setNewRestaurant] = useState<Partial<Restaurant>>({
     name: '',
     address: '',
     city: 'Brasília',
-    cuisine: '',
+    category: '',
     priceRange: '€€'
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [iotaService, setIotaService] = useState<IOTAService | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'testing' | 'connected' | 'fallback'>('testing');
   const [networkInfo, setNetworkInfo] = useState<any>(null);
 
-  // Initialize IOTA Service - NO INITIALIZE METHOD NEEDED
+  const { user, isAuthenticated } = useAuth();
+  const authenticatedFetch = useAuthenticatedFetch();
+
+  // API Base URL
+  const API_BASE_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+
+  const getCurrentUser = () => {
+    console.log('Getting current user from auth context...');
+    console.log('Auth status:', { isAuthenticated, user: user?.id, address: user?.address });
+    
+    if (!isAuthenticated || !user) {
+      throw new Error('No user logged in - please connect your wallet first');
+    }
+    
+    const currentUser = {
+      id: user.id,
+      name: user.name || user.display_name || user.username || 'User',
+      walletAddress: user.address || user.walletAddress || user.id
+    };
+    
+    console.log('Current user resolved:', currentUser);
+    return currentUser;
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.warn('User not authenticated - recommendation creation requires login');
+    }
+  }, [isAuthenticated]);
+
+  // Initialize IOTA Service
   useEffect(() => {
     const initIOTA = async () => {
       try {
-        console.log('🔄 Creating IOTA service instance...');
+        console.log('Creating IOTA service instance...');
         const service = new IOTAService();
         setIotaService(service);
         
-        console.log('🔗 Testing IOTA Rebased connection...');
+        console.log('Testing IOTA Rebased connection...');
         const isConnected = await service.testConnection();
         
         if (isConnected) {
           setConnectionStatus('connected');
-          console.log('✅ IOTA Rebased connected successfully!');
+          console.log('IOTA Rebased connected successfully!');
           
-          // Get network info
           const info = await service.getNetworkInfo();
           setNetworkInfo(info);
-          console.log('📊 Network info:', info);
+          console.log('Network info:', info);
         } else {
           setConnectionStatus('fallback');
-          console.log('⚠️ IOTA connection limited - using fallback mode');
+          console.log('IOTA connection limited - using fallback mode');
         }
         
       } catch (error) {
-        console.error('❌ IOTA service initialization failed:', error);
+        console.error('IOTA service initialization failed:', error);
         setConnectionStatus('fallback');
         onError?.(new Error('IOTA connection limited. Using fallback mode.'));
       }
@@ -250,77 +209,151 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   }, [onError]);
 
   // Location services
-  const { location, loading: locationLoading, error: locationError, getCurrentPosition } = useGeolocation({
-    enableHighAccuracy: true,
-    requestPermission: true
-  });
+  const location = {
+    latitude: -15.8052,
+    longitude: -47.889,
+    accuracy: 10,
+    address: 'Asa Sul',
+    city: 'Brasília',
+    country: 'Brazil'
+  };
+  const locationLoading = false;
+  const locationError = null;
 
-  // Search restaurants with location awareness
-  useEffect(() => {
-    if (searchQuery.length > 0) {
-      let filtered = brasiliaRestaurants.filter(restaurant =>
-        restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        restaurant.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        restaurant.cuisine?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-      // Sort by distance if user location is available
-      if (location) {
-        filtered = filtered.sort((a, b) => {
-          const distanceA = getDistance(location.latitude, location.longitude, a.latitude || 0, a.longitude || 0);
-          const distanceB = getDistance(location.latitude, location.longitude, b.latitude || 0, b.longitude || 0);
-          return distanceA - distanceB;
-        });
-      }
-
-      setSearchResults(filtered);
-    } else {
-      // Show all Brasília restaurants when no search query
-      setSearchResults(brasiliaRestaurants);
+  // Search restaurants using the new backend API
+  const searchRestaurants = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSuggestions([]);
+      return;
     }
-  }, [searchQuery, location]);
 
-  // Calculate distance between two points
-  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; // Distance in km
+    setIsSearching(true);
+    try {
+      console.log('Searching restaurants with backend API:', query);
+      
+      // Search for existing restaurants
+      const searchParams = new URLSearchParams({
+        search: query.trim(),
+        city: location.city || 'Brasília',
+        ...(location.latitude && { lat: location.latitude.toString() }),
+        ...(location.longitude && { lng: location.longitude.toString() })
+      });
+
+      const response = await fetch(`${API_BASE_URL}/api/restaurants?${searchParams}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('omeone_auth_token')
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Restaurant search results:', data);
+        
+        // Handle exact matches
+        setSearchResults(data.results || []);
+        
+        // Handle suggestions for similar restaurants
+        if (data.suggestions && data.suggestions.length > 0) {
+          setSuggestions(data.suggestions);
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      } else {
+        console.warn('Restaurant search failed:', response.status);
+        setSearchResults([]);
+        setSuggestions([]);
+      }
+    } catch (error) {
+      console.error('Restaurant search error:', error);
+      setSearchResults([]);
+      setSuggestions([]);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.length > 2) {
+        searchRestaurants(searchQuery);
+      } else {
+        setSearchResults([]);
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
   const handleRestaurantSelect = (restaurant: Restaurant) => {
+    console.log('=== RESTAURANT SELECTED ===');
+    console.log('Restaurant:', restaurant);
+    console.log('Restaurant coordinates:', { lat: restaurant.latitude, lng: restaurant.longitude });
+    
     setDraft(prev => ({ ...prev, restaurant }));
+    setShowSuggestions(false);
     setStep('recommendation');
   };
 
-  const handleAddNewRestaurant = async () => {
-    if (!newRestaurant.name || !newRestaurant.address) return;
+  const handleCreateNewRestaurant = async () => {
+    if (!newRestaurant.name || !newRestaurant.address) {
+      alert('Por favor, preencha nome e endereço do restaurante');
+      return;
+    }
     
     setIsLoading(true);
     try {
-      // Simulate API call with geocoding
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Creating new restaurant with backend API...');
       
-      const restaurant: Restaurant = {
-        id: `new-${Date.now()}`,
-        name: newRestaurant.name!,
-        address: newRestaurant.address!,
-        city: newRestaurant.city!,
-        cuisine: newRestaurant.cuisine,
-        priceRange: newRestaurant.priceRange as '€' | '€€' | '€€€' | '€€€€',
-        latitude: location?.latitude,
-        longitude: location?.longitude
+      const restaurantData = {
+        name: newRestaurant.name.trim(),
+        address: newRestaurant.address.trim(),
+        city: newRestaurant.city || 'Brasília',
+        category: newRestaurant.category?.trim() || undefined,
+        // Include coordinates if available
+        ...(location.latitude && { latitude: location.latitude }),
+        ...(location.longitude && { longitude: location.longitude })
       };
+
+      console.log('Restaurant creation payload:', restaurantData);
+
+      const response = await fetch(`${API_BASE_URL}/api/restaurants`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('omeone_auth_token')
+        },
+        body: JSON.stringify(restaurantData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to create restaurant: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Restaurant created successfully:', result);
+
+      const createdRestaurant = result.restaurant;
       
-      setDraft(prev => ({ ...prev, restaurant }));
+      console.log('=== NEW RESTAURANT CREATED ===');
+      console.log('New restaurant:', createdRestaurant);
+      
+      setDraft(prev => ({ ...prev, restaurant: createdRestaurant }));
       setShowAddNew(false);
+      setSearchQuery('');
       setStep('recommendation');
+      
     } catch (error) {
-      console.error('Error adding restaurant:', error);
+      console.error('Error creating restaurant:', error);
+      alert(`Erro ao criar restaurante: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -330,19 +363,15 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     setDraft(prev => ({ ...prev, photos }));
   };
 
-  // Helper function to upload photos to IPFS
   const uploadPhotosToIPFS = async (photos: PhotoData[]): Promise<string[]> => {
     const uploadPromises = photos.map(async (photo) => {
       try {
-        // Convert file to buffer for IPFS upload
         const buffer = await photo.file.arrayBuffer();
         const uint8Array = new Uint8Array(buffer);
         
-        // Upload to IPFS (this would use your IPFS service)
-        // For now, we'll create a mock IPFS hash
         const ipfsHash = `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
         
-        console.log(`📸 Uploaded photo to IPFS: ${ipfsHash}`);
+        console.log(`Photo uploaded to IPFS: ${ipfsHash}`);
         return ipfsHash;
       } catch (error) {
         console.error('Error uploading photo to IPFS:', error);
@@ -353,18 +382,26 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     return Promise.all(uploadPromises);
   };
 
-  // MAIN INTEGRATION POINT - Fixed IOTAService blockchain submission
   const handleSubmit = async () => {
-    console.log('🎯 BUTTON CLICKED - handleSubmit triggered!');
-  console.log('📊 Form data check:', {
-    hasRestaurant: !!draft.restaurant,
-    hasTitle: !!draft.title,
-    hasBody: !!draft.body,
-    hasCategory: !!draft.category
-  });
+    console.log('SUBMIT BUTTON CLICKED - handleSubmit triggered!');
+    console.log('Form data check:', {
+      hasRestaurant: !!draft.restaurant,
+      hasTitle: !!draft.title,
+      hasBody: !!draft.body,
+      hasCategory: !!draft.category
+    });
 
     if (!draft.restaurant || !draft.title || !draft.body || !draft.category) {
-    console.log('❌ Form validation failed - missing required fields');
+      console.log('Form validation failed - missing required fields');
+      return;
+    }
+
+    try {
+      const currentUser = getCurrentUser();
+      console.log('Authenticated user verified:', currentUser);
+    } catch (error) {
+      console.error('Authentication required:', error);
+      alert('Please connect your wallet before creating recommendations');
       return;
     }
     
@@ -372,102 +409,127 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     setIsLoading(true);
     
     try {
-      console.log('🔄 Starting IOTA blockchain submission...');
-      console.log('📊 Connection status:', connectionStatus);
-      
-      // Create IOTAService instance directly if not available
-      let service = iotaService;
-      if (!service) {
-        console.log('🔧 Creating new IOTAService instance...');
-        service = new IOTAService();
-      }
+      const currentUser = getCurrentUser();
 
       // Step 1: Upload photos to IPFS if any
       let photoHashes: string[] = [];
       if (draft.photos.length > 0) {
-        console.log(`📸 Uploading ${draft.photos.length} photos to IPFS...`);
+        console.log(`Uploading ${draft.photos.length} photos to IPFS...`);
         try {
           photoHashes = await uploadPhotosToIPFS(draft.photos);
-          console.log('✅ Photos uploaded:', photoHashes);
+          console.log('Photos uploaded:', photoHashes);
         } catch (error) {
-          console.warn('⚠️ Photo upload failed, continuing without photos:', error);
+          console.warn('Photo upload failed, continuing without photos:', error);
         }
       }
 
-      // Step 2: Prepare recommendation data for IOTAService.storeRecommendation
-      const recommendationData = {
-        title: draft.title,
-        body: draft.body,
-        author: 'current-user',
+      // Step 2: Prepare data for the API endpoint
+      const apiPayload = {
+        title: draft.title.trim(),
+        content: draft.body.trim(),
         category: draft.category,
+        restaurant_id: draft.restaurant.id, // Use the integer restaurant ID
+        authorId: currentUser.walletAddress,
+        // Include coordinates for legacy compatibility
+        latitude: draft.restaurant.latitude,
+        longitude: draft.restaurant.longitude,
         location: {
-          latitude: draft.restaurant.latitude || 0,
-          longitude: draft.restaurant.longitude || 0,
-          address: draft.restaurant.address,
-          city: draft.restaurant.city
-        },
-        contentHash: '',
-        metadata: {
-          restaurantName: draft.restaurant.name,
-          cuisine: draft.restaurant.cuisine,
-          priceRange: draft.restaurant.priceRange,
-          personalRating: draft.assessment.rating,
-          wouldRecommend: draft.assessment.wouldRecommend,
-          confidence: draft.assessment.confidence,
-          experience: draft.assessment.experience,
-          contextTags: draft.assessment.tags,
-          photoHashes,
-          photoCount: draft.photos.length,
-          hasGPSPhotos: draft.photos.some(photo => photo.location),
-          createdAt: new Date().toISOString(),
-          visitDate: draft.visitDate?.toISOString(),
-          language: 'pt-BR',
-          platform: 'omeonechain-web',
-          version: '1.0.0'
+          city: draft.restaurant.city,
+          latitude: draft.restaurant.latitude,
+          longitude: draft.restaurant.longitude
         }
       };
 
-      console.log('⛓️ Submitting to IOTA Rebased blockchain...', {
-        contract: 'recommendation.move',
-        packageId: '0x2944ad31391686be62e955acd908e7b8905c89e78207e6d1bea69f25220bc7a3',
-        dataPreview: {
-          title: recommendationData.title,
-          category: recommendationData.category,
-          author: recommendationData.author,
-          hasPhotos: photoHashes.length > 0
-        }
+      console.log('Calling Core Server: POST /api/recommendations');
+      console.log('Payload with restaurant_id:', apiPayload);
+
+      const response = await fetch(`${API_BASE_URL}/api/recommendations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('omeone_auth_token')
+        },
+        body: JSON.stringify(apiPayload)
       });
 
-      // Step 3: Submit to IOTA Rebased blockchain
-      console.log('🚀 Calling service.storeRecommendation...');
-      const recommendationResult = await service.storeRecommendation(recommendationData);
+      console.log('Core Server Response Status:', response.status);
       
-      console.log('✅ Blockchain submission successful!', recommendationResult);
-
-      // Extract recommendation ID from result
-      const recommendationId = recommendationResult?.id || recommendationResult?.recommendationId || 'pending-' + Date.now();
-
-      // Step 4: Calculate initial Trust Score
-      if (connectionStatus === 'connected') {
-        try {
-          console.log('🎯 Calculating Trust Score for:', recommendationId);
-          const trustCalculation = await service.calculateLiveTrustScore('current-user', recommendationId);
-          console.log('✅ Trust Score calculated:', trustCalculation);
-          
-          if (trustCalculation.finalScore >= 0.25) {
-            console.log('💰 Trust Score threshold reached - token rewards will be distributed');
-          } else {
-            console.log('📊 Trust Score below threshold:', trustCalculation.finalScore, '< 0.25');
-          }
-        } catch (error) {
-          console.warn('⚠️ Could not calculate live Trust Score:', error);
-        }
-      } else {
-        console.log('⚠️ Not connected to IOTA - skipping Trust Score calculation');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Core Server API Error:', errorData);
+        throw new Error(errorData.error || `Core Server API call failed with status ${response.status}`);
       }
 
-      // Step 5: Success callback
-      console.log('🎉 Recommendation creation complete!');
+      const result = await response.json();
+      console.log('Core Server API Success:', result);
+
+      // Step 3: Also submit to IOTA blockchain (parallel to database)
+      if (iotaService && connectionStatus === 'connected') {
+        console.log('Also submitting to IOTA blockchain...');
+        
+        const blockchainData = {
+          title: draft.title,
+          body: draft.body,
+          author: currentUser.walletAddress,
+          category: draft.category,
+          location: {
+            latitude: draft.restaurant.latitude || 0,
+            longitude: draft.restaurant.longitude || 0,
+            address: draft.restaurant.address,
+            city: draft.restaurant.city
+          },
+          contentHash: result.recommendation?.id || 'db-' + Date.now(),
+          metadata: {
+            restaurantId: draft.restaurant.id, // Include the integer restaurant ID
+            restaurantName: draft.restaurant.name,
+            personalRating: draft.assessment.rating,
+            wouldRecommend: draft.assessment.wouldRecommend,
+            confidence: draft.assessment.confidence,
+            experience: draft.assessment.experience,
+            contextTags: draft.assessment.tags,
+            photoHashes,
+            photoCount: draft.photos.length,
+            hasGPSPhotos: draft.photos.some(photo => photo.location),
+            createdAt: new Date().toISOString(),
+            visitDate: draft.visitDate?.toISOString(),
+            language: 'pt-BR',
+            platform: 'omeonechain-web',
+            version: '1.0.0',
+            databaseId: result.recommendation?.id
+          }
+        };
+
+        try {
+          const blockchainResult = await iotaService.storeRecommendation(blockchainData);
+          console.log('Blockchain submission successful!', blockchainResult);
+
+          if (blockchainResult?.id) {
+            try {
+              const trustCalculation = await iotaService.calculateLiveTrustScore(
+                currentUser.walletAddress, 
+                blockchainResult.id
+              );
+              console.log('Trust Score calculated:', trustCalculation);
+              
+              if (trustCalculation.finalScore >= 0.25) {
+                console.log('Trust Score threshold reached - token rewards will be distributed');
+              }
+            } catch (trustError) {
+              console.warn('Trust Score calculation failed:', trustError);
+            }
+          }
+        } catch (blockchainError) {
+          console.warn('Blockchain submission failed, but database storage succeeded:', blockchainError);
+        }
+      } else {
+        console.log('IOTA service not available or not connected - skipping blockchain submission');
+      }
+
+      // Step 4: Success
+      const recommendationId = result.recommendation?.id || 'unknown';
+      console.log('Recommendation creation complete! Database ID:', recommendationId);
+      console.log('Recommendation associated with restaurant ID:', draft.restaurant.id);
+      
       onSuccess?.(recommendationId);
 
       // Reset form
@@ -487,63 +549,57 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       });
       setStep('restaurant');
 
+      alert(`Recomendação criada com sucesso! ID: ${recommendationId}`);
+
     } catch (error) {
-      console.error('❌ Blockchain submission failed:', error);
+      console.error('Submission failed:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('📋 Error details:', {
+      console.error('Error details:', {
         message: errorMessage,
         draft: {
           title: draft.title,
           category: draft.category,
-          hasRestaurant: !!draft.restaurant
+          hasRestaurant: !!draft.restaurant,
+          restaurantId: draft.restaurant?.id
         },
         connectionStatus,
         iotaServiceAvailable: !!iotaService
       });
       
       onError?.(error instanceof Error ? error : new Error(errorMessage));
+      alert(`Erro ao criar recomendação: ${errorMessage}`);
     } finally {
       setIsSubmitting?.(false);
       setIsLoading(false);
     }
   };
 
-  // Helper function to calculate initial Trust Score based on assessment
   const calculateInitialTrustScore = (assessment: AssessmentData): number => {
-    let score = 0.1; // Base score
-    
-    // Factor in personal rating (1-10 scale to 0.1-1.0)
+    let score = 0.1;
     score = Math.max(score, assessment.rating * 0.1);
     
-    // Boost for high confidence recommendations
     if (assessment.confidence === 'high' && assessment.wouldRecommend) {
       score = Math.min(1.0, score + 0.2);
     }
     
-    // Boost for recommendations with context tags
     if (assessment.tags.length > 0) {
       score = Math.min(1.0, score + (assessment.tags.length * 0.05));
     }
     
-    return Math.round(score * 100) / 100; // Round to 2 decimal places
+    return Math.round(score * 100) / 100;
   };
 
-  // Helper function to calculate expected token rewards
   const calculateExpectedRewards = (draft: RecommendationDraft): number => {
-    let rewards = 1.0; // Base reward
-    
-    // Photo bonuses
+    let rewards = 1.0;
     rewards += draft.photos.length * 0.2;
     
-    // Confidence bonus
     if (draft.assessment.confidence === 'high') {
       rewards += 0.5;
     } else if (draft.assessment.confidence === 'medium') {
       rewards += 0.2;
     }
     
-    // Context tag bonuses
     rewards += draft.assessment.tags.length * 0.05;
     
     return Math.round(rewards * 100) / 100;
@@ -607,7 +663,26 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     };
   };
 
-  // Render connection status
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+        <div className="text-center">
+          <AlertCircle className="h-16 w-16 text-orange-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">
+            You need to connect your wallet to create recommendations and earn tokens.
+          </p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Connect Wallet
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const renderConnectionStatus = () => {
     switch (connectionStatus) {
       case 'testing':
@@ -651,19 +726,17 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
         <h2 className="text-2xl font-bold mb-6 text-gray-900">Escolha um Restaurante</h2>
         
-        {/* IOTA Connection Status */}
-        {renderConnectionStatus()}
-        
-        {/* Location Status */}
-        {locationLoading && (
+        {user && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center text-blue-700">
-              <Loader className="animate-spin h-4 w-4 mr-2" />
-              Obtendo sua localização para melhores sugestões...
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+              Logged in as: {user.name || user.username || user.display_name} ({user.id})
             </div>
           </div>
         )}
-
+        
+        {renderConnectionStatus()}
+        
         {location && (
           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center text-green-700">
@@ -683,23 +756,66 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          {isSearching && (
+            <div className="absolute right-3 top-3">
+              <Loader className="animate-spin h-5 w-5 text-gray-400" />
+            </div>
+          )}
         </div>
 
-        {/* Search Results */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-3">
-            {searchQuery ? 'Resultados da Busca' : 'Restaurantes em Brasília'} 
-            {location && ' (ordenados por distância)'}
-          </h3>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {searchResults.map(restaurant => {
-              const distance = location && restaurant.latitude && restaurant.longitude
-                ? getDistance(location.latitude, location.longitude, restaurant.latitude, restaurant.longitude)
-                : null;
-
-              return (
+        {/* Suggestions from Backend */}
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3 text-orange-600">
+              Você quis dizer...?
+            </h3>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {suggestions.map((suggestion, index) => (
                 <button
-                  key={restaurant.id}
+                  key={`suggestion-${suggestion.restaurant.id}-${index}`}
+                  onClick={() => handleRestaurantSelect(suggestion.restaurant)}
+                  className="w-full p-4 border border-orange-200 bg-orange-50 rounded-lg hover:bg-orange-100 text-left transition-colors"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900">{suggestion.restaurant.name}</h4>
+                      <p className="text-gray-600 flex items-center mt-1">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        {suggestion.restaurant.address}
+                        {suggestion.distance && (
+                          <span className="ml-2 text-sm text-blue-600">
+                            • {suggestion.distance.toFixed(1)}km
+                          </span>
+                        )}
+                      </p>
+                      <div className="flex items-center mt-2 text-sm">
+                        {suggestion.restaurant.category && (
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">
+                            {suggestion.restaurant.category}
+                          </span>
+                        )}
+                        <span className="text-orange-600">
+                          Similaridade: {Math.round(suggestion.similarity * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3">
+              Restaurantes Encontrados ({searchResults.length})
+            </h3>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {searchResults.map(restaurant => (
+                <button
+                  key={`restaurant-${restaurant.id}`}
                   onClick={() => handleRestaurantSelect(restaurant)}
                   className="w-full p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors"
                 >
@@ -709,25 +825,31 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                       <p className="text-gray-600 flex items-center mt-1">
                         <MapPin className="h-4 w-4 mr-1" />
                         {restaurant.address}
-                        {distance && (
-                          <span className="ml-2 text-sm text-blue-600">
-                            • {distance.toFixed(1)}km
-                          </span>
-                        )}
                       </p>
                       <div className="flex items-center mt-2 text-sm">
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">
-                          {restaurant.cuisine}
-                        </span>
-                        <span className="text-gray-500">{restaurant.priceRange}</span>
+                        {restaurant.category && (
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">
+                            {restaurant.category}
+                          </span>
+                        )}
+                        <span className="text-gray-500">ID: {restaurant.id}</span>
                       </div>
                     </div>
                   </div>
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Show Add New if searched but no results */}
+        {searchQuery.length > 2 && !isSearching && searchResults.length === 0 && suggestions.length === 0 && (
+          <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
+            <p className="text-gray-600 mb-3">
+              Nenhum restaurante encontrado para "{searchQuery}"
+            </p>
+          </div>
+        )}
 
         {/* Add New Restaurant Button */}
         <div className="text-center">
@@ -768,9 +890,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                 
                 <input
                   type="text"
-                  placeholder="Tipo de culinária"
-                  value={newRestaurant.cuisine || ''}
-                  onChange={(e) => setNewRestaurant(prev => ({ ...prev, cuisine: e.target.value }))}
+                  placeholder="Tipo de culinária/categoria"
+                  value={newRestaurant.category || ''}
+                  onChange={(e) => setNewRestaurant(prev => ({ ...prev, category: e.target.value }))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
                 
@@ -795,11 +917,18 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                   Cancelar
                 </button>
                 <button
-                  onClick={handleAddNewRestaurant}
+                  onClick={handleCreateNewRestaurant}
                   disabled={!newRestaurant.name || !newRestaurant.address || isLoading}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {isLoading ? 'Adicionando...' : 'Adicionar'}
+                  {isLoading ? (
+                    <>
+                      <Loader className="animate-spin h-4 w-4 mr-2 inline" />
+                      Criando...
+                    </>
+                  ) : (
+                    'Adicionar'
+                  )}
                 </button>
               </div>
             </div>
@@ -830,6 +959,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             <MapPin className="h-4 w-4 mr-1" />
             {draft.restaurant?.address}, {draft.restaurant?.city}
           </p>
+          <p className="text-sm text-gray-500">Restaurant ID: {draft.restaurant?.id}</p>
         </div>
 
         {/* Recommendation Form */}
@@ -907,7 +1037,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
           </div>
         </div>
 
-        {/* Assessment Section - Now Integrated */}
+        {/* Assessment Section */}
         <div className="mt-8 border-t pt-8">
           <h3 className="text-xl font-semibold text-gray-900 mb-6">Como foi sua experiência?</h3>
           
@@ -1078,27 +1208,21 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
           </div>
         )}
 
-        {/* Assessment Summary */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-          <h4 className="font-semibold text-gray-800 mb-2">Sua Avaliação</h4>
-          <div className="text-sm text-gray-700 space-y-1">
-            <p>• Nota pessoal: {draft.assessment.rating}/10 ({ratingLabels[draft.assessment.rating]})</p>
-            <p>• Recomendaria: {draft.assessment.wouldRecommend ? 'Sim' : 'Não'}</p>
-            {draft.assessment.wouldRecommend && (
-              <p>• Confiança: {draft.assessment.confidence === 'high' ? 'Alta' : draft.assessment.confidence === 'medium' ? 'Média' : 'Baixa'}</p>
-            )}
-            <p>• Experiência: {draft.assessment.experience === 'exceeded' ? 'Superou expectativas' : draft.assessment.experience === 'met' ? 'Como esperado' : 'Abaixo do esperado'}</p>
-            {draft.assessment.tags.length > 0 && (
-              <p>• Tags: {draft.assessment.tags.map(tagId => contextTags.find(t => t.id === tagId)?.label).join(', ')}</p>
-            )}
-            <p>• Trust Score inicial: <span className="font-semibold text-blue-600">{calculateInitialTrustScore(draft.assessment).toFixed(2)}</span></p>
+        {/* Expected Database Storage */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <h4 className="font-semibold text-green-800 mb-2">Armazenamento na Base de Dados</h4>
+          <div className="text-sm text-green-700">
+            <p>✓ Recomendação será salva no Core Server</p>
+            <p>✓ Relacionamento com restaurante ID: {draft.restaurant?.id}</p>
+            <p>✓ Disponível para descoberta por outros usuários</p>
+            <p>✓ Possível fazer upvote após criação</p>
           </div>
         </div>
 
         {/* Expected Rewards */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-          <h4 className="font-semibold text-green-800 mb-2">Recompensas Esperadas na Blockchain</h4>
-          <div className="text-sm text-green-700">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h4 className="font-semibold text-blue-800 mb-2">Recompensas Esperadas na Blockchain</h4>
+          <div className="text-sm text-blue-700">
             <p>• Recompensa base: 1 TOK quando Trust Score ≥ 0.25</p>
             <p>• Multiplicador social: Até 3x baseado em endorsos de amigos</p>
             <p>• Bônus de qualidade: +{(draft.photos.length * 0.2).toFixed(1)} TOK por {draft.photos.length} foto{draft.photos.length !== 1 ? 's' : ''}</p>
@@ -1108,25 +1232,8 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
           </div>
         </div>
 
-        {/* Blockchain Information */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <h4 className="font-semibold text-blue-800 mb-2">Informações da Blockchain</h4>
-          <div className="text-sm text-blue-700">
-            <p>• Rede: IOTA Rebased (Testnet)</p>
-            <p>• Contrato: recommendation.move</p>
-            <p>• Package ID: 0x2944...bc7a3</p>
-            <p>• Status: {connectionStatus === 'connected' ? 'Conectado' : 'Modo limitado'}</p>
-            <p>• Confirmação: &lt;2 segundos</p>
-            <p>• Taxa: Gratuita (patrocinada)</p>
-            {networkInfo && (
-              <p>• Contratos ativos: {networkInfo.contractsDeployed}/5</p>
-            )}
-          </div>
-        </div>
-
         {/* Action Buttons */}
         <div className="flex space-x-3">
-          {/* EDIT BUTTON - Simple back navigation */}
           <button
             onClick={() => setStep('recommendation')}
             disabled={isLoading || isSubmitting}
@@ -1135,36 +1242,22 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             Editar
           </button>
           
-          {/* SUBMIT BUTTON - This is where blockchain submission happens */}
           <button
             onClick={(e) => {
-              console.log('🎯 SUBMIT BUTTON CLICKED - Raw click event triggered!');
-              console.log('📊 Submit Button state:', {
-                isLoading,
-                isSubmitting,
-                hasIotaService: !!iotaService,
-                connectionStatus,
-                disabled: isLoading || isSubmitting || !iotaService,
-                formValidation: {
-                  hasRestaurant: !!draft.restaurant,
-                  hasTitle: !!draft.title,
-                  hasBody: !!draft.body,
-                  hasCategory: !!draft.category
-                }
-              });
+              console.log('SUBMIT BUTTON CLICKED - Core Server submission with integer restaurant ID!');
               e.preventDefault();
               handleSubmit();
             }}
-            disabled={isLoading || isSubmitting || !iotaService}
+            disabled={isLoading || isSubmitting}
             className="flex-2 px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-lg font-semibold transition-colors flex items-center justify-center"
           >
             {isLoading || isSubmitting ? (
               <>
                 <Loader className="animate-spin h-5 w-5 mr-2" />
-                Publicando na Blockchain...
+                Salvando no Core Server...
               </>
             ) : (
-              'Publicar na IOTA Rebased'
+              'Publicar Recomendação'
             )}
           </button>
         </div>

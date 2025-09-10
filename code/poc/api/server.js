@@ -30,7 +30,7 @@ function generateId(data) {
 // ENDPOINTS
 
 // Get all recommendations
-app.get('/api/v1/recommendations', (req, res) => {
+app.get('/api/recommendations', (req, res) => {
   // Support filtering
   const { category, serviceId, author } = req.query;
   
@@ -52,7 +52,7 @@ app.get('/api/v1/recommendations', (req, res) => {
 });
 
 // Get a single recommendation
-app.get('/api/v1/recommendations/:id', (req, res) => {
+app.get('/api/recommendations/:id', (req, res) => {
   const recommendation = db.recommendations.find(rec => rec.id === req.params.id);
   
   if (!recommendation) {
@@ -63,7 +63,7 @@ app.get('/api/v1/recommendations/:id', (req, res) => {
 });
 
 // Create a recommendation
-app.post('/api/v1/recommendations', (req, res) => {
+app.post('/api/recommendations', (req, res) => {
   const { author, serviceId, serviceName, category, rating, title, body, tags = [] } = req.body;
   
   // Validation
@@ -147,12 +147,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // Get all users endpoint
-app.get('/api/v1/users', (req, res) => {
+app.get('/api/users', (req, res) => {
   res.json(Object.values(db.users));
 });
 
 // Auth challenge endpoint (basic version)
-app.post('/api/v1/auth/challenge', (req, res) => {
+app.post('/api/auth/challenge', (req, res) => {
   const { address } = req.body;
   const challenge = crypto.randomBytes(32).toString('hex');
   
@@ -164,7 +164,7 @@ app.post('/api/v1/auth/challenge', (req, res) => {
 });
 
 // Upvote a recommendation
-app.post('/api/v1/recommendations/:id/upvote', (req, res) => {
+app.post('/api/recommendations/:id/upvote', (req, res) => {
   const { voter } = req.body;
   
   if (!voter) {
@@ -199,7 +199,7 @@ app.post('/api/v1/recommendations/:id/upvote', (req, res) => {
 });
 
 // Downvote a recommendation
-app.post('/api/v1/recommendations/:id/downvote', (req, res) => {
+app.post('/api/recommendations/:id/downvote', (req, res) => {
   const { voter } = req.body;
   
   if (!voter) {
@@ -220,12 +220,12 @@ app.post('/api/v1/recommendations/:id/downvote', (req, res) => {
 });
 
 // Get services
-app.get('/api/v1/services', (req, res) => {
+app.get('/api/services', (req, res) => {
   res.json(Object.values(db.services));
 });
 
 // Get a specific service
-app.get('/api/v1/services/:id', (req, res) => {
+app.get('/api/services/:id', (req, res) => {
   const service = db.services[req.params.id];
   
   if (!service) {
@@ -236,7 +236,7 @@ app.get('/api/v1/services/:id', (req, res) => {
 });
 
 // Get user profile
-app.get('/api/v1/users/:id', (req, res) => {
+app.get('/api/users/:id', (req, res) => {
   const user = db.users[req.params.id];
   
   if (!user) {

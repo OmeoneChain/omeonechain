@@ -54,7 +54,7 @@ interface DatabaseUser {
 
 /**
  * Generate a challenge for wallet signature
- * POST /api/v1/auth/challenge
+ * POST /api/auth/challenge
  */
 router.post('/challenge', (req: Request, res: Response) => {
   try {
@@ -103,7 +103,7 @@ By signing this message, you authenticate with OmeoneChain.`;
 
 /**
  * Verify wallet signature and issue JWT token
- * POST /api/v1/auth/login
+ * POST /api/auth/login
  */
 router.post('/login', async (req: Request, res: Response) => {
   try {
@@ -308,7 +308,7 @@ By signing this message, you authenticate with OmeoneChain.`;
 
 /**
  * Verify JWT token
- * POST /api/v1/auth/verify
+ * POST /api/auth/verify
  */
 router.post('/verify', (req: Request, res: Response) => {
   try {
@@ -345,7 +345,7 @@ router.post('/verify', (req: Request, res: Response) => {
 
 /**
  * Get current user info from database (protected route)
- * GET /api/v1/auth/me
+ * GET /api/auth/me
  */
 router.get('/me', async (req: Request, res: Response) => {
   // This route will be protected by authenticate middleware
@@ -397,7 +397,7 @@ router.get('/me', async (req: Request, res: Response) => {
 
 /**
  * Logout (invalidate token on client side)
- * POST /api/v1/auth/logout
+ * POST /api/auth/logout
  */
 router.post('/logout', (req: Request, res: Response) => {
   // Since we're using stateless JWTs, logout is handled client-side

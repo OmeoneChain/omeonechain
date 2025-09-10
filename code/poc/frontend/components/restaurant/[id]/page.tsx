@@ -11,7 +11,7 @@ import RecommendationCard from '@/components/RecommendationCard';
 import CleanHeader from '@/components/CleanHeader';
 
 interface Restaurant {
-  id: string;
+  id: number; // Changed from string to number
   name: string;
   address: string;
   city: string;
@@ -59,10 +59,10 @@ interface Restaurant {
   };
 }
 
-// Enhanced mock restaurant data with multiple restaurants
-const mockRestaurants: { [key: string]: Restaurant } = {
-  '1': {
-    id: '1',
+// Enhanced mock restaurant data with integer keys
+const mockRestaurants: { [key: number]: Restaurant } = {
+  1: {
+    id: 1, // Changed from '1' to 1
     name: 'Restaurante Mangai',
     address: 'SCLS 109, Bloco A, Loja 2/8 - Asa Sul',
     city: 'Brasília',
@@ -117,8 +117,8 @@ const mockRestaurants: { [key: string]: Restaurant } = {
       explanation: "Seu Trust Score personalizado de 9.1 é maior que a média global porque 3 amigos diretos recomendaram este local com nota média de 9.0."
     }
   },
-  '2': {
-    id: '2',
+  2: {
+    id: 2, // Changed from '2' to 2
     name: 'Coco Bambu',
     address: 'CLS 201, Bloco C, Loja 30 - Asa Sul',
     city: 'Brasília',
@@ -169,9 +169,9 @@ const mockRestaurants: { [key: string]: Restaurant } = {
   }
 };
 
-// Mock recommendations data that matches your RecommendationCard interface
-const mockRecommendationsData: { [key: string]: any[] } = {
-  '1': [
+// Mock recommendations data with integer keys
+const mockRecommendationsData: { [key: number]: any[] } = {
+  1: [
     {
       id: '1',
       title: 'Melhor baião de dois de Brasília',
@@ -282,7 +282,7 @@ const mockRecommendationsData: { [key: string]: any[] } = {
       visitDate: '2025-07-16T13:30:00Z'
     }
   ],
-  '2': [
+  2: [
     {
       id: '3',
       title: 'Camarão na moranga excepcional',
@@ -343,7 +343,10 @@ const mockRecommendationsData: { [key: string]: any[] } = {
 const RestaurantDetailPage: React.FC = () => {
   const params = useParams();
   const pathname = usePathname();
-  const restaurantId = params?.id as string;
+  
+  // Parse restaurant ID as integer with proper validation
+  const restaurantIdParam = params?.id as string;
+  const restaurantId = restaurantIdParam ? parseInt(restaurantIdParam, 10) : null;
   
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [recommendations, setRecommendations] = useState<any[]>([]);
@@ -363,14 +366,20 @@ const RestaurantDetailPage: React.FC = () => {
     console.log('🔍 Restaurant Detail Page Debug:');
     console.log('Current pathname:', pathname);
     console.log('Params:', params);
-    console.log('Restaurant ID:', restaurantId);
-  }, [pathname, params, restaurantId]);
+    console.log('Restaurant ID param:', restaurantIdParam);
+    console.log('Parsed Restaurant ID:', restaurantId);
+    console.log('Is valid ID:', !isNaN(restaurantId!) && restaurantId! > 0);
+  }, [pathname, params, restaurantIdParam, restaurantId]);
 
   useEffect(() => {
-    if (restaurantId) {
+    if (restaurantId && !isNaN(restaurantId) && restaurantId > 0) {
       loadRestaurantData();
+    } else if (restaurantIdParam) {
+      // Invalid restaurant ID format
+      setError('ID de restaurante inválido');
+      setIsLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, restaurantIdParam]);
 
   const loadRestaurantData = async () => {
     try {
@@ -382,15 +391,26 @@ const RestaurantDetailPage: React.FC = () => {
       let recommendationsData: any[] = [];
 
       try {
-        // TODO: Replace with actual API call
-        const apiUrl = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL;
-        console.log('🌐 Attempting to fetch from API:', apiUrl);
+        // Updated API call with integer ID
+        const apiUrl = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        console.log('🌐 Attempting to fetch from API:', `${apiUrl}/api/restaurants/${restaurantId}`);
         
         if (apiUrl) {
-          const response = await fetch(`${apiUrl}/restaurants/${restaurantId}`);
+          const response = await fetch(`${apiUrl}/api/restaurants/${restaurantId}`);
           if (response.ok) {
             restaurantData = await response.json();
             console.log('✅ Loaded restaurant from API:', restaurantData);
+            
+            // Also try to fetch recommendations from API
+            try {
+              const recResponse = await fetch(`${apiUrl}/api/recommendations?restaurant_id=${restaurantId}`);
+              if (recResponse.ok) {
+                recommendationsData = await recResponse.json();
+                console.log('✅ Loaded recommendations from API:', recommendationsData.length);
+              }
+            } catch (recError) {
+              console.log('⚠️ Failed to fetch recommendations from API:', recError);
+            }
           } else {
             console.log('⚠️ API response not OK:', response.status);
           }
@@ -401,8 +421,8 @@ const RestaurantDetailPage: React.FC = () => {
 
       // Fallback to mock data
       if (!restaurantData) {
-        restaurantData = mockRestaurants[restaurantId];
-        recommendationsData = mockRecommendationsData[restaurantId] || [];
+        restaurantData = mockRestaurants[restaurantId!];
+        recommendationsData = mockRecommendationsData[restaurantId!] || [];
         console.log('📝 Using mock data for restaurant:', restaurantId);
       }
 
@@ -414,12 +434,12 @@ const RestaurantDetailPage: React.FC = () => {
       setRestaurant(restaurantData);
       setRecommendations(recommendationsData);
       
-      // Check bookmark status
+      // Check bookmark status - use string for localStorage compatibility
       try {
         const saved = localStorage.getItem('bookmarkedRestaurants');
         if (saved) {
           const bookmarks = new Set(JSON.parse(saved));
-          setIsBookmarked(bookmarks.has(restaurantId));
+          setIsBookmarked(bookmarks.has(restaurantId!.toString()));
         }
       } catch (error) {
         console.warn('Could not load bookmarks:', error);
@@ -483,10 +503,13 @@ const RestaurantDetailPage: React.FC = () => {
       const saved = localStorage.getItem('bookmarkedRestaurants');
       const bookmarks = new Set(saved ? JSON.parse(saved) : []);
       
+      // Convert to string for localStorage consistency
+      const restaurantIdStr = restaurantId!.toString();
+      
       if (isBookmarked) {
-        bookmarks.delete(restaurantId);
+        bookmarks.delete(restaurantIdStr);
       } else {
-        bookmarks.add(restaurantId);
+        bookmarks.add(restaurantIdStr);
       }
       
       localStorage.setItem('bookmarkedRestaurants', JSON.stringify([...bookmarks]));
@@ -510,8 +533,8 @@ const RestaurantDetailPage: React.FC = () => {
     );
   }
 
-  // Error state
-  if (error || !restaurant) {
+  // Error state or invalid ID
+  if (error || !restaurant || !restaurantId || isNaN(restaurantId)) {
     return (
       <div className="min-h-screen bg-gray-50">
         <CleanHeader currentPath="/discover" />
@@ -521,12 +544,17 @@ const RestaurantDetailPage: React.FC = () => {
             {error || 'Restaurante não encontrado'}
           </h1>
           <p className="text-gray-600 mb-4">
-            O restaurante com ID "{restaurantId}" não foi encontrado.
+            {isNaN(restaurantId!) || !restaurantId ? 
+              `ID de restaurante inválido: "${restaurantIdParam}"` :
+              `O restaurante com ID "${restaurantId}" não foi encontrado.`
+            }
           </p>
           <div className="text-sm text-gray-500 mb-6">
             <p>Debug info:</p>
             <p>Pathname: {pathname}</p>
-            <p>Restaurant ID: {restaurantId}</p>
+            <p>Restaurant ID param: {restaurantIdParam}</p>
+            <p>Parsed ID: {restaurantId}</p>
+            <p>Valid ID: {!isNaN(restaurantId!) && restaurantId! > 0 ? 'Yes' : 'No'}</p>
           </div>
           <Link 
             href="/discover"
@@ -561,7 +589,7 @@ const RestaurantDetailPage: React.FC = () => {
           {/* Debug info (remove in production) */}
           {process.env.NODE_ENV === 'development' && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-xs">
-              <strong>Debug Info:</strong> Restaurant ID: {restaurantId} | Data Source: {mockRestaurants[restaurantId] ? 'Mock' : 'API'}
+              <strong>Debug Info:</strong> Restaurant ID: {restaurantId} | Data Source: {mockRestaurants[restaurantId!] ? 'Mock' : 'API'} | Type: {typeof restaurantId}
             </div>
           )}
 

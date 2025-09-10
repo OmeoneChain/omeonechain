@@ -143,7 +143,7 @@ const getApiBaseUrl = (): string => {
     window_location: typeof window !== 'undefined' ? window.location.href : 'SSR'
   });
 
-  // FIXED: Use backend port 3001 (where your Express server runs) WITHOUT extra /api/v1 suffix
+  // FIXED: Use backend port 3001 (where your Express server runs) WITHOUT extra /api suffix
   const defaultUrl = nextPublicUrl || reactAppUrl;
   
   // If no env var is set, detect Codespaces URL or use localhost
@@ -153,13 +153,13 @@ const getApiBaseUrl = (): string => {
       if (hostname.includes('github.dev') || hostname.includes('gitpod.io')) {
         // Extract Codespaces/Gitpod base and point to backend port
         const baseUrl = `${window.location.protocol}//${hostname.replace('-3000', '-3001')}`;
-        return baseUrl; // FIXED: Return base URL without /api/v1 suffix
+        return baseUrl; // FIXED: Return base URL without /api suffix
       }
     }
-    return 'http://localhost:3001'; // FIXED: Backend runs on 3001 without /api/v1 suffix
+    return 'http://localhost:3001'; // FIXED: Backend runs on 3001 without /api suffix
   }
   
-  // FIXED: Ensure URL does NOT have /api/v1 suffix (we'll add it in the API calls)
+  // FIXED: Ensure URL does NOT have /api suffix (we'll add it in the API calls)
   const baseUrl = defaultUrl.replace(/\/api.*$/, '');
   console.log('🔗 lib/auth.ts using API base URL:', baseUrl);
   
@@ -175,7 +175,7 @@ export class AuthAPI {
   // FIXED: Generate authentication challenge with correct endpoint
   static async getAuthChallenge(walletAddress: string): Promise<{ challenge: string; timestamp: number; nonce: string }> {
     try {
-      const fullUrl = `${this.baseURL}/api/v1/auth/challenge`;
+      const fullUrl = `${this.baseURL}/api/auth/challenge`;
       console.log('🔐 lib/auth.ts: Getting auth challenge from:', fullUrl);
       
       const response = await fetch(fullUrl, {
@@ -223,7 +223,7 @@ export class AuthAPI {
     nonce?: string
   ): Promise<{ token: string; user: User }> {
     try {
-      const fullUrl = `${this.baseURL}/api/v1/auth/login`;
+      const fullUrl = `${this.baseURL}/api/auth/login`;
       console.log('🔐 lib/auth.ts: Verifying signature at:', fullUrl);
       
       const response = await fetch(fullUrl, {
@@ -276,7 +276,7 @@ export class AuthAPI {
   // FIXED: Get current user info with correct endpoint
   static async getCurrentUser(token: string): Promise<User> {
     try {
-      const fullUrl = `${this.baseURL}/api/v1/auth/me`;
+      const fullUrl = `${this.baseURL}/api/auth/me`;
       console.log('🔍 lib/auth.ts: Getting current user from:', fullUrl);
       
       const response = await fetch(fullUrl, {
@@ -313,7 +313,7 @@ export class AuthAPI {
   // FIXED: Verify JWT token with correct endpoint
   static async verifyToken(token: string): Promise<{ valid: boolean; user?: User }> {
     try {
-      const fullUrl = `${this.baseURL}/api/v1/auth/verify`;
+      const fullUrl = `${this.baseURL}/api/auth/verify`;
       console.log('🔍 lib/auth.ts: Verifying token at:', fullUrl);
       
       const response = await fetch(fullUrl, {

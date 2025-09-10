@@ -19,6 +19,7 @@ import {
   Edit
 } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import TrustScoreBadge from './TrustScoreBadge';
 import { cn, timeAgo, formatTokenAmount } from '@/lib/utils';
 
@@ -33,13 +34,12 @@ interface Author {
 }
 
 interface Location {
+  restaurant_id?: number; // Added for linking to restaurant detail pages
   name: string;
   address: string;
   city: string;
-  coordinates?: [number, number];
-  // Enhanced location data from our creation flow
-  latitude?: number;
-  longitude?: number;
+  latitude?: number; // Standardized coordinate format
+  longitude?: number; // Standardized coordinate format
   placeId?: string;
 }
 
@@ -110,21 +110,21 @@ interface Recommendation {
 }
 
 interface RecommendationCardProps {
-  recommendation: Recommendation;
-  variant?: 'default' | 'compact' | 'detailed' | 'creation-preview';
-  showAuthor?: boolean;
-  showTokenRewards?: boolean;
-  showBlockchainInfo?: boolean;
-  showActions?: boolean;
-  onSave?: (id: string) => void;
-  onUpvote?: (id: string) => void;
-  onShare?: (id: string) => void;
-  onAuthorClick?: (authorId: string) => void;
-  onLocationClick?: (location: Location) => void;
-  onEdit?: (id: string) => void;
-  onDelete?: (id: string) => void;
-  onReport?: (id: string) => void;
-  className?: string;
+    recommendation: Recommendation;
+      variant?: 'default' | 'compact' | 'detailed' | 'creation-preview';
+        showAuthor?: boolean;
+          showTokenRewards?: boolean;
+            showBlockchainInfo?: boolean;
+              showActions?: boolean;
+                onSave?: (id: string) => void;
+                  onUpvote?: (id: string) => void;
+                    onShare?: (id: string) => void;
+                      onAuthorClick?: (authorId: string) => void;
+                        onLocationClick?: (location: Location) => void;
+                          onEdit?: (id: string) => void;
+                            onDelete?: (id: string) => void;
+                              onReport?: (id: string) => void;
+                                className?: string;
 }
 
 const RecommendationCard: React.FC<RecommendationCardProps> = ({
@@ -165,8 +165,21 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
     onShare?.(recommendation.id);
   };
 
+  // Updated location click handler to support restaurant navigation
   const handleLocationClick = () => {
-    onLocationClick?.(recommendation.location);
+    if (onLocationClick) {
+      onLocationClick(recommendation.location);
+    }
+  };
+
+  // New function to handle restaurant navigation
+  const navigateToRestaurant = () => {
+    if (recommendation.location.restaurant_id) {
+      // Use Next.js router if available, or window.location as fallback
+      if (typeof window !== 'undefined') {
+        window.location.href = `/restaurant/${recommendation.location.restaurant_id}`;
+      }
+    }
   };
 
   const getSocialConnectionText = (author: Author) => {
@@ -312,16 +325,32 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
               <h3 className="font-semibold text-network-900 text-lg leading-tight line-clamp-2">
                 {recommendation.title}
               </h3>
-              <button
-                onClick={handleLocationClick}
-                className="flex items-center gap-1 mt-1 text-network-600 hover:text-trust-600 transition-colors group"
-              >
-                <MapPin size={14} />
-                <span className="text-sm truncate group-hover:underline">
-                  {recommendation.location.name}
-                </span>
-                <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
+              
+              {/* Enhanced location click handling */}
+              {recommendation.location.restaurant_id ? (
+                <Link 
+                  href={`/restaurant/${recommendation.location.restaurant_id}`}
+                  className="flex items-center gap-1 mt-1 text-network-600 hover:text-trust-600 transition-colors group"
+                >
+                  <MapPin size={14} />
+                  <span className="text-sm truncate group-hover:underline">
+                    {recommendation.location.name}
+                  </span>
+                  <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Link>
+              ) : (
+                <button
+                  onClick={handleLocationClick}
+                  className="flex items-center gap-1 mt-1 text-network-600 hover:text-trust-600 transition-colors group"
+                >
+                  <MapPin size={14} />
+                  <span className="text-sm truncate group-hover:underline">
+                    {recommendation.location.name}
+                  </span>
+                  <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              )}
+              
               {recommendation.location.address && (
                 <p className="text-xs text-network-500 truncate">
                   {recommendation.location.address}, {recommendation.location.city}
@@ -352,7 +381,10 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
                   <div className="absolute right-0 top-8 bg-white border border-network-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
                     {recommendation.canEdit && (
                       <button
-                        onClick={() => onEdit?.(recommendation.id)}
+                        onClick={() => {
+                          onEdit?.(recommendation.id);
+                          setShowMenu(false);
+                        }}
                         className="w-full px-3 py-2 text-left text-sm hover:bg-network-50 flex items-center"
                       >
                         <Edit size={14} className="mr-2" />
@@ -360,7 +392,10 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
                       </button>
                     )}
                     <button
-                      onClick={() => onReport?.(recommendation.id)}
+                      onClick={() => {
+                        onReport?.(recommendation.id);
+                        setShowMenu(false);
+                      }}
                       className="w-full px-3 py-2 text-left text-sm hover:bg-network-50 flex items-center text-red-600"
                     >
                       <Flag size={14} className="mr-2" />
@@ -583,6 +618,7 @@ export const RecommendationCardExample: React.FC = () => {
     ],
     category: 'Brunch',
     location: {
+      restaurant_id: 1, // Added integer restaurant ID for navigation
       name: 'Brasserie du Soleil',
       address: '123 Main St',
       city: 'Brooklyn, NY',

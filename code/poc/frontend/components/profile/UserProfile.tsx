@@ -1,8 +1,8 @@
 // User Profile Component - displays user info with social stats and follow button
-// FIXED: Updated to use full API URLs that match environment configuration
+// FIXED: Simplified recommendations loading to use fixed API route directly
 
 import React, { useState, useEffect } from 'react';
-import { User, Users, Star, MapPin, Calendar, Settings, Share2 } from 'lucide-react';
+import { User, Users, Star, MapPin, Calendar, Settings, Share2, Loader2, Heart, MessageCircle, Bookmark } from 'lucide-react';
 import { ProfileEditor } from '../profile/ProfileEditor';
 import { ProfileCompletion } from '../profile/ProfileCompletion';
 import { useAuth } from '../../hooks/useAuth';
@@ -39,8 +39,46 @@ interface UserProfileData {
   updatedAt: string;
 }
 
-// FIXED: Get API base URL from environment (same pattern as other files)
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+interface SocialUser {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  followers_count: number;
+  recommendations_count: number;
+  avg_trust_score: number;
+  verification_status: string;
+  bio?: string;
+  location_city?: string;
+}
+
+// Recommendation interface to match backend
+interface UserRecommendation {
+  id: string;
+  title: string;
+  body: string;
+  category: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    city: string;
+  };
+  trustScore: number;
+  upvotes: number;
+  saves: number;
+  createdAt: string;
+  updatedAt: string;
+  // Backend might return these fields
+  trust_score?: number;
+  upvotes_count?: number;
+  saves_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// FIXED: Use correct backend URL that matches working Community page
+const BACKEND_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
 
 // Helper function to calculate profile completion
 const calculateProfileCompletion = (user: UserProfileData): number => {
@@ -75,6 +113,17 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [profileCompletion, setProfileCompletion] = useState(0);
 
+  // Social tab data
+  const [followersData, setFollowersData] = useState<SocialUser[]>([]);
+  const [followingData, setFollowingData] = useState<SocialUser[]>([]);
+  const [socialLoading, setSocialLoading] = useState(false);
+  const [socialError, setSocialError] = useState<string | null>(null);
+
+  // Recommendations tab data
+  const [recommendationsData, setRecommendationsData] = useState<UserRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
+
   const { user: currentUser, updateUser, token } = useAuth();
 
   useEffect(() => {
@@ -92,15 +141,26 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     }
   }, [user]);
 
+  // Load tab data when tabs are clicked
+  useEffect(() => {
+    if (activeTab === 'followers') {
+      loadFollowers();
+    } else if (activeTab === 'following') {
+      loadFollowing();
+    } else if (activeTab === 'recommendations') {
+      loadRecommendations();
+    }
+  }, [activeTab, userId]);
+
   const loadUserProfile = async () => {
     try {
       setIsLoading(true);
       
-      console.log(`🔍 Loading user profile for ID: ${userId}`);
+      console.log(`Loading user profile for ID: ${userId}`);
       
-      // FIXED: Use full API URL with proper base URL
-      const fullUrl = `${API_BASE_URL}/api/v1/users/${userId}`;
-      console.log(`📡 Calling API: GET ${fullUrl}`);
+      // FIXED: Try the backend URL that works for Community page
+      const fullUrl = `${BACKEND_URL}/api/users/${userId}`;
+      console.log(`Calling API: GET ${fullUrl}`);
       
       const response = await fetch(fullUrl, {
         headers: token ? { 
@@ -111,22 +171,21 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         }
       });
 
-      console.log(`📡 API Response status: ${response.status}`);
+      console.log(`API Response status: ${response.status}`);
 
       if (response.ok) {
         const userData = await response.json();
-        console.log('✅ Loaded user data:', userData);
+        console.log('Loaded user data:', userData);
         setUser(userData);
       } else {
-        console.error('❌ Failed to load user profile:', response.status);
+        console.error('Failed to load user profile:', response.status);
         if (response.status === 404) {
-          console.log('👤 User not found');
+          console.log('User not found');
           setUser(null);
         } else if (response.status === 401) {
-          console.log('🔒 Authentication required');
+          console.log('Authentication required');
         } else {
-          console.log('⚠️ Other API error');
-          // Try to get error details
+          console.log('Other API error');
           try {
             const errorData = await response.json();
             console.error('Error details:', errorData);
@@ -136,73 +195,217 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         }
       }
     } catch (error) {
-      console.error('💥 Network error loading user profile:', error);
+      console.error('Network error loading user profile:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // FIXED: Simplified recommendations loading - use Next.js API route directly
+  const loadRecommendations = async () => {
+    try {
+      setRecommendationsLoading(true);
+      setRecommendationsError(null);
+      
+      console.log(`Loading recommendations for user: ${userId}`);
+      
+      // FIXED: Use the fixed Next.js API route that now handles userId directly
+      const endpoint = `/api/recommendations?author=${userId}`;
+      console.log(`Calling endpoint: ${endpoint}`);
+      
+      const response = await fetch(endpoint, {
+        headers: token ? { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        } : {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log(`Recommendations API Response status: ${response.status}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Recommendations API Response:', data);
+        
+        let recommendations: UserRecommendation[] = [];
+        if (data.recommendations && Array.isArray(data.recommendations)) {
+          recommendations = data.recommendations;
+        } else if (Array.isArray(data)) {
+          recommendations = data;
+        }
+
+        // Normalize the data structure (backend might use different field names)
+        const normalizedRecommendations = recommendations.map(rec => ({
+          ...rec,
+          trustScore: rec.trustScore || rec.trust_score || 0,
+          upvotes: rec.upvotes || rec.upvotes_count || 0,
+          saves: rec.saves || rec.saves_count || 0,
+          createdAt: rec.createdAt || rec.created_at || '',
+          updatedAt: rec.updatedAt || rec.updated_at || ''
+        }));
+
+        setRecommendationsData(normalizedRecommendations);
+        console.log(`✅ Loaded ${normalizedRecommendations.length} recommendations for user ${userId}`);
+      } else {
+        console.error('Recommendations API Error:', response.status, response.statusText);
+        
+        // Try to get error details
+        try {
+          const errorData = await response.json();
+          console.error('Error details:', errorData);
+          setRecommendationsError(`Failed to load recommendations: ${errorData.details || response.statusText}`);
+        } catch (e) {
+          setRecommendationsError(`Failed to load recommendations (${response.status})`);
+        }
+        
+        setRecommendationsData([]);
+      }
+    } catch (error) {
+      console.error('Error loading recommendations:', error);
+      setRecommendationsError('Network error loading recommendations');
+      setRecommendationsData([]);
+    } finally {
+      setRecommendationsLoading(false);
+    }
+  };
+
+  const loadFollowers = async () => {
+    try {
+      setSocialLoading(true);
+      setSocialError(null);
+      
+      console.log(`Loading followers for user: ${userId}`);
+      const response = await fetch(`${BACKEND_URL}/api/social/users/${userId}/followers`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Followers API Response:', data);
+        
+        let users: SocialUser[] = [];
+        if (data.followers && Array.isArray(data.followers)) {
+          users = data.followers;
+        } else if (data.users && Array.isArray(data.users)) {
+          users = data.users;
+        } else if (Array.isArray(data)) {
+          users = data;
+        }
+
+        setFollowersData(users);
+        console.log(`Loaded ${users.length} followers`);
+      } else {
+        console.error('Followers API Error:', response.status, response.statusText);
+        setSocialError(`Failed to load followers (${response.status})`);
+        setFollowersData([]);
+      }
+    } catch (error) {
+      console.error('Error loading followers:', error);
+      setSocialError('Network error loading followers');
+      setFollowersData([]);
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const loadFollowing = async () => {
+    try {
+      setSocialLoading(true);
+      setSocialError(null);
+      
+      console.log(`Loading following for user: ${userId}`);
+      const response = await fetch(`${BACKEND_URL}/api/social/users/${userId}/following`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Following API Response:', data);
+        
+        let users: SocialUser[] = [];
+        if (data.following && Array.isArray(data.following)) {
+          users = data.following;
+        } else if (data.users && Array.isArray(data.users)) {
+          users = data.users;
+        } else if (Array.isArray(data)) {
+          users = data;
+        }
+
+        setFollowingData(users);
+        console.log(`Loaded ${users.length} following users`);
+      } else {
+        console.error('Following API Error:', response.status, response.statusText);
+        setSocialError(`Failed to load following (${response.status})`);
+        setFollowingData([]);
+      }
+    } catch (error) {
+      console.error('Error loading following:', error);
+      setSocialError('Network error loading following');
+      setFollowingData([]);
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
   const checkFollowStatus = async () => {
     if (!token || !currentUserId) {
-      console.log('🔒 No token or current user, skipping follow status check');
+      console.log('No token or current user, skipping follow status check');
       return;
     }
     
     try {
-      console.log(`🔍 Checking follow status for user ${userId}`);
-      
-      // FIXED: Use full API URL
-      // For now, we'll implement this as a separate endpoint check
-      // You may need to add this endpoint to your backend or check via social connections
-      
-      // TODO: Once you add GET /api/v1/users/:id/follow-status endpoint:
-      // const fullUrl = `${API_BASE_URL}/api/v1/users/${userId}/follow-status`;
-      // const response = await fetch(fullUrl, {
-      //   headers: { 'Authorization': `Bearer ${token}` }
-      // });
-      // if (response.ok) {
-      //   const data = await response.json();
-      //   setIsFollowing(data.isFollowing);
-      // }
+      console.log(`Checking follow status for user ${userId}`);
       
       // For now, assume not following
       setIsFollowing(false);
-      console.log('📝 Follow status check: assuming not following (endpoint not implemented yet)');
+      console.log('Follow status check: assuming not following (endpoint not implemented yet)');
     } catch (error) {
-      console.error('💥 Error checking follow status:', error);
+      console.error('Error checking follow status:', error);
     }
   };
 
   const handleFollow = async () => {
     if (!currentUserId || !token || followLoading) {
-      console.log('🚫 Cannot follow: missing requirements');
+      console.log('Cannot follow: missing requirements');
       return;
     }
 
     try {
       setFollowLoading(true);
-      console.log(`${isFollowing ? '👋' : '🤝'} ${isFollowing ? 'Unfollowing' : 'Following'} user ${userId}`);
+      console.log(`${isFollowing ? 'Unfollowing' : 'Following'} user ${userId}`);
       
-      // FIXED: Use full API URL
-      const endpoint = isFollowing 
-        ? `${API_BASE_URL}/api/v1/users/${userId}/unfollow` 
-        : `${API_BASE_URL}/api/v1/users/${userId}/follow`;
-      
-      console.log(`📡 Calling: POST ${endpoint}`);
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // Use the same endpoints as Community page
+      let requestUrl: string;
+      let requestBody: any = null;
+      let method: string;
 
-      console.log(`📡 Follow API Response status: ${response.status}`);
+      if (isFollowing) {
+        requestUrl = `${BACKEND_URL}/api/social/follow/${userId}`;
+        method = 'DELETE';
+      } else {
+        requestUrl = `${BACKEND_URL}/api/social/follow`;
+        method = 'POST';
+        requestBody = { following_id: userId };
+      }
+      
+      console.log(`Calling: ${method} ${requestUrl}`);
+      
+      const fetchOptions: RequestInit = {
+        method: method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      if (requestBody) {
+        fetchOptions.body = JSON.stringify(requestBody);
+      }
+
+      const response = await fetch(requestUrl, fetchOptions);
+
+      console.log(`Follow API Response status: ${response.status}`);
 
       if (response.ok) {
         const responseData = await response.json();
-        console.log('✅ Follow operation successful:', responseData);
+        console.log('Follow operation successful:', responseData);
         
         setIsFollowing(!isFollowing);
         
@@ -214,9 +417,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           });
         }
         
-        console.log(`✨ Updated follow status: ${!isFollowing ? 'Now following' : 'No longer following'}`);
+        console.log(`Updated follow status: ${!isFollowing ? 'Now following' : 'No longer following'}`);
       } else {
-        console.error('❌ Follow operation failed:', response.status);
+        console.error('Follow operation failed:', response.status);
         try {
           const errorData = await response.json();
           console.error('Error details:', errorData);
@@ -225,7 +428,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         }
       }
     } catch (error) {
-      console.error('💥 Network error during follow operation:', error);
+      console.error('Network error during follow operation:', error);
     } finally {
       setFollowLoading(false);
     }
@@ -233,7 +436,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
   const handleProfileSave = async (profileData: any) => {
     try {
-      console.log('💾 Saving profile data:', profileData);
+      console.log('Saving profile data:', profileData);
       
       // Update the local user state immediately for better UX
       if (user) {
@@ -263,10 +466,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       }
       
       // Reload user profile to get fresh data from server
-      console.log('🔄 Reloading user profile after save...');
+      console.log('Reloading user profile after save...');
       await loadUserProfile();
     } catch (error) {
-      console.error('💥 Error updating profile:', error);
+      console.error('Error updating profile:', error);
     }
   };
 
@@ -290,6 +493,296 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (city) return city;
     if (country) return country;
     return null;
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const SocialUserCard = ({ user }: { user: SocialUser }) => (
+    <div className="flex items-center gap-4 p-4 bg-white rounded-lg border hover:shadow-sm transition-shadow">
+      <div className="relative">
+        <img
+          src={user.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${user.username || user.id}`}
+          alt={user.display_name}
+          className="w-12 h-12 rounded-full object-cover cursor-pointer"
+          onClick={() => window.location.href = `/users/${user.id}`}
+        />
+        {user.verification_status && user.verification_status !== 'basic' && (
+          <div className="absolute -bottom-0.5 -right-0.5">
+            <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs">✓</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1">
+        <h3 
+          className="font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+          onClick={() => window.location.href = `/users/${user.id}`}
+        >
+          {user.display_name || user.username || 'Unknown User'}
+        </h3>
+        <p className="text-sm text-gray-600 mb-1">
+          @{user.username || user.id}
+        </p>
+        
+        {user.bio && (
+          <p className="text-sm text-gray-500 mb-1 line-clamp-2">{user.bio}</p>
+        )}
+        
+        <div className="flex items-center gap-4 text-xs text-gray-500">
+          <span>{user.followers_count || 0} followers</span>
+          <span>{user.recommendations_count || 0} recommendations</span>
+          {user.avg_trust_score > 0 && (
+            <span className="flex items-center gap-1">
+              <Star className="w-3 h-3" />
+              {user.avg_trust_score.toFixed(1)}
+            </span>
+          )}
+          {user.location_city && (
+            <span className="flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              {user.location_city}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => window.location.href = `/users/${user.id}`}
+          className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          View Profile
+        </button>
+      </div>
+    </div>
+  );
+
+  // Recommendation card component
+  const RecommendationCard = ({ recommendation }: { recommendation: UserRecommendation }) => (
+    <div className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <h3 className="font-medium text-gray-900 mb-1">{recommendation.title}</h3>
+          {recommendation.category && (
+            <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+              {recommendation.category}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 text-sm">
+          <Star className="w-4 h-4 text-yellow-500" />
+          <span className="text-gray-700">{recommendation.trustScore.toFixed(1)}</span>
+        </div>
+      </div>
+
+      {recommendation.body && (
+        <p className="text-gray-700 mb-3 line-clamp-3">{recommendation.body}</p>
+      )}
+
+      {recommendation.location && (
+        <div className="flex items-center gap-1 text-sm text-gray-500 mb-3">
+          <MapPin className="w-4 h-4" />
+          <span>{recommendation.location.address || recommendation.location.city}</span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 text-sm text-gray-500">
+          <span className="flex items-center gap-1">
+            <Heart className="w-4 h-4" />
+            {recommendation.upvotes}
+          </span>
+          <span className="flex items-center gap-1">
+            <Bookmark className="w-4 h-4" />
+            {recommendation.saves}
+          </span>
+          <span>{formatDate(recommendation.createdAt)}</span>
+        </div>
+        
+        <button
+          onClick={() => window.location.href = `/recommendations/${recommendation.id}`}
+          className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50"
+        >
+          View Details
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderSocialTab = (type: 'followers' | 'following') => {
+    const data = type === 'followers' ? followersData : followingData;
+    const isOwn = currentUserId === userId;
+    
+    if (socialLoading) {
+      return (
+        <div className="text-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+          <p className="text-gray-600">Loading {type}...</p>
+        </div>
+      );
+    }
+
+    if (socialError) {
+      return (
+        <div className="text-center py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-red-800 mb-2">{socialError}</p>
+            <button 
+              onClick={() => type === 'followers' ? loadFollowers() : loadFollowing()}
+              className="text-sm text-red-600 hover:text-red-800 underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (data.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {type === 'followers' 
+              ? (isOwn ? "You don't have any followers yet" : "No followers")
+              : (isOwn ? "You're not following anyone yet" : "Not following anyone")
+            }
+          </h3>
+          <p className="text-gray-500 mb-4">
+            {type === 'followers'
+              ? (isOwn ? "Share great recommendations to attract followers" : "This user hasn't gained any followers yet")
+              : (isOwn ? "Start following food experts to see their recommendations" : "This user hasn't followed anyone yet")
+            }
+          </p>
+          {isOwn && type === 'following' && (
+            <button
+              onClick={() => window.location.href = '/community'}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Discover People
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {type === 'followers' ? 'Followers' : 'Following'} ({data.length})
+          </h3>
+          <button
+            onClick={() => type === 'followers' ? loadFollowers() : loadFollowing()}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            Refresh
+          </button>
+        </div>
+        
+        <div className="space-y-3">
+          {data.map((socialUser) => (
+            <SocialUserCard key={socialUser.id} user={socialUser} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Render recommendations tab
+  const renderRecommendationsTab = () => {
+    const isOwn = currentUserId === userId;
+    
+    if (recommendationsLoading) {
+      return (
+        <div className="text-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+          <p className="text-gray-600">Loading recommendations...</p>
+        </div>
+      );
+    }
+
+    if (recommendationsError) {
+      return (
+        <div className="text-center py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-red-800 mb-2">{recommendationsError}</p>
+            <button 
+              onClick={loadRecommendations}
+              className="text-sm text-red-600 hover:text-red-800 underline"
+            >
+              Try again
+            </button>
+            <div className="mt-2 text-xs text-gray-600">
+              <p>Debug: Trying endpoint /api/recommendations?author={userId}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (recommendationsData.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {isOwn ? "You haven't created any recommendations yet" : "No recommendations yet"}
+          </h3>
+          <p className="text-gray-500 mb-4">
+            {isOwn 
+              ? "Share your favorite places and experiences to build your reputation"
+              : "This user hasn't shared any recommendations yet"
+            }
+          </p>
+          {isOwn && (
+            <button
+              onClick={() => window.location.href = '/create'}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Create Your First Recommendation
+            </button>
+          )}
+          <div className="mt-4 text-xs text-gray-500">
+            <p>Debug: Searched for recommendations with author={userId}</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Recommendations ({recommendationsData.length})
+          </h3>
+          <button
+            onClick={loadRecommendations}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            Refresh
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          {recommendationsData.map((recommendation) => (
+            <RecommendationCard key={recommendation.id} recommendation={recommendation} />
+          ))}
+        </div>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -329,7 +822,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               Check browser console for detailed API response information.
             </p>
             <p className="text-xs text-yellow-600 mt-1">
-              <strong>API URL:</strong> {API_BASE_URL}/api/v1/users/{userId}
+              <strong>API URL:</strong> {BACKEND_URL}/api/users/{userId}
             </p>
           </div>
         </div>
@@ -346,7 +839,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       {process.env.NODE_ENV === 'development' && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
-            <strong>Debug:</strong> Successfully loaded user {user.userId} via {API_BASE_URL}/api/v1/users endpoint
+            <strong>Debug:</strong> Successfully loaded user {user.userId} via {BACKEND_URL}/api/users endpoint
+          </p>
+          <p className="text-sm text-blue-800">
+            <strong>Recommendations API:</strong> Using fixed Next.js route /api/recommendations?author={userId}
           </p>
         </div>
       )}
@@ -443,7 +939,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow-sm border p-4 text-center">
+        <div 
+          className="bg-white rounded-lg shadow-sm border p-4 text-center cursor-pointer hover:bg-gray-50"
+          onClick={() => setActiveTab('recommendations')}
+        >
           <div className="text-2xl font-bold text-gray-900">{user.totalRecommendations}</div>
           <div className="text-sm text-gray-600">Recommendations</div>
         </div>
@@ -497,41 +996,11 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         </div>
 
         <div className="p-6">
-          {activeTab === 'recommendations' && (
-            <div>
-              <p className="text-gray-500 text-center py-8">
-                Recommendations content will be integrated with existing recommendation components
-                <br />
-                <span className="text-xs text-gray-400 mt-2 block">
-                  API endpoint: GET {API_BASE_URL}/api/v1/users/{user.userId}/recommendations
-                </span>
-              </p>
-            </div>
-          )}
+          {activeTab === 'recommendations' && renderRecommendationsTab()}
           
-          {activeTab === 'followers' && (
-            <div>
-              <p className="text-gray-500 text-center py-8">
-                Followers list component will be implemented next
-                <br />
-                <span className="text-xs text-gray-400 mt-2 block">
-                  API endpoint: GET {API_BASE_URL}/api/v1/users/{user.userId}/followers
-                </span>
-              </p>
-            </div>
-          )}
+          {activeTab === 'followers' && renderSocialTab('followers')}
           
-          {activeTab === 'following' && (
-            <div>
-              <p className="text-gray-500 text-center py-8">
-                Following list component will be implemented next
-                <br />
-                <span className="text-xs text-gray-400 mt-2 block">
-                  API endpoint: GET {API_BASE_URL}/api/v1/users/{user.userId}/following
-                </span>
-              </p>
-            </div>
-          )}
+          {activeTab === 'following' && renderSocialTab('following')}
         </div>
       </div>
 

@@ -1023,10 +1023,10 @@ describe('Error Handling', () => {
 describe('Performance Requirements', () => {
   test('API endpoints should respond within 200ms', async () => {
     const endpoints = [
-      '/api/v1/governance/proposals',
-      '/api/v1/users/profile',
-      '/api/v1/tokens/balance',
-      '/api/v1/recommendations'
+      '/api/governance/proposals',
+      '/api/users/profile',
+      '/api/tokens/balance',
+      '/api/recommendations'
     ];
     
     for (const endpoint of endpoints) {

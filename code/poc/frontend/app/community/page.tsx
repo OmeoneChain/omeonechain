@@ -1,12 +1,13 @@
 // File: code/poc/frontend/app/community/page.tsx
-// FIXED: Updated follow API routes to match server.ts routes
+// FIXED: Added CleanHeader to Community page for consistent navigation
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Users, UserPlus, Loader2, MapPin, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
+import CleanHeader from '../../components/CleanHeader'; // Add this import
 
 interface User {
   id: string;
@@ -41,6 +42,24 @@ export default function CommunityPage() {
   const [activeTab, setActiveTab] = useState<'following' | 'discover'>('discover');
   
   const BACKEND_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+
+  // FIXED: Filter discover users to exclude already following
+  const filteredDiscoverUsers = useMemo(() => {
+    if (!discoverUsers || !following) return discoverUsers || [];
+    
+    // Create a Set of user IDs that the current user is already following
+    const followingIds = new Set(following.map(user => user.id));
+    
+    console.log('🔍 Following user IDs:', Array.from(followingIds));
+    
+    // Filter out users that are already being followed
+    const filtered = discoverUsers.filter(user => !followingIds.has(user.id));
+    
+    console.log(`🎯 Filtered discover users: ${filtered.length} (was ${discoverUsers.length})`);
+    console.log('🔍 Filtered out users:', discoverUsers.filter(user => followingIds.has(user.id)).map(u => u.display_name));
+    
+    return filtered;
+  }, [discoverUsers, following]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -85,7 +104,7 @@ export default function CommunityPage() {
   const loadDiscoverUsers = async () => {
     try {
       console.log('🔍 Loading discover users...');
-      const response = await fetch(`${BACKEND_URL}/api/social/users/discover?limit=20`);
+      const response = await fetch(`${BACKEND_URL}/api/social/users/discover?limit=20&currentUserId=${currentUser?.id || ''}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -101,7 +120,7 @@ export default function CommunityPage() {
           users = [];
         }
 
-        // 🎯 DEBUG: Log user IDs to identify mismatch
+        // DEBUG: Log user IDs to identify mismatch
         console.log('🔍 DEBUG: Users from discover API:', users.map(u => ({ 
           id: u.id, 
           display_name: u.display_name,
@@ -109,7 +128,7 @@ export default function CommunityPage() {
           id_format: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(u.id) ? 'UUID' : 'NOT_UUID'
         })));
 
-        // 🎯 VALIDATION: Check for invalid UUIDs
+        // VALIDATION: Check for invalid UUIDs
         const invalidUsers = users.filter(u => 
           !u.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(u.id)
         );
@@ -151,8 +170,14 @@ export default function CommunityPage() {
           users = [];
         }
 
-        setFollowing(users);
-        console.log('✅ Loaded', users.length, 'following users');
+        // FIXED: Ensure all users in following list have is_following = true
+        const followingUsers = users.map(user => ({
+          ...user,
+          is_following: true // Mark all users in following list as being followed
+        }));
+
+        setFollowing(followingUsers);
+        console.log('✅ Loaded', followingUsers.length, 'following users');
       } else {
         console.error('❌ Following API Error:', response.status, response.statusText);
         setFollowing([]);
@@ -172,7 +197,7 @@ export default function CommunityPage() {
     try {
       console.log(`🔄 ${isCurrentlyFollowing ? 'Unfollowing' : 'Following'} user ${targetUserId}`);
       
-      // 🎯 FIXED: Updated API routes to match server.ts
+      // FIXED: Updated API routes to match server.ts
       let requestUrl: string;
       let requestBody: any = null;
       let method: string;
@@ -228,14 +253,33 @@ export default function CommunityPage() {
               }
             : user;
 
-        setFollowing(following.map(updateUser));
+        // FIXED: Properly manage following list without duplicates
+        if (!isCurrentlyFollowing) {
+          // Add to following list only if not already there
+          const followedUser = discoverUsers.find(u => u.id === targetUserId);
+          if (followedUser) {
+            setFollowing(prev => {
+              // Check if user is already in following list to prevent duplicates
+              const isAlreadyInFollowing = prev.some(u => u.id === targetUserId);
+              if (isAlreadyInFollowing) {
+                console.log('⚠️ User already in following list, not adding duplicate');
+                return prev;
+              }
+              return [...prev, { ...followedUser, is_following: true }];
+            });
+          }
+        } else {
+          // Remove from following list
+          setFollowing(prev => prev.filter(u => u.id !== targetUserId));
+        }
+
         setDiscoverUsers(discoverUsers.map(updateUser));
 
         console.log(`✅ Successfully ${isCurrentlyFollowing ? 'unfollowed' : 'followed'} user`);
       } else {
         console.error('❌ Follow API Error:', response.status);
         
-        // 🎯 ENHANCED ERROR LOGGING
+        // ENHANCED ERROR LOGGING
         try {
           const errorData = await response.json();
           console.error('❌ Follow error details (JSON):', errorData);
@@ -269,7 +313,7 @@ export default function CommunityPage() {
     }
   };
 
-  // 🎯 ENHANCED: Show user ID in debug mode
+  // ENHANCED: Show user ID in debug mode
   const UserCard = ({ user }: { user: User }) => (
     <div className="flex items-center gap-4 p-4 bg-white rounded-lg border hover:shadow-sm transition-shadow">
       {/* Avatar */}
@@ -299,7 +343,7 @@ export default function CommunityPage() {
           @{user.username || user.id}
         </p>
         
-        {/* 🎯 DEBUG: Show partial user ID for verification */}
+        {/* DEBUG: Show partial user ID for verification */}
         <p className="text-xs text-gray-400 mb-1">
           ID: {user.id.substring(0, 8)}...{user.id.substring(user.id.length - 4)}
         </p>
@@ -343,7 +387,7 @@ export default function CommunityPage() {
                 : 'bg-blue-500 text-white hover:bg-blue-600'
             }`}
           >
-            {user.is_following ? 'Following' : 'Follow'}
+            {user.is_following ? 'Unfollow' : 'Follow'}
           </button>
         )}
       </div>
@@ -352,153 +396,173 @@ export default function CommunityPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
-          <p className="text-gray-600">
-            {authLoading ? 'Checking authentication...' : 'Loading community...'}
-          </p>
+      <>
+        <CleanHeader />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
+            <p className="text-gray-600">
+              {authLoading ? 'Checking authentication...' : 'Loading community...'}
+            </p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-4xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Community</h1>
-              <p className="text-gray-600">
-                {currentUser 
-                  ? `Welcome back, ${currentUser.display_name || currentUser.name || currentUser.username || 'User'}!` 
-                  : 'Discover trusted food experts in your area'
-                }
-              </p>
+    <>
+      {/* ADD: CleanHeader component for consistent navigation */}
+      <CleanHeader />
+      
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white border-b">
+          <div className="max-w-4xl mx-auto px-6 py-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Community</h1>
+                <p className="text-gray-600">
+                  {currentUser 
+                    ? `Welcome back, ${currentUser.display_name || currentUser.name || currentUser.username || 'User'}!` 
+                    : 'Discover trusted food experts in your area'
+                  }
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                  Live Data ✓
+                </span>
+                {isAuthenticated && (
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                    Authenticated ✓
+                  </span>
+                )}
+                {/* DEBUG: Show debug mode indicator */}
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                  Debug Mode ⚡
+                </span>
+              </div>
             </div>
             
-            <div className="flex items-center gap-2 text-sm">
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                Live Data ✓
-              </span>
-              {isAuthenticated && (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                  Authenticated ✓
-                </span>
-              )}
-              {/* 🎯 DEBUG: Show debug mode indicator */}
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-                Debug Mode ⚡
-              </span>
-            </div>
-          </div>
-          
-          {/* Tab Navigation */}
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-            <button
-              onClick={() => setActiveTab('discover')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === 'discover'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Discover ({discoverUsers.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('following')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === 'following'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Following ({following.length})
-            </button>
-          </div>
-          
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-800">{error}</p>
-              <button 
-                onClick={() => loadData()}
-                className="text-sm text-red-600 hover:text-red-800 underline mt-1"
+            {/* Tab Navigation - FIXED: Use filteredDiscoverUsers for count */}
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+              <button
+                onClick={() => setActiveTab('discover')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'discover'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                Try again
+                Discover ({filteredDiscoverUsers.length})
               </button>
+              <button
+                onClick={() => setActiveTab('following')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'following'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Following ({following.length})
+              </button>
+            </div>
+            
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800">{error}</p>
+                <button 
+                  onClick={() => loadData()}
+                  className="text-sm text-red-600 hover:text-red-800 underline mt-1"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Content - FIXED: Use filteredDiscoverUsers */}
+        <div className="max-w-4xl mx-auto p-6">
+          {activeTab === 'discover' ? (
+            <div>
+              {filteredDiscoverUsers.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {discoverUsers.length === 0 ? 'No users found' : 'No new users to discover'}
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    {discoverUsers.length === 0 
+                      ? 'Check the console for API errors and debug information'
+                      : 'You\'re already following everyone, or try again later'
+                    }
+                  </p>
+                  <button
+                    onClick={() => loadData()}
+                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  >
+                    Reload
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    Discover People ({filteredDiscoverUsers.length})
+                    {discoverUsers.length !== filteredDiscoverUsers.length && (
+                      <span className="text-sm font-normal text-gray-500 ml-2">
+                        ({discoverUsers.length - filteredDiscoverUsers.length} already following)
+                      </span>
+                    )}
+                  </h2>
+                  {filteredDiscoverUsers.map((user) => (
+                    <UserCard key={user.id} user={user} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              {!isAuthenticated ? (
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Sign in to see who you follow</h3>
+                  <p className="text-gray-500 mb-4">Connect your wallet to view your social network</p>
+                  <button
+                    onClick={() => router.push('/auth')}
+                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              ) : following.length === 0 ? (
+                <div className="text-center py-12">
+                  <UserPlus className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No one followed yet</h3>
+                  <p className="text-gray-500 mb-4">Start following food experts to see their recommendations</p>
+                  <button
+                    onClick={() => setActiveTab('discover')}
+                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  >
+                    Discover People
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    People You Follow ({following.length})
+                  </h2>
+                  {following.map((user) => (
+                    <UserCard key={user.id} user={user} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
-
-      {/* Content */}
-      <div className="max-w-4xl mx-auto p-6">
-        {activeTab === 'discover' ? (
-          <div>
-            {discoverUsers.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
-                <p className="text-gray-500 mb-4">Check the console for API errors and debug information</p>
-                <button
-                  onClick={() => loadData()}
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  Reload
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Discover People ({discoverUsers.length})
-                </h2>
-                {discoverUsers.map((user) => (
-                  <UserCard key={user.id} user={user} />
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div>
-            {!isAuthenticated ? (
-              <div className="text-center py-12">
-                <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Sign in to see who you follow</h3>
-                <p className="text-gray-500 mb-4">Connect your wallet to view your social network</p>
-                <button
-                  onClick={() => router.push('/auth')}
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  Sign In
-                </button>
-              </div>
-            ) : following.length === 0 ? (
-              <div className="text-center py-12">
-                <UserPlus className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No one followed yet</h3>
-                <p className="text-gray-500 mb-4">Start following food experts to see their recommendations</p>
-                <button
-                  onClick={() => setActiveTab('discover')}
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  Discover People
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  People You Follow ({following.length})
-                </h2>
-                {following.map((user) => (
-                  <UserCard key={user.id} user={user} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    </>
   );
 }

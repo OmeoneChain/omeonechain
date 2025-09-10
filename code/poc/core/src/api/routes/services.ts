@@ -242,7 +242,7 @@ export function createServiceRoutes(engine: ServiceEngine) {
       
       // Forward request to recommendations endpoint
       // This assumes that the recommendations API is accessible
-      const response = await fetch(`/api/v1/recommendations/service/${id}?offset=${offset || 0}&limit=${limit || 20}`);
+      const response = await fetch(`/api/recommendations/service/${id}?offset=${offset || 0}&limit=${limit || 20}`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch recommendations: ${response.statusText}`);

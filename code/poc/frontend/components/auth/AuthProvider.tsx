@@ -359,7 +359,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Make API call to update profile
-      const response = await fetch('/api/v1/auth/profile', {
+      const response = await fetch('/api/auth/profile', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

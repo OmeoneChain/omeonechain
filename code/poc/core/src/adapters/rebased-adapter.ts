@@ -649,7 +649,7 @@ export class RebasedAdapter implements ChainAdapter {
       };
 
       // Execute the call
-      const result = await this.client.api.post('/api/v1/move/call', txData);
+      const result = await this.client.api.post('/api/move/call', txData);
       
       if (result.data.success) {
         return {
@@ -1365,23 +1365,23 @@ export class RebasedAdapter implements ChainAdapter {
           },
         }),
         async getNodeInfo() {
-          const response = await this.api.get('/api/v1/info');
+          const response = await this.api.get('/api/info');
           return response.data;
         },
         async getAccount(address: string) {
-          const response = await this.api.get(`/api/v1/accounts/${address}`);
+          const response = await this.api.get(`/api/accounts/${address}`);
           return response.data;
         },
         async submitTransaction(tx: any) {
-          const response = await this.api.post('/api/v1/transactions', tx);
+          const response = await this.api.post('/api/transactions', tx);
           return response.data;
         },
         async getTransactionStatus(txId: string) {
-          const response = await this.api.get(`/api/v1/transactions/${txId}/status`);
+          const response = await this.api.get(`/api/transactions/${txId}/status`);
           return response.data;
         },
         async queryContract(address: string, method: string, args: any[]) {
-          const response = await this.api.post(`/api/v1/contracts/${address}/call`, {
+          const response = await this.api.post(`/api/contracts/${address}/call`, {
             method,
             args,
           });
@@ -1390,7 +1390,7 @@ export class RebasedAdapter implements ChainAdapter {
         async watchEvents(contractAddress: string, eventName: string, callback: Function) {
           const interval = setInterval(async () => {
             try {
-              const response = await this.api.get(`/api/v1/contracts/${contractAddress}/events?name=${eventName}`);
+              const response = await this.api.get(`/api/contracts/${contractAddress}/events?name=${eventName}`);
               if (response.data.events && response.data.events.length > 0) {
                 response.data.events.forEach((event: any) => {
                   callback(event);

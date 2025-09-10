@@ -3,6 +3,7 @@
  * 
  * Main entry point for the OmeoneChain API server
  * Based on Technical Specifications A.4
+ * FIXED: Proper route registration for recommendation routes
  */
 
 import express, { Request, Response, NextFunction } from 'express';
@@ -13,8 +14,10 @@ import compression from 'compression';
 import bodyParser from 'body-parser';
 import { createServer } from 'http';
 
-// Import routes - Conservative fix: use 'as any' for missing modules
-const recommendationRoutes = require('./routes/recommendations') as any;
+// FIXED: Import routes properly - recommendation route exports router directly
+import recommendationRoutes from './routes/recommendation';
+
+// Import other routes - Conservative fix: use 'as any' for missing modules
 const userRoutes = require('./routes/users') as any;
 const serviceRoutes = require('./routes/services') as any;
 const tokenRoutes = require('./routes/tokens') as any;
@@ -93,9 +96,17 @@ export interface ApiServerConfig {
  * Default API server configuration
  */
 const DEFAULT_CONFIG: ApiServerConfig = {
-  port: 3000,
+  port: 3001, // FIXED: Changed to 3001 to match Core Server port
   cors: true,
-  corsOrigins: ['http://localhost:3000', 'http://localhost:3001'],
+  corsOrigins: [
+    'http://localhost:3000', 
+    'http://localhost:3001',
+    // FIXED: Add Codespaces URLs for development
+    'https://redesigned-lamp-q74wgggqq9jjfxqjp-3000.app.github.dev',
+    'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev',
+    // Pattern match for dynamic Codespaces URLs
+    /^https:\/\/.*\.app\.github\.dev$/
+  ],
   enableWebSocket: true,
   maxRequestSize: '5mb',
   enableRateLimit: true,
@@ -177,7 +188,7 @@ export class ApiServer {
     this.app.use(bodyParser.urlencoded({ extended: true }));
     this.app.use(requestLogger);
     
-    // CORS
+    // CORS - FIXED: Handle both string and RegExp origins
     if (this.config.cors) {
       this.app.use(cors({
         origin: this.config.corsOrigins,
@@ -202,18 +213,30 @@ export class ApiServer {
    */
   private setupRoutes(): void {
     // API version prefix
-    const apiPrefix = '/api/v1';
+    const apiPrefix = '/api';
     
     // Health check route (no auth)
     this.app.get('/health', (req: Request, res: Response) => {
-      res.status(200).json({ status: 'ok' });
+      res.status(200).json({ status: 'ok', message: 'Core Server is running' });
+    });
+    
+    // Root route for testing
+    this.app.get('/', (req: Request, res: Response) => {
+      res.status(200).json({ 
+        message: 'OmeoneChain Core Server', 
+        version: '1.0.0',
+        port: this.config.port 
+      });
     });
     
     // Authentication routes (public - no auth required)
     this.app.use(`${apiPrefix}/auth`, authRoutes);
 
-    // Public routes (no auth) - Conservative fix: use 'as any' for route functions
-    this.app.use(`${apiPrefix}/recommendations`, (recommendationRoutes as any)(this.recommendationEngine));
+    // FIXED: Recommendation routes registration - use router directly, not as function
+    this.app.use(`${apiPrefix}/recommendations`, recommendationRoutes);
+    
+    console.log('✅ Registered route: POST /api/recommendations');
+    console.log('✅ Registered route: GET /api/recommendations');
 
     // Protected routes (require auth) - Conservative fix: use 'as any' for middleware and route functions
     this.app.use(`${apiPrefix}/users`, (authenticate as any), (userRoutes as any)(this.reputationEngine));
@@ -226,15 +249,18 @@ export class ApiServer {
 
     // Developer API routes - Conservative fix: use 'as any' for complex object parameter
     this.app.use(`${apiPrefix}/developer`, (authenticate as any), (developerRoutes as any)({
-  recommendationEngine: this.recommendationEngine,
-  reputationEngine: this.reputationEngine,
-  serviceEngine: this.serviceEngine
+      recommendationEngine: this.recommendationEngine,
+      reputationEngine: this.reputationEngine,
+      serviceEngine: this.serviceEngine
     } as any));
 
     // 404 handler
     this.app.use((req: Request, res: Response) => {
-      res.status(404).json({ error: 'Not found' });
+      console.log(`❌ 404: ${req.method} ${req.path} not found`);
+      res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
     });
+    
+    console.log('📡 API routes registered successfully');
   }
   
   /**
@@ -311,7 +337,7 @@ export class ApiServer {
     await this.serviceEngine.initialize();
     await (this.governanceEngine as any).initialize(); // Conservative fix: Property 'initialize' does not exist
     
-    console.log('API engines initialized');
+    console.log('✅ Core Server API engines initialized');
   }
   
   /**
@@ -326,7 +352,10 @@ export class ApiServer {
     // Start listening
     return new Promise((resolve) => {
       this.server.listen(this.config.port, () => {
-        console.log(`API server running on port ${this.config.port}`);
+        console.log(`🚀 OmeoneChain Core Server running on port ${this.config.port}`);
+        console.log(`🔗 Health check: http://localhost:${this.config.port}/health`);
+        console.log(`📡 API endpoints: http://localhost:${this.config.port}/api/*`);
+        console.log(`✅ Recommendation routes: POST/GET ${this.config.port}/api/recommendations`);
         resolve();
       });
     });

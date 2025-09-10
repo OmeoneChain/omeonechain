@@ -1,6 +1,6 @@
 // lib/services/restaurant-service.ts
 export interface Restaurant {
-  id: string;
+  id: number; // Changed from string to number
   name: string;
   address: string;
   city: string;
@@ -77,7 +77,7 @@ class RestaurantService {
         searchParams.append('userLng', params.userLocation.longitude.toString());
       }
 
-      const response = await fetch(`${this.baseUrl}/restaurants/search?${searchParams}`);
+      const response = await fetch(`${this.baseUrl}/restaurants?${searchParams}`);
       
       if (!response.ok) {
         throw new Error(`Failed to search restaurants: ${response.statusText}`);
@@ -93,8 +93,14 @@ class RestaurantService {
     }
   }
 
-  // Get restaurant by ID
-  async getRestaurant(id: string): Promise<Restaurant | null> {
+  // Get restaurant by ID - now accepts integer ID
+  async getRestaurant(id: number): Promise<Restaurant | null> {
+    // Validate ID parameter
+    if (!Number.isInteger(id) || id <= 0) {
+      console.warn(`Invalid restaurant ID: ${id}. Must be a positive integer.`);
+      return null;
+    }
+
     try {
       const response = await fetch(`${this.baseUrl}/restaurants/${id}`);
       
@@ -103,7 +109,14 @@ class RestaurantService {
         throw new Error(`Failed to get restaurant: ${response.statusText}`);
       }
 
-      return await response.json();
+      const restaurant = await response.json();
+      
+      // Ensure returned restaurant has integer ID (backend compatibility)
+      if (restaurant && typeof restaurant.id === 'string') {
+        restaurant.id = parseInt(restaurant.id, 10);
+      }
+
+      return restaurant;
     } catch (error) {
       console.error('Error getting restaurant:', error);
       
@@ -112,7 +125,7 @@ class RestaurantService {
     }
   }
 
-  // Create new restaurant
+  // Create new restaurant - returns restaurant with integer ID
   async createRestaurant(data: CreateRestaurantData, userWallet?: string): Promise<Restaurant> {
     try {
       const response = await fetch(`${this.baseUrl}/restaurants`, {
@@ -131,14 +144,21 @@ class RestaurantService {
         throw new Error(`Failed to create restaurant: ${response.statusText}`);
       }
 
-      return await response.json();
+      const restaurant = await response.json();
+      
+      // Ensure returned restaurant has integer ID (backend compatibility)
+      if (restaurant && typeof restaurant.id === 'string') {
+        restaurant.id = parseInt(restaurant.id, 10);
+      }
+
+      return restaurant;
     } catch (error) {
       console.error('Error creating restaurant:', error);
       
-      // Return mock creation for development
+      // Return mock creation for development with integer ID
       return {
         ...data,
-        id: `mock-${Date.now()}`,
+        id: Math.floor(Math.random() * 10000) + 1000, // Generate mock integer ID
         addedBy: userWallet || 'mock-user',
         verified: false,
         totalRecommendations: 0,
@@ -176,8 +196,14 @@ class RestaurantService {
     }
   }
 
-  // Verify restaurant (admin function)
-  async verifyRestaurant(id: string, verified: boolean): Promise<boolean> {
+  // Verify restaurant (admin function) - now accepts integer ID
+  async verifyRestaurant(id: number, verified: boolean): Promise<boolean> {
+    // Validate ID parameter
+    if (!Number.isInteger(id) || id <= 0) {
+      console.warn(`Invalid restaurant ID for verification: ${id}. Must be a positive integer.`);
+      return false;
+    }
+
     try {
       const response = await fetch(`${this.baseUrl}/restaurants/${id}/verify`, {
         method: 'PATCH',
@@ -192,11 +218,11 @@ class RestaurantService {
     }
   }
 
-  // Mock data for development
+  // Mock data for development - updated with integer IDs
   private getMockRestaurants(params: RestaurantSearchParams): Restaurant[] {
     const mockRestaurants: Restaurant[] = [
       {
-        id: "1",
+        id: 1, // Changed from "1" to 1
         name: "Restaurante Mangai",
         address: "SCLS 109, Bloco A, Loja 2/4",
         city: "Brasília",
@@ -217,7 +243,7 @@ class RestaurantService {
         }
       },
       {
-        id: "2", 
+        id: 2, // Changed from "2" to 2
         name: "Coco Bambu",
         address: "SCES Trecho 2, Conjunto 31",
         city: "Brasília",
@@ -238,7 +264,7 @@ class RestaurantService {
         }
       },
       {
-        id: "3",
+        id: 3, // Changed from "3" to 3
         name: "Parrilla Madrid",
         address: "SCLS 210, Bloco C, Loja 50",
         city: "Brasília", 
@@ -256,6 +282,27 @@ class RestaurantService {
           author: "Maria Costa",
           excerpt: "Picanha estava no ponto perfeito, acompanhamentos deliciosos...",
           trustScore: 8.1
+        }
+      },
+      {
+        id: 4, // Additional mock restaurant for testing
+        name: "Vila do Conde",
+        address: "SCLS 306, Bloco B, Loja 34",
+        city: "Brasília",
+        country: "Brazil",
+        latitude: -15.8178,
+        longitude: -47.9011,
+        cuisineType: "Brasileira",
+        priceRange: 2,
+        verified: false,
+        totalRecommendations: 8,
+        avgTrustScore: 7.2,
+        topRecommendation: {
+          id: "rec-4",
+          title: "Comida caseira deliciosa",
+          author: "Pedro Santos",
+          excerpt: "Ambiente familiar, pratos generosos e preço justo...",
+          trustScore: 7.8
         }
       }
     ];
@@ -306,7 +353,8 @@ class RestaurantService {
     return filtered.slice(0, params.limit || 20);
   }
 
-  private getMockRestaurant(id: string): Restaurant | null {
+  // Updated to accept integer ID
+  private getMockRestaurant(id: number): Restaurant | null {
     const restaurants = this.getMockRestaurants({});
     return restaurants.find(r => r.id === id) || null;
   }

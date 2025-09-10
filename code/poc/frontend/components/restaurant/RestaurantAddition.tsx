@@ -1,9 +1,55 @@
-// components/recommendation/EnhancedRestaurantAddition.tsx
+// components/restaurant/RestaurantAddition.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MapPin, Plus, Search, Check, AlertCircle, Star, ExternalLink } from 'lucide-react';
-import { restaurantService, Restaurant, CreateRestaurantData } from '@/lib/services/restaurant-service';
+import { MapPin, Plus, Search, Check, AlertCircle, Star, ExternalLink, Loader } from 'lucide-react';
+
+// Updated Restaurant interface with integer ID
+interface Restaurant {
+  id: number; // Changed from string to number
+  name: string;
+  normalized_name?: string;
+  address: string;
+  city: string;
+  latitude?: number;
+  longitude?: number;
+  category?: string;
+  cuisineType?: string;
+  priceRange?: 1 | 2 | 3 | 4;
+  phone?: string;
+  website?: string;
+  verified?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  // Computed fields from backend
+  distance?: number;
+  avgTrustScore?: number;
+  totalRecommendations?: number;
+  topRecommendation?: {
+    excerpt: string;
+    author: string;
+  };
+}
+
+interface CreateRestaurantData {
+  name: string;
+  address: string;
+  city: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  category?: string;
+  cuisineType?: string;
+  priceRange?: 1 | 2 | 3 | 4;
+  phone?: string;
+  website?: string;
+}
+
+interface RestaurantSuggestion {
+  restaurant: Restaurant;
+  similarity: number;
+  distance?: number;
+}
 
 interface EnhancedRestaurantAdditionProps {
   onRestaurantSelected: (restaurant: Restaurant) => void;
@@ -29,10 +75,12 @@ export default function RestaurantAddition({
   userLocation,
   userWallet,
   defaultCity = 'Brasília'
-}: RestaurantAdditionProps) {
+}: EnhancedRestaurantAdditionProps) {
   const [searchMode, setSearchMode] = useState<'search' | 'add'>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Restaurant[]>([]);
+  const [suggestions, setSuggestions] = useState<RestaurantSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   
@@ -48,6 +96,9 @@ export default function RestaurantAddition({
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // API Base URL - matches your Core Server
+  const API_BASE_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
 
   // Load recent searches from localStorage
   useEffect(() => {
@@ -74,26 +125,62 @@ export default function RestaurantAddition({
     }
   };
 
-  // Enhanced search with API integration
+  // Enhanced search with backend API integration
   const handleSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
+      setSuggestions([]);
+      setShowSuggestions(false);
       return;
     }
     
     setLoading(true);
     try {
-      const results = await restaurantService.searchRestaurants({
-        query: query.trim(),
-        city: defaultCity,
-        userLocation,
-        limit: 10
-      });
+      console.log('Searching restaurants with backend API:', query);
       
-      setSearchResults(results);
-      saveToRecentSearches(query.trim());
+      // Search for existing restaurants using your Core Server API
+      const searchParams = new URLSearchParams({
+        q: query.trim(),
+        city: defaultCity,
+        ...(userLocation?.latitude && { lat: userLocation.latitude.toString() }),
+        ...(userLocation?.longitude && { lng: userLocation.longitude.toString() })
+      });
+
+      const response = await fetch(`${API_BASE_URL}/api/restaurants/search?${searchParams}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('omeone_auth_token')
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Restaurant search results:', data);
+        
+        // Handle exact matches
+        setSearchResults(data.restaurants || []);
+        
+        // Handle suggestions for similar restaurants
+        if (data.suggestions && data.suggestions.length > 0) {
+          setSuggestions(data.suggestions);
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+        
+        saveToRecentSearches(query.trim());
+      } else {
+        console.warn('Restaurant search failed:', response.status);
+        setSearchResults([]);
+        setSuggestions([]);
+        setErrors({ search: 'Erro ao buscar restaurantes. Tente novamente.' });
+      }
     } catch (error) {
       console.error('Search error:', error);
+      setSearchResults([]);
+      setSuggestions([]);
       setErrors({ search: 'Erro ao buscar restaurantes. Tente novamente.' });
     } finally {
       setLoading(false);
@@ -183,16 +270,46 @@ export default function RestaurantAddition({
     return Object.keys(newErrors).length === 0;
   };
 
-  // Submit new restaurant with API integration
+  // Submit new restaurant with backend API integration
   const handleSubmitNewRestaurant = async () => {
     if (!validateForm()) return;
     
     setIsSubmitting(true);
     try {
-      const createdRestaurant = await restaurantService.createRestaurant(
-        newRestaurant as CreateRestaurantData,
-        userWallet
-      );
+      console.log('Creating new restaurant with backend API...');
+      
+      const restaurantData = {
+        name: newRestaurant.name!.trim(),
+        address: newRestaurant.address!.trim(),
+        city: newRestaurant.city || defaultCity,
+        country: newRestaurant.country || 'Brazil',
+        category: newRestaurant.cuisineType?.trim() || undefined,
+        latitude: newRestaurant.latitude,
+        longitude: newRestaurant.longitude,
+        phone: newRestaurant.phone?.trim() || undefined,
+        website: newRestaurant.website?.trim() || undefined,
+      };
+
+      console.log('Restaurant creation payload:', restaurantData);
+
+      const response = await fetch(`${API_BASE_URL}/api/restaurants`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('omeone_auth_token')
+        },
+        body: JSON.stringify(restaurantData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to create restaurant: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Restaurant created successfully:', result);
+
+      const createdRestaurant = result.restaurant;
       
       // Show success message
       setShowSuccess(true);
@@ -207,9 +324,11 @@ export default function RestaurantAddition({
         priceRange: 2,
       });
       setSearchMode('search');
+      setErrors({});
+      
     } catch (error) {
       console.error('Error creating restaurant:', error);
-      setErrors({ submit: 'Erro ao adicionar restaurante. Tente novamente.' });
+      setErrors({ submit: `Erro ao adicionar restaurante: ${error.message}` });
     } finally {
       setIsSubmitting(false);
     }
@@ -283,13 +402,20 @@ export default function RestaurantAddition({
         /* Enhanced Search Mode */
         <div className="space-y-4">
           <div>
-            <input
-              type="text"
-              placeholder={`Buscar restaurantes em ${defaultCity}...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={`Buscar restaurantes em ${defaultCity}...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {loading && (
+                <div className="absolute right-3 top-3">
+                  <Loader className="animate-spin h-5 w-5 text-gray-400" />
+                </div>
+              )}
+            </div>
             
             {/* Search State Messages */}
             {loading && (
@@ -322,11 +448,58 @@ export default function RestaurantAddition({
             </div>
           )}
 
+          {/* Suggestions from Backend */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3 text-orange-600">
+                Você quis dizer...?
+              </h3>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={`suggestion-${suggestion.restaurant.id}-${index}`}
+                    onClick={() => {
+                      onRestaurantSelected(suggestion.restaurant);
+                      setShowSuggestions(false);
+                    }}
+                    className="w-full p-4 border border-orange-200 bg-orange-50 rounded-lg hover:bg-orange-100 text-left transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{suggestion.restaurant.name}</h4>
+                        <p className="text-gray-600 flex items-center mt-1">
+                          <MapPin className="h-4 w-4 mr-1" />
+                          {suggestion.restaurant.address}
+                          {suggestion.distance && (
+                            <span className="ml-2 text-sm text-blue-600">
+                              • {suggestion.distance.toFixed(1)}km
+                            </span>
+                          )}
+                        </p>
+                        <div className="flex items-center mt-2 text-sm">
+                          {suggestion.restaurant.category && (
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">
+                              {suggestion.restaurant.category}
+                            </span>
+                          )}
+                          <span className="text-orange-600">
+                            Similaridade: {Math.round(suggestion.similarity * 100)}%
+                          </span>
+                          <span className="ml-2 text-gray-500">ID: {suggestion.restaurant.id}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Enhanced Search Results */}
           <div className="space-y-3">
             {searchResults.map((restaurant) => (
               <div
-                key={restaurant.id}
+                key={`restaurant-${restaurant.id}`}
                 className="border rounded-lg p-4 hover:border-blue-300 cursor-pointer transition-all duration-200 hover:shadow-sm"
                 onClick={() => onRestaurantSelected(restaurant)}
               >
@@ -345,9 +518,9 @@ export default function RestaurantAddition({
                     <p className="text-sm text-gray-600 mb-2">{restaurant.address}</p>
                     
                     <div className="flex items-center gap-3 mb-2">
-                      {restaurant.cuisineType && (
+                      {restaurant.category && (
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          {restaurant.cuisineType}
+                          {restaurant.category}
                         </span>
                       )}
                       {restaurant.priceRange && (
@@ -362,6 +535,7 @@ export default function RestaurantAddition({
                             : `${restaurant.distance.toFixed(1)}km`}
                         </span>
                       )}
+                      <span className="text-xs text-gray-500">ID: {restaurant.id}</span>
                     </div>
 
                     {restaurant.topRecommendation && (
@@ -387,12 +561,15 @@ export default function RestaurantAddition({
             ))}
 
             {/* No Results State */}
-            {searchQuery && !loading && searchResults.length === 0 && !errors.search && (
+            {searchQuery && !loading && searchResults.length === 0 && suggestions.length === 0 && !errors.search && (
               <div className="text-center py-8 text-gray-500">
                 <AlertCircle className="h-8 w-8 mx-auto mb-2" />
                 <p>Nenhum restaurante encontrado para "{searchQuery}"</p>
                 <button
-                  onClick={() => setSearchMode('add')}
+                  onClick={() => {
+                    setNewRestaurant(prev => ({ ...prev, name: searchQuery }));
+                    setSearchMode('add');
+                  }}
                   className="mt-2 text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Adicionar como novo restaurante
@@ -469,7 +646,14 @@ export default function RestaurantAddition({
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 <MapPin className="h-4 w-4" />
-                {isGettingLocation ? 'Obtendo...' : 'Usar GPS'}
+                {isGettingLocation ? (
+                  <>
+                    <Loader className="animate-spin h-4 w-4" />
+                    Obtendo...
+                  </>
+                ) : (
+                  'Usar GPS'
+                )}
               </button>
               {newRestaurant.latitude && newRestaurant.longitude && (
                 <div className="flex items-center px-3 py-2 bg-green-50 text-green-700 rounded-lg text-sm">
@@ -598,7 +782,7 @@ export default function RestaurantAddition({
             >
               {isSubmitting ? (
                 <>
-                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  <Loader className="animate-spin h-4 w-4 mr-2" />
                   Adicionando...
                 </>
               ) : (

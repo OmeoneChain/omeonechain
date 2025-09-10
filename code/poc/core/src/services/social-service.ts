@@ -34,6 +34,9 @@ export class SocialService {
       return true;
     } catch (error) {
       console.error('Error validating user in database:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
       return false;
     }
   }

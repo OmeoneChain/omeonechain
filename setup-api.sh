@@ -138,7 +138,7 @@ echo "📱 Configuring frontend for API integration..."
 if [ ! -f ".env" ]; then
     cat > .env << 'EOF'
 # Frontend Configuration
-REACT_APP_API_URL=http://localhost:3001/api/v1
+REACT_APP_API_URL=http://localhost:3001/api
 REACT_APP_WS_URL=ws://localhost:3001
 REACT_APP_ENV=development
 EOF
@@ -161,12 +161,12 @@ echo "4. Your frontend will be running on: http://localhost:3000"
 echo ""
 echo "🔗 API Endpoints Available:"
 echo "   • GET  /health - Health check"
-echo "   • GET  /api/v1/governance/proposals - List proposals"
-echo "   • POST /api/v1/governance/proposals - Create proposal"
-echo "   • POST /api/v1/governance/proposals/:id/vote - Vote on proposal"
-echo "   • GET  /api/v1/users/me - Current user info"
-echo "   • GET  /api/v1/tokens/balance/:userId - Token balance"
-echo "   • POST /api/v1/governance/stake - Stake tokens"
+echo "   • GET  /api/governance/proposals - List proposals"
+echo "   • POST /api/governance/proposals - Create proposal"
+echo "   • POST /api/governance/proposals/:id/vote - Vote on proposal"
+echo "   • GET  /api/users/me - Current user info"
+echo "   • GET  /api/tokens/balance/:userId - Token balance"
+echo "   • POST /api/governance/stake - Stake tokens"
 echo ""
 echo "🧪 Test the API:"
 echo "   curl http://localhost:3001/health"

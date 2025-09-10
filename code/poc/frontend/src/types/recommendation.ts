@@ -1,7 +1,7 @@
-// File: code/frontend/src/types/recommendation.ts
+// File: code/poc/frontend/src/types/recommendation.ts
 
 export interface Restaurant {
-  id: string;
+  id: number; // ✅ MIGRATED: Changed from string to number for auto-increment IDs
   name: string;
   address: string;
   city: string;
@@ -60,7 +60,7 @@ export interface Recommendation {
   tags: string[];
   
   // Restaurant reference
-  restaurantId: string;
+  restaurantId: number; // ✅ MIGRATED: Changed from string to number
   restaurant?: Restaurant; // Populated when fetched
   
   // Location and context
