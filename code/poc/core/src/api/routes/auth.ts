@@ -207,7 +207,8 @@ By signing this message, you authenticate with OmeoneChain.`;
           
           const newUser: DatabaseUser = {
             wallet_address: walletAddressLower,
-            username: `user_${walletAddress.slice(2, 8).toLowerCase()}`,
+            username: null, // Let user choose their own
+            display_name: null, // Let user choose their own
             reputation_score: 0,
             trust_score: 0,
             staking_balance: 0,

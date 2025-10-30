@@ -4,24 +4,25 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Heart, 
-  Bookmark, 
   Share2, 
   MapPin, 
   Clock, 
   Star,
   Users,
   Coins,
-  ChevronRight,
   Camera,
   ExternalLink,
   MoreHorizontal,
   Flag,
-  Edit
+  Edit,
+  ThumbsUp,
+  ThumbsDown,
+  Utensils
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import TrustScoreBadge from './TrustScoreBadge';
 import { cn, timeAgo, formatTokenAmount } from '@/lib/utils';
+import SaveButton from '@/src/components/saved-lists/SaveButton';
 
 interface Author {
   id: string;
@@ -29,17 +30,17 @@ interface Author {
   avatar: string;
   reputation: number;
   isFollowing: boolean;
-  socialDistance: 1 | 2; // 1 = direct friend, 2 = friend-of-friend
+  socialDistance: 1 | 2;
   verificationLevel?: 'basic' | 'verified' | 'expert';
 }
 
 interface Location {
-  restaurant_id?: number; // Added for linking to restaurant detail pages
+  restaurant_id?: number;
   name: string;
   address: string;
   city: string;
-  latitude?: number; // Standardized coordinate format
-  longitude?: number; // Standardized coordinate format
+  latitude?: number;
+  longitude?: number;
   placeId?: string;
 }
 
@@ -47,7 +48,7 @@ interface TokenReward {
   amount: number;
   usdValue: number;
   earnedFrom: 'upvotes' | 'saves' | 'trust_bonus' | 'creation' | 'social_multiplier';
-  multiplier?: number; // Social multiplier applied
+  multiplier?: number;
   breakdown?: {
     baseReward: number;
     socialBonus: number;
@@ -63,24 +64,45 @@ interface PhotoData {
   isCompressed?: boolean;
 }
 
+interface Dish {
+  id: string;
+  name: string;
+  rating: number;
+  notes?: string;
+  would_order_again: boolean;
+}
+
+interface RestaurantAspects {
+  ambiance: number;
+  service: number;
+  value_for_money: number;
+  noise_level?: 'quiet' | 'moderate' | 'loud';
+}
+
+interface ContextualFactors {
+  occasion: 'date_night' | 'family_dinner' | 'quick_lunch' | 'celebration' | 'business_lunch' | 'casual';
+  party_size: number;
+  meal_type?: 'breakfast' | 'brunch' | 'lunch' | 'dinner' | 'late_night';
+  time_of_visit?: string;
+  total_spent?: number;
+}
+
 interface Recommendation {
   id: string;
   title: string;
   description: string;
-  // Enhanced photo support from our creation flow
   photos?: PhotoData[];
-  image?: string; // Fallback for single image (legacy)
+  image?: string;
   category: string;
   location: Location;
   author: Author;
-  trustScore: number;
-  trustBreakdown: {
-    directFriends: number;
-    friendsOfFriends: number;
-    totalEndorsements: number;
-    socialHops: '±1 hop' | '±2 hops' | 'Mixed';
-    algorithm?: string; // 'LIVE CALCULATION' indicator
-  };
+  
+  overall_rating: number;
+  dishes?: Dish[];
+  aspects?: RestaurantAspects;
+  context?: ContextualFactors;
+  context_tags?: string[];
+  
   engagement: {
     saves: number;
     upvotes: number;
@@ -94,37 +116,31 @@ interface Recommendation {
   tags: string[];
   isBookmarked: boolean;
   hasUpvoted: boolean;
-  // Enhanced metadata from creation flow
-  visitDate?: string;
-  pricePoint?: number;
-  atmosphere?: string[];
-  accessibility?: string[];
-  // Blockchain metadata
+  
   objectId?: string;
   transactionHash?: string;
   contentHash?: string;
   verificationStatus?: 'verified' | 'unverified' | 'flagged';
-  // User permissions
+  
   canEdit?: boolean;
   canDelete?: boolean;
 }
 
 interface RecommendationCardProps {
-    recommendation: Recommendation;
-      variant?: 'default' | 'compact' | 'detailed' | 'creation-preview';
-        showAuthor?: boolean;
-          showTokenRewards?: boolean;
-            showBlockchainInfo?: boolean;
-              showActions?: boolean;
-                onSave?: (id: string) => void;
-                  onUpvote?: (id: string) => void;
-                    onShare?: (id: string) => void;
-                      onAuthorClick?: (authorId: string) => void;
-                        onLocationClick?: (location: Location) => void;
-                          onEdit?: (id: string) => void;
-                            onDelete?: (id: string) => void;
-                              onReport?: (id: string) => void;
-                                className?: string;
+  recommendation: Recommendation;
+  variant?: 'default' | 'compact' | 'detailed' | 'creation-preview';
+  showAuthor?: boolean;
+  showTokenRewards?: boolean;
+  showBlockchainInfo?: boolean;
+  showActions?: boolean;
+  onUpvote?: (id: string) => void;
+  onShare?: (id: string) => void;
+  onAuthorClick?: (authorId: string) => void;
+  onLocationClick?: (location: Location) => void;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onReport?: (id: string) => void;
+  className?: string;
 }
 
 const RecommendationCard: React.FC<RecommendationCardProps> = ({
@@ -134,7 +150,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   showTokenRewards = false,
   showBlockchainInfo = false,
   showActions = true,
-  onSave,
   onUpvote,
   onShare,
   onAuthorClick,
@@ -148,51 +163,22 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   const [imageError, setImageError] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showMenu, setShowMenu] = useState(false);
+  const [showAllDishes, setShowAllDishes] = useState(false);
 
-  // Get photos array (enhanced support)
   const photos = recommendation.photos || (recommendation.image ? [{ url: recommendation.image }] : []);
   const hasMultiplePhotos = photos.length > 1;
 
-  const handleSave = () => {
-    onSave?.(recommendation.id);
-  };
-
-  const handleUpvote = () => {
-    onUpvote?.(recommendation.id);
-  };
-
-  const handleShare = () => {
-    onShare?.(recommendation.id);
-  };
-
-  // Updated location click handler to support restaurant navigation
-  const handleLocationClick = () => {
-    if (onLocationClick) {
-      onLocationClick(recommendation.location);
-    }
-  };
-
-  // New function to handle restaurant navigation
-  const navigateToRestaurant = () => {
-    if (recommendation.location.restaurant_id) {
-      // Use Next.js router if available, or window.location as fallback
-      if (typeof window !== 'undefined') {
-        window.location.href = `/restaurant/${recommendation.location.restaurant_id}`;
-      }
-    }
-  };
+  const handleUpvote = () => onUpvote?.(recommendation.id);
+  const handleShare = () => onShare?.(recommendation.id);
+  const handleLocationClick = () => onLocationClick?.(recommendation.location);
 
   const getSocialConnectionText = (author: Author) => {
-    if (author.socialDistance === 1) {
-      return "Your friend";
-    }
+    if (author.socialDistance === 1) return "Your friend";
     return "Friend-of-friend";
   };
 
   const getSocialConnectionColor = (author: Author) => {
-    if (author.socialDistance === 1) {
-      return "text-social-600 bg-social-50";
-    }
+    if (author.socialDistance === 1) return "text-social-600 bg-social-50";
     return "text-network-600 bg-network-50";
   };
 
@@ -207,12 +193,25 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
     }
   };
 
-  const getTokenRewardText = (tokenReward: TokenReward) => {
-    const baseText = `${formatTokenAmount(tokenReward.amount)} TOK`;
-    if (tokenReward.multiplier && tokenReward.multiplier > 1) {
-      return `${baseText} (${tokenReward.multiplier}× social boost)`;
-    }
-    return baseText;
+  const getOccasionLabel = (occasion: string) => {
+    const labels: Record<string, string> = {
+      date_night: '💕 Date Night',
+      family_dinner: '👨‍👩‍👧‍👦 Family',
+      quick_lunch: '⚡ Quick Lunch',
+      celebration: '🎉 Celebration',
+      business_lunch: '💼 Business',
+      casual: '😊 Casual'
+    };
+    return labels[occasion] || occasion;
+  };
+
+  const getRatingLabel = (rating: number) => {
+    if (rating >= 9) return 'Excelente';
+    if (rating >= 8) return 'Ótimo';
+    if (rating >= 7) return 'Muito Bom';
+    if (rating >= 6) return 'Bom';
+    if (rating >= 5) return 'Razoável';
+    return 'Regular';
   };
 
   return (
@@ -233,7 +232,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Enhanced Photo Display */}
+      {/* Photo Display */}
       {photos.length > 0 && !imageError && (
         <div className="relative h-48 w-full overflow-hidden">
           <Image
@@ -247,7 +246,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
             onError={() => setImageError(true)}
           />
           
-          {/* Photo Navigation for Multiple Photos */}
+          {/* Photo Navigation */}
           {hasMultiplePhotos && (
             <>
               <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-1">
@@ -272,36 +271,29 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
           )}
 
           {/* Category Badge */}
-          <div className="absolute top-3 left-3">
-            <span className="px-2 py-1 bg-black/60 text-white text-xs font-medium rounded-lg backdrop-blur-sm">
-              {recommendation.category}
-            </span>
-          </div>
-
-          {/* Trust Score Overlay with Live Indicator */}
-          <div className="absolute top-3 right-3">
-            <TrustScoreBadge
-              score={recommendation.trustScore}
-              breakdown={recommendation.trustBreakdown}
-              variant="minimal"
-              size="sm"
-            />
-            {recommendation.trustBreakdown.algorithm === 'LIVE CALCULATION' && (
-              <div className="absolute -bottom-1 -right-1">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse border-2 border-white"></div>
-              </div>
-            )}
-          </div>
-
-          {/* Location GPS indicator */}
-          {photos[currentPhotoIndex]?.hasLocation && (
-            <div className="absolute bottom-3 right-3">
-              <div className="bg-black/60 text-white text-xs px-1.5 py-1 rounded-lg backdrop-blur-sm flex items-center">
-                <MapPin size={12} className="mr-1" />
-                GPS
-              </div>
+          {recommendation.category && (
+            <div className="absolute top-3 right-3">
+              <span className="px-2 py-1 bg-black/60 text-white text-xs font-medium rounded-lg backdrop-blur-sm">
+                {recommendation.category}
+              </span>
             </div>
           )}
+
+          {/* Overall Rating Badge */}
+          <div className="absolute bottom-3 right-3">
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-200">
+              <div className="flex items-center gap-1.5">
+                <Star className="h-5 w-5 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-xl font-bold text-gray-900">{recommendation.overall_rating}</span>
+                  <span className="text-sm font-medium text-gray-500">/10</span>
+                </div>
+              </div>
+              <div className="text-[10px] text-gray-500 text-center mt-0.5 font-medium">
+                {getRatingLabel(recommendation.overall_rating)}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -322,11 +314,22 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
           {/* Title and Location */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-network-900 text-lg leading-tight line-clamp-2">
-                {recommendation.title}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-network-900 text-lg leading-tight line-clamp-2">
+                  {recommendation.title}
+                </h3>
+                {photos.length === 0 && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-yellow-50 rounded-lg border border-yellow-200 flex-shrink-0">
+                    <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                    <div className="flex items-baseline gap-0.5">
+                      <span className="text-base font-bold text-gray-900">{recommendation.overall_rating}</span>
+                      <span className="text-xs font-medium text-gray-500">/10</span>
+                    </div>
+                  </div>
+                )}
+              </div>
               
-              {/* Enhanced location click handling */}
+              {/* Location */}
               {recommendation.location.restaurant_id ? (
                 <Link 
                   href={`/restaurant/${recommendation.location.restaurant_id}`}
@@ -347,7 +350,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
                   <span className="text-sm truncate group-hover:underline">
                     {recommendation.location.name}
                   </span>
-                  <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
               )}
               
@@ -357,16 +359,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
                 </p>
               )}
             </div>
-
-            {/* Trust Score (if no image) */}
-            {photos.length === 0 && (
-              <TrustScoreBadge
-                score={recommendation.trustScore}
-                breakdown={recommendation.trustBreakdown}
-                variant="compact"
-                size="sm"
-              />
-            )}
 
             {/* Actions Menu */}
             {showActions && (
@@ -442,30 +434,114 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
           )}
         </div>
 
+        {/* Context Tags */}
+        {recommendation.context_tags && recommendation.context_tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {recommendation.context_tags.map((tag) => (
+              <span
+                key={tag}
+                className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full font-medium"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Context Info */}
+        {recommendation.context && (
+          <div className="flex flex-wrap gap-2 text-xs text-network-600">
+            <span className="flex items-center gap-1 px-2 py-1 bg-orange-50 text-orange-700 rounded-lg">
+              {getOccasionLabel(recommendation.context.occasion)}
+            </span>
+            <span className="flex items-center gap-1 px-2 py-1 bg-gray-50 text-gray-700 rounded-lg">
+              <Users size={12} />
+              {recommendation.context.party_size} {recommendation.context.party_size === 1 ? 'pessoa' : 'pessoas'}
+            </span>
+            {recommendation.context.meal_type && (
+              <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg capitalize">
+                {recommendation.context.meal_type}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Dishes Section */}
+        {recommendation.dishes && recommendation.dishes.length > 0 && (
+          <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Utensils size={14} className="text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">
+                  Pratos ({recommendation.dishes.length})
+                </span>
+              </div>
+              {recommendation.dishes.length > 2 && (
+                <button
+                  onClick={() => setShowAllDishes(!showAllDishes)}
+                  className="text-xs text-blue-600 hover:text-blue-700"
+                >
+                  {showAllDishes ? 'Mostrar menos' : 'Ver todos'}
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {(showAllDishes ? recommendation.dishes : recommendation.dishes.slice(0, 2)).map((dish) => (
+                <div key={dish.id} className="bg-white rounded-lg p-2 border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900 truncate">
+                          {dish.name}
+                        </span>
+                        {dish.would_order_again ? (
+                          <ThumbsUp size={12} className="text-green-600 flex-shrink-0" />
+                        ) : (
+                          <ThumbsDown size={12} className="text-red-600 flex-shrink-0" />
+                        )}
+                      </div>
+                      {dish.notes && (
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-1">{dish.notes}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                      <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
+                      <div className="flex items-baseline gap-0.5">
+                        <span className="text-sm font-bold text-gray-900">{dish.rating}</span>
+                        <span className="text-[10px] text-gray-500">/10</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Restaurant Aspects */}
+        {recommendation.aspects && variant === 'detailed' && (
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="bg-purple-50 rounded-lg p-2 text-center">
+              <div className="text-purple-900 font-semibold">{recommendation.aspects.ambiance}/10</div>
+              <div className="text-purple-600">Ambiente</div>
+            </div>
+            <div className="bg-purple-50 rounded-lg p-2 text-center">
+              <div className="text-purple-900 font-semibold">{recommendation.aspects.service}/10</div>
+              <div className="text-purple-600">Atendimento</div>
+            </div>
+            <div className="bg-purple-50 rounded-lg p-2 text-center">
+              <div className="text-purple-900 font-semibold">{recommendation.aspects.value_for_money}/10</div>
+              <div className="text-purple-600">Custo-Benefício</div>
+            </div>
+          </div>
+        )}
+
         {/* Description */}
         <p className="text-network-700 text-sm leading-relaxed line-clamp-3">
           {recommendation.description}
         </p>
 
-        {/* Enhanced Metadata */}
-        {variant === 'detailed' && (
-          <div className="space-y-2 text-xs text-network-600">
-            {recommendation.visitDate && (
-              <p className="flex items-center gap-1">
-                <Clock size={12} />
-                Visited: {new Date(recommendation.visitDate).toLocaleDateString()}
-              </p>
-            )}
-            {recommendation.pricePoint && (
-              <p className="flex items-center gap-1">
-                <Coins size={12} />
-                Price point: {recommendation.pricePoint}/10
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Tags */}
+        {/* Category Tags */}
         {recommendation.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {recommendation.tags.slice(0, 3).map((tag) => (
@@ -473,7 +549,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
                 key={tag}
                 className="px-2 py-1 bg-network-100 text-network-700 text-xs rounded-full"
               >
-                #{tag}
+                {tag}
               </span>
             ))}
             {recommendation.tags.length > 3 && (
@@ -484,29 +560,18 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
           </div>
         )}
 
-        {/* Token Rewards (Enhanced) */}
+        {/* Token Rewards */}
         {showTokenRewards && recommendation.tokenRewards && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 p-2 bg-success-50 rounded-lg">
-              <Coins size={16} className="text-success-600" />
-              <div className="flex-1">
-                <span className="text-sm font-medium text-success-800">
-                  {getTokenRewardText(recommendation.tokenRewards)}
-                </span>
-                <div className="text-xs text-success-600">
-                  ${recommendation.tokenRewards.usdValue.toFixed(3)} • {recommendation.tokenRewards.earnedFrom}
-                </div>
+          <div className="flex items-center gap-2 p-2 bg-success-50 rounded-lg">
+            <Coins size={16} className="text-success-600" />
+            <div className="flex-1">
+              <span className="text-sm font-medium text-success-800">
+                {formatTokenAmount(recommendation.tokenRewards.amount)} TOK
+              </span>
+              <div className="text-xs text-success-600">
+                ${recommendation.tokenRewards.usdValue.toFixed(3)}
               </div>
             </div>
-            
-            {/* Detailed breakdown for detailed variant */}
-            {variant === 'detailed' && recommendation.tokenRewards.breakdown && (
-              <div className="text-xs text-network-600 space-y-1 pl-4 border-l-2 border-success-200">
-                <p>Base: {recommendation.tokenRewards.breakdown.baseReward} TOK</p>
-                <p>Social bonus: +{recommendation.tokenRewards.breakdown.socialBonus} TOK</p>
-                <p>Quality bonus: +{recommendation.tokenRewards.breakdown.qualityBonus} TOK</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -517,11 +582,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
               <span>On-chain verified</span>
               <span className="font-mono">{recommendation.objectId.slice(0, 8)}...</span>
             </div>
-            {recommendation.contentHash && (
-              <div className="mt-1 font-mono text-trust-600">
-                IPFS: {recommendation.contentHash.slice(0, 12)}...
-              </div>
-            )}
           </div>
         )}
 
@@ -531,7 +591,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
             {/* Engagement Stats */}
             <div className="flex items-center gap-4 text-xs text-network-500">
               <div className="flex items-center gap-1">
-                <Users size={12} />
                 <span>{recommendation.engagement.saves} saves</span>
               </div>
               <div className="flex items-center gap-1">
@@ -559,18 +618,11 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
                 <Heart size={16} fill={recommendation.hasUpvoted ? "currentColor" : "none"} />
               </motion.button>
 
-              <motion.button
-                onClick={handleSave}
-                className={cn(
-                  "p-2 rounded-lg transition-colors",
-                  recommendation.isBookmarked 
-                    ? "text-trust-600 bg-trust-50" 
-                    : "text-network-500 hover:text-trust-600 hover:bg-trust-50"
-                )}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Bookmark size={16} fill={recommendation.isBookmarked ? "currentColor" : "none"} />
-              </motion.button>
+              <SaveButton
+                itemType="recommendation"
+                itemId={recommendation.id}
+                compact
+              />
 
               <motion.button
                 onClick={handleShare}
@@ -584,177 +636,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
         )}
       </div>
     </motion.div>
-  );
-};
-
-// Enhanced example with new features
-export const RecommendationCardExample: React.FC = () => {
-  const [showTokenRewards, setShowTokenRewards] = useState(true);
-  const [showBlockchainInfo, setShowBlockchainInfo] = useState(false);
-
-  const sampleRecommendation: Recommendation = {
-    id: '1',
-    title: 'Brasserie du Soleil - Best Brunch in Brooklyn',
-    description: 'Amazing kid-friendly brunch spot with incredible French toast and a great outdoor seating area. The staff is super accommodating and they have high chairs available. Their weekend bottomless mimosas are a steal!',
-    photos: [
-      {
-        url: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=300&fit=crop',
-        hasLocation: true,
-        isCompressed: true,
-        caption: 'Beautiful outdoor seating'
-      },
-      {
-        url: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
-        hasLocation: true,
-        isCompressed: true,
-        caption: 'Famous French toast'
-      },
-      {
-        url: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
-        hasLocation: false,
-        isCompressed: true,
-        caption: 'Cozy interior'
-      }
-    ],
-    category: 'Brunch',
-    location: {
-      restaurant_id: 1, // Added integer restaurant ID for navigation
-      name: 'Brasserie du Soleil',
-      address: '123 Main St',
-      city: 'Brooklyn, NY',
-      latitude: 40.6782,
-      longitude: -73.9442
-    },
-    author: {
-      id: 'author1',
-      name: 'Alice Chen',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b547?w=100&h=100&fit=crop&crop=face',
-      reputation: 8.5,
-      isFollowing: true,
-      socialDistance: 1,
-      verificationLevel: 'verified'
-    },
-    trustScore: 8.3,
-    trustBreakdown: {
-      directFriends: 11,
-      friendsOfFriends: 12,
-      totalEndorsements: 23,
-      socialHops: '±1 hop',
-      algorithm: 'LIVE CALCULATION'
-    },
-    engagement: {
-      saves: 23,
-      upvotes: 18,
-      comments: 5,
-      shares: 7,
-      views: 156
-    },
-    tokenRewards: {
-      amount: 3.4,
-      usdValue: 0.41,
-      earnedFrom: 'social_multiplier',
-      multiplier: 2.3,
-      breakdown: {
-        baseReward: 1.0,
-        socialBonus: 1.8,
-        qualityBonus: 0.6
-      }
-    },
-    createdAt: '2025-01-20T10:30:00Z',
-    updatedAt: '2025-01-20T14:22:00Z',
-    visitDate: '2025-01-18T09:00:00Z',
-    pricePoint: 7,
-    tags: ['family-friendly', 'brunch', 'outdoor-seating', 'bottomless-mimosas'],
-    isBookmarked: false,
-    hasUpvoted: false,
-    objectId: '0x8e2115e374da187479791caf2a6591b5a3b8579c8550089e922ce673453e0f80',
-    transactionHash: '0xabcdef123456789...',
-    contentHash: 'QmXoZ9H7K2pQ8...',
-    verificationStatus: 'verified',
-    canEdit: true,
-    canDelete: true
-  };
-
-  return (
-    <div className="p-8 bg-background-secondary min-h-screen">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div>
-          <h2 className="text-2xl font-bold text-network-900 mb-4">Enhanced Recommendation Cards</h2>
-          <p className="text-network-600 mb-6">
-            Featuring multi-photo support, enhanced location data, blockchain verification, and token rewards
-          </p>
-          
-          {/* Controls */}
-          <div className="flex gap-4 mb-6">
-            <button
-              onClick={() => setShowTokenRewards(!showTokenRewards)}
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                showTokenRewards ? "bg-success-100 text-success-700" : "bg-network-100 text-network-700"
-              )}
-            >
-              {showTokenRewards ? 'Hide' : 'Show'} Token Rewards
-            </button>
-            <button
-              onClick={() => setShowBlockchainInfo(!showBlockchainInfo)}
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                showBlockchainInfo ? "bg-trust-100 text-trust-700" : "bg-network-100 text-network-700"
-              )}
-            >
-              {showBlockchainInfo ? 'Hide' : 'Show'} Blockchain Info
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Default variant with all features */}
-          <RecommendationCard 
-            recommendation={sampleRecommendation} 
-            showTokenRewards={showTokenRewards}
-            showBlockchainInfo={showBlockchainInfo}
-            onLocationClick={(location) => console.log('Navigate to:', location)}
-            onSave={(id) => console.log('Saved:', id)}
-            onUpvote={(id) => console.log('Upvoted:', id)}
-            onShare={(id) => console.log('Shared:', id)}
-            onAuthorClick={(id) => console.log('View author:', id)}
-          />
-          
-          {/* Creation preview variant */}
-          <RecommendationCard 
-            recommendation={{
-              ...sampleRecommendation,
-              id: 'preview',
-              trustScore: 0,
-              engagement: { saves: 0, upvotes: 0, comments: 0 },
-              tokenRewards: {
-                amount: 1.0,
-                usdValue: 0.12,
-                earnedFrom: 'creation'
-              },
-              author: {
-                ...sampleRecommendation.author,
-                name: 'You',
-                socialDistance: 1
-              }
-            }}
-            variant="creation-preview"
-            showTokenRewards={true}
-            showActions={false}
-          />
-          
-          {/* Detailed variant */}
-          <div className="lg:col-span-2">
-            <RecommendationCard 
-              recommendation={sampleRecommendation}
-              variant="detailed"
-              showTokenRewards={showTokenRewards}
-              showBlockchainInfo={showBlockchainInfo}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
   );
 };
 

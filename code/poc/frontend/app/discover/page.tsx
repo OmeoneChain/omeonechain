@@ -1,820 +1,797 @@
-'use client'
+// File: code/poc/frontend/app/discover/page.tsx
+// UPDATED: Added Requests tab for Discovery Requests feature
+// Integration: RequestCard and CreateRequestModal components
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, SlidersHorizontal, Grid3X3, List, MapPin, Star, Users, Heart, Clock, TrendingUp, Sparkles, ChevronDown, Map } from 'lucide-react';
-import Link from 'next/link';
-import { restaurantService, Restaurant } from '@/lib/services/restaurant-service';
-import { generateRestaurantUrl, formatEngagementCount, timeAgo } from '@/lib/utils';
+'use client';
 
-// Lists Section Component
-const DiscoverListsSection = () => {
-  const mockLists = [
-    {
-      id: 1,
-      title: "Melhores Brunches da Asa Sul",
-      description: "Lugares perfeitos para um brunch de fim de semana com amigos",
-      author: {
-        name: "Ana Gastronômica",
-        avatar: "👩‍🍳",
-        verified: true,
-        followers: 2340
-      },
-      restaurantCount: 8,
-      trustScore: 8.7,
-      saves: 156,
-      category: "Brunch",
-      neighborhood: "Asa Sul",
-      isNew: true,
-      timeAgo: "15 jan",
-      preview: [
-        { name: "Café Daniel Briand", image: "🥐" },
-        { name: "Bendito Benedito", image: "🧇" },
-        { name: "Café com Letra", image: "☕" }
-      ]
-    },
-    {
-      id: 2,
-      title: "Rodízio de Pizza Autêntico",
-      description: "Os verdadeiros rodízios que todo brasiliense precisa conhecer",
-      author: {
-        name: "Pedro Foodie",
-        avatar: "👨‍🍳",
-        verified: false,
-        followers: 890
-      },
-      restaurantCount: 5,
-      trustScore: 9.2,
-      saves: 89,
-      category: "Pizza",
-      neighborhood: "Asa Norte",
-      isNew: false,
-      timeAgo: "14 jan",
-      preview: [
-        { name: "Mama Mia", image: "🍕" },
-        { name: "Villa Borghese", image: "🍕" },
-        { name: "Fratelli", image: "🍕" }
-      ]
-    }
-  ];
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth, useAuthenticatedFetch } from '../../hooks/useAuth';
+import CleanHeader from '../../components/CleanHeader';
+import ListCard from '../../components/ListCard';
+import CreateListFlow from '../../src/components/lists/CreateListFlow';
+import MapView from '../../components/discover/MapView';
+import RequestCard from '../../components/discover/RequestCard';
+import CreateRequestModal from '../../components/discover/CreateRequestModal';
+import { recommendationService, type Recommendation } from '../../lib/services/recommendation-service';
+import toast from 'react-hot-toast';
 
-  const [activeTab, setActiveTab] = useState('trending');
-
-  const getTrustScoreBadge = (score) => {
-    if (score >= 9) return { color: 'bg-green-500', label: 'Excelente' };
-    if (score >= 7) return { color: 'bg-blue-500', label: 'Muito Bom' };
-    return { color: 'bg-yellow-500', label: 'Bom' };
-  };
-
-  const filteredLists = mockLists.filter(list => {
-    if (activeTab === 'new') return list.isNew;
-    if (activeTab === 'trending') return list.saves > 100;
-    return true;
-  });
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">Listas Curadas</h2>
-            <p className="text-xs text-gray-600">Descobertas organizadas por especialistas</p>
-          </div>
-        </div>
-        
-        <div className="flex bg-gray-100 rounded-lg p-0.5">
-          <button
-            onClick={() => setActiveTab('trending')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              activeTab === 'trending'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            🔥 Em Alta
-          </button>
-          <button
-            onClick={() => setActiveTab('new')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              activeTab === 'new'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            ✨ Novidades
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {filteredLists.map((list) => {
-          const trustBadge = getTrustScoreBadge(list.trustScore);
-          
-          return (
-            <div
-              key={list.id}
-              className="group bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors cursor-pointer border border-transparent hover:border-gray-200 min-w-[280px] flex-shrink-0"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-sm text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                      {list.title}
-                    </h3>
-                    {list.isNew && (
-                      <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                        Novo
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-600 line-clamp-1 mb-2">
-                    {list.description}
-                  </p>
-                </div>
-                
-                <div className="flex items-center gap-1 ml-2">
-                  <div className={`w-2 h-2 rounded-full ${trustBadge.color}`}></div>
-                  <span className="text-xs font-medium text-gray-700">{list.trustScore}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm">{list.author.avatar}</span>
-                <span className="text-xs font-medium text-gray-700 truncate">
-                  {list.author.name}
-                </span>
-                {list.author.verified && (
-                  <div className="w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs">✓</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex -space-x-1">
-                  {list.preview.slice(0, 3).map((restaurant, index) => (
-                    <div
-                      key={index}
-                      className="w-5 h-5 bg-white rounded-full border border-gray-200 flex items-center justify-center text-xs"
-                      title={restaurant.name}
-                    >
-                      {restaurant.image}
-                    </div>
-                  ))}
-                </div>
-                <span className="text-xs text-gray-600">
-                  {list.restaurantCount} locais
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    <Heart className="w-3 h-3" />
-                    <span>{list.saves}</span>
-                  </div>
-                  <span>{list.neighborhood}</span>
-                </div>
-                
-                <span className="px-2 py-0.5 bg-gray-200 rounded-full text-xs">
-                  {list.category}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-        
-        <div className="min-w-[280px] flex-shrink-0 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-100 p-3 flex flex-col justify-center items-center text-center cursor-pointer hover:from-purple-100 hover:to-pink-100 transition-colors">
-          <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mb-2">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <h3 className="font-semibold text-sm text-gray-900 mb-1">Crie sua lista</h3>
-          <p className="text-xs text-gray-600 mb-2">
-            Ganhe tokens compartilhando suas descobertas
-          </p>
-          <button className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-md text-xs font-medium hover:from-purple-600 hover:to-pink-600 transition-colors">
-            + Criar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Enhanced Filters Component
-const AdvancedFilters = ({ filters, setFilters, onClose }) => {
-  const renderPriceRange = (range) => {
-    return '💰'.repeat(range) + '⚪'.repeat(4 - range);
-  };
-
-  return (
-    <div className="mt-4 p-6 bg-gray-50 rounded-lg">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Filtros Avançados</h3>
-        <button
-          onClick={onClose}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          ✕
-        </button>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* City Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Cidade</label>
-          <select
-            value={filters.city}
-            onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Todas as Cidades</option>
-            <option value="Brasília">Brasília</option>
-            <option value="São Paulo">São Paulo</option>
-            <option value="Lisbon">Lisboa</option>
-          </select>
-        </div>
-
-        {/* Cuisine Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Culinária</label>
-          <select
-            value={filters.cuisineType}
-            onChange={(e) => setFilters(prev => ({ ...prev, cuisineType: e.target.value }))}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Todas as Culinárias</option>
-            <option value="Brasileira">Brasileira</option>
-            <option value="Nordestina">Nordestina</option>
-            <option value="Italiana">Italiana</option>
-            <option value="Japonesa">Japonesa</option>
-            <option value="Frutos do Mar">Frutos do Mar</option>
-            <option value="Steakhouse">Steakhouse</option>
-            <option value="Fine Dining">Fine Dining</option>
-          </select>
-        </div>
-
-        {/* Price Range Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Faixa de Preço</label>
-          <div className="space-y-1">
-            {[1, 2, 3, 4].map(price => (
-              <label key={price} className="flex items-center text-sm">
-                <input
-                  type="checkbox"
-                  checked={filters.priceRange.includes(price)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setFilters(prev => ({ ...prev, priceRange: [...prev.priceRange, price] }));
-                    } else {
-                      setFilters(prev => ({ ...prev, priceRange: prev.priceRange.filter(p => p !== price) }));
-                    }
-                  }}
-                  className="mr-2 rounded text-blue-600 focus:ring-blue-500"
-                />
-                {renderPriceRange(price)} {price === 1 ? '(até R$30)' : price === 2 ? '(R$30-60)' : price === 3 ? '(R$60-120)' : '(R$120+)'}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Trust Score Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Trust Score Mínimo: {filters.minTrustScore}
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="10"
-            step="0.5"
-            value={filters.minTrustScore}
-            onChange={(e) => setFilters(prev => ({ ...prev, minTrustScore: Number(e.target.value) }))}
-            className="w-full"
-          />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>0</span>
-            <span>5</span>
-            <span>10</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 pt-4 border-t border-gray-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Ordenar Por</label>
-            <select
-              value={filters.sortBy}
-              onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value }))}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="trustScore">Trust Score</option>
-              <option value="distance">Distância</option>
-              <option value="recent">Recentemente Recomendado</option>
-              <option value="recommendations">Mais Recomendados</option>
-            </select>
-          </div>
-          
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilters({
-                search: '',
-                city: '',
-                cuisineType: '',
-                priceRange: [1, 2, 3, 4],
-                minTrustScore: 0,
-                sortBy: 'trustScore'
-              })}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              Limpar Filtros
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Aplicar Filtros
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Main Discovery Page Component
-const EnhancedDiscoverPage = () => {
-  const [viewMode, setViewMode] = useState('grid');
-  const [showFilters, setShowFilters] = useState(false);
-  const [showMapView, setShowMapView] = useState(false);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [bookmarkedRestaurants, setBookmarkedRestaurants] = useState<Set<string>>(new Set());
+const DiscoverPage = () => {
+  const { user, isLoading } = useAuth();
+  const authenticatedFetch = useAuthenticatedFetch();
+  const router = useRouter();
   
-  const [filters, setFilters] = useState({
-    search: '',
-    city: '',
-    cuisineType: '',
-    priceRange: [1, 2, 3, 4],
-    minTrustScore: 0,
-    sortBy: 'trustScore'
-  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeTab, setActiveTab] = useState('curated');
+  
+  const [curatedLists, setCuratedLists] = useState<any[]>([]);
+  const [discoveryRequests, setDiscoveryRequests] = useState<any[]>([]);
+  const [trendingRecommendations, setTrendingRecommendations] = useState<Recommendation[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Get user location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.warn('Could not get user location:', error);
-          // Default to Brasília center
-          setUserLocation({
-            latitude: -15.7801,
-            longitude: -47.8829
+  const [searchResults, setSearchResults] = useState<{
+    lists: any[];
+    restaurants: any[];
+  }>({ lists: [], restaurants: [] });
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  const [showCreateListModal, setShowCreateListModal] = useState(false);
+  const [showCreateRequestModal, setShowCreateRequestModal] = useState(false);
+  const [likedLists, setLikedLists] = useState<Set<string>>(new Set());
+  const [bookmarkedLists, setBookmarkedLists] = useState<Set<string>>(new Set());
+  const [bookmarkedRequests, setBookmarkedRequests] = useState<Set<string>>(new Set());
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+
+  const handleCreateRecommendation = () => {
+    router.push('/create');
+  };
+
+  const handleCreateList = () => {
+    if (!user) {
+      toast.error('Please log in to create a list');
+      return;
+    }
+    setShowCreateListModal(true);
+  };
+
+  const handleCreateRequest = () => {
+    if (!user) {
+      toast.error('Please log in to create a request');
+      return;
+    }
+    setShowCreateRequestModal(true);
+  };
+
+  const handleCreateListSuccess = async (listId: string) => {
+    toast.success('List created successfully!');
+    await fetchCuratedListsFromAPI();
+    setShowCreateListModal(false);
+  };
+
+  const handleCreateRequestSuccess = async (requestId: string) => {
+    toast.success('Request created successfully!');
+    await fetchDiscoveryRequests();
+    setShowCreateRequestModal(false);
+    // Optionally redirect to the request detail page
+    // router.push(`/discovery/requests/${requestId}`);
+  };
+
+  const handleLikeList = async (listId: string | number) => {
+    const id = listId.toString();
+    
+    if (!user) {
+      toast.error('Please log in to like lists');
+      return;
+    }
+
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/lists/${id}/like`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.action === 'liked') {
+          setLikedLists(prev => new Set([...prev, id]));
+        } else {
+          setLikedLists(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(id);
+            return newSet;
           });
         }
-      );
-    }
-  }, []);
 
-  // Load bookmarks from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('bookmarkedRestaurants');
-      if (saved) {
-        setBookmarkedRestaurants(new Set(JSON.parse(saved)));
+        setCuratedLists(prev => prev.map(list => 
+          list.id === id 
+            ? { ...list, likes_count: data.action === 'liked' ? (list.likes_count + 1) : Math.max(0, list.likes_count - 1) }
+            : list
+        ));
       }
     } catch (error) {
-      console.warn('Could not load bookmarks:', error);
+      console.error('Error liking list:', error);
+      toast.error('Failed to like list');
     }
-  }, []);
+  };
 
-  // Load restaurants initially
-  useEffect(() => {
-    loadRestaurants();
-  }, [userLocation]);
+  const handleBookmarkList = async (listId: string | number) => {
+    const id = listId.toString();
+    
+    if (!user) {
+      toast.error('Please log in to bookmark lists');
+      return;
+    }
 
-  // Search restaurants with debouncing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      searchRestaurants();
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [filters, userLocation]);
-
-  const loadRestaurants = async () => {
-    setLoading(true);
     try {
-      const data = await restaurantService.searchRestaurants({
-        city: 'Brasília',
-        userLocation: userLocation || undefined,
-        limit: 50
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/lists/${id}/bookmark`, {
+        method: 'POST'
       });
-      setRestaurants(data);
-    } catch (error) {
-      console.error('Error loading restaurants:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const searchRestaurants = async () => {
-    setLoading(true);
-    try {
-      const data = await restaurantService.searchRestaurants({
-        query: filters.search.trim() || undefined,
-        city: filters.city || 'Brasília',
-        cuisineType: filters.cuisineType || undefined,
-        priceRange: filters.priceRange.length > 0 ? filters.priceRange : undefined,
-        minTrustScore: filters.minTrustScore > 0 ? filters.minTrustScore : undefined,
-        userLocation: userLocation || undefined,
-        limit: 50
-      });
-      setRestaurants(data);
-    } catch (error) {
-      console.error('Error searching restaurants:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle bookmark toggle
-  const handleBookmark = async (restaurantId: string) => {
-    const newBookmarks = new Set(bookmarkedRestaurants);
-    if (newBookmarks.has(restaurantId)) {
-      newBookmarks.delete(restaurantId);
-    } else {
-      newBookmarks.add(restaurantId);
-    }
-    setBookmarkedRestaurants(newBookmarks);
-    
-    try {
-      localStorage.setItem('bookmarkedRestaurants', JSON.stringify([...newBookmarks]));
-    } catch (error) {
-      console.warn('Could not save bookmarks:', error);
-    }
-  };
-
-  const getTrustScoreBadge = (score) => {
-    if (score >= 9) return { color: 'text-green-600 bg-green-100', label: 'Excelente' };
-    if (score >= 7) return { color: 'text-blue-600 bg-blue-100', label: 'Muito Bom' };
-    return { color: 'text-yellow-600 bg-yellow-100', label: 'Bom' };
-  };
-
-  const renderPriceRange = (range) => {
-    return '€'.repeat(range);
-  };
-
-  const highlightSearchTerm = (text, searchTerm) => {
-    if (!searchTerm.trim()) return text;
-    
-    const regex = new RegExp(`(${searchTerm.trim()})`, 'gi');
-    const parts = text.split(regex);
-    
-    return parts.map((part, index) => 
-      regex.test(part) ? (
-        <mark key={index} className="bg-yellow-200 font-medium">{part}</mark>
-      ) : part
-    );
-  };
-
-  const formatDistance = (distance?: number) => {
-    if (!distance) return null;
-    if (distance < 1) return `${Math.round(distance * 1000)}m`;
-    return `${distance.toFixed(1)}km`;
-  };
-
-  // Filter and sort restaurants
-  const filteredRestaurants = useMemo(() => {
-    let filtered = restaurants;
-
-    // Apply client-side sorting if needed
-    if (filters.sortBy) {
-      filtered = [...filtered].sort((a, b) => {
-        switch (filters.sortBy) {
-          case 'trustScore':
-            return (b.avgTrustScore || 0) - (a.avgTrustScore || 0);
-          case 'distance':
-            return (a.distance || 0) - (b.distance || 0);
-          case 'recommendations':
-            return (b.totalRecommendations || 0) - (a.totalRecommendations || 0);
-          default:
-            return 0;
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.action === 'bookmarked') {
+          setBookmarkedLists(prev => new Set([...prev, id]));
+        } else {
+          setBookmarkedLists(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(id);
+            return newSet;
+          });
         }
-      });
+      }
+    } catch (error) {
+      console.error('Error bookmarking list:', error);
+      toast.error('Failed to bookmark list');
+    }
+  };
+
+  const handleBookmarkRequest = async (requestId: string) => {
+    if (!user) {
+      toast.error('Please log in to bookmark requests');
+      return;
     }
 
-    return filtered;
-  }, [restaurants, filters.sortBy]);
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/discovery/requests/${requestId}/bookmark`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.action === 'added') {
+          setBookmarkedRequests(prev => new Set([...prev, requestId]));
+          toast.success('Request bookmarked');
+        } else {
+          setBookmarkedRequests(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(requestId);
+            return newSet;
+          });
+          toast.success('Bookmark removed');
+        }
+
+        // Update the request in state
+        setDiscoveryRequests(prev => prev.map(req => 
+          req.id === requestId 
+            ? { ...req, is_bookmarked: data.action === 'added' }
+            : req
+        ));
+      }
+    } catch (error) {
+      console.error('Error bookmarking request:', error);
+      toast.error('Failed to bookmark request');
+    }
+  };
+
+  const handleShareList = (listId: string | number) => {
+    toast.success('Share link copied to clipboard!');
+  };
+
+  const handleAuthorClick = (authorId: string) => {
+    router.push(`/users/${authorId}`);
+  };
+
+  const handleReportList = (listId: string | number) => {
+    toast.success('Report submitted. Thank you!');
+  };
+
+  const handleReportRequest = (requestId: string) => {
+    toast.success('Report submitted. Thank you!');
+  };
+
+  const handleViewHistory = () => {
+    if (user) {
+      router.push(`/users/${user.id}/history`);
+    } else {
+      router.push('/login');
+    }
+  };
+
+  const handleRestaurantClick = (restaurantId: number) => {
+    router.push(`/restaurant/${restaurantId}`);
+  };
+
+  const fetchUserInteractionStatus = async () => {
+    if (!user) return;
+
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/lists/status`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          setLikedLists(new Set(data.likes));
+          setBookmarkedLists(new Set(data.bookmarks));
+        }
+      }
+    } catch (error) {
+      console.log('Error fetching interaction status:', error);
+    }
+  };
+
+  const fetchDiscoveryRequests = async () => {
+    try {
+      console.log('Fetching discovery requests from API...');
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/discovery/requests?limit=20&status=open`);
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Discovery requests response:', data);
+      
+      if (data.success && data.requests) {
+        setDiscoveryRequests(data.requests);
+        console.log(`Loaded ${data.requests.length} discovery requests`);
+      } else {
+        console.log('No requests in API response');
+        setDiscoveryRequests([]);
+      }
+      
+    } catch (error) {
+      console.error('Failed to fetch discovery requests:', error);
+      setDiscoveryRequests([]);
+    }
+  };
+
+  const transformListForCard = (list: any) => {
+    return {
+      id: list.id,
+      title: list.title,
+      description: list.description || '',
+      author: {
+        id: list.author?.id || 'unknown',
+        name: list.author?.display_name || 'Food Expert',
+        avatar: list.author?.avatar || '👨‍🍳',
+        verified: list.author?.verified || false,
+        followers: list.author?.followers || 0,
+        socialDistance: list.author?.socialDistance as 1 | 2 | undefined
+      },
+      restaurantCount: list.restaurant_count || 0,
+      saves: list.saves_count || 0,
+      likes: list.likes_count || 0,
+      category: list.best_for?.split(',')[0]?.trim() || 'Food',
+      neighborhood: list.restaurants?.[0]?.city || 'Brasília',
+      isNew: false,
+      timeAgo: list.created_at ? calculateTimeAgo(list.created_at) : 'Recent',
+      createdAt: list.created_at,
+      tags: list.best_for?.split(',').map((t: string) => t.trim()).slice(0, 3) || [],
+      preview: (list.restaurants || []).slice(0, 3).map((r: any) => ({
+        id: r.id,
+        name: r.name || 'Restaurant',
+        image: undefined,
+        cuisine: r.category || 'Restaurant',
+        rating: r.rating || undefined,
+        location: r.city || 'Brasília'
+      })),
+      isBookmarked: bookmarkedLists.has(list.id.toString()),
+      hasLiked: likedLists.has(list.id.toString())
+    };
+  };
+
+  const calculateTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return 'Agora mesmo';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d`;
+    return `${Math.floor(diffInSeconds / 604800)}w`;
+  };
+
+  const fetchCuratedListsFromAPI = async () => {
+    try {
+      if (!user) {
+        console.log('User not authenticated, skipping list fetch');
+        setCuratedLists([]);
+        return;
+      }
+
+      console.log('Fetching lists from API...');
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/lists?limit=10`);
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('API Response:', data);
+      
+      if (data.success && data.lists) {
+        const listsWithUserInfo = await Promise.all(
+          data.lists.map(async (list: any) => {
+            let authorInfo = {
+              id: list.created_by,
+              display_name: 'Food Expert',
+              username: 'user',
+              avatar: '👨‍🍳',
+              verified: false,
+              followers: 0
+            };
+
+            if (list.created_by) {
+              try {
+                const userResponse = await authenticatedFetch(`${API_BASE_URL}/api/users/${list.created_by}`);
+                if (userResponse.ok) {
+                  const userData = await userResponse.json();
+                  if (userData.success && userData.user) {
+                    authorInfo = {
+                      id: userData.user.id,
+                      display_name: userData.user.display_name || userData.user.username || 'Food Expert',
+                      username: userData.user.username || 'user',
+                      avatar: userData.user.avatar || '👨‍🍳',
+                      verified: userData.user.verified || false,
+                      followers: userData.user.followers || 0
+                    };
+                  }
+                }
+              } catch (error) {
+                console.log('Could not fetch user info for list author');
+              }
+            }
+
+            return {
+              id: list.id,
+              title: list.title,
+              description: list.description || '',
+              author: authorInfo,
+              restaurant_count: list.restaurant_count || 0,
+              restaurants: list.restaurants || [],
+              likes_count: list.likes_count || 0,
+              saves_count: list.saves_count || 0,
+              is_featured: false,
+              best_for: list.tags?.join(',') || 'dining,food,restaurants',
+              created_at: list.created_at
+            };
+          })
+        );
+        
+        console.log(`Loaded ${listsWithUserInfo.length} lists from API`);
+        setCuratedLists(listsWithUserInfo);
+      } else {
+        console.log('No lists in API response');
+        setCuratedLists([]);
+      }
+      
+    } catch (error) {
+      console.error('Failed to fetch lists from API:', error);
+      setCuratedLists([]);
+    }
+  };
+
+  const fetchData = async () => {
+    setIsLoadingData(true);
+    setError(null);
+    
+    try {
+      const [trendingResult] = await Promise.all([
+        recommendationService.getTrendingRecommendations(8).catch(() => []),
+        fetchCuratedListsFromAPI().catch(() => {}),
+        fetchDiscoveryRequests().catch(() => {}),
+        fetchUserInteractionStatus().catch(() => {})
+      ]);
+
+      setTrendingRecommendations(trendingResult);
+      
+    } catch (err) {
+      console.error('Error loading discover data:', err);
+      setError('Failed to load content. Please try again.');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [user]);
+
+  const searchSuggestions = [
+    'Restaurantes românticos',
+    'Pizzarias autênticas', 
+    'Brunch da Asa Sul',
+    'Happy hour downtown'
+  ];
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    setShowSuggestions(false);
+    
+    if (!query.trim()) {
+      setSearchResults({ lists: [], restaurants: [] });
+      setSearchError(null);
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError(null);
+
+    try {
+      const response = await authenticatedFetch(
+        `${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}&limit=20`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setSearchResults(data.results);
+        
+        if (data.total === 0) {
+          setSearchError(`No results found for "${query}"`);
+        }
+      } else {
+        throw new Error('Search request failed');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchError(`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setSearchResults({ lists: [], restaurants: [] });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  if (isLoading || isLoadingData) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <CleanHeader />
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-64 mb-6"></div>
+            <div className="h-12 bg-gray-200 rounded w-full mb-8"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-3 space-y-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-40 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+              <div className="space-y-4">
+                {[1, 2].map(i => (
+                  <div key={i} className="h-32 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && curatedLists.length === 0 && trendingRecommendations.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <CleanHeader />
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Content Loading Error</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <button onClick={fetchData} className="btn-primary">
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Descobrir Restaurantes</h1>
-          
-          {/* Search and Controls */}
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search Bar */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+      <CleanHeader />
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Discover Great Food
+          </h1>
+          <p className="text-gray-600">
+            Curated recommendations from trusted food experts in Brasília
+          </p>
+        </div>
+
+        <div className="relative mb-8">
+          <div className="flex">
+            <div className="relative flex-1">
               <input
                 type="text"
-                placeholder="Buscar restaurantes, bairros, tipos de comida..."
-                value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Search for restaurants, cuisines, or locations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch(searchQuery);
+                  }
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                className="w-full px-4 py-3 pl-10 pr-4 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              <svg className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <button
+              onClick={() => handleSearch(searchQuery)}
+              disabled={isSearching || !searchQuery.trim()}
+              className="px-6 py-3 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSearching ? 'Searching...' : 'Search'}
+            </button>
+          </div>
+          
+          {showSuggestions && !isSearching && searchResults.lists.length === 0 && searchResults.restaurants.length === 0 && (
+            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-10">
+              {searchSuggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSearch(suggestion)}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          
+          <div className="lg:col-span-3">
+            
+            <div className="flex space-x-1 mb-6">
+              <button
+                onClick={() => setActiveTab('curated')}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                  activeTab === 'curated'
+                    ? 'bg-blue-100 text-blue-700 border-blue-200 border'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Curated Lists
+              </button>
+              <button
+                onClick={() => setActiveTab('requests')}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                  activeTab === 'requests'
+                    ? 'bg-purple-100 text-purple-700 border-purple-200 border'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Requests
+                {discoveryRequests.length > 0 && (
+                  <span className="ml-2 px-2 py-0.5 bg-purple-200 text-purple-800 text-xs rounded-full">
+                    {discoveryRequests.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('map')}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                  activeTab === 'map'
+                    ? 'bg-blue-100 text-blue-700 border-blue-200 border'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Map View
+              </button>
+            </div>
+
+            {activeTab === 'curated' && (
+              <div className="space-y-6">
+                {curatedLists.length > 0 ? (
+                  curatedLists.map((list) => (
+                    <ListCard
+                      key={list.id}
+                      list={transformListForCard(list)}
+                      variant="compact"
+                      showAuthor={true}
+                      showActions={true}
+                      onSave={handleBookmarkList}
+                      onLike={handleLikeList}
+                      onShare={handleShareList}
+                      onAuthorClick={handleAuthorClick}
+                      onReport={handleReportList}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="mb-4">
+                      <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No curated lists yet</h3>
+                      <p className="text-gray-600 mb-4">Be the first to create a curated list of great restaurants!</p>
+                    </div>
+                    <button onClick={handleCreateList} className="btn-primary">
+                      Create First List
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'requests' && (
+              <div className="space-y-6">
+                {discoveryRequests.length > 0 ? (
+                  discoveryRequests.map((request) => (
+                    <RequestCard
+                      key={request.id}
+                      request={request}
+                      variant="compact"
+                      onBookmark={handleBookmarkRequest}
+                      onReport={handleReportRequest}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="mb-4">
+                      <svg className="w-16 h-16 mx-auto text-purple-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No requests yet</h3>
+                      <p className="text-gray-600 mb-4">Be the first to ask the community for restaurant recommendations!</p>
+                    </div>
+                    <button onClick={handleCreateRequest} className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-colors font-medium">
+                      Ask for Recommendations
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'map' && (
+              <MapView 
+                onRestaurantClick={handleRestaurantClick}
+                initialCenter={{ lat: -15.7934, lng: -47.8823 }}
+                initialZoom={12}
+              />
+            )}
+          </div>
+
+          <div className="space-y-6">
+            
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                Trending Now
+              </h3>
+              <div className="space-y-3">
+                {trendingRecommendations.slice(0, 3).map((rec) => (
+                  <div key={rec.id} className="border border-gray-100 rounded-lg p-3 hover:bg-gray-50 transition-colors cursor-pointer">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-semibold text-sm">
+                          {rec.author.display_name.charAt(0)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-900 text-sm line-clamp-1">{rec.title}</h4>
+                        <p className="text-xs text-gray-500 mb-2">{rec.restaurant.name}</p>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span className="flex items-center gap-1 trust-high px-2 py-1 rounded-full text-xs border">
+                            {rec.trust_score.toFixed(1)}
+                          </span>
+                          <span>{rec.upvotes_count} upvotes</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {trendingRecommendations.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">No trending content yet</p>
+                )}
+              </div>
             </div>
             
-            {/* Controls */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-4 py-3 border rounded-lg transition-colors ${
-                  showFilters ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <SlidersHorizontal className="w-5 h-5" />
-                Filtros
-                <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-              </button>
-              
-              <button
-                onClick={() => setShowMapView(!showMapView)}
-                className={`flex items-center gap-2 px-4 py-3 border rounded-lg transition-colors ${
-                  showMapView ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                {showMapView ? <Grid3X3 className="w-5 h-5" /> : <Map className="w-5 h-5" />}
-                {showMapView ? 'Lista' : 'Mapa'}
-              </button>
-              
-              <div className="flex border border-gray-300 rounded-lg">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-3 ${viewMode === 'grid' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Quick Actions</h3>
+              <div className="space-y-3">
+                <button 
+                  onClick={handleCreateRecommendation}
+                  className="btn-primary w-full hover:bg-blue-700 transition-colors"
                 >
-                  <Grid3X3 className="w-5 h-5" />
+                  Create Recommendation
                 </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-3 border-l border-gray-300 ${viewMode === 'list' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                <button 
+                  onClick={handleCreateList}
+                  className="btn-secondary w-full hover:bg-gray-300 transition-colors"
                 >
-                  <List className="w-5 h-5" />
+                  Create List
+                </button>
+                <button 
+                  onClick={handleCreateRequest}
+                  className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-colors"
+                >
+                  Ask for Recommendations
+                </button>
+                <button 
+                  onClick={handleViewHistory}
+                  className="btn-ghost w-full hover:bg-gray-100 transition-colors"
+                >
+                  View My History
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Advanced Filters */}
-          {showFilters && (
-            <AdvancedFilters 
-              filters={filters} 
-              setFilters={setFilters} 
-              onClose={() => setShowFilters(false)} 
-            />
-          )}
+            {user && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-4">
+                <h3 className="font-semibold text-blue-900 mb-4">Your Dining Memory</h3>
+                <div className="space-y-3">
+                  <div className="text-sm text-blue-700">
+                    <p>Recent recommendations: 0</p>
+                    <p>Saved lists: {bookmarkedLists.size}</p>
+                    <p>Following: 0 food experts</p>
+                  </div>
+                  <button 
+                    onClick={handleViewHistory}
+                    className="w-full px-4 py-2 text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    View All History
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Community Stats</h3>
+              <div className="space-y-2 text-sm text-gray-600">
+                <p>Total recommendations: {trendingRecommendations.length}</p>
+                <p>Curated lists: {curatedLists.length}</p>
+                <p>Open requests: {discoveryRequests.filter(r => r.status === 'open').length}</p>
+                <p>Active food experts: {new Set(curatedLists.map(l => l.author?.id).filter(Boolean)).size}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Lists Section */}
-        <DiscoverListsSection />
+      <CreateListFlow
+        isOpen={showCreateListModal}
+        onClose={() => setShowCreateListModal(false)}
+        onSuccess={handleCreateListSuccess}
+      />
 
-        {/* Map View */}
-        {showMapView ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
-              <div className="text-center">
-                <Map className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 text-lg font-medium">Vista do Mapa</p>
-                <p className="text-sm text-gray-500">Integração com serviço de mapas em desenvolvimento</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* Restaurants Section */
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
-                Restaurantes ({loading ? '...' : filteredRestaurants.length})
-              </h2>
-              <div className="text-sm text-gray-600">
-                {userLocation && (
-                  <span className="text-green-600 mr-4">📍 Localização detectada</span>
-                )}
-                Ordenado por {filters.sortBy === 'trustScore' ? 'Trust Score' : 
-                            filters.sortBy === 'distance' ? 'Distância' :
-                            filters.sortBy === 'recent' ? 'Mais Recentes' : 'Mais Recomendados'}
-              </div>
-            </div>
-
-            {/* Loading State */}
-            {loading && (
-              <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-white border border-gray-200 rounded-lg p-6 animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded mb-3"></div>
-                    <div className="h-6 bg-gray-200 rounded mb-2"></div>
-                    <div className="h-4 bg-gray-200 rounded mb-4"></div>
-                    <div className="h-20 bg-gray-200 rounded"></div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Restaurants Grid/List */}
-            {!loading && (
-              <>
-                {filteredRestaurants.length > 0 ? (
-                  <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-                    {filteredRestaurants.map((restaurant) => {
-                      const trustBadge = getTrustScoreBadge(restaurant.avgTrustScore || 0);
-                      const restaurantUrl = generateRestaurantUrl(restaurant.id, restaurant.name);
-                      
-                      const handleBookmarkClick = (e: React.MouseEvent) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleBookmark(restaurant.id);
-                      };
-                      
-                      if (viewMode === 'list') {
-                        return (
-                          <Link key={restaurant.id} href={restaurantUrl} className="block">
-                            <div className="flex gap-4 p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer">
-                              <div className="flex-1">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div>
-                                    <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors">
-                                      {highlightSearchTerm(restaurant.name, filters.search)}
-                                    </h3>
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                                      <MapPin className="w-4 h-4" />
-                                      {highlightSearchTerm(restaurant.address, filters.search)}
-                                      {restaurant.distance && (
-                                        <span>• {formatDistance(restaurant.distance)}</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-1 rounded-full text-sm font-medium ${trustBadge.color}`}>
-                                      Trust {(restaurant.avgTrustScore || 0).toFixed(1)}
-                                    </span>
-                                    <button
-                                      onClick={handleBookmarkClick}
-                                      className={`p-1 rounded transition-colors ${
-                                        bookmarkedRestaurants.has(restaurant.id)
-                                          ? 'text-red-500 hover:text-red-600'
-                                          : 'text-gray-400 hover:text-red-500'
-                                      }`}
-                                    >
-                                      <Heart className={`w-5 h-5 ${bookmarkedRestaurants.has(restaurant.id) ? 'fill-current' : ''}`} />
-                                    </button>
-                                  </div>
-                                </div>
-                                
-                                <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                                  <span className="flex items-center gap-1">
-                                    <Users className="w-4 h-4" />
-                                    {formatEngagementCount(restaurant.totalRecommendations || 0)} recomendações
-                                  </span>
-                                  {restaurant.cuisineType && (
-                                    <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
-                                      {restaurant.cuisineType}
-                                    </span>
-                                  )}
-                                  {restaurant.priceRange && (
-                                    <span className="font-medium">{renderPriceRange(restaurant.priceRange)}</span>
-                                  )}
-                                  {restaurant.verified && (
-                                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                                      Verificado
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                {restaurant.topRecommendation && (
-                                  <div className="bg-gray-50 rounded-lg p-3 mb-2">
-                                    <p className="text-sm text-gray-700 italic">
-                                      "{restaurant.topRecommendation.excerpt}"
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      — {restaurant.topRecommendation.author}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </Link>
-                        );
-                      }
-                      
-                      return (
-                        <Link key={restaurant.id} href={restaurantUrl} className="block">
-                          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                            <div className="p-6">
-                              <div className="flex items-start justify-between mb-4">
-                                <div className="flex-1">
-                                  <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors mb-1">
-                                    {highlightSearchTerm(restaurant.name, filters.search)}
-                                  </h3>
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <MapPin className="w-4 h-4" />
-                                    <span className="truncate">
-                                      {highlightSearchTerm(restaurant.address, filters.search)}
-                                    </span>
-                                  </div>
-                                  {restaurant.distance && (
-                                    <div className="text-sm text-gray-500 mt-1">
-                                      {formatDistance(restaurant.distance)}
-                                    </div>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={handleBookmarkClick}
-                                  className={`p-1 rounded transition-colors ${
-                                    bookmarkedRestaurants.has(restaurant.id)
-                                      ? 'text-red-500 hover:text-red-600'
-                                      : 'text-gray-400 hover:text-red-500'
-                                  }`}
-                                >
-                                  <Heart className={`w-6 h-6 ${bookmarkedRestaurants.has(restaurant.id) ? 'fill-current' : ''}`} />
-                                </button>
-                              </div>
-                              
-                              <div className="flex items-center gap-2 mb-4">
-                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${trustBadge.color}`}>
-                                  Trust {(restaurant.avgTrustScore || 0).toFixed(1)}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-                                <span className="flex items-center gap-1">
-                                  <Users className="w-4 h-4" />
-                                  {formatEngagementCount(restaurant.totalRecommendations || 0)} recomendações
-                                </span>
-                              </div>
-                              
-                              <div className="flex items-center gap-2 mb-4">
-                                {restaurant.cuisineType && (
-                                  <span className="px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-700">
-                                    {restaurant.cuisineType}
-                                  </span>
-                                )}
-                                {restaurant.priceRange && (
-                                  <span className="text-sm font-medium text-gray-700">
-                                    {renderPriceRange(restaurant.priceRange)}
-                                  </span>
-                                )}
-                                {restaurant.verified && (
-                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
-                                    Verificado
-                                  </span>
-                                )}
-                              </div>
-                              
-                              {restaurant.topRecommendation && (
-                                <div className="bg-gray-50 rounded-lg p-3">
-                                  <p className="text-sm text-gray-700 italic">
-                                    "{restaurant.topRecommendation.excerpt}"
-                                  </p>
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    — {restaurant.topRecommendation.author}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum restaurante encontrado</h3>
-                    <p className="text-gray-600">Tente ajustar seus filtros ou termos de busca</p>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      <CreateRequestModal
+        isOpen={showCreateRequestModal}
+        onClose={() => setShowCreateRequestModal(false)}
+        onSuccess={handleCreateRequestSuccess}
+      />
     </div>
   );
 };
 
-export default EnhancedDiscoverPage;
+export default DiscoverPage;

@@ -1,25 +1,29 @@
 // File: code/poc/core/src/middleware/auth.ts
-// FIXED: Enhanced authentication middleware with better debugging and fallbacks
+// UPDATED: Enhanced authentication middleware with two-tier support and comprehensive debugging
 
 import { Request, Response, NextFunction } from 'express';
 import { JWTUtils, SignatureUtils, UserManager } from '../utils/jwt';
 
-// Extend Request type for user data
+// Extend Request type for user data with account tier
 declare global {
   namespace Express {
     interface Request {
       user?: {
         id: string;
-        address: string;
+        address?: string;
+        email?: string;
+        walletAddress?: string;
         username?: string;
         display_name?: string;
         verification_status?: 'basic' | 'verified' | 'expert';
+        accountTier?: 'email_basic' | 'wallet_full'; // NEW: Account tier
+        authMethod?: string; // NEW: Auth method (email, google, apple, twitter, wallet)
       };
     }
   }
 }
 
-// 🎯 ENHANCED: Authentication middleware with comprehensive debugging and fallbacks
+// 🎯 UPDATED: Authentication middleware with two-tier support and comprehensive debugging
 export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
   try {
     console.log('🔐 AUTH MIDDLEWARE: Processing request', { 
@@ -69,6 +73,8 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
       authStrategy = 'JWT';
       console.log('✅ AUTH MIDDLEWARE: JWT verification successful', { 
         userId: payload.userId,
+        accountTier: payload.accountTier, // NEW: Log account tier
+        authMethod: payload.authMethod, // NEW: Log auth method
         strategy: authStrategy 
       });
     } catch (jwtError: any) {
@@ -81,7 +87,9 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
         console.log('🧪 AUTH MIDDLEWARE: Using mock token strategy');
         payload = {
           userId: '105316ff-6076-4745-871d-85bb667bcbfd',
-          address: '0x' + '105316ff60764745871d85bb667bcbfd'.padStart(40, '0')
+          address: '0x' + '105316ff60764745871d85bb667bcbfd'.padStart(40, '0'),
+          accountTier: 'wallet_full', // Mock as wallet user
+          authMethod: 'wallet'
         };
         authStrategy = 'MOCK';
       }
@@ -90,7 +98,9 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
         console.log('🔄 AUTH MIDDLEWARE: Using direct extraction strategy');
         payload = {
           userId: '105316ff-6076-4745-871d-85bb667bcbfd',
-          address: '0x' + '105316ff60764745871d85bb667bcbfd'.padStart(40, '0')
+          address: '0x' + '105316ff60764745871d85bb667bcbfd'.padStart(40, '0'),
+          accountTier: 'wallet_full', // Assume wallet for backwards compatibility
+          authMethod: 'wallet'
         };
         authStrategy = 'DIRECT_EXTRACT';
       }
@@ -101,7 +111,10 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
           if (decoded.userId || decoded.id) {
             payload = {
               userId: decoded.userId || decoded.id,
-              address: decoded.address || '0x' + '105316ff60764745871d85bb667bcbfd'.padStart(40, '0')
+              address: decoded.address || decoded.walletAddress || '0x' + '105316ff60764745871d85bb667bcbfd'.padStart(40, '0'),
+              email: decoded.email,
+              accountTier: decoded.accountTier || 'email_basic', // NEW: Extract tier
+              authMethod: decoded.authMethod || 'email' // NEW: Extract auth method
             };
             authStrategy = 'JSON_DECODE';
             console.log('✅ AUTH MIDDLEWARE: JSON decode successful');
@@ -125,6 +138,9 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     console.log('🔍 AUTH MIDDLEWARE: Payload extracted', { 
       userId: payload.userId,
       address: payload.address,
+      email: payload.email,
+      accountTier: payload.accountTier, // NEW: Log account tier
+      authMethod: payload.authMethod, // NEW: Log auth method
       strategy: authStrategy
     });
 
@@ -186,7 +202,8 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
         // Create a generic user object as last resort
         user = {
           id: payload.userId,
-          address: payload.address || '0x' + payload.userId.replace(/-/g, '').substring(0, 40),
+          address: payload.address || payload.walletAddress || '0x' + payload.userId.replace(/-/g, '').substring(0, 40),
+          email: payload.email,
           username: `user_${payload.userId.substring(0, 8)}`,
           display_name: `User ${payload.userId.substring(0, 8)}`,
           verification_status: 'basic'
@@ -200,18 +217,24 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
       }
     }
 
-    // Add user to request
+    // NEW: Add user to request with account tier
     req.user = {
       id: user.id,
       address: user.address,
+      email: user.email || payload.email,
+      walletAddress: user.address || payload.walletAddress,
       username: user.username,
       display_name: user.display_name,
       verification_status: user.verification_status,
+      accountTier: payload.accountTier || 'email_basic', // NEW: Default to email_basic if not specified
+      authMethod: payload.authMethod || 'email' // NEW: Default to email if not specified
     };
 
     console.log('✅ AUTH MIDDLEWARE: Authentication successful', {
       userId: req.user.id,
       username: req.user.username,
+      accountTier: req.user.accountTier, // NEW: Log account tier
+      authMethod: req.user.authMethod, // NEW: Log auth method
       strategy: authStrategy,
       userSource: userSource
     });
@@ -279,6 +302,7 @@ export const optionalAuth = (req: Request, res: Response, next: NextFunction): v
         user = {
           id: '105316ff-6076-4745-871d-85bb667bcbfd',
           address: payload.address || '0x' + '105316ff60764745871d85bb667bcbfd'.padStart(40, '0'),
+          email: payload.email,
           username: 'test_user_3',
           display_name: 'Test User 3',
           verification_status: 'basic'
@@ -286,14 +310,22 @@ export const optionalAuth = (req: Request, res: Response, next: NextFunction): v
       }
       
       if (user) {
+        // NEW: Add account tier to optional auth
         req.user = {
           id: user.id,
           address: user.address,
+          email: user.email || payload.email,
+          walletAddress: user.address || payload.walletAddress,
           username: user.username,
           display_name: user.display_name,
           verification_status: user.verification_status,
+          accountTier: payload.accountTier || 'email_basic', // NEW: Extract tier
+          authMethod: payload.authMethod || 'email' // NEW: Extract auth method
         };
-        console.log('✅ OPTIONAL AUTH: User authenticated', { userId: req.user.id });
+        console.log('✅ OPTIONAL AUTH: User authenticated', { 
+          userId: req.user.id,
+          accountTier: req.user.accountTier // NEW: Log tier
+        });
       }
 
     } catch (authError) {
@@ -315,6 +347,8 @@ export const createMockToken = (userId: string = '105316ff-6076-4745-871d-85bb66
       address: '0x' + userId.replace(/-/g, '').substring(0, 40),
       username: 'test_user_3',
       display_name: 'Test User 3',
+      accountTier: 'wallet_full', // NEW: Mock as wallet user
+      authMethod: 'wallet', // NEW: Mock as wallet auth
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
     };
@@ -338,6 +372,8 @@ export const debugAuth = (req: Request, res: Response, next: NextFunction): void
       authHeaderType: req.headers.authorization ? req.headers.authorization.split(' ')[0] : 'none',
       hasUser: !!req.user,
       userId: req.user?.id || 'not_set',
+      accountTier: req.user?.accountTier || 'not_set', // NEW: Log tier
+      authMethod: req.user?.authMethod || 'not_set', // NEW: Log auth method
       userSource: req.user ? 'authenticated' : 'anonymous'
     });
   }
@@ -464,10 +500,12 @@ export const createAuthRoutes = () => {
         };
       }
 
-      // Generate JWT token
+      // NEW: Generate JWT token with account tier
       const token = JWTUtils.generateToken({
         userId: user.id,
         address: user.address,
+        accountTier: 'wallet_full', // NEW: Wallet auth = wallet_full tier
+        authMethod: 'wallet' // NEW: Auth method
       });
 
       // Get user stats (with fallback)
@@ -493,6 +531,8 @@ export const createAuthRoutes = () => {
           avatar_url: user.avatar_url,
           verification_status: user.verification_status,
           created_at: user.created_at,
+          accountTier: 'wallet_full', // NEW: Include tier in response
+          authMethod: 'wallet', // NEW: Include auth method
           ...stats,
         },
       });
@@ -533,6 +573,7 @@ export const createAuthRoutes = () => {
       const userData = fullUser || {
         id: req.user.id,
         address: req.user.address,
+        email: req.user.email,
         username: req.user.username,
         display_name: req.user.display_name,
         avatar_url: null,
@@ -556,6 +597,8 @@ export const createAuthRoutes = () => {
         success: true,
         user: {
           ...userData,
+          accountTier: req.user.accountTier, // NEW: Include tier
+          authMethod: req.user.authMethod, // NEW: Include auth method
           ...stats,
         },
       });
@@ -582,10 +625,13 @@ export const createAuthRoutes = () => {
         return;
       }
 
-      // Generate new token
+      // NEW: Generate new token with account tier
       const newToken = JWTUtils.generateToken({
         userId: req.user.id,
         address: req.user.address,
+        email: req.user.email,
+        accountTier: req.user.accountTier, // NEW: Preserve tier
+        authMethod: req.user.authMethod // NEW: Preserve auth method
       });
 
       // Get user data and stats (same approach as /me route)
@@ -608,6 +654,7 @@ export const createAuthRoutes = () => {
       const userData = fullUser || {
         id: req.user.id,
         address: req.user.address,
+        email: req.user.email,
         username: req.user.username,
         display_name: req.user.display_name,
         avatar_url: null,
@@ -623,6 +670,8 @@ export const createAuthRoutes = () => {
         token: newToken,
         user: {
           ...userData,
+          accountTier: req.user.accountTier, // NEW: Include tier
+          authMethod: req.user.authMethod, // NEW: Include auth method
           ...stats,
         },
       });
@@ -672,6 +721,7 @@ export const createAuthRoutes = () => {
         updatedUser = {
           id: req.user.id,
           address: req.user.address,
+          email: req.user.email,
           username: updates.username || req.user.username,
           display_name: updates.display_name || req.user.display_name,
           avatar_url: updates.avatar_url || null,
@@ -697,6 +747,8 @@ export const createAuthRoutes = () => {
         success: true,
         user: {
           ...updatedUser,
+          accountTier: req.user.accountTier, // NEW: Preserve tier
+          authMethod: req.user.authMethod, // NEW: Preserve auth method
           ...stats,
         },
       });

@@ -2,6 +2,7 @@
  * Authentication Middleware
  * 
  * Handles authentication for protected API routes
+ * FIXED: Prevents development mode from overriding valid JWT users
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -79,7 +80,7 @@ export interface AuthOptions {
 const DEFAULT_OPTIONS: AuthOptions = {
   secret: process.env.JWT_SECRET || 'omeonechain-dev-secret',
   expiresIn: 86400, // 24 hours
-  allowUnauthenticated: process.env.NODE_ENV === 'development'
+  allowUnauthenticated: false // ✅ FIXED: Default to false to prevent JWT override
 };
 
 /**
@@ -107,7 +108,7 @@ export function generateToken(user: AuthUser, options: Partial<AuthOptions> = {}
 export function verifyToken(token: string, options: Partial<AuthOptions> = {}): AuthUser {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   
-  return (jwt as any).verify(token, opts.secret) as AuthUser;
+  return jwt.verify(token, opts.secret) as AuthUser;
 }
 
 /**
@@ -120,8 +121,48 @@ export function authenticate(options: Partial<AuthOptions> = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   
   return (req: Request, res: Response, next: NextFunction) => {
-    // Allow unauthenticated access in development mode
-    if (opts.allowUnauthenticated && process.env.NODE_ENV === 'development') {
+    console.log('🔍 DEBUG: authenticate called for:', req.method, req.path);
+    
+    // Get token from header or query parameter
+    const authHeader = req.headers.authorization;
+    console.log('🔍 DEBUG: authHeader raw:', authHeader);
+    
+    const token = authHeader?.startsWith('Bearer ') 
+      ? authHeader.substring(7) 
+      : req.query.token as string;
+    
+    if (token) {
+      console.log('🔍 DEBUG: Extracted token:', token.substring(0, 20) + '...');
+      
+      try {
+        // Verify token first - this takes priority over development mode
+        const decoded = verifyToken(token, opts);
+        console.log('✅ DEBUG: Token verified, payload:', decoded);
+        req.user = decoded;
+        
+        console.log('✅ DEBUG: Set req.user:', req.user);
+        
+        // Check required roles if specified
+        if (opts.requiredRoles && opts.requiredRoles.length > 0) {
+          const hasRequiredRole = opts.requiredRoles.some(role => 
+            req.user?.roles?.includes(role)
+          );
+          
+          if (!hasRequiredRole) {
+            return res.status(403).json({ error: 'Insufficient permissions' });
+          }
+        }
+        
+        return next(); // ✅ Exit early if JWT is valid - don't fall through to dev mode
+      } catch (error) {
+        console.log('❌ DEBUG: Token verification failed:', error);
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+    }
+    
+    // ✅ FIXED: Only use development mode if NO token was provided AND development mode is enabled
+    if (!token && opts.allowUnauthenticated && process.env.NODE_ENV === 'development') {
+      console.log('🔧 DEBUG: No token provided, using development mode fallback');
       // Set a default development user
       req.user = {
         id: 'dev-user',
@@ -131,36 +172,9 @@ export function authenticate(options: Partial<AuthOptions> = {}) {
       return next();
     }
     
-    // Get token from header or query parameter
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') 
-      ? authHeader.substring(7) 
-      : req.query.token as string;
-    
-    if (!token) {
-      return res.status(401).json({ error: 'Authentication token required' });
-    }
-    
-    try {
-      // Verify token
-      const decoded = verifyToken(token, opts);
-      req.user = decoded;
-      
-      // Check required roles if specified
-      if (opts.requiredRoles && opts.requiredRoles.length > 0) {
-        const hasRequiredRole = opts.requiredRoles.some(role => 
-          req.user?.roles?.includes(role)
-        );
-        
-        if (!hasRequiredRole) {
-          return res.status(403).json({ error: 'Insufficient permissions' });
-        }
-      }
-      
-      next();
-    } catch (error) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
+    // No token and not in development mode
+    console.log('❌ DEBUG: No token provided and not in development mode');
+    return res.status(401).json({ error: 'Authentication token required' });
   };
 }
 

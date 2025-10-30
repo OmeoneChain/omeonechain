@@ -17,6 +17,7 @@
   "dependencies": {
     "@headlessui/react": "^1.7.18",
     "@heroicons/react": "^2.1.1",
+    "@react-google-maps/api": "^2.20.7",
     "@supabase/supabase-js": "^2.52.1",
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.0",

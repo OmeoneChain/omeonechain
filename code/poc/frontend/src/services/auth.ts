@@ -1,9 +1,8 @@
 // code/poc/frontend/src/services/auth.ts
-// FIXED: Removed duplicate export to fix compile error
+// COMPREHENSIVE: Wallet auth + OAuth social login support
 
-// CORRECTED: Read environment variables properly for Next.js
+// Environment configuration
 const getApiBaseUrl = (): string => {
-  // Next.js environment variables
   const nextPublicUrl = process.env.NEXT_PUBLIC_API_URL;
   const reactAppUrl = process.env.REACT_APP_API_URL;
   
@@ -20,6 +19,10 @@ const getApiBaseUrl = (): string => {
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+// ==========================================
+// TYPE DEFINITIONS
+// ==========================================
 
 export interface AuthChallenge {
   challenge: string;
@@ -43,13 +46,32 @@ export interface AuthError {
   details?: any;
 }
 
+export interface User {
+  userId: string;
+  email?: string;
+  username?: string;
+  walletAddress?: string;
+  accountTier: 'email_basic' | 'wallet_full';
+  authMethod: 'email' | 'wallet' | 'google' | 'instagram' | 'apple' | 'twitter';
+}
+
+// ==========================================
+// MAIN AUTH SERVICE CLASS
+// ==========================================
+
 export class AuthService {
   private baseUrl: string;
+  private static readonly TOKEN_KEY = 'auth_token';
+  private static readonly USER_KEY = 'user_data';
 
   constructor() {
     this.baseUrl = API_BASE_URL;
     console.log('🔐 AuthService initialized with URL:', this.baseUrl);
   }
+
+  // ==========================================
+  // WALLET AUTHENTICATION (EXISTING)
+  // ==========================================
 
   async getAuthChallenge(walletAddress: string): Promise<AuthChallenge> {
     const url = `${this.baseUrl}/auth/challenge`;
@@ -99,7 +121,6 @@ export class AuthService {
     } catch (error) {
       console.error('❌ Auth challenge error:', error);
       
-      // Re-throw with more context
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error(`Network error: Cannot connect to ${url}. Please check if the backend server is running.`);
       }
@@ -158,7 +179,6 @@ export class AuthService {
     } catch (error) {
       console.error('❌ Auth verification error:', error);
       
-      // Re-throw with more context
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error(`Network error: Cannot connect to ${url}. Please check if the backend server is running.`);
       }
@@ -170,7 +190,226 @@ export class AuthService {
     }
   }
 
-  // Health check method
+  // ==========================================
+  // OAUTH SOCIAL LOGIN (NEW)
+  // ==========================================
+
+  /**
+   * Handle OAuth callback from URL parameters
+   * Call this on your landing page when component mounts
+   */
+  static handleOAuthCallback(): { success: boolean; error?: string } {
+    if (typeof window === 'undefined') return { success: false };
+
+    // Check hash instead of query params
+    const hash = window.location.hash.substring(1); // Remove the #
+    const params = new URLSearchParams(hash);
+  
+    const authToken = params.get('auth_token');
+    const authSuccess = params.get('auth_success');
+    const authError = params.get('auth_error');
+
+    // Handle error
+    if (authError) {
+      console.error('❌ OAuth error:', authError);
+      this.cleanupURL();
+      return { success: false, error: authError };
+    }
+
+    // Handle success
+    if (authToken && authSuccess === 'true') {
+      console.log('✅ OAuth successful, storing token');
+      
+      try {
+        // Store token
+        this.setToken(authToken);
+        
+        // Decode and store user info
+        const user = this.decodeToken(authToken);
+        this.setUser(user);
+        
+        // Clean URL
+        this.cleanupURL();
+        
+        console.log('👤 User authenticated:', user);
+        return { success: true };
+        
+      } catch (error) {
+        console.error('❌ Error processing token:', error);
+        return { success: false, error: 'Failed to process authentication token' };
+      }
+    }
+
+    return { success: false };
+  }
+
+  /**
+   * Initiate Google OAuth flow
+   */
+  static loginWithGoogle(): void {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
+                       'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+    console.log('🔵 Redirecting to Google OAuth:', `${backendUrl}/api/auth/social/google`);
+    window.location.href = `${backendUrl}/api/auth/social/google`;
+  }
+
+  /**
+   * Initiate Instagram OAuth flow
+   */
+  static loginWithInstagram(): void {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
+                       'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+    console.log('📸 Redirecting to Instagram OAuth:', `${backendUrl}/api/auth/social/instagram`);
+    window.location.href = `${backendUrl}/api/auth/social/instagram`;
+  }
+
+  /**
+   * Initiate Apple Sign In flow
+   */
+  static loginWithApple(): void {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
+                       'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+    console.log('🍎 Redirecting to Apple OAuth:', `${backendUrl}/api/auth/social/apple`);
+    window.location.href = `${backendUrl}/api/auth/social/apple`;
+  }
+
+  /**
+   * Initiate Twitter OAuth flow
+   */
+  static loginWithTwitter(): void {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
+                       'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+    console.log('🐦 Redirecting to Twitter OAuth:', `${backendUrl}/api/auth/social/twitter`);
+    window.location.href = `${backendUrl}/api/auth/social/twitter`;
+  }
+
+  // ==========================================
+  // TOKEN & USER MANAGEMENT
+  // ==========================================
+
+  /**
+   * Store auth token
+   */
+  static setToken(token: string): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(this.TOKEN_KEY, token);
+  }
+
+  /**
+   * Get stored auth token
+   */
+  static getToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(this.TOKEN_KEY);
+  }
+
+  /**
+   * Remove auth token
+   */
+  static removeToken(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(this.TOKEN_KEY);
+  }
+
+  /**
+   * Store user data
+   */
+  static setUser(user: User): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+  }
+
+  /**
+   * Get stored user data
+   */
+  static getUser(): User | null {
+    if (typeof window === 'undefined') return null;
+    const userData = localStorage.getItem(this.USER_KEY);
+    return userData ? JSON.parse(userData) : null;
+  }
+
+  /**
+   * Remove user data
+   */
+  static removeUser(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(this.USER_KEY);
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  static isAuthenticated(): boolean {
+    const token = this.getToken();
+    if (!token) return false;
+
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp;
+      
+      // Check if token is expired
+      if (exp && Date.now() >= exp * 1000) {
+        console.log('⚠️  Token expired');
+        this.logout();
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Invalid token:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Decode JWT token (client-side only, no verification)
+   */
+  static decodeToken(token: string): User {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return {
+        userId: payload.userId,
+        email: payload.email,
+        username: payload.username,
+        walletAddress: payload.address || payload.walletAddress,
+        accountTier: payload.accountTier || 'email_basic',
+        authMethod: payload.authMethod || 'email'
+      };
+    } catch (error) {
+      console.error('❌ Failed to decode token:', error);
+      throw new Error('Invalid token format');
+    }
+  }
+
+  /**
+   * Logout user
+   */
+  static logout(): void {
+    this.removeToken();
+    this.removeUser();
+    console.log('👋 User logged out');
+  }
+
+  /**
+   * Get authorization header for API requests
+   */
+  static getAuthHeader(): { Authorization: string } | {} {
+    const token = this.getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  /**
+   * Clean up URL after OAuth callback
+   */
+  private static cleanupURL(): void {
+    if (typeof window === 'undefined') return;
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
+  // ==========================================
+  // HEALTH & TESTING (EXISTING)
+  // ==========================================
+
   async checkConnection(): Promise<boolean> {
     try {
       const healthUrl = this.baseUrl.replace('/api', '') + '/health';
@@ -197,7 +436,6 @@ export class AuthService {
     }
   }
 
-  // Test the auth endpoints
   async testEndpoints(): Promise<{
     health: boolean;
     challenge: boolean;
@@ -209,7 +447,6 @@ export class AuthService {
     
     let challenge = false;
     try {
-      // Test with a dummy address
       await this.getAuthChallenge('0x0000000000000000000000000000000000000000');
       challenge = true;
     } catch (error) {
@@ -231,4 +468,5 @@ export class AuthService {
 // Export singleton instance
 export const authService = new AuthService();
 
-// FIXED: Removed duplicate export that was causing the compile error
+// Export class as default for compatibility
+export default AuthService;

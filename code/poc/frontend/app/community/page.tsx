@@ -1,5 +1,5 @@
 // File: code/poc/frontend/app/community/page.tsx
-// FIXED: Added CleanHeader to Community page for consistent navigation
+// FIXED: Replaced direct fetch calls with socialApi methods for consistent behavior
 
 'use client';
 
@@ -7,7 +7,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Users, UserPlus, Loader2, MapPin, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
-import CleanHeader from '../../components/CleanHeader'; // Add this import
+import CleanHeader from '../../components/CleanHeader';
+// FIXED: Import socialApi for proper API calls
+import { socialApi } from '../../src/services/api';
 
 interface User {
   id: string;
@@ -101,93 +103,80 @@ export default function CommunityPage() {
     }
   };
 
+  // FIXED: Replace direct fetch with socialApi method
   const loadDiscoverUsers = async () => {
     try {
-      console.log('🔍 Loading discover users...');
-      const response = await fetch(`${BACKEND_URL}/api/social/users/discover?limit=20&currentUserId=${currentUser?.id || ''}`);
+      console.log('🔍 Loading discover users using socialApi...');
+      const data = await socialApi.discoverUsers(20);
+      console.log('✅ Discover API Response:', data);
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Discover API Response:', data);
-        
-        let users: User[] = [];
-        if (data.users && Array.isArray(data.users)) {
-          users = data.users;
-        } else if (Array.isArray(data)) {
-          users = data;
-        } else {
-          console.log('⚠️ Unexpected discover API response structure:', data);
-          users = [];
-        }
-
-        // DEBUG: Log user IDs to identify mismatch
-        console.log('🔍 DEBUG: Users from discover API:', users.map(u => ({ 
-          id: u.id, 
-          display_name: u.display_name,
-          id_length: u.id.length,
-          id_format: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(u.id) ? 'UUID' : 'NOT_UUID'
-        })));
-
-        // VALIDATION: Check for invalid UUIDs
-        const invalidUsers = users.filter(u => 
-          !u.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(u.id)
-        );
-        
-        if (invalidUsers.length > 0) {
-          console.error('🚨 FOUND INVALID USER IDs:', invalidUsers);
-        }
-
-        setDiscoverUsers(users);
-        console.log('✅ Loaded', users.length, 'discover users');
+      let users: User[] = [];
+      if (data.users && Array.isArray(data.users)) {
+        users = data.users;
+      } else if (Array.isArray(data)) {
+        users = data;
       } else {
-        console.error('❌ Discover API Error:', response.status, response.statusText);
-        const errorText = await response.text();
-        console.error('❌ Error details:', errorText);
-        setDiscoverUsers([]);
+        console.log('⚠️ Unexpected discover API response structure:', data);
+        users = [];
       }
+
+      // DEBUG: Log user IDs to identify mismatch
+      console.log('🔍 DEBUG: Users from discover API:', users.map(u => ({ 
+        id: u.id, 
+        display_name: u.display_name,
+        id_length: u.id.length,
+        id_format: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(u.id) ? 'UUID' : 'NOT_UUID'
+      })));
+
+      // VALIDATION: Check for invalid UUIDs
+      const invalidUsers = users.filter(u => 
+        !u.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(u.id)
+      );
+      
+      if (invalidUsers.length > 0) {
+        console.error('🚨 FOUND INVALID USER IDs:', invalidUsers);
+      }
+
+      setDiscoverUsers(users);
+      console.log('✅ Loaded', users.length, 'discover users');
     } catch (error) {
       console.error('❌ Error loading discover users:', error);
       setDiscoverUsers([]);
     }
   };
 
+  // FIXED: Replace direct fetch with socialApi method
   const loadFollowing = async (userId: string) => {
     try {
-      console.log('🔍 Loading following for user:', userId);
-      const response = await fetch(`${BACKEND_URL}/api/social/users/${userId}/following`);
+      console.log('🔍 Loading following for user using socialApi:', userId);
+      const data = await socialApi.getFollowing(userId);
+      console.log('✅ Following API Response:', data);
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Following API Response:', data);
-        
-        let users: User[] = [];
-        if (data.following && Array.isArray(data.following)) {
-          users = data.following;
-        } else if (data.users && Array.isArray(data.users)) {
-          users = data.users;
-        } else {
-          console.log('⚠️ No following data or unexpected format:', data);
-          users = [];
-        }
-
-        // FIXED: Ensure all users in following list have is_following = true
-        const followingUsers = users.map(user => ({
-          ...user,
-          is_following: true // Mark all users in following list as being followed
-        }));
-
-        setFollowing(followingUsers);
-        console.log('✅ Loaded', followingUsers.length, 'following users');
+      let users: User[] = [];
+      if (data.following && Array.isArray(data.following)) {
+        users = data.following;
+      } else if (data.users && Array.isArray(data.users)) {
+        users = data.users;
       } else {
-        console.error('❌ Following API Error:', response.status, response.statusText);
-        setFollowing([]);
+        console.log('⚠️ No following data or unexpected format:', data);
+        users = [];
       }
+
+      // FIXED: Ensure all users in following list have is_following = true
+      const followingUsers = users.map(user => ({
+        ...user,
+        is_following: true // Mark all users in following list as being followed
+      }));
+
+      setFollowing(followingUsers);
+      console.log('✅ Loaded', followingUsers.length, 'following users');
     } catch (error) {
       console.error('❌ Error loading following:', error);
       setFollowing([]);
     }
   };
 
+  // FIXED: Replace entire direct fetch implementation with socialApi methods
   const handleFollowToggle = async (targetUserId: string, isCurrentlyFollowing: boolean) => {
     if (!isAuthenticated || !currentUser || !token) {
       console.log('❌ Authentication required to follow users');
@@ -197,100 +186,50 @@ export default function CommunityPage() {
     try {
       console.log(`🔄 ${isCurrentlyFollowing ? 'Unfollowing' : 'Following'} user ${targetUserId}`);
       
-      // FIXED: Updated API routes to match server.ts
-      let requestUrl: string;
-      let requestBody: any = null;
-      let method: string;
-
+      // FIXED: Use socialApi methods instead of direct fetch
       if (isCurrentlyFollowing) {
-        // Unfollow: DELETE /api/social/follow/${userId}
-        requestUrl = `${BACKEND_URL}/api/social/follow/${targetUserId}`;
-        method = 'DELETE';
+        await socialApi.unfollowUser(targetUserId);
       } else {
-        // Follow: POST /api/social/follow with following_id in body
-        requestUrl = `${BACKEND_URL}/api/social/follow`;
-        method = 'POST';
-        requestBody = { following_id: targetUserId };
-      }
-      
-      console.log('🔍 DEBUG: Follow request details:', {
-        url: requestUrl,
-        method: method,
-        body: requestBody,
-        targetUserId,
-        isValidUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(targetUserId),
-        currentUserId: currentUser.id,
-        isSelfFollow: targetUserId === currentUser.id
-      });
-
-      const fetchOptions: RequestInit = {
-        method: method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      };
-
-      if (requestBody) {
-        fetchOptions.body = JSON.stringify(requestBody);
+        await socialApi.followUser(targetUserId);
       }
 
-      const response = await fetch(requestUrl, fetchOptions);
+      console.log(`✅ Successfully ${isCurrentlyFollowing ? 'unfollowed' : 'followed'} user`);
 
-      console.log('🔍 DEBUG: Follow response status:', response.status);
+      // Update both following and discover lists
+      const updateUser = (user: User) => 
+        user.id === targetUserId 
+          ? { 
+              ...user, 
+              is_following: !isCurrentlyFollowing,
+              followers_count: user.followers_count + (isCurrentlyFollowing ? -1 : 1)
+            }
+          : user;
 
-      if (response.ok) {
-        const responseData = await response.json();
-        console.log('✅ Follow success:', responseData);
-
-        // Update both following and discover lists
-        const updateUser = (user: User) => 
-          user.id === targetUserId 
-            ? { 
-                ...user, 
-                is_following: !isCurrentlyFollowing,
-                followers_count: user.followers_count + (isCurrentlyFollowing ? -1 : 1)
-              }
-            : user;
-
-        // FIXED: Properly manage following list without duplicates
-        if (!isCurrentlyFollowing) {
-          // Add to following list only if not already there
-          const followedUser = discoverUsers.find(u => u.id === targetUserId);
-          if (followedUser) {
-            setFollowing(prev => {
-              // Check if user is already in following list to prevent duplicates
-              const isAlreadyInFollowing = prev.some(u => u.id === targetUserId);
-              if (isAlreadyInFollowing) {
-                console.log('⚠️ User already in following list, not adding duplicate');
-                return prev;
-              }
-              return [...prev, { ...followedUser, is_following: true }];
-            });
-          }
-        } else {
-          // Remove from following list
-          setFollowing(prev => prev.filter(u => u.id !== targetUserId));
+      // FIXED: Properly manage following list without duplicates
+      if (!isCurrentlyFollowing) {
+        // Add to following list only if not already there
+        const followedUser = discoverUsers.find(u => u.id === targetUserId);
+        if (followedUser) {
+          setFollowing(prev => {
+            // Check if user is already in following list to prevent duplicates
+            const isAlreadyInFollowing = prev.some(u => u.id === targetUserId);
+            if (isAlreadyInFollowing) {
+              console.log('⚠️ User already in following list, not adding duplicate');
+              return prev;
+            }
+            return [...prev, { ...followedUser, is_following: true }];
+          });
         }
-
-        setDiscoverUsers(discoverUsers.map(updateUser));
-
-        console.log(`✅ Successfully ${isCurrentlyFollowing ? 'unfollowed' : 'followed'} user`);
       } else {
-        console.error('❌ Follow API Error:', response.status);
-        
-        // ENHANCED ERROR LOGGING
-        try {
-          const errorData = await response.json();
-          console.error('❌ Follow error details (JSON):', errorData);
-        } catch {
-          const errorText = await response.text();
-          console.error('❌ Follow error details (TEXT):', errorText);
-        }
+        // Remove from following list
+        setFollowing(prev => prev.filter(u => u.id !== targetUserId));
       }
+
+      setDiscoverUsers(discoverUsers.map(updateUser));
       
     } catch (error) {
       console.error('❌ Error toggling follow:', error);
+      // socialApi methods already handle error logging internally
     }
   };
 

@@ -1,24 +1,70 @@
-// app/page.tsx - Updated to use single clean header
+// app/page.tsx - Landing page with OAuth callback support + existing features
+// FIXED: Corrected import path for AuthService
 
 "use client"
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import CleanHeader from '@/components/CleanHeader';  // Use our clean header
-import Logo from '@/components/Logo';
-import TrustScoreBadge from '@/components/TrustScoreBadge';
-import RecommendationCard from '@/components/RecommendationCard';
+import { useRouter } from 'next/navigation';
+import CleanHeader from '../components/CleanHeader';
+import Logo from '../components/Logo';
+import TrustScoreBadge from '../components/TrustScoreBadge';
+import RecommendationCard from '../components/RecommendationCard';
+import { useAuth } from '../hooks/useAuth';
+import AuthService from '@/services/auth';
 import { Users, Zap, Shield, TrendingUp, Star, Heart, Bookmark, Menu, BarChart3 } from 'lucide-react';
 
 const DemoPage: React.FC = () => {
   const [mounted, setMounted] = useState(false);
+  const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Sample data (keeping your existing data)
+  // NEW: Handle OAuth callback
+  useEffect(() => {
+    if (!mounted) return;
+
+    console.log('🔍 Checking for OAuth callback...');
+
+      // DEBUG: Log the full URL
+  console.log('🔍 Full URL:', window.location.href);
+  console.log('🔍 URL search params:', window.location.search);
+  
+  // DEBUG: Parse parameters manually
+  const params = new URLSearchParams(window.location.search);
+  console.log('🔍 Token param:', params.get('token'));
+  console.log('🔍 User param:', params.get('user'));
+  console.log('🔍 Error param:', params.get('error'));
+  
+    const result = AuthService.handleOAuthCallback();
+  
+    if (result.success) {
+      setIsProcessingOAuth(true);
+      console.log('✅ OAuth callback processed successfully');
+    
+      // Force the page to re-check authentication
+      window.location.href = '/feed';
+    
+    } else if (result.error) {
+      console.error('❌ OAuth failed:', result.error);
+      alert(`Authentication failed: ${result.error}`);
+    }
+  }, [mounted]);
+
+  // EXISTING: Redirect authenticated users to feed
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && mounted && !isProcessingOAuth) {
+      console.log('✅ User already authenticated, redirecting to feed');
+      router.push('/feed');
+    }
+  }, [isAuthenticated, isLoading, mounted, isProcessingOAuth, router]);
+
+  // EXISTING: Sample data
   const sampleTrustBreakdown = {
     directFriends: 11,
     friendsOfFriends: 12,
@@ -101,14 +147,24 @@ const DemoPage: React.FC = () => {
     }
   ];
 
-  // Don't render animations until client-side hydration is complete
-  if (!mounted) {
+  // NEW: Show OAuth processing state
+  if (isProcessingOAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background-primary via-background-secondary to-trust-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-trust-600 mx-auto mb-4"></div>
+          <p className="text-network-600 font-medium">Signing you in...</p>
+          <p className="text-sm text-network-500 mt-2">Please wait while we complete your authentication</p>
+        </div>
+      </div>
+    );
+  }
+
+  // EXISTING: Show loading state while checking authentication
+  if (!mounted || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background-primary via-background-secondary to-trust-50">
-        {/* Single Clean Header */}
         <CleanHeader currentPath="/" />
-
-        {/* Loading state for server-side render */}
         <section className="py-12 sm:py-16 px-4 sm:px-6">
           <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8">
             <div className="space-y-4 sm:space-y-6">
@@ -127,6 +183,12 @@ const DemoPage: React.FC = () => {
     );
   }
 
+  // EXISTING: Don't render the landing page for authenticated users (they'll be redirected)
+  if (isAuthenticated) {
+    return null;
+  }
+
+  // EXISTING: Main landing page render
   return (
     <div className="min-h-screen bg-gradient-to-br from-background-primary via-background-secondary to-trust-50">
       {/* Single Clean Header - This is the ONLY header now */}
@@ -183,7 +245,6 @@ const DemoPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Rest of your content remains the same... */}
       {/* Features Section */}
       <section className="py-12 sm:py-16 px-4 sm:px-6 bg-white/40">
         <div className="max-w-6xl mx-auto">
@@ -248,10 +309,7 @@ const DemoPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Continue with the rest of your existing sections... */}
-      {/* I'll keep the rest of your content as-is for now */}
-      
-      {/* Footer remains the same */}
+      {/* Footer */}
       <footer className="border-t border-network-200 bg-network-50 py-8 sm:py-12 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">

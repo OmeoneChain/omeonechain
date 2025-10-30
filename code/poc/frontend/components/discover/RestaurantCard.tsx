@@ -4,9 +4,10 @@
 "use client"
 
 import React, { useState } from 'react';
-import { MapPin, Star, Users, Heart, ExternalLink, Info } from 'lucide-react';
+import { MapPin, Star, Users, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { generateRestaurantUrl, formatEngagementCount } from '@/lib/utils';
+import SaveButton from '@/components/saved-lists/SaveButton';
 
 interface Restaurant {
   id: string;
@@ -47,8 +48,6 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
   restaurant, 
   viewMode, 
   searchQuery,
-  onBookmark,
-  isBookmarked = false
 }) => {
   const [showTrustScoreTooltip, setShowTrustScoreTooltip] = useState(false);
 
@@ -94,12 +93,6 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
         </mark>
       ) : part
     );
-  };
-
-  const handleBookmarkClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onBookmark?.(restaurant.id);
   };
 
   // Use default image if none provided
@@ -224,16 +217,11 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
 
               {/* Actions */}
               <div className="flex flex-col gap-2">
-                <button
-                  onClick={handleBookmarkClick}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isBookmarked 
-                      ? 'bg-red-50 text-red-600 hover:bg-red-100' 
-                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Heart className={`h-5 w-5 ${isBookmarked ? 'fill-current' : ''}`} />
-                </button>
+                <SaveButton
+                  itemType="restaurant"
+                  itemId={restaurant.id}
+                  compact
+                />
                 
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
                   <ExternalLink className="h-5 w-5" />
@@ -291,17 +279,14 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
             )}
           </div>
 
-          {/* Bookmark Button */}
-          <button
-            onClick={handleBookmarkClick}
-            className={`absolute top-3 left-3 p-2 rounded-lg backdrop-blur-sm transition-colors ${
-              isBookmarked 
-                ? 'bg-red-50 text-red-600 hover:bg-red-100' 
-                : 'bg-white/80 text-gray-600 hover:bg-white'
-            }`}
-          >
-            <Heart className={`h-5 w-5 ${isBookmarked ? 'fill-current' : ''}`} />
-          </button>
+          {/* SaveButton - Replaces old bookmark button */}
+          <div className="absolute top-3 left-3">
+            <SaveButton
+              itemType="restaurant"
+              itemId={restaurant.id}
+              compact
+            />
+          </div>
         </div>
 
         {/* Card Content */}

@@ -1,4 +1,4 @@
-// Reusable Follow Button Component
+// Reusable Follow Button Component - FIXED API CALLS
 
 import React, { useState } from 'react';
 import { Users, UserPlus, UserMinus } from 'lucide-react';
@@ -37,27 +37,27 @@ export function FollowButton({
     try {
       setIsLoading(true);
       
+      // FIXED: Both follow and unfollow use the same URL pattern with userId in path
       const method = isFollowing ? 'DELETE' : 'POST';
-      const url = isFollowing 
-        ? `/api/social/follow/${targetUserId}`
-        : '/api/social/follow';
+      const url = `/api/social/users/${targetUserId}/follow`;
 
-      const body = isFollowing ? undefined : JSON.stringify({ following_id: targetUserId });
-
+      // FIXED: No body needed since userId is now in the URL path
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        },
-        body
+        }
+        // FIXED: Removed body since userId is in URL path, not request body
       });
 
       if (response.ok) {
         const data = await response.json();
-        onFollowChange(data.following);
+        // FIXED: Update state based on the action performed
+        onFollowChange(!isFollowing);
       } else {
-        console.error('Failed to follow/unfollow user');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to follow/unfollow user:', errorData.message || 'Unknown error');
       }
     } catch (error) {
       console.error('Error following/unfollowing user:', error);
@@ -133,7 +133,7 @@ export function FollowButton({
   );
 }
 
-// Hook for managing follow state
+// Hook for managing follow state - FIXED API CALL
 export function useFollowState(targetUserId: string, currentUserId?: string) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -150,7 +150,8 @@ export function useFollowState(targetUserId: string, currentUserId?: string) {
   const checkFollowStatus = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/social/follow/status/${targetUserId}`, {
+      // FIXED: Use the correct endpoint path that matches backend
+      const response = await fetch(`/api/social/users/${targetUserId}/follow-status`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
@@ -158,7 +159,7 @@ export function useFollowState(targetUserId: string, currentUserId?: string) {
 
       if (response.ok) {
         const data = await response.json();
-        setIsFollowing(data.is_following);
+        setIsFollowing(data.data.is_following);
       }
     } catch (error) {
       console.error('Error checking follow status:', error);

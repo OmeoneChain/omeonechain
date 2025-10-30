@@ -280,7 +280,7 @@ export const socialApi = {
   // Unfollow a user
   async unfollowUser(userId: string): Promise<{ success: boolean; message: string }> {
     console.log(`👤 Unfollowing user: ${userId}`);
-    const response = await apiClient.post(`/social/users/${userId}/unfollow`, {});
+    const response = await apiClient.delete(`/social/users/${userId}/follow`);
     
     if (response.error) {
       throw new Error(response.error);

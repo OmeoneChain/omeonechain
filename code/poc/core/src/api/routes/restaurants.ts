@@ -1,518 +1,756 @@
-// Restaurant Discovery API Routes - Next.js App Router with Supabase
-// File: app/api/restaurants/route.ts
-// COMPLETE VERSION - Ready for copy-paste replacement
+// File: code/poc/core/src/api/routes/restaurants.ts
+// Express-based Restaurant API Routes with Tiered Recommendations
 
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { Router, Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
+import { authenticateToken } from '../../middleware/auth';
 
-export interface Restaurant {
-  id: string; // Changed from number to string for UUID
-  name: string;
-  address: string;
-  city: string;
-  country: string;
-  latitude: number;
-  longitude: number;
-  cuisineType?: string;
-  priceRange?: 1 | 2 | 3 | 4;
-  phone?: string;
-  website?: string;
-  addedBy: string;
-  verified: boolean;
-  verificationCount: number;
-  totalRecommendations: number;
-  avgTrustScore: number;
-  lastRecommendationDate?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+const router = Router();
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Missing Supabase configuration');
 }
 
-export interface RestaurantSearchResult extends Restaurant {
-  distanceKm?: number;
-  trustScoreForUser?: number;
-  friendRecommendations?: number;
-  totalUserRecommendations?: number;
+const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+
+// =============================================================================
+// INTERFACES
+// =============================================================================
+
+interface TieredRecommendation {
+  id: string;
+  rating: number;
+  reviewText: string;
+  dishRecommendations: Array<{
+    dishName: string;
+    rating: number;
+    notes?: string;
+  }>;
+  contextTags: string[];
+  createdAt: string;
+  recommender: {
+    id: string;
+    displayName: string;
+    avatar?: string;
+    isAnonymized: boolean;
+    tasteMatch?: number;
+    socialDistance?: number;
+    credibility?: {
+      totalRecommendations: number;
+      avgTrustScore: number;
+      specialties: string[];
+    };
+  };
+  tier: 1 | 2 | 3;
 }
 
-// Helper function to calculate distance between two points
-function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371; // Earth's radius in kilometers
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+interface DishRating {
+  dishName: string;
+  avgRating: number;
+  recommendationCount: number;
+  topRecommenders: string[];
 }
 
-// Helper function to calculate personalized trust score
-function calculatePersonalizedTrustScore(
-  restaurant: Restaurant, 
-  userAddress?: string
-): { trustScore: number; friendRecommendations: number } {
-  // Mock social graph - in production, query from blockchain/database
-  const mockFriends = ['0x123...abc', '0x789...ghi', '0xabc...123'];
-  const mockFriendsOfFriends = ['0x456...def', '0xdef...456'];
-  
-  // Mock recommendation data - in production, query actual recommendations
-  const mockRecommendations = [
-    { restaurantId: restaurant.id, author: '0x123...abc', trustScore: 9.3, isFriend: true },
-    { restaurantId: restaurant.id, author: '0x789...ghi', trustScore: 8.8, isFriend: true },
-    { restaurantId: restaurant.id, author: '0x456...def', trustScore: 8.1, isFriend: false },
-  ];
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
 
-  const restaurantRecs = mockRecommendations.filter(r => r.restaurantId === restaurant.id);
-  
-  if (!userAddress || restaurantRecs.length === 0) {
-    return { trustScore: restaurant.avgTrustScore, friendRecommendations: 0 };
+// Helper: Get user's social connections
+async function getUserSocialConnections(userId: string): Promise<Set<string>> {
+  const { data: connections, error } = await supabase
+    .from('social_connections')
+    .select('following_id')
+    .eq('follower_id', userId)
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('Error fetching social connections:', error);
+    return new Set();
   }
 
-  let weightedScore = 0;
-  let totalWeight = 0;
-  let friendCount = 0;
+  return new Set(connections?.map(c => c.following_id) || []);
+}
 
-  restaurantRecs.forEach(rec => {
-    let weight = 0;
-    
-    if (mockFriends.includes(rec.author)) {
-      weight = 0.75; // Direct friend
-      friendCount++;
-    } else if (mockFriendsOfFriends.includes(rec.author)) {
-      weight = 0.25; // Friend of friend
-    }
-    
-    if (weight > 0) {
-      weightedScore += rec.trustScore * weight;
-      totalWeight += weight;
-    }
+// Helper: Get taste alignments for a user
+async function getTasteAlignments(userId: string): Promise<Map<string, number>> {
+  const { data: alignments, error } = await supabase
+    .from('taste_alignments')
+    .select('compared_user_id, similarity_score')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching taste alignments:', error);
+    return new Map();
+  }
+
+  const alignmentMap = new Map<string, number>();
+  alignments?.forEach(a => {
+    alignmentMap.set(a.compared_user_id, a.similarity_score);
   });
 
-  const personalizedScore = totalWeight > 0 ? weightedScore / totalWeight : restaurant.avgTrustScore;
-  
-  return { 
-    trustScore: Math.min(10, personalizedScore), 
-    friendRecommendations: friendCount 
+  return alignmentMap;
+}
+
+// Helper: Get user's credibility stats
+async function getUserCredibility(userId: string) {
+  const { data: recommendations, error: recError } = await supabase
+    .from('recommendations')
+    .select('trust_score, cuisine_type')
+    .eq('author_id', userId);
+
+  if (recError || !recommendations) {
+    return {
+      totalRecommendations: 0,
+      avgTrustScore: 0,
+      specialties: []
+    };
+  }
+
+  // Calculate average trust score
+  const avgTrustScore = recommendations.length > 0
+    ? recommendations.reduce((sum, r) => sum + (r.trust_score || 0), 0) / recommendations.length
+    : 0;
+
+  // Get top 3 cuisine specialties
+  const cuisineCounts = recommendations.reduce((acc, r) => {
+    if (r.cuisine_type) {
+      acc[r.cuisine_type] = (acc[r.cuisine_type] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const specialties = Object.entries(cuisineCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([cuisine]) => cuisine);
+
+  return {
+    totalRecommendations: recommendations.length,
+    avgTrustScore: Math.round(avgTrustScore * 10) / 10,
+    specialties
   };
 }
 
-// Get restaurants from Supabase database
-async function getRestaurantsFromDatabase(): Promise<Restaurant[]> {
-  const { data: restaurants, error } = await supabase
-    .from('restaurants')
-    .select(`
-      *,
-      recommendations:recommendations(count)
-    `)
-    .order('created_at', { ascending: false });
+// =============================================================================
+// ROUTES
+// =============================================================================
 
-  if (error) {
-    console.error('Supabase error:', error);
-    throw new Error('Failed to fetch restaurants from database');
+// Helper: Fetch Google Places data
+async function fetchGooglePlacesData(restaurantName: string, address: string, latitude: number, longitude: number) {
+  const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+
+  if (!GOOGLE_PLACES_API_KEY) {
+    console.warn('⚠️ Google Places API key not configured');
+    return null;
   }
 
-  // Transform Supabase data to match your Restaurant interface
-  return restaurants.map(restaurant => ({
-    id: restaurant.id,
-    name: restaurant.name,
-    address: restaurant.address,
-    city: restaurant.city,
-    country: 'Brazil', // Default for now
-    latitude: restaurant.latitude || 0,
-    longitude: restaurant.longitude || 0,
-    cuisineType: restaurant.category, // Map category to cuisineType
-    priceRange: undefined, // Add this to your schema later
-    phone: undefined, // Add this to your schema later
-    website: undefined, // Add this to your schema later
-    addedBy: restaurant.created_by || 'system',
-    verified: false, // Calculate based on recommendations
-    verificationCount: 0, // Calculate later
-    totalRecommendations: restaurant.recommendations?.[0]?.count || 0,
-    avgTrustScore: Math.random() * 3 + 7, // Mock for now, calculate from actual recommendations
-    lastRecommendationDate: restaurant.created_at ? new Date(restaurant.created_at) : undefined,
-    createdAt: new Date(restaurant.created_at),
-    updatedAt: new Date(restaurant.created_at)
-  }));
-}
-
-// GET /api/restaurants - Search and list restaurants
-export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    // Use Nearby Search to find the place
+    const searchUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=50&keyword=${encodeURIComponent(restaurantName)}&key=${GOOGLE_PLACES_API_KEY}`;
     
-    // Parse query parameters
-    const search = searchParams.get('search') || '';
-    const city = searchParams.get('city');
-    const cuisineType = searchParams.get('cuisineType');
-    const priceRange = searchParams.get('priceRange')?.split(',').map(Number);
-    const minTrustScore = Number(searchParams.get('minTrustScore')) || 0;
-    const sortBy = searchParams.get('sortBy') || 'trustScore';
-    const page = Number(searchParams.get('page')) || 1;
-    const limit = Number(searchParams.get('limit')) || 20;
-    const userAddress = searchParams.get('userAddress');
-    const userLat = searchParams.get('userLat');
-    const userLng = searchParams.get('userLng');
+    const searchResponse = await fetch(searchUrl);
+    const searchData = await searchResponse.json();
 
-    // Get restaurants from Supabase
-    const restaurants = await getRestaurantsFromDatabase();
-
-    // Filter restaurants
-    let filteredRestaurants = restaurants.filter(restaurant => {
-      // Search filter
-      if (search && !restaurant.name.toLowerCase().includes(search.toLowerCase()) && 
-          !restaurant.address.toLowerCase().includes(search.toLowerCase())) {
-        return false;
-      }
-      
-      // City filter
-      if (city && city !== 'All Cities' && restaurant.city !== city) {
-        return false;
-      }
-      
-      // Cuisine filter
-      if (cuisineType && cuisineType !== 'All Cuisines' && restaurant.cuisineType !== cuisineType) {
-        return false;
-      }
-      
-      // Price range filter
-      if (priceRange && priceRange.length > 0 && 
-          restaurant.priceRange && !priceRange.includes(restaurant.priceRange)) {
-        return false;
-      }
-      
-      return true;
-    });
-
-    // Calculate distances and personalized scores
-    const enrichedRestaurants: RestaurantSearchResult[] = filteredRestaurants.map(restaurant => {
-      const { trustScore, friendRecommendations } = calculatePersonalizedTrustScore(restaurant, userAddress);
-      
-      let distanceKm: number | undefined;
-      if (userLat && userLng) {
-        distanceKm = calculateDistance(
-          Number(userLat), Number(userLng),
-          restaurant.latitude, restaurant.longitude
-        );
-      }
-
-      return {
-        ...restaurant,
-        distanceKm,
-        trustScoreForUser: userAddress ? trustScore : undefined,
-        friendRecommendations: userAddress ? friendRecommendations : undefined,
-      };
-    });
-
-    // Filter by minimum trust score
-    const trustFilteredRestaurants = enrichedRestaurants.filter(restaurant => {
-      const score = restaurant.trustScoreForUser || restaurant.avgTrustScore;
-      return score >= minTrustScore;
-    });
-
-    // Sort restaurants
-    const sortedRestaurants = trustFilteredRestaurants.sort((a, b) => {
-      switch (sortBy) {
-        case 'trustScore':
-          const scoreA = a.trustScoreForUser || a.avgTrustScore;
-          const scoreB = b.trustScoreForUser || b.avgTrustScore;
-          return scoreB - scoreA;
-        case 'distance':
-          return (a.distanceKm || 0) - (b.distanceKm || 0);
-        case 'recent':
-          const dateA = a.lastRecommendationDate?.getTime() || 0;
-          const dateB = b.lastRecommendationDate?.getTime() || 0;
-          return dateB - dateA;
-        case 'recommendations':
-          return b.totalRecommendations - a.totalRecommendations;
-        default:
-          return 0;
-      }
-    });
-
-    // Paginate results
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedRestaurants = sortedRestaurants.slice(startIndex, endIndex);
-
-    return NextResponse.json({
-      results: paginatedRestaurants,
-      total: sortedRestaurants.length,
-      page,
-      limit,
-      hasNextPage: endIndex < sortedRestaurants.length,
-      hasPrevPage: page > 1
-    });
-
-  } catch (error) {
-    console.error('Error searching restaurants:', error);
-    return NextResponse.json(
-      { error: 'Failed to search restaurants' },
-      { status: 500 }
-    );
-  }
-}
-
-// POST /api/restaurants - Create new restaurant
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    
-    // Validate required fields
-    const requiredFields = ['name', 'address', 'city', 'latitude', 'longitude'];
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Get existing restaurants to check for duplicates
-    const existingRestaurants = await getRestaurantsFromDatabase();
-
-    // Check for duplicate restaurants (within 100m radius)
-    const duplicates = existingRestaurants.filter(restaurant => {
-      const distance = calculateDistance(
-        body.latitude, body.longitude,
-        restaurant.latitude, restaurant.longitude
-      );
-      return distance < 0.1 && // 100m radius
-             restaurant.name.toLowerCase().includes(body.name.toLowerCase());
-    });
-
-    if (duplicates.length > 0) {
-      return NextResponse.json({
-        error: 'A similar restaurant already exists nearby',
-        suggestions: duplicates.map(r => ({
-          id: r.id,
-          name: r.name,
-          address: r.address,
-          distanceM: Math.round(calculateDistance(
-            body.latitude, body.longitude,
-            r.latitude, r.longitude
-          ) * 1000)
-        }))
-      }, { status: 409 });
-    }
-
-    // Validate price range
-    if (body.priceRange && (body.priceRange < 1 || body.priceRange > 4)) {
-      return NextResponse.json(
-        { error: 'Price range must be between 1 and 4' },
-        { status: 400 }
-      );
-    }
-
-    // Validate coordinates
-    if (Math.abs(body.latitude) > 90 || Math.abs(body.longitude) > 180) {
-      return NextResponse.json(
-        { error: 'Invalid coordinates' },
-        { status: 400 }
-      );
-    }
-
-    // Insert into Supabase
-    const { data: newRestaurant, error } = await supabase
-      .from('restaurants')
-      .insert({
-        name: body.name.trim(),
-        address: body.address.trim(),
-        city: body.city.trim(),
-        latitude: Number(body.latitude),
-        longitude: Number(body.longitude),
-        category: body.cuisineType?.trim(),
-        description: body.description?.trim(),
-        created_by: body.addedBy || null
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to create restaurant', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    // Transform back to your Restaurant interface
-    const formattedRestaurant: Restaurant = {
-      id: newRestaurant.id,
-      name: newRestaurant.name,
-      address: newRestaurant.address,
-      city: newRestaurant.city,
-      country: body.country?.trim() || 'Brazil',
-      latitude: newRestaurant.latitude,
-      longitude: newRestaurant.longitude,
-      cuisineType: newRestaurant.category,
-      priceRange: body.priceRange ? Number(body.priceRange) : undefined,
-      phone: body.phone?.trim(),
-      website: body.website?.trim(),
-      addedBy: body.addedBy || 'anonymous',
-      verified: false,
-      verificationCount: 0,
-      totalRecommendations: 0,
-      avgTrustScore: 0,
-      createdAt: new Date(newRestaurant.created_at),
-      updatedAt: new Date(newRestaurant.created_at)
-    };
-
-    return NextResponse.json(formattedRestaurant, { status: 201 });
-
-  } catch (error) {
-    console.error('Error creating restaurant:', error);
-    return NextResponse.json(
-      { error: 'Failed to create restaurant' },
-      { status: 500 }
-    );
-  }
-}
-
-// Individual restaurant details - GET /api/restaurants/[id]
-export async function getRestaurantById(id: string, userAddress?: string) {
-  try {
-    const { data: restaurant, error } = await supabase
-      .from('restaurants')
-      .select(`
-        *,
-        recommendations:recommendations(
-          id,
-          title,
-          description,
-          trust_score,
-          upvotes,
-          saves,
-          created_at,
-          author:users(username, wallet_address)
-        )
-      `)
-      .eq('id', id)
-      .single();
-
-    if (error || !restaurant) {
+    if (searchData.status !== 'OK' || !searchData.results || searchData.results.length === 0) {
+      console.log('📍 No Google Places results found for:', restaurantName);
       return null;
     }
 
-    // Transform to Restaurant interface
-    const formattedRestaurant: Restaurant = {
-      id: restaurant.id,
-      name: restaurant.name,
-      address: restaurant.address,
-      city: restaurant.city,
-      country: 'Brazil',
-      latitude: restaurant.latitude || 0,
-      longitude: restaurant.longitude || 0,
-      cuisineType: restaurant.category,
-      addedBy: restaurant.created_by || 'system',
-      verified: false,
-      verificationCount: 0,
-      totalRecommendations: restaurant.recommendations?.length || 0,
-      avgTrustScore: Math.random() * 3 + 7,
-      createdAt: new Date(restaurant.created_at),
-      updatedAt: new Date(restaurant.created_at)
-    };
+    const place = searchData.results[0];
 
-    // Calculate personalized trust score
-    const { trustScore, friendRecommendations } = calculatePersonalizedTrustScore(formattedRestaurant, userAddress);
+    // Get place details for more info
+    const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=rating,user_ratings_total,formatted_phone_number,website,opening_hours&key=${GOOGLE_PLACES_API_KEY}`;
+    
+    const detailsResponse = await fetch(detailsUrl);
+    const detailsData = await detailsResponse.json();
 
-    // Mock trust score breakdown
-    const trustScoreBreakdown = {
-      personalizedScore: trustScore,
-      globalAverage: formattedRestaurant.avgTrustScore,
-      directFriends: {
-        count: friendRecommendations,
-        avgScore: 9.0,
-        weight: 0.75
-      },
-      friendsOfFriends: {
-        count: Math.max(0, Math.floor(Math.random() * 3)),
-        avgScore: 8.4,
-        weight: 0.25
-      },
-      explanation: `Your personalized Trust Score of ${trustScore.toFixed(1)} is ${trustScore > formattedRestaurant.avgTrustScore ? 'higher' : 'lower'} than the global average because ${friendRecommendations} of your direct friends have recommended this place.`
-    };
-
-    // Mock social proof
-    const socialProof = {
-      friendsWhoRecommend: [
-        {
-          address: '0x123...abc',
-          displayName: 'Maria Santos',
-          recommendationCount: 1,
-          mostRecentDate: new Date('2025-01-15')
-        }
-      ].slice(0, friendRecommendations),
-      totalFriendsRecommended: friendRecommendations
-    };
+    if (detailsData.status !== 'OK' || !detailsData.result) {
+      return {
+        rating: place.rating || null,
+        reviewCount: place.user_ratings_total || null,
+        placeId: place.place_id
+      };
+    }
 
     return {
-      restaurant: {
-        ...formattedRestaurant,
-        trustScoreForUser: userAddress ? trustScore : undefined,
-        friendRecommendations: userAddress ? friendRecommendations : undefined,
-      },
-      recommendations: restaurant.recommendations || [],
-      trustScoreBreakdown: userAddress ? trustScoreBreakdown : null,
-      socialProof: userAddress ? socialProof : null
+      rating: detailsData.result.rating || null,
+      reviewCount: detailsData.result.user_ratings_total || null,
+      phone: detailsData.result.formatted_phone_number || null,
+      website: detailsData.result.website || null,
+      placeId: place.place_id
     };
 
   } catch (error) {
-    console.error('Error fetching restaurant:', error);
+    console.error('❌ Error fetching Google Places data:', error);
     return null;
   }
 }
 
-// Get available cities from database
-export async function getCities() {
+// GET /api/restaurants/:id - Get restaurant details
+router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const { data: restaurants, error } = await supabase
-      .from('restaurants')
-      .select('city')
-      .order('city');
+    const restaurantId = parseInt(req.params.id);
+    const userId = req.query.userId as string;
 
-    if (error) {
-      throw error;
+    console.log('🏪 Fetching restaurant details:', { restaurantId, userId });
+
+    const { data: restaurant, error } = await supabase
+      .from('restaurants')
+      .select(`
+        *,
+        recommendations:recommendations(count)
+      `)
+      .eq('id', restaurantId)
+      .single();
+
+    if (error || !restaurant) {
+      return res.status(404).json({
+        error: 'Restaurant not found'
+      });
     }
 
-    const cities = [...new Set(restaurants.map(r => r.city))].sort();
-    const cityStats = cities.map(city => ({
-      name: city,
-      country: 'Brazil', // Default for now
-      restaurantCount: restaurants.filter(r => r.city === city).length,
-      avgTrustScore: 8.0 // Mock average for now
-    }));
-
-    return cityStats;
-  } catch (error) {
-    console.error('Error fetching cities:', error);
-    return [];
-  }
-}
-
-// Get available cuisines from database
-export async function getCuisines() {
-  try {
-    const { data: restaurants, error } = await supabase
-      .from('restaurants')
-      .select('category')
-      .not('category', 'is', null)
-      .order('category');
-
-    if (error) {
-      throw error;
+    // Fetch Google Places data if coordinates available
+    let googleData = null;
+    if (restaurant.latitude && restaurant.longitude) {
+      googleData = await fetchGooglePlacesData(
+        restaurant.name,
+        restaurant.address,
+        restaurant.latitude,
+        restaurant.longitude
+      );
     }
 
-    const cuisines = [...new Set(restaurants.map(r => r.category).filter(Boolean))].sort();
-    const cuisineStats = cuisines.map(cuisine => ({
-      name: cuisine,
-      restaurantCount: restaurants.filter(r => r.category === cuisine).length,
-      avgTrustScore: 8.0 // Mock average for now
-    }));
+    // Calculate average trust score from all recommendations
+    const { data: recTrustScores, error: trustError } = await supabase
+      .from('recommendations')
+      .select('trust_score')
+      .eq('restaurant_id', restaurantId)
+      .not('trust_score', 'is', null);
 
-    return cuisineStats;
+    let avgTrustScore = 0;
+    if (!trustError && recTrustScores && recTrustScores.length > 0) {
+      const totalTrustScore = recTrustScores.reduce((sum, rec) => sum + (rec.trust_score || 0), 0);
+      avgTrustScore = totalTrustScore / recTrustScores.length;
+      // Convert from 0-1 scale to 0-10 scale for display
+      avgTrustScore = avgTrustScore * 10;
+      avgTrustScore = Math.round(avgTrustScore * 10) / 10; // Round to 1 decimal place
+    }
+
+    const formattedRestaurant = {
+      id: restaurant.id,
+      name: restaurant.name,
+      address: restaurant.address,
+      city: restaurant.city,
+      cuisineType: restaurant.category,
+      priceRange: undefined, // Add when schema supports it
+      phone: restaurant.phone || googleData?.phone,
+      website: restaurant.website || googleData?.website,
+      latitude: restaurant.latitude,
+      longitude: restaurant.longitude,
+      avgTrustScore: avgTrustScore,
+      totalRecommendations: restaurant.recommendations?.[0]?.count || 0,
+      googleRating: googleData?.rating || null,
+      googleReviewCount: googleData?.reviewCount || null
+    };
+
+    console.log('✅ Restaurant fetched with avgTrustScore:', avgTrustScore, '(from', recTrustScores?.length, 'recommendations)');
+
+    return res.json({
+      success: true,
+      restaurant: formattedRestaurant
+    });
+
   } catch (error) {
-    console.error('Error fetching cuisines:', error);
-    return [];
+    console.error('❌ Error fetching restaurant:', error);
+    return res.status(500).json({
+      error: 'Internal server error: ' + (error as Error).message
+    });
   }
-}
+});
+
+// GET /api/restaurants/:id/recommendations - Get tiered recommendations
+router.get('/:id/recommendations', async (req: Request, res: Response) => {
+  try {
+    const restaurantId = parseInt(req.params.id);
+    const userId = req.query.userId as string;
+
+    if (!userId) {
+      return res.status(400).json({
+        error: 'userId query parameter is required'
+      });
+    }
+
+    console.log('🎯 Fetching tiered recommendations:', { restaurantId, userId });
+
+    // Step 1: Get user's own recommendations for this restaurant
+    const { data: userRecommendations, error: userRecError } = await supabase
+      .from('recommendations')
+      .select(`
+        id,
+        overall_rating,
+        content,
+        context_tags,
+        created_at,
+        author_id,
+        users!inner(
+          id,
+          display_name,
+          username
+        ),
+        dishes(
+          name,
+          rating,
+          notes
+        )
+      `)
+      .eq('restaurant_id', restaurantId)
+      .eq('author_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (userRecError) {
+      console.error('Error fetching user recommendations:', userRecError);
+    }
+
+    console.log('📝 User own recommendations:', {
+      found: userRecommendations?.length || 0,
+      userId,
+      restaurantId
+    });
+
+    // Format user's own reviews
+    let userOwnReviews = null;
+    if (userRecommendations && userRecommendations.length > 0) {
+      const mostRecent = userRecommendations[0];
+      const olderReviews = userRecommendations.slice(1);
+
+      userOwnReviews = {
+        mostRecent: {
+          id: mostRecent.id,
+          rating: mostRecent.overall_rating || 0,
+          reviewText: mostRecent.content || '',
+          dishRecommendations: (mostRecent.dishes || []).map((d: any) => ({
+            dishName: d.name,
+            rating: d.rating,
+            notes: d.notes
+          })),
+          contextTags: mostRecent.context_tags || [],
+          createdAt: mostRecent.created_at
+        },
+        totalReviews: userRecommendations.length,
+        olderReviews: olderReviews.map(review => ({
+          id: review.id,
+          rating: review.overall_rating || 0,
+          createdAt: review.created_at
+        }))
+      };
+    }
+
+    // Step 2: Get all OTHER users' recommendations for this restaurant
+    const { data: recommendations, error: recError } = await supabase
+      .from('recommendations')
+      .select(`
+        id,
+        overall_rating,
+        content,
+        context_tags,
+        created_at,
+        author_id,
+        trust_score,
+        users!inner(
+          id,
+          display_name,
+          username
+        ),
+        dishes(
+          name,
+          rating,
+          notes
+        )
+      `)
+      .eq('restaurant_id', restaurantId)
+      .neq('author_id', userId) // Exclude user's own recommendations
+      .order('created_at', { ascending: false });
+
+    if (recError) {
+      console.error('Error fetching recommendations:', recError);
+      return res.status(500).json({
+        error: 'Failed to fetch recommendations: ' + recError.message
+      });
+    }
+
+    if (!recommendations || recommendations.length === 0) {
+      return res.json({
+        success: true,
+        userOwnReviews,
+        tier1: [],
+        tier2: [],
+        tier3: [],
+        totalCount: 0
+      });
+    }
+
+    // Step 3: Get user's social connections and taste alignments
+    const [socialConnections, tasteAlignments] = await Promise.all([
+      getUserSocialConnections(userId),
+      getTasteAlignments(userId)
+    ]);
+
+    console.log('📊 User context:', {
+      connectionsCount: socialConnections.size,
+      alignmentsCount: tasteAlignments.size
+    });
+
+    // Step 4: Categorize recommendations into tiers
+    const tier1: TieredRecommendation[] = [];
+    const tier2: TieredRecommendation[] = [];
+    const tier3: TieredRecommendation[] = [];
+
+    for (const rec of recommendations) {
+      const isFriend = socialConnections.has(rec.author_id);
+      const tasteMatch = tasteAlignments.get(rec.author_id);
+      const tasteMatchPercent = tasteMatch ? Math.round(tasteMatch * 100) : 0;
+
+      // Determine tier
+      let tier: 1 | 2 | 3;
+      let isAnonymized = false;
+
+      if (isFriend && tasteMatchPercent >= 70) {
+        // Tier 1: Friends with good taste alignment
+        tier = 1;
+      } else if (!isFriend && tasteMatchPercent >= 80) {
+        // Tier 2: High taste match strangers (anonymized)
+        tier = 2;
+        isAnonymized = true;
+      } else if (isFriend) {
+        // Tier 3: Friends with lower taste match
+        tier = 3;
+      } else {
+        // Skip: strangers with low taste match
+        continue;
+      }
+
+      // Get user credibility for tier 2
+      let credibility;
+      if (tier === 2) {
+        credibility = await getUserCredibility(rec.author_id);
+      }
+
+      // Build recommendation object
+      const tieredRec: TieredRecommendation = {
+        id: rec.id,
+        rating: rec.overall_rating || 0,
+        reviewText: rec.content || '',
+        dishRecommendations: (rec.dishes || []).map((d: any) => ({
+          dishName: d.name,
+          rating: d.rating,
+          notes: d.notes
+        })),
+        contextTags: rec.context_tags || [],
+        createdAt: rec.created_at,
+        recommender: {
+          id: isAnonymized ? 'anonymous' : rec.author_id,
+          displayName: isAnonymized 
+            ? `Anonymous user with ${tasteMatchPercent}% taste match`
+            : (rec.users.display_name || rec.users.username || 'User'),
+          isAnonymized,
+          tasteMatch: tasteMatchPercent,
+          socialDistance: isFriend ? 1 : undefined,
+          credibility
+        },
+        tier
+      };
+
+      // Add to appropriate tier
+      if (tier === 1) tier1.push(tieredRec);
+      else if (tier === 2) tier2.push(tieredRec);
+      else tier3.push(tieredRec);
+    }
+
+    // Step 5: Sort each tier by taste match
+    const sortByTasteMatch = (a: TieredRecommendation, b: TieredRecommendation) => {
+      return (b.recommender.tasteMatch || 0) - (a.recommender.tasteMatch || 0);
+    };
+
+    tier1.sort(sortByTasteMatch);
+    tier2.sort(sortByTasteMatch);
+    tier3.sort(sortByTasteMatch);
+
+    console.log('✅ Tiered recommendations:', {
+      userOwnReviews: userOwnReviews ? userOwnReviews.totalReviews : 0,
+      tier1: tier1.length,
+      tier2: tier2.length,
+      tier3: tier3.length,
+      total: tier1.length + tier2.length + tier3.length
+    });
+
+    return res.json({
+      success: true,
+      userOwnReviews,
+      tier1,
+      tier2,
+      tier3,
+      totalCount: tier1.length + tier2.length + tier3.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error in tiered recommendations:', error);
+    return res.status(500).json({
+      error: 'Internal server error: ' + (error as Error).message
+    });
+  }
+});
+
+// GET /api/restaurants/:id/dishes - Get aggregated dish ratings by taste similarity
+router.get('/:id/dishes', async (req: Request, res: Response) => {
+  try {
+    const restaurantId = parseInt(req.params.id);
+    const userId = req.query.userId as string;
+
+    console.log('🍽️ Fetching dish ratings:', { restaurantId, userId });
+
+    // Step 1: Get all recommendations with dishes for this restaurant
+    const { data: recommendations, error: recError } = await supabase
+      .from('recommendations')
+      .select(`
+        id,
+        author_id,
+        users!inner(display_name, username),
+        dishes!inner(name, rating)
+      `)
+      .eq('restaurant_id', restaurantId);
+
+    if (recError) {
+      console.error('Error fetching dishes:', recError);
+      return res.status(500).json({
+        error: 'Failed to fetch dishes: ' + recError.message
+      });
+    }
+
+    if (!recommendations || recommendations.length === 0) {
+      return res.json({
+        success: true,
+        dishes: []
+      });
+    }
+
+    // Step 2: Get taste alignments if userId provided
+    let tasteAlignments = new Map<string, number>();
+    if (userId) {
+      tasteAlignments = await getTasteAlignments(userId);
+    }
+
+    // Step 3: Aggregate dish ratings
+    const dishMap = new Map<string, {
+      ratings: number[];
+      recommenders: Set<string>;
+      totalRating: number;
+      count: number;
+    }>();
+
+    for (const rec of recommendations) {
+      // Skip user's own recommendations
+      if (userId && rec.author_id === userId) continue;
+
+      // If userId provided, only include recommendations from users with taste alignment
+      if (userId && !tasteAlignments.has(rec.author_id)) continue;
+
+      const dishes = rec.dishes || [];
+      for (const dish of dishes) {
+        if (!dishMap.has(dish.name)) {
+          dishMap.set(dish.name, {
+            ratings: [],
+            recommenders: new Set(),
+            totalRating: 0,
+            count: 0
+          });
+        }
+
+        const dishData = dishMap.get(dish.name)!;
+        dishData.ratings.push(dish.rating);
+        dishData.recommenders.add(rec.users.display_name || rec.users.username || 'User');
+        dishData.totalRating += dish.rating;
+        dishData.count += 1;
+      }
+    }
+
+    // Step 4: Format response
+    const dishRatings: DishRating[] = Array.from(dishMap.entries()).map(([dishName, data]) => {
+      const avgRating = data.totalRating / data.count;
+      const topRecommenders = Array.from(data.recommenders).slice(0, 3);
+      
+      // Add "X others" if more recommenders exist
+      const remainingCount = data.recommenders.size - 3;
+      if (remainingCount > 0) {
+        topRecommenders.push(`${remainingCount} other${remainingCount > 1 ? 's' : ''}`);
+      }
+
+      return {
+        dishName,
+        avgRating: Math.round(avgRating * 10) / 10,
+        recommendationCount: data.count,
+        topRecommenders
+      };
+    });
+
+    // Sort by average rating (highest first)
+    dishRatings.sort((a, b) => b.avgRating - a.avgRating);
+
+    console.log('✅ Dish ratings aggregated:', dishRatings.length);
+
+    return res.json({
+      success: true,
+      dishes: dishRatings
+    });
+
+  } catch (error) {
+    console.error('❌ Error aggregating dishes:', error);
+    return res.status(500).json({
+      error: 'Internal server error: ' + (error as Error).message
+    });
+  }
+});
+
+// POST /api/restaurants - Create new restaurant (authenticated)
+router.post('/', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const {
+      name,
+      address,
+      city,
+      latitude,
+      longitude,
+      category,
+      description
+    } = req.body;
+
+    const userId = req.user!.id;
+
+    // Validation
+    if (!name || !address || !city || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({
+        error: 'Missing required fields: name, address, city, latitude, longitude'
+      });
+    }
+
+    console.log('🏪 Creating restaurant:', { name, city, userId });
+
+    // Check for nearby duplicates (within 100m)
+    const { data: nearbyRestaurants } = await supabase
+      .rpc('find_restaurants_by_name_and_location', {
+        restaurant_name: name,
+        lat: latitude,
+        lng: longitude,
+        radius_meters: 100
+      });
+
+    if (nearbyRestaurants && nearbyRestaurants.length > 0) {
+      return res.status(409).json({
+        error: 'A similar restaurant already exists nearby',
+        existing: nearbyRestaurants[0]
+      });
+    }
+
+    // Create restaurant
+    const { data: newRestaurant, error: insertError } = await supabase
+      .from('restaurants')
+      .insert({
+        name: name.trim(),
+        address: address.trim(),
+        city: city.trim(),
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+        category: category?.trim(),
+        description: description?.trim(),
+        created_by: userId
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('❌ Error creating restaurant:', insertError);
+      return res.status(500).json({
+        error: 'Failed to create restaurant: ' + insertError.message
+      });
+    }
+
+    console.log('✅ Restaurant created:', newRestaurant.id);
+
+    return res.json({
+      success: true,
+      restaurant: newRestaurant
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating restaurant:', error);
+    return res.status(500).json({
+      error: 'Internal server error: ' + (error as Error).message
+    });
+  }
+});
+
+// GET /api/restaurants - Search restaurants
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const {
+      search,
+      city,
+      category,
+      limit = '20',
+      offset = '0'
+    } = req.query;
+
+    console.log('🔍 Searching restaurants:', { search, city, category });
+
+    let query = supabase
+      .from('restaurants')
+      .select('*, recommendations:recommendations(count)', { count: 'exact' })
+      .order('created_at', { ascending: false });
+
+    // Apply filters
+    if (search && typeof search === 'string') {
+      query = query.or(`name.ilike.%${search}%,address.ilike.%${search}%`);
+    }
+
+    if (city && typeof city === 'string') {
+      query = query.eq('city', city);
+    }
+
+    if (category && typeof category === 'string') {
+      query = query.eq('category', category);
+    }
+
+    // Pagination
+    const limitNum = parseInt(limit as string);
+    const offsetNum = parseInt(offset as string);
+    query = query.range(offsetNum, offsetNum + limitNum - 1);
+
+    const { data: restaurants, error, count } = await query;
+
+    if (error) {
+      console.error('Error searching restaurants:', error);
+      return res.status(500).json({
+        error: 'Failed to search restaurants: ' + error.message
+      });
+    }
+
+    console.log(`✅ Found ${restaurants?.length || 0} restaurants`);
+
+    return res.json({
+      success: true,
+      restaurants: restaurants || [],
+      total: count || 0,
+      limit: limitNum,
+      offset: offsetNum
+    });
+
+  } catch (error) {
+    console.error('❌ Error searching restaurants:', error);
+    return res.status(500).json({
+      error: 'Internal server error: ' + (error as Error).message
+    });
+  }
+});
+
+export default router;

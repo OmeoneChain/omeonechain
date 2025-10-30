@@ -51,11 +51,32 @@ export interface CreateRestaurantData {
   website?: string;
 }
 
+// New interfaces for Google Places integration
+export interface GooglePlacesSearchResult {
+  external_id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  categories: string[];
+  price_level: number;
+  phone?: string;
+  website?: string;
+  exists_in_db: boolean;
+  restaurant_id: number | null;
+}
+
+export interface AutocompleteSuggestion {
+  id: string;
+  name: string;
+  address: string;
+}
+
 class RestaurantService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   }
 
   // Search restaurants with filters
@@ -77,7 +98,7 @@ class RestaurantService {
         searchParams.append('userLng', params.userLocation.longitude.toString());
       }
 
-      const response = await fetch(`${this.baseUrl}/restaurants?${searchParams}`);
+      const response = await fetch(`${this.baseUrl}/api/restaurants?${searchParams}`);
       
       if (!response.ok) {
         throw new Error(`Failed to search restaurants: ${response.statusText}`);
@@ -102,7 +123,7 @@ class RestaurantService {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/restaurants/${id}`);
+      const response = await fetch(`${this.baseUrl}/api/restaurants/${id}`);
       
       if (!response.ok) {
         if (response.status === 404) return null;
@@ -128,7 +149,7 @@ class RestaurantService {
   // Create new restaurant - returns restaurant with integer ID
   async createRestaurant(data: CreateRestaurantData, userWallet?: string): Promise<Restaurant> {
     try {
-      const response = await fetch(`${this.baseUrl}/restaurants`, {
+      const response = await fetch(`${this.baseUrl}/api/restaurants`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -182,7 +203,7 @@ class RestaurantService {
       params.append('limit', limit.toString());
       params.append('sortBy', 'trending');
 
-      const response = await fetch(`${this.baseUrl}/restaurants/trending?${params}`);
+      const response = await fetch(`${this.baseUrl}/api/restaurants/trending?${params}`);
       
       if (!response.ok) {
         throw new Error(`Failed to get trending restaurants: ${response.statusText}`);
@@ -205,7 +226,7 @@ class RestaurantService {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/restaurants/${id}/verify`, {
+      const response = await fetch(`${this.baseUrl}/api/restaurants/${id}/verify`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ verified })
@@ -217,6 +238,111 @@ class RestaurantService {
       return false;
     }
   }
+
+  // ========================================
+  // NEW: Google Places Integration Methods
+  // ========================================
+
+  /**
+   * Search restaurants via Google Places
+   * Returns results from Google Places API (not our database)
+   */
+  async searchRestaurantsViaGooglePlaces(
+    query: string,
+    latitude: number,
+    longitude: number,
+    radius?: number
+  ): Promise<GooglePlacesSearchResult[]> {
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        lat: latitude.toString(),
+        lng: longitude.toString(),
+      });
+
+      if (radius) {
+        params.append('radius', radius.toString());
+      }
+
+      const response = await fetch(`${this.baseUrl}/api/restaurants/search?${params}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to search Google Places: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.results || [];
+    } catch (error) {
+      console.error('Error searching Google Places:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Autocomplete restaurant names as user types
+   * Returns suggestions from Google Places
+   */
+  async autocompleteRestaurants(
+    input: string,
+    latitude: number,
+    longitude: number
+  ): Promise<AutocompleteSuggestion[]> {
+    try {
+      const params = new URLSearchParams({
+        input,
+        lat: latitude.toString(),
+        lng: longitude.toString(),
+      });
+
+      const response = await fetch(`${this.baseUrl}/api/restaurants/autocomplete?${params}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to autocomplete: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.suggestions || [];
+    } catch (error) {
+      console.error('Error autocompleting restaurants:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create restaurant in our database from Google Place ID
+   * Called when user selects a restaurant from autocomplete
+   */
+  async createRestaurantFromExternal(
+    placeId: string,
+    city?: string
+  ): Promise<Restaurant> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/restaurants/from-foursquare`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          foursquare_id: placeId, // Backend still uses this param name
+          city,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create restaurant: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.restaurant;
+    } catch (error) {
+      console.error('Error creating restaurant from external provider:', error);
+      throw error;
+    }
+  }
+
+  // ========================================
+  // End Google Places Integration Methods
+  // ========================================
 
   // Mock data for development - updated with integer IDs
   private getMockRestaurants(params: RestaurantSearchParams): Restaurant[] {

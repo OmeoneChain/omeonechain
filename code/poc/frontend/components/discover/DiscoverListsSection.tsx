@@ -1,116 +1,227 @@
 import React, { useState } from 'react';
-import { Heart, Users, MapPin, Clock, TrendingUp, Sparkles } from 'lucide-react';
+import { TrendingUp, Sparkles } from 'lucide-react';
+import ListCard from '@/components/ListCard';
 
-// Mock data for lists
+// Mock data for lists - keeping existing structure
 const mockLists = [
   {
     id: 1,
     title: "Melhores Brunches da Asa Sul",
     description: "Lugares perfeitos para um brunch de fim de semana com amigos",
     author: {
+      id: "user-1",
       name: "Ana Gastronômica",
       avatar: "👩‍🍳",
       verified: true,
-      followers: 2340
+      followers: 2340,
+      socialDistance: 1 as 1 | 2
     },
     restaurantCount: 8,
-    trustScore: 8.7,
     saves: 156,
+    likes: 89,
     category: "Brunch",
     neighborhood: "Asa Sul",
     isNew: true,
     timeAgo: "2 horas",
+    tags: ["brunch", "weekend", "friends"],
     preview: [
-      { name: "Café Daniel Briand", image: "🥐" },
-      { name: "Bendito Benedito", image: "🧇" },
-      { name: "Café com Letra", image: "☕" }
-    ]
+      { 
+        id: 1,
+        name: "Café Daniel Briand", 
+        image: "/api/placeholder/48/48",
+        cuisine: "Francês",
+        rating: 9.2,
+        location: "Asa Sul"
+      },
+      { 
+        id: 2,
+        name: "Bendito Benedito", 
+        image: "/api/placeholder/48/48",
+        cuisine: "Brunch",
+        rating: 8.8,
+        location: "Asa Sul"
+      },
+      { 
+        id: 3,
+        name: "Café com Letra", 
+        image: "/api/placeholder/48/48",
+        cuisine: "Café",
+        rating: 8.5,
+        location: "Asa Sul"
+      }
+    ],
+    isBookmarked: false,
+    hasLiked: false
   },
   {
     id: 2,
     title: "Rodízio de Pizza Autêntico",
     description: "Os verdadeiros rodízios que todo brasiliense precisa conhecer",
     author: {
+      id: "user-2",
       name: "Pedro Foodie",
       avatar: "👨‍🍳",
       verified: false,
-      followers: 890
+      followers: 890,
+      socialDistance: 2 as 1 | 2
     },
     restaurantCount: 5,
-    trustScore: 9.2,
     saves: 89,
+    likes: 45,
     category: "Pizza",
     neighborhood: "Asa Norte",
     isNew: false,
     timeAgo: "1 dia",
+    tags: ["pizza", "rodizio", "italian"],
     preview: [
-      { name: "Mama Mia", image: "🍕" },
-      { name: "Villa Borghese", image: "🍕" },
-      { name: "Fratelli", image: "🍕" }
-    ]
+      { 
+        id: 4,
+        name: "Mama Mia", 
+        image: "/api/placeholder/48/48",
+        cuisine: "Italiano",
+        rating: 9.0,
+        location: "Asa Norte"
+      },
+      { 
+        id: 5,
+        name: "Villa Borghese", 
+        image: "/api/placeholder/48/48",
+        cuisine: "Italiano",
+        rating: 8.7,
+        location: "Asa Norte"
+      }
+    ],
+    isBookmarked: false,
+    hasLiked: false
   },
   {
     id: 3,
     title: "Comida Nordestina Raiz",
     description: "Sabores autênticos do nordeste no coração de Brasília",
     author: {
+      id: "user-3",
       name: "Maria do Sertão",
       avatar: "👩",
       verified: true,
       followers: 1520
     },
     restaurantCount: 6,
-    trustScore: 8.9,
     saves: 203,
+    likes: 112,
     category: "Nordestina",
     neighborhood: "Taguatinga",
     isNew: false,
     timeAgo: "3 dias",
+    tags: ["nordestina", "traditional", "authentic"],
     preview: [
-      { name: "Casa do Sertão", image: "🌶️" },
-      { name: "Mangai", image: "🥘" },
-      { name: "Tempero da Dadá", image: "🍛" }
-    ]
+      { 
+        id: 6,
+        name: "Casa do Sertão", 
+        image: "/api/placeholder/48/48",
+        cuisine: "Nordestina",
+        rating: 9.3,
+        location: "Taguatinga"
+      },
+      { 
+        id: 7,
+        name: "Mangai", 
+        image: "/api/placeholder/48/48",
+        cuisine: "Nordestina",
+        rating: 8.9,
+        location: "Taguatinga"
+      }
+    ],
+    isBookmarked: true,
+    hasLiked: false
   },
   {
     id: 4,
     title: "Date Night Perfeito",
     description: "Restaurantes românticos para impressionar no encontro",
     author: {
+      id: "user-4",
       name: "Casal Gourmet",
       avatar: "💑",
       verified: true,
-      followers: 3100
+      followers: 3100,
+      socialDistance: 1 as 1 | 2
     },
     restaurantCount: 10,
     saves: 342,
-    trustScore: 9.0,
+    likes: 198,
     category: "Romântico",
     neighborhood: "Lago Sul",
     isNew: false,
     timeAgo: "5 dias",
+    tags: ["romantic", "datenight", "upscale"],
     preview: [
-      { name: "Antiquarius", image: "🍷" },
-      { name: "DOM", image: "🥂" },
-      { name: "Rubaiyat", image: "🥩" }
-    ]
+      { 
+        id: 8,
+        name: "Antiquarius", 
+        image: "/api/placeholder/48/48",
+        cuisine: "Fine Dining",
+        rating: 9.5,
+        location: "Lago Sul"
+      },
+      { 
+        id: 9,
+        name: "DOM", 
+        image: "/api/placeholder/48/48",
+        cuisine: "Contemporâneo",
+        rating: 9.2,
+        location: "Lago Sul"
+      }
+    ],
+    isBookmarked: false,
+    hasLiked: true
   }
 ];
 
 const DiscoverListsSection = () => {
   const [activeTab, setActiveTab] = useState('trending');
+  const [lists, setLists] = useState(mockLists);
 
-  const getTrustScoreBadge = (score) => {
-    if (score >= 9) return { color: 'bg-green-500', label: 'Excelente' };
-    if (score >= 7) return { color: 'bg-blue-500', label: 'Muito Bom' };
-    return { color: 'bg-yellow-500', label: 'Bom' };
-  };
-
-  const filteredLists = mockLists.filter(list => {
+  const filteredLists = lists.filter(list => {
     if (activeTab === 'new') return list.isNew;
     if (activeTab === 'trending') return list.saves > 100;
     return true;
   });
+
+  // Handler functions for list interactions
+  const handleSave = (id: string | number) => {
+    setLists(prevLists => 
+      prevLists.map(list => 
+        list.id === id 
+          ? { ...list, isBookmarked: !list.isBookmarked, saves: list.isBookmarked ? list.saves - 1 : list.saves + 1 }
+          : list
+      )
+    );
+  };
+
+  const handleLike = (id: string | number) => {
+    setLists(prevLists => 
+      prevLists.map(list => 
+        list.id === id 
+          ? { ...list, hasLiked: !list.hasLiked, likes: (list.likes || 0) + (list.hasLiked ? -1 : 1) }
+          : list
+      )
+    );
+  };
+
+  const handleShare = (id: string | number) => {
+    console.log('Sharing list:', id);
+    // Implement share functionality
+  };
+
+  const handleAuthorClick = (authorId: string) => {
+    console.log('Viewing author:', authorId);
+    // Navigate to author profile
+  };
+
+  const handleReport = (id: string | number) => {
+    console.log('Reporting list:', id);
+    // Implement report functionality
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -153,99 +264,22 @@ const DiscoverListsSection = () => {
         </div>
       </div>
 
-      {/* Lists Grid */}
+      {/* Lists Grid - Using new ListCard component */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredLists.map((list) => {
-          const trustBadge = getTrustScoreBadge(list.trustScore);
-          
-          return (
-            <div
-              key={list.id}
-              className="group bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors cursor-pointer border border-transparent hover:border-gray-200"
-            >
-              {/* List Header */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                      {list.title}
-                    </h3>
-                    {list.isNew && (
-                      <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                        Novo
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-                    {list.description}
-                  </p>
-                </div>
-                
-                {/* Trust Score */}
-                <div className="flex items-center gap-1 ml-3">
-                  <div className={`w-2 h-2 rounded-full ${trustBadge.color}`}></div>
-                  <span className="text-sm font-medium text-gray-700">{list.trustScore}</span>
-                </div>
-              </div>
-
-              {/* Author Info */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">{list.author.avatar}</span>
-                <span className="text-sm font-medium text-gray-700">
-                  {list.author.name}
-                </span>
-                {list.author.verified && (
-                  <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs">✓</span>
-                  </div>
-                )}
-                <span className="text-xs text-gray-500">
-                  {list.author.followers.toLocaleString()} seguidores
-                </span>
-              </div>
-
-              {/* Restaurant Preview */}
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex -space-x-1">
-                  {list.preview.slice(0, 3).map((restaurant, index) => (
-                    <div
-                      key={index}
-                      className="w-6 h-6 bg-white rounded-full border border-gray-200 flex items-center justify-center text-xs"
-                      title={restaurant.name}
-                    >
-                      {restaurant.image}
-                    </div>
-                  ))}
-                </div>
-                <span className="text-xs text-gray-600">
-                  {list.restaurantCount} restaurantes
-                </span>
-              </div>
-
-              {/* List Metadata */}
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1">
-                    <Heart className="w-3 h-3" />
-                    <span>{list.saves}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    <span>{list.neighborhood}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{list.timeAgo}</span>
-                  </div>
-                </div>
-                
-                <span className="px-2 py-1 bg-gray-200 rounded-full text-xs">
-                  {list.category}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+        {filteredLists.map((list) => (
+          <ListCard
+            key={list.id}
+            list={list}
+            variant="default"
+            showAuthor={true}
+            showActions={true}
+            onSave={handleSave}
+            onLike={handleLike}
+            onShare={handleShare}
+            onAuthorClick={handleAuthorClick}
+            onReport={handleReport}
+          />
+        ))}
       </div>
 
       {/* Call to Action */}

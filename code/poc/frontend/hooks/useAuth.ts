@@ -1,5 +1,5 @@
 // File: code/poc/frontend/hooks/useAuth.ts
-// FIXED VERSION: Corrected API endpoints to match backend routes
+// FIXED VERSION: Corrected API endpoints and consistent backend URL usage
 
 'use client';
 
@@ -64,8 +64,8 @@ const initialAuthState: AuthState = {
   canEarnTokens: false,
 };
 
-// FIXED: Correct API configuration to match backend structure
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// FIXED: Use consistent backend URL throughout
+const BACKEND_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
 
 // Profile completion calculation helper
 const calculateProfileCompletion = (user: User): number => {
@@ -121,13 +121,14 @@ export const useAuth = () => {
   return context;
 };
 
-// FIXED: Real API functions with correct endpoints matching backend structure
+// FIXED: Real API functions with consistent backend URL throughout
 const authAPI = {
-  // Get current user from backend - FIXED: Correct endpoint
+  // Get current user from backend - FIXED: Consistent URL and better debugging
   getCurrentUser: async (token: string): Promise<User> => {
     console.log('🔍 Getting current user from backend...');
+    console.log('Token being sent:', token?.substring(0, 20) + '...');
     
-    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    const response = await fetch(`${BACKEND_URL}/api/auth/me`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -135,9 +136,13 @@ const authAPI = {
       },
     });
 
+    console.log('Auth response status:', response.status);
+    console.log('Auth response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}: Failed to get user`);
+      console.error('Auth error response:', errorData);
+      throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: Failed to get user`);
     }
 
     const data = await response.json();
@@ -154,8 +159,8 @@ const authAPI = {
       user.profileCompletion = calculateProfileCompletion(user);
     }
 
-    // Add compatibility fields
-    return {
+    // Add compatibility fields and debug what we're setting
+    const processedUser = {
       ...user,
       name: user.display_name || user.username || user.name,
       avatar: user.avatar_url || user.avatar,
@@ -166,15 +171,26 @@ const authAPI = {
       stakingBalance: user.staking_balance || user.stakingBalance || 0,
       createdAt: user.created_at || user.createdAt
     };
+
+    console.log('Processed user for display:', {
+      id: processedUser.id,
+      username: processedUser.username,
+      display_name: processedUser.display_name,
+      name: processedUser.name,
+      finalDisplayName: processedUser.display_name || processedUser.username || processedUser.name
+    });
+
+    return processedUser;
   },
 
-  // Refresh token and get updated user data - FIXED: Correct endpoint
+  // Refresh token and get updated user data - FIXED: Consistent URL
   refreshToken: async (token: string): Promise<{ token: string; user: User }> => {
     console.log('🔄 Refreshing auth token...');
     
-    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+    const response = await fetch(`${BACKEND_URL}/api/auth/verify`, {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ token }),
@@ -231,11 +247,11 @@ const authAPI = {
     return user;
   },
 
-  // FIXED: Update profile via real API with correct endpoint
+  // FIXED: Update profile via real API with consistent backend URL
   updateProfile: async (token: string, profileData: any): Promise<User> => {
     console.log('📝 Updating profile via API...', profileData);
     
-    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+    const response = await fetch(`${BACKEND_URL}/api/auth/profile`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -246,7 +262,7 @@ const authAPI = {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Failed to update profile: HTTP ${response.status}`);
+      throw new Error(errorData.error || errorData.message || `Failed to update profile: HTTP ${response.status}`);
     }
 
     const data = await response.json();
@@ -277,9 +293,9 @@ const authAPI = {
     };
   },
 
-  // Check username availability - FIXED: Correct endpoint
+  // Check username availability - FIXED: Consistent backend URL
   checkUsernameAvailability: async (username: string): Promise<{ available: boolean; suggestions?: string[] }> => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/profile/availability/${username}`);
+    const response = await fetch(`${BACKEND_URL}/api/auth/profile/availability/${username}`);
     
     if (!response.ok) {
       throw new Error('Failed to check username availability');
@@ -416,14 +432,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.success(`Welcome back, ${user.display_name || user.username || user.name || 'User'}!`);
   }, []);
 
-  // Enhanced logout function - FIXED: Correct endpoint
+  // Enhanced logout function - FIXED: Consistent backend URL
   const logout = useCallback(async () => {
     const token = AuthStorage.getToken();
     
     // Try to logout on backend
     if (token) {
       try {
-        await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        await fetch(`${BACKEND_URL}/api/auth/logout`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -654,11 +670,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [authState.authMode, authState.pendingTokens, upgradeToWallet]);
 
-  // FIXED: Enhanced refresh authentication with correct API endpoints
+  // FIXED: Enhanced refresh authentication with correct backend URL and better debugging
   const refreshAuth = useCallback(async () => {
-    const token = AuthStorage.getToken();
-    const storedUser = AuthStorage.getUser();
-    const pendingTokens = AuthStorage.getPendingTokens();
+  // First, completely clear any stale state
+  const token = AuthStorage.getToken();
+  const storedUser = AuthStorage.getUser();
+  const pendingTokens = AuthStorage.getPendingTokens();
+  
+  console.log('🔄 Refresh auth called:', { 
+    hasToken: !!token, 
+    hasStoredUser: !!storedUser,
+    tokenPreview: token?.substring(0, 20) + '...'
+  });
+
+  // If token exists, validate it's not expired before using it
+  if (token) {
+    try {
+      // Decode JWT to check expiration (simple check, not cryptographically verified)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Math.floor(Date.now() / 1000);
+      
+      if (payload.exp && payload.exp < now) {
+        console.log('⏰ Token expired, clearing...');
+        AuthStorage.clear();
+        setAuthState(prev => ({ 
+          ...prev, 
+          isLoading: false,
+          isAuthenticated: false,
+          user: null,
+          token: null
+        }));
+        setIsCheckingAuth(false);
+        return;
+      }
+    } catch (decodeError) {
+      console.error('❌ Token decode failed:', decodeError);
+      AuthStorage.clear();
+      setAuthState(prev => ({ 
+        ...prev, 
+        isLoading: false,
+        isAuthenticated: false,
+        user: null,
+        token: null
+      }));
+      setIsCheckingAuth(false);
+      return;
+    }
+  }
+  
+    // Debug stored user data
+    if (storedUser) {
+      console.log('Raw stored user data:', storedUser);
+      console.log('Display name options:', {
+        displayName: storedUser.displayName,
+        display_name: storedUser.display_name,
+        username: storedUser.username,
+        name: storedUser.name,
+        id: storedUser.id
+      });
+    }
     
     if (!token && !storedUser) {
       setAuthState(prev => ({ 
@@ -690,14 +760,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Handle wallet users (with token) - FIXED: Now uses correct API endpoints
+    // Handle wallet users (with token) - FIXED: Now uses consistent backend URL
     if (token) {
       try {
         console.log('🔄 Refreshing auth with real API...');
-        const user = await authAPI.getCurrentUser(token); // 🎯 Now calls correct /api/auth/me endpoint!
+        const user = await authAPI.getCurrentUser(token); // Now calls consistent backend URL
         const authMode = getAuthMode(user);
         
         console.log('✅ Got real user data from backend:', user);
+        console.log('Final display resolution:', user.display_name || user.username || user.name);
         
         setAuthState({
           isAuthenticated: true,
@@ -713,7 +784,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Try to refresh the token
         try {
-          const refreshResult = await authAPI.refreshToken(token); // 🎯 Real token refresh with correct endpoint!
+          const refreshResult = await authAPI.refreshToken(token);
           const authMode = getAuthMode(refreshResult.user);
           
           // Update storage

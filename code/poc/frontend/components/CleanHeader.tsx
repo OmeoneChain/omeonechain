@@ -1,68 +1,68 @@
-'use client';
+// File: code/poc/frontend/src/components/restaurant/CleanHeader.tsx
+// Updated to use AuthModal with social login buttons
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { Menu, X, Search, Bell, Wallet, Mail, Users, ChevronDown, Settings, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  BarChart3, 
-  Menu, 
-  X, 
-  Users, 
-  Wallet, 
-  LogOut,
-  User,
-  Settings,
-  ChevronDown,
-  Coins,
-  TrendingUp,
-  Mail,
-  ArrowUpRight,
-  AlertCircle
-} from 'lucide-react';
-import Logo from '@/components/Logo';
-import { useAuth } from '@/hooks/useAuth';
-import WalletConnect from '@/components/auth/WalletConnect';
-import WalletOnboarding from '@/components/onboarding/WalletOnboarding';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 interface CleanHeaderProps {
-  currentPath?: string;
+  className?: string;
 }
 
-const CleanHeader: React.FC<CleanHeaderProps> = ({ currentPath = '/' }) => {
-  const pathname = usePathname();
-  const { isAuthenticated, isLoading, user, login, logout } = useAuth();
+export function CleanHeader({ className = '' }: CleanHeaderProps) {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authMode, setAuthMode] = useState<'email' | 'wallet'>('email');
+  const [user, setUser] = useState<any>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [trustMode, setTrustMode] = useState<'social' | 'global'>('social');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showEmailSignup, setShowEmailSignup] = useState(false);
 
-  // Mock progressive auth state (integrate with your auth system)
-  const authMode = user?.address ? 'wallet' : user?.email ? 'email' : 'guest';
-  const pendingTokens = 0; // You can add this to your user model
-  const canEarnTokens = authMode === 'wallet';
+  useEffect(() => {
+    // Check authentication status
+    const token = localStorage.getItem('authToken');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+        
+        // Determine auth mode
+        if (parsedUser.walletAddress) {
+          setAuthMode('wallet');
+        } else {
+          setAuthMode('email');
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
 
-  // FIXED: Always return /community - let the Community page handle the logic
-  const getCommunityLink = () => {
-    return '/community';
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
-  const handleAuthSuccess = (token: string, userData: any) => {
-    login(token, userData);
-    setShowWalletConnect(false);
-    setShowOnboarding(false);
-  };
-
-  const handleLogout = () => {
-    logout();
-    setIsMobileMenuOpen(false);
-    setShowUserMenu(false);
-  };
+  useEffect(() => {
+    // Fetch notifications if authenticated
+    if (isAuthenticated) {
+      // Placeholder - replace with actual API call
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  }, [isAuthenticated]);
 
   const handleConnectWallet = () => {
     if (authMode === 'email') {
@@ -82,522 +82,601 @@ const CleanHeader: React.FC<CleanHeaderProps> = ({ currentPath = '/' }) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  // Navigation items
-  const navItems = [
-    { href: '/discover', label: 'Discover' },
-    { href: getCommunityLink(), label: 'Community', icon: Users },
-    { href: '/create', label: 'Create' },
-    { href: '/dashboard', label: 'Dashboard', icon: BarChart3 }
-  ];
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    setIsAuthenticated(false);
+    setUser(null);
+    setAuthMode('email');
+    router.push('/');
+  };
 
-  const NavigationLinks = ({ mobile = false }: { mobile?: boolean }) => (
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.results || []);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      await fetch(`/api/notifications/${notificationId}/read`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      setNotifications(notifications.map(n => 
+        n.id === notificationId ? { ...n, read: true } : n
+      ));
+      setUnreadCount(Math.max(0, unreadCount - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const AuthButtons = ({ mobile = false }: { mobile?: boolean }) => (
     <>
-      {navItems.map((item) => (
-        <Link 
-          key={item.href}
-          href={item.href} 
-          className={`font-medium transition-colors relative ${mobile ? 'block py-3 flex items-center gap-2' : ''} ${
-            // FIXED: Check for /community path specifically for Community nav highlighting
-            pathname === item.href || (item.href === '/community' && pathname === '/community')
-              ? 'text-trust-600' 
-              : 'text-network-600 hover:text-network-900'
-          }`}
-          onClick={mobile ? () => setIsMobileMenuOpen(false) : undefined}
+      {!isAuthenticated && (
+        <button 
+          onClick={handleSignUp}
+          className="px-4 py-2 text-sm text-network-600 hover:text-network-800 transition-colors"
         >
-          {mobile && item.icon && <item.icon size={16} />}
-          {item.label}
-          {!mobile && (pathname === item.href || (item.href === '/community' && pathname === '/community')) && (
-            <motion.div
-              layoutId="activeTab"
-              className="absolute -bottom-4 left-0 right-0 h-0.5 bg-trust-600"
-            />
-          )}
-        </Link>
-      ))}
+          Sign Up
+        </button>
+      )}
+      <button 
+        onClick={handleConnectWallet}
+        className={`${mobile ? 'w-full' : ''} bg-trust-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-trust-600 transition-colors flex items-center justify-center gap-2`}
+      >
+        <Wallet size={16} />
+        Connect Wallet
+      </button>
+      {mobile && (
+        <button
+          onClick={() => {
+            handleSignUp();
+            setIsMobileMenuOpen(false);
+          }}
+          className="w-full border border-network-300 text-network-700 px-4 py-2 rounded-lg font-medium hover:bg-network-50 transition-colors flex items-center justify-center gap-2"
+        >
+          <Mail size={16} />
+          Email Sign Up
+        </button>
+      )}
     </>
   );
 
-  const AuthButton = ({ mobile = false }: { mobile?: boolean }) => {
-    if (isLoading) {
-      return (
-        <div className={`${mobile ? 'w-full' : ''} bg-gray-100 text-gray-400 px-4 py-2 rounded-lg font-medium`}>
-          Loading...
-        </div>
-      );
-    }
-
-    if (isAuthenticated && user) {
-      if (mobile) {
-        return (
-          <div className="w-full flex items-center gap-2">
-            <Link 
-              href={`/users/${user.id}`}
-              className="flex-1 bg-trust-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-trust-600 transition-colors text-center"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              {user.display_name || user.username || 'My Profile'}
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
-              title="Logout"
-            >
-              <LogOut size={20} />
-            </button>
-          </div>
-        );
-      }
-
-      // Desktop authenticated user menu - handled in the main auth section
-      return null;
-    }
-
-    // Guest user buttons
-    return (
-      <div className={`${mobile ? 'w-full space-y-2' : 'flex items-center gap-2'}`}>
-        {!mobile && (
-          <button
-            onClick={handleSignUp}
-            className="px-4 py-2 text-sm text-network-600 hover:text-network-800 transition-colors"
-          >
-            Sign Up
-          </button>
-        )}
-        <button 
-          onClick={handleConnectWallet}
-          className={`${mobile ? 'w-full' : ''} bg-trust-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-trust-600 transition-colors flex items-center justify-center gap-2`}
-        >
-          <Wallet size={16} />
-          Connect Wallet
-        </button>
-        {mobile && (
-          <button
-            onClick={() => {
-              handleSignUp();
-              setIsMobileMenuOpen(false);
-            }}
-            className="w-full border border-network-300 text-network-700 px-4 py-2 rounded-lg font-medium hover:bg-network-50 transition-colors flex items-center justify-center gap-2"
-          >
-            <Mail size={16} />
-            Sign Up with Email
-          </button>
-        )}
-      </div>
-    );
-  };
-
   return (
     <>
-      <header className="border-b border-network-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
+      <header className={`bg-white border-b border-gray-200 sticky top-0 z-40 ${className}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <Logo size="lg" variant="full" />
-            
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-trust-500 to-trust-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">OC</span>
+              </div>
+              <div className="hidden sm:block">
+                <div className="font-bold text-lg text-gray-900">OmeoneChain</div>
+                <div className="text-xs text-gray-500 -mt-1">Trust-Based Recommendations</div>
+              </div>
+            </Link>
+
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              <NavigationLinks />
+            <nav className="hidden md:flex items-center gap-6">
+              <Link 
+                href="/discover" 
+                className="text-gray-600 hover:text-trust-600 transition-colors"
+              >
+                Discover
+              </Link>
+              <Link 
+                href="/community" 
+                className="text-gray-600 hover:text-trust-600 transition-colors"
+              >
+                Community
+              </Link>
+              <Link 
+                href="/create" 
+                className="text-gray-600 hover:text-trust-600 transition-colors"
+              >
+                Create
+              </Link>
             </nav>
 
-            {/* Desktop Auth Section */}
+            {/* Desktop Right Section */}
             <div className="hidden md:flex items-center gap-3">
-              {/* Pending Tokens Indicator (Email Users) */}
-              {authMode === 'email' && pendingTokens > 0 && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => setShowOnboarding(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg text-orange-800 text-sm font-medium transition-colors"
-                >
-                  <Coins className="w-4 h-4" />
-                  <span>{pendingTokens.toFixed(2)} TOK</span>
-                  <ArrowUpRight className="w-3 h-3" />
-                </motion.button>
-              )}
+              {/* Search Button */}
+              <button
+                onClick={() => setShowSearch(!showSearch)}
+                className="p-2 text-gray-600 hover:text-trust-600 transition-colors"
+                aria-label="Search"
+              >
+                <Search size={20} />
+              </button>
 
-              {/* Token Balance (Wallet Users) */}
-              {authMode === 'wallet' && user?.tokens_earned && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-success-50 border border-success-200 rounded-lg text-success-800 text-sm">
-                  <Coins className="w-4 h-4" />
-                  <span>{user.tokens_earned.toFixed(2)} TOK</span>
-                  <span className="text-xs opacity-75">LIVE</span>
+              {/* Notifications */}
+              {isAuthenticated && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className="p-2 text-gray-600 hover:text-trust-600 transition-colors relative"
+                    aria-label="Notifications"
+                  >
+                    <Bell size={20} />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
                 </div>
               )}
 
+              {/* Auth Buttons / User Menu */}
               {!isAuthenticated ? (
-                <AuthButton />
+                <AuthButtons />
               ) : (
-                /* Authenticated User Dropdown */
-                <div className="relative">
-                  <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center gap-3 px-3 py-2 hover:bg-network-50 rounded-lg transition-colors"
-                  >
-                    {/* User Avatar */}
-                    <img
-                      src={user?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.username}`}
-                      alt={user?.display_name || user?.username}
-                      className="w-8 h-8 rounded-full"
-                    />
-
-                    {/* User Info */}
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-network-900">
-                        {user?.display_name || user?.username || 'User'}
-                      </p>
-                      <p className="text-xs text-network-500">
-                        {authMode === 'wallet' && user?.address
-                          ? formatAddress(user.address)
-                          : authMode === 'email'
-                          ? 'Email Account'
-                          : 'Guest'
-                        }
-                      </p>
+                <div className="relative group">
+                  <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="w-8 h-8 bg-gradient-to-br from-trust-500 to-trust-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                      {user?.displayName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U'}
                     </div>
-
-                    <ChevronDown className="w-4 h-4 text-network-400" />
+                    <ChevronDown size={16} className="text-gray-500" />
                   </button>
 
-                  {/* User Dropdown Menu */}
-                  <AnimatePresence>
-                    {showUserMenu && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute right-0 top-full mt-2 w-72 bg-white border border-network-200 rounded-xl shadow-lg py-2 z-50"
-                        onMouseLeave={() => setShowUserMenu(false)}
+                  {/* Dropdown Menu */}
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="font-medium text-gray-900">
+                        {user?.displayName || user?.username || 'User'}
+                      </div>
+                      {user?.email && (
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                      )}
+                      {user?.walletAddress && (
+                        <div className="text-xs text-gray-400 font-mono">
+                          {formatAddress(user.walletAddress)}
+                        </div>
+                      )}
+                      <div className="mt-2">
+                        <span className={`inline-block px-2 py-1 text-xs rounded ${
+                          authMode === 'wallet' 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {authMode === 'wallet' ? '🔷 Wallet Account' : '📧 Email Account'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Link
+                      href="/dashboard"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      href={`/users/${user?.id}`}
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Profile
+                    </Link>
+                    <Link
+                      href="/saved-lists"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Saved Lists
+                    </Link>
+                    
+                    {authMode === 'email' && (
+                      <button
+                        onClick={handleConnectWallet}
+                        className="w-full text-left px-4 py-2 text-sm text-trust-600 hover:bg-trust-50 font-medium border-t border-gray-100"
                       >
-                        {/* User Info Header */}
-                        <div className="px-4 py-3 border-b border-network-100">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={user?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.username}`}
-                              alt={user?.display_name || user?.username}
-                              className="w-10 h-10 rounded-full"
-                            />
-                            <div className="flex-1">
-                              <p className="font-medium text-network-900">
-                                {user?.display_name || user?.username || 'User'}
-                              </p>
-                              <p className="text-xs text-network-500">
-                                {user?.email && <span>{user.email}</span>}
-                                {authMode === 'wallet' && user?.address && (
-                                  <span className="block">{formatAddress(user.address)}</span>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Account Status */}
-                        <div className="px-4 py-3 border-b border-network-100">
-                          {authMode === 'email' ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-network-600">Account Type:</span>
-                                <span className="text-orange-600 font-medium">Email</span>
-                              </div>
-                              {pendingTokens > 0 && (
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="text-network-600">Pending Tokens:</span>
-                                  <span className="text-orange-600 font-medium">{pendingTokens.toFixed(2)} TOK</span>
-                                </div>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setShowUserMenu(false);
-                                  handleConnectWallet();
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-sm transition-colors"
-                              >
-                                <Wallet className="w-4 h-4" />
-                                Connect Wallet to Earn
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-network-600">Trust Score:</span>
-                                <span className="text-success-600 font-medium">
-                                  {user?.trust_score?.toFixed(1) || '0.0'}/10
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-network-600">Tokens Earned:</span>
-                                <span className="text-success-600 font-medium">
-                                  {user?.tokens_earned?.toFixed(2) || '0.00'} TOK
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Menu Items */}
-                        <div className="py-1">
-                          <Link
-                            href="/dashboard"
-                            className="flex items-center gap-3 px-4 py-2 text-sm text-network-700 hover:bg-network-50 transition-colors"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <TrendingUp className="w-4 h-4" />
-                            Dashboard
-                          </Link>
-                          
-                          <Link
-                            href={`/users/${user?.id}`}
-                            className="flex items-center gap-3 px-4 py-2 text-sm text-network-700 hover:bg-network-50 transition-colors"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <User className="w-4 h-4" />
-                            Profile
-                          </Link>
-                          
-                          <Link
-                            href="/settings"
-                            className="flex items-center gap-3 px-4 py-2 text-sm text-network-700 hover:bg-network-50 transition-colors"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <Settings className="w-4 h-4" />
-                            Settings
-                          </Link>
-                        </div>
-
-                        {/* Logout */}
-                        <div className="border-t border-network-100 pt-1">
-                          <button
-                            onClick={() => {
-                              setShowUserMenu(false);
-                              handleLogout();
-                            }}
-                            className="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors w-full"
-                          >
-                            <LogOut className="w-4 h-4" />
-                            Sign Out
-                          </button>
-                        </div>
-                      </motion.div>
+                        ⬆️ Upgrade to Wallet
+                      </button>
                     )}
-                  </AnimatePresence>
+
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-gray-100 flex items-center gap-2"
+                    >
+                      <LogOut size={14} />
+                      Sign Out
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Mobile Menu Button */}
-            <button 
-              className="md:hidden p-2 text-network-600 hover:text-network-900"
-              onClick={toggleMobileMenu}
-              aria-label="Toggle mobile menu"
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden p-2 text-gray-600"
+              aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
+        </div>
 
-          {/* Mobile Navigation Menu */}
-          {isMobileMenuOpen && (
-            <div className="md:hidden mt-4 pt-4 border-t border-network-200">
-              <nav className="flex flex-col">
-                <NavigationLinks mobile={true} />
-                
-                {/* Mobile Auth Section */}
-                <div className="mt-4 pt-4 border-t border-network-200">
-                  {isAuthenticated && user && (
-                    <div className="mb-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={user.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${user.username}`}
-                          alt={user.display_name || user.username}
-                          className="w-10 h-10 rounded-full"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {user.display_name || user.username}
-                          </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {authMode === 'wallet' && user.address 
-                              ? formatAddress(user.address)
-                              : authMode === 'email' 
-                              ? 'Email Account' 
-                              : ''
-                            }
-                          </p>
-                          {authMode === 'email' && pendingTokens > 0 && (
-                            <p className="text-xs text-orange-600 font-medium">
-                              {pendingTokens.toFixed(2)} TOK pending
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {authMode === 'email' && (
-                        <button
-                          onClick={() => {
-                            setIsMobileMenuOpen(false);
-                            handleConnectWallet();
-                          }}
-                          className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-1.5 bg-orange-100 text-orange-700 rounded-md text-sm transition-colors"
-                        >
-                          <Wallet className="w-4 h-4" />
-                          Connect Wallet
-                        </button>
-                      )}
+        {/* Search Bar (Desktop) */}
+        <AnimatePresence>
+          {showSearch && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="border-t border-gray-200 bg-white"
+            >
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      handleSearch(e.target.value);
+                    }}
+                    placeholder="Search recommendations, users, or restaurants..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trust-500 focus:border-trust-500 outline-none"
+                    autoFocus
+                  />
+                  {isSearching && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-trust-500"></div>
                     </div>
                   )}
-                  <AuthButton mobile={true} />
                 </div>
-              </nav>
-            </div>
+
+                {/* Search Results */}
+                {searchResults.length > 0 && (
+                  <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                    {searchResults.map((result: any, index: number) => (
+                      <Link
+                        key={index}
+                        href={result.url}
+                        className="block px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        onClick={() => {
+                          setShowSearch(false);
+                          setSearchQuery('');
+                          setSearchResults([]);
+                        }}
+                      >
+                        <div className="font-medium text-gray-900">{result.title}</div>
+                        {result.description && (
+                          <div className="text-sm text-gray-600 mt-1">{result.description}</div>
+                        )}
+                        <div className="text-xs text-gray-400 mt-1">{result.type}</div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
           )}
-        </div>
-        
-        {/* Development Helper */}
-        {process.env.NODE_ENV === 'development' && false && (
-          <div className="bg-yellow-100 border-b border-yellow-200 px-4 py-1">
-            <div className="max-w-7xl mx-auto">
-              <p className="text-xs text-yellow-800">
-                <strong>Dev Mode:</strong> Auth: {isAuthenticated ? '✅ Logged In' : '❌ Logged Out'} | 
-                Mode: {authMode} | User: {user?.username || 'None'}
-              </p>
-            </div>
-          </div>
-        )}
+        </AnimatePresence>
       </header>
 
-      {/* Wallet Connect Modal */}
-      {showWalletConnect && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="max-w-md w-full">
-            <WalletConnect
-              onSuccess={handleAuthSuccess}
-              onCancel={() => setShowWalletConnect(false)}
-              className="shadow-xl"
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-white border-b border-gray-200"
+          >
+            <div className="px-4 py-4 space-y-3">
+              {/* Mobile Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    handleSearch(e.target.value);
+                  }}
+                  placeholder="Search..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trust-500 focus:border-trust-500 outline-none"
+                />
+              </div>
+
+              {/* Mobile Navigation Links */}
+              <Link
+                href="/discover"
+                className="block py-2 text-gray-600 hover:text-trust-600"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Discover
+              </Link>
+              <Link
+                href="/community"
+                className="block py-2 text-gray-600 hover:text-trust-600"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Community
+              </Link>
+              <Link
+                href="/create"
+                className="block py-2 text-gray-600 hover:text-trust-600"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Create
+              </Link>
+
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className="block py-2 text-gray-600 hover:text-trust-600"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    href={`/users/${user?.id}`}
+                    className="block py-2 text-gray-600 hover:text-trust-600"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  {authMode === 'email' && (
+                    <button
+                      onClick={() => {
+                        handleConnectWallet();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full text-left py-2 text-trust-600 hover:text-trust-700 font-medium"
+                    >
+                      ⬆️ Upgrade to Wallet
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left py-2 text-red-600 hover:text-red-700"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-2 pt-2 border-t border-gray-200">
+                  <AuthButtons mobile />
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Notifications Dropdown */}
+      <AnimatePresence>
+        {showNotifications && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setShowNotifications(false)}
             />
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute right-4 top-16 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            >
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900">Notifications</h3>
+                  {unreadCount > 0 && (
+                    <span className="text-xs text-gray-500">{unreadCount} unread</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="max-h-96 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    <Bell size={32} className="mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No notifications yet</p>
+                  </div>
+                ) : (
+                  notifications.map((notification: any) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                        !notification.read ? 'bg-blue-50' : ''
+                      }`}
+                      onClick={() => {
+                        if (!notification.read) {
+                          markNotificationAsRead(notification.id);
+                        }
+                        if (notification.link) {
+                          router.push(notification.link);
+                          setShowNotifications(false);
+                        }
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0">
+                          {notification.type === 'follow' && <Users size={20} className="text-blue-500" />}
+                          {notification.type === 'comment' && <Mail size={20} className="text-green-500" />}
+                          {notification.type === 'recommendation' && <Bell size={20} className="text-orange-500" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-900">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">{notification.timestamp}</p>
+                        </div>
+                        {!notification.read && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Trust Mode Toggle - shown when authenticated */}
+      {isAuthenticated && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">View Mode:</span>
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setTrustMode('social')}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                    trustMode === 'social'
+                      ? 'bg-trust-500 text-white'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Social Trust
+                </button>
+                <button
+                  onClick={() => setTrustMode('global')}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                    trustMode === 'global'
+                      ? 'bg-trust-500 text-white'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Global
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Wallet Onboarding Modal */}
-      <WalletOnboarding
-        isOpen={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-        variant={authMode === 'email' ? 'upgrade' : 'first-time'}
-      />
+      {/* Wallet Connect Modal */}
+      {showWalletConnect && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Connect Wallet</h2>
+            <p className="text-gray-600 mb-4">
+              Connect your wallet to access full features including token claims and NFT loyalty cards.
+            </p>
+            <button
+              onClick={() => setShowWalletConnect(false)}
+              className="w-full px-4 py-2 bg-trust-500 text-white rounded-lg hover:bg-trust-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* Email Signup Modal */}
+      {/* Onboarding/Upgrade Modal */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-xl max-w-md w-full p-6"
+            >
+              <h2 className="text-xl font-bold mb-4">Upgrade to Wallet Account</h2>
+              <p className="text-gray-600 mb-4">
+                Connect a wallet to claim your earned tokens and access full features.
+              </p>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setShowOnboarding(false)}
+                  className="w-full px-4 py-2 bg-trust-500 text-white rounded-lg hover:bg-trust-600"
+                >
+                  Connect Wallet
+                </button>
+                <button
+                  onClick={() => setShowOnboarding(false)}
+                  className="w-full px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Email Signup Modal - REPLACED WITH AuthModal */}
       <AnimatePresence>
         {showEmailSignup && (
-          <EmailSignupModal 
-            onClose={() => setShowEmailSignup(false)}
-            onSuccess={() => {
-              setShowEmailSignup(false);
-              // You'd integrate this with your actual auth system
-            }}
-          />
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setShowEmailSignup(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
+                aria-label="Close modal"
+              >
+                <X size={24} />
+              </button>
+
+              {/* AuthModal with social buttons */}
+              <div className="p-6">
+                <AuthModal 
+                  onSuccess={(token, user) => {
+                    localStorage.setItem('authToken', token);
+                    localStorage.setItem('user', JSON.stringify(user));
+                    setIsAuthenticated(true);
+                    setUser(user);
+                    setShowEmailSignup(false);
+                    
+                    // Determine auth mode
+                    if (user.walletAddress) {
+                      setAuthMode('wallet');
+                    } else {
+                      setAuthMode('email');
+                    }
+                    
+                    // Redirect to discover page
+                    router.push('/discover');
+                  }}
+                  onClose={() => setShowEmailSignup(false)}
+                  defaultTab="email"
+                />
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </>
   );
-};
-
-// Simple Email Signup Modal Component
-const EmailSignupModal: React.FC<{
-  onClose: () => void;
-  onSuccess: () => void;
-}> = ({ onClose, onSuccess }) => {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email.trim()) return;
-    
-    try {
-      setIsLoading(true);
-      // Here you'd integrate with your actual auth system
-      // For now, just simulate success
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      onSuccess();
-    } catch (error) {
-      console.error('Email signup error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl"
-      >
-        <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Mail className="w-6 h-6 text-blue-600" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Get Started</h2>
-          <p className="text-gray-600 text-sm">
-            Create an account to save recommendations and see token earning potential
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-              placeholder="your@email.com"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name (Optional)
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-              placeholder="Your name"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || !email.trim()}
-              className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-lg transition-colors font-medium"
-            >
-              {isLoading ? 'Creating...' : 'Create Account'}
-            </button>
-          </div>
-        </form>
-
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-          <p className="text-xs text-blue-800">
-            ✨ You'll earn tokens for helpful recommendations that you can claim when you connect a wallet later!
-          </p>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
+}
 
 export default CleanHeader;
