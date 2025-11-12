@@ -2,16 +2,20 @@
 
 [move]
 version = 3
-manifest_digest = "A5D06D1972AC4498D655728F82B564869F345E5D84523F585CAD505231B14286"
-deps_digest = "3C4103934B1E040BB6B23F1D610B4EF9F2F1166A50A104EADCF77467C004C600"
+manifest_digest = "A97ADB00AE5D842A9D5B9B85D23C3D6032B448CC1299BC6C3510268A65ED040A"
+deps_digest = "52B406A7A21811BEF51751CF88DA0E76DAEFFEAC888D4F4060B1A72BBE7D8D35"
 dependencies = [
   { id = "Iota", name = "Iota" },
-  { id = "MoveStdlib", name = "MoveStdlib" },
+  { id = "email_escrow", name = "email_escrow" },
+  { id = "escrow", name = "escrow" },
+  { id = "rewards", name = "rewards" },
+  { id = "token", name = "token" },
+  { id = "user_status", name = "user_status" },
 ]
 
 [[move.package]]
 id = "Iota"
-source = { git = "https://github.com/iotaledger/iota", rev = "framework/testnet", subdir = "crates/iota-framework/packages/iota-framework" }
+source = { git = "https://github.com/iotaledger/iota.git", rev = "framework/testnet", subdir = "crates/iota-framework/packages/iota-framework" }
 
 dependencies = [
   { id = "MoveStdlib", name = "MoveStdlib" },
@@ -19,17 +23,65 @@ dependencies = [
 
 [[move.package]]
 id = "MoveStdlib"
-source = { git = "https://github.com/iotaledger/iota", rev = "framework/testnet", subdir = "crates/iota-framework/packages/move-stdlib" }
+source = { git = "https://github.com/iotaledger/iota.git", rev = "framework/testnet", subdir = "crates/iota-framework/packages/move-stdlib" }
+
+[[move.package]]
+id = "email_escrow"
+source = { local = "../email_escrow" }
+
+dependencies = [
+  { id = "Iota", name = "Iota" },
+  { id = "escrow", name = "escrow" },
+  { id = "token", name = "token" },
+]
+
+[[move.package]]
+id = "escrow"
+source = { local = "../escrow" }
+
+dependencies = [
+  { id = "Iota", name = "Iota" },
+  { id = "token", name = "token" },
+  { id = "user_status", name = "user_status" },
+]
+
+[[move.package]]
+id = "rewards"
+source = { local = "../rewards" }
+
+dependencies = [
+  { id = "Iota", name = "Iota" },
+  { id = "email_escrow", name = "email_escrow" },
+  { id = "escrow", name = "escrow" },
+  { id = "token", name = "token" },
+  { id = "user_status", name = "user_status" },
+]
+
+[[move.package]]
+id = "token"
+source = { local = "../token" }
+
+dependencies = [
+  { id = "Iota", name = "Iota" },
+]
+
+[[move.package]]
+id = "user_status"
+source = { local = "../user_status" }
+
+dependencies = [
+  { id = "Iota", name = "Iota" },
+]
 
 [move.toolchain-version]
 compiler-version = "1.3.1-rc"
-edition = "2024.beta"
+edition = "2024"
 flavor = "iota"
 
 [env]
 
 [env.testnet]
 chain-id = "2304aa97"
-original-published-id = "0x2944ad31391686be62e955acd908e7b8905c89e78207e6d1bea69f25220bc7a3"
-latest-published-id = "0x2944ad31391686be62e955acd908e7b8905c89e78207e6d1bea69f25220bc7a3"
+original-published-id = "0x296d6464874fca09b9f38a8b719aab2a2647ac35f089aab87656e2e0bb23eeee"
+latest-published-id = "0x296d6464874fca09b9f38a8b719aab2a2647ac35f089aab87656e2e0bb23eeee"
 published-version = "1"

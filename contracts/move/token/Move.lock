@@ -2,7 +2,7 @@
 
 [move]
 version = 3
-manifest_digest = "16A270F7B7D3DE22B969259CD0D3E974F5014F2EE3FA0FE3048A97EF997F8C2F"
+manifest_digest = "9D2120BBC1DADA5F7DCD4344DFE97BE5E499C3A56C7C1FD1D7321BEFC903BFA7"
 deps_digest = "F8BBB0CCB2491CA29A3DF03D6F92277A4F3574266507ACD77214D37ECA3F3082"
 dependencies = [
   { id = "Iota", name = "Iota" },
@@ -22,13 +22,13 @@ source = { git = "https://github.com/iotaledger/iota.git", rev = "framework/test
 
 [move.toolchain-version]
 compiler-version = "1.3.1-rc"
-edition = "2024.beta"
+edition = "2024"
 flavor = "iota"
 
 [env]
 
 [env.testnet]
 chain-id = "2304aa97"
-original-published-id = "0x94be5e4138473ac370ff98227c25ff6c0a77bffe72d282854dd70c37e1fadf0f"
-latest-published-id = "0x94be5e4138473ac370ff98227c25ff6c0a77bffe72d282854dd70c37e1fadf0f"
+original-published-id = "0xa455c5a7bce8e0d28f42234deeb16ea496cec40f0d87a15ad26c6620b5352fb6"
+latest-published-id = "0xa455c5a7bce8e0d28f42234deeb16ea496cec40f0d87a15ad26c6620b5352fb6"
 published-version = "1"

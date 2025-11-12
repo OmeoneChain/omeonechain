@@ -1,50 +1,59 @@
-module omeone::recommendation {
+module recommendation::recommendation {
     use std::string::{String};
-    use iota::object::{UID};
-    use iota::tx_context::{TxContext};
+    use std::vector;
+    use iota::object::{Self, UID};
+    use iota::tx_context::{Self, TxContext};
     use iota::transfer;
     use iota::event;
+    use iota::clock::{Self, Clock};
+    use iota::table::{Self, Table};
+    use iota::coin::TreasuryCap;
+    use user_status::user_status;
+    use bocaboca::token::{Self, TOKEN};
+    use rewards::rewards;
+    use escrow::escrow;
+    use email_escrow::email_escrow;
     
-    // One-time witness for initialization
+    /// One-time witness for initialization
     public struct RECOMMENDATION has drop {}
     
     /// Error codes
     const E_RECOMMENDATION_NOT_FOUND: u64 = 101;
-    const E_ALREADY_VOTED: u64 = 102;
-    const E_CANNOT_VOTE_OWN: u64 = 103;
+    const E_ALREADY_ENGAGED: u64 = 102;
+    const E_CANNOT_ENGAGE_OWN: u64 = 103;
     const E_NOT_AUTHOR: u64 = 104;
     const E_RECOMMENDATION_ALREADY_EXISTS: u64 = 105;
+    const E_RATE_LIMIT_EXCEEDED: u64 = 106;
+    const E_INVALID_COMMENT: u64 = 107;
+    const E_REWARD_ALREADY_CLAIMED: u64 = 108;
     
-    /// Constants
-    const BASE_REWARD_THRESHOLD: u64 = 25; // Trust score must reach 0.25 to trigger reward
-    const TRUST_MULTIPLIER_CAP: u64 = 300; // Maximum 3x multiplier for trust bonus
-    const MAX_TRUST_SCORE: u64 = 1000; // 10.00 trust score
-    const DIRECT_FOLLOWER_WEIGHT: u64 = 75; // 0.75 weight
-    const INDIRECT_FOLLOWER_WEIGHT: u64 = 25; // 0.25 weight
-    const MIN_TRUST_WEIGHT: u64 = 0; // No weight beyond 2 hops
+    /// Engagement point values (scaled by 1000 for precision)
+    /// These can be adjusted via governance
+    const LIKE_VALUE: u64 = 250;      // 0.25 points per like
+    const SAVE_VALUE: u64 = 500;      // 0.5 points per save
+    const COMMENT_VALUE: u64 = 750;   // 0.75 points per comment
     
-    /// Simplified StorageId for standalone deployment
+    /// Validation threshold - 3.0 points (scaled by 1000)
+    const VALIDATION_THRESHOLD: u64 = 3000;
+    
+    /// Simplified types for standalone deployment
     public struct StorageId has store, copy, drop {
         id_string: String,
     }
     
-    /// Simplified content hash
     public struct ContentHash has store, copy, drop {
         hash_bytes: vector<u8>,
         hash_type: u8,
     }
     
-    /// Simplified IPFS CID
     public struct IpfsCid has store, copy, drop {
         cid_string: String,
     }
     
-    /// Simplified Category
     public struct Category has store, copy, drop {
         category_code: u8,
     }
     
-    /// Simplified Location
     public struct Location has store, copy, drop {
         latitude: u64,
         longitude: u64,
@@ -52,12 +61,19 @@ module omeone::recommendation {
         is_negative_long: bool,
     }
     
-    /// Simplified Timestamp
     public struct TimeStamp has store, copy, drop {
         timestamp_ms: u64,
     }
     
-    /// Recommendation struct representing a user recommendation
+    /// Comment on a recommendation
+    public struct Comment has store, copy, drop {
+        commenter: address,
+        comment_text: String,
+        timestamp: u64,
+        engagement_weight: u64,  // Tier weight at time of comment
+    }
+    
+    /// Recommendation struct
     public struct Recommendation has key, store {
         id: UID,
         storage_id: StorageId,
@@ -68,25 +84,38 @@ module omeone::recommendation {
         location: Location,
         content_hash: ContentHash,
         ipfs_cid: IpfsCid,
-        upvotes: vector<address>,
-        downvotes: vector<address>,
-        trust_score: u64,  // Trust score with 2 decimal precision (e.g., 125 = 1.25)
-        trust_weight_sum: u64, // Sum of all trust weights applied (used for reward calculation)
-        reward_claimed: bool,
-        has_reward_threshold: bool, // Whether recommendation has reached reward threshold
+        
+        // Unified engagement tracking (all positive signals)
+        likes: vector<address>,
+        saves: vector<address>,
+        comments: vector<Comment>,
+        
+        // Calculated engagement metrics
+        engagement_points: u64,           // Weighted engagement score (scaled by 1000)
+        validation_threshold_met: bool,   // True when >= 3.0 points
+        validation_bonus_claimed: bool,   // True when validation bonus has been claimed
+        
+        // Metadata
+        created_at: u64,
+        last_updated: u64,
     }
     
-    /// RecommendationRegistry to track all recommendations by a user
-    public struct RecommendationRegistry has key {
+    /// User's engagement tracking (prevent duplicate likes/saves)
+    public struct UserEngagement has key, store {
         id: UID,
-        recommendations: vector<StorageId>,
+        user_address: address,
+        liked_recommendations: Table<String, bool>,      // storage_id -> true
+        saved_recommendations: Table<String, bool>,       // storage_id -> true
+        commented_recommendations: Table<String, u64>,    // storage_id -> comment count
     }
     
-    /// Global registry of all recommendations in the system
+    /// Global registry of all recommendations
     public struct GlobalRecommendationRegistry has key {
         id: UID,
         recommendations: vector<StorageId>,
         last_id: u64,
+        total_recommendations: u64,
+        total_engagement_points: u64,
     }
     
     /// Events
@@ -94,37 +123,59 @@ module omeone::recommendation {
         id: StorageId,
         author: address,
         service_id: String,
+        timestamp: u64,
     }
     
-    public struct RecommendationUpvoted has copy, drop {
+    public struct RecommendationLiked has copy, drop {
         id: StorageId,
-        voter: address,
-        new_trust_score: u64,
+        user: address,
+        new_engagement_points: u64,
+        timestamp: u64,
     }
     
-    public struct RecommendationDownvoted has copy, drop {
+    public struct RecommendationSaved has copy, drop {
         id: StorageId,
-        voter: address,
-        new_trust_score: u64,
+        user: address,
+        new_engagement_points: u64,
+        timestamp: u64,
     }
     
-    /// Initialize the recommendation module - called automatically on deployment
+    public struct CommentAdded has copy, drop {
+        id: StorageId,
+        user: address,
+        comment_text: String,
+        new_engagement_points: u64,
+        timestamp: u64,
+    }
+    
+    public struct ValidationThresholdReached has copy, drop {
+        id: StorageId,
+        author: address,
+        engagement_points: u64,
+        timestamp: u64,
+    }
+    
+    /// Initialize the recommendation module
     fun init(_witness: RECOMMENDATION, ctx: &mut TxContext) {
-        use iota::object;
-        use std::vector;
-        
         // Create global registry
         let global_registry = GlobalRecommendationRegistry {
             id: object::new(ctx),
             recommendations: vector::empty<StorageId>(),
             last_id: 0,
+            total_recommendations: 0,
+            total_engagement_points: 0,
         };
         
         transfer::share_object(global_registry);
     }
     
-    /// Create a new recommendation
+    /// Create a new recommendation with immediate reward distribution
     public fun create_recommendation(
+        treasury_cap: &mut TreasuryCap<TOKEN>,
+        rewards_registry: &mut rewards::GlobalRewardsRegistry,
+        user_status_registry: &mut user_status::UserStatusRegistry,
+        escrow_registry: &mut escrow::GlobalEscrowRegistry,
+        email_escrow_registry: &mut email_escrow::GlobalEmailEscrowRegistry,
         global_registry: &mut GlobalRecommendationRegistry,
         service_id: String,
         category_code: u8,
@@ -135,30 +186,30 @@ module omeone::recommendation {
         content_hash_bytes: vector<u8>,
         hash_type: u8,
         ipfs_cid: String,
+        clock: &Clock,
         ctx: &mut TxContext
     ): Recommendation {
-        use iota::tx_context;
-        use iota::object;
-        use std::vector;
-        use std::string;
-        
-        // Get author address
         let author_addr = tx_context::sender(ctx);
+        let now = clock::timestamp_ms(clock);
+        
+        // Check rate limit via user_status
+        assert!(user_status::check_rate_limit(user_status_registry, author_addr, clock), 
+                E_RATE_LIMIT_EXCEEDED);
         
         // Generate unique ID
         global_registry.last_id = global_registry.last_id + 1;
         let rec_id = global_registry.last_id;
         
         // Convert numeric ID to string
-        let mut id_string = string::utf8(b"REC");
-        string::append(&mut id_string, u64_to_string(rec_id));
+        let mut id_string = std::string::utf8(b"REC");
+        std::string::append(&mut id_string, u64_to_string(rec_id));
         let storage_id = StorageId { id_string };
         
-        // Create content hash, category, location, and timestamp objects
+        // Create helper objects
         let content_hash = ContentHash { hash_bytes: content_hash_bytes, hash_type };
         let category = Category { category_code };
         let location = Location { latitude, longitude, is_negative_lat, is_negative_long };
-        let timestamp = TimeStamp { timestamp_ms: 0 }; // Would use real timestamp in production
+        let timestamp = TimeStamp { timestamp_ms: now };
         let ipfs_cid_obj = IpfsCid { cid_string: ipfs_cid };
         
         // Create recommendation
@@ -172,262 +223,493 @@ module omeone::recommendation {
             location,
             content_hash,
             ipfs_cid: ipfs_cid_obj,
-            upvotes: vector::empty<address>(),
-            downvotes: vector::empty<address>(),
-            trust_score: 0,
-            trust_weight_sum: 0,
-            reward_claimed: false,
-            has_reward_threshold: false,
+            
+            likes: vector::empty<address>(),
+            saves: vector::empty<address>(),
+            comments: vector::empty<Comment>(),
+            
+            engagement_points: 0,
+            validation_threshold_met: false,
+            validation_bonus_claimed: false,
+            
+            created_at: now,
+            last_updated: now,
         };
         
         // Add to global registry
         vector::push_back(&mut global_registry.recommendations, storage_id);
+        global_registry.total_recommendations = global_registry.total_recommendations + 1;
+        
+        // Increment user's recommendation count in user_status
+        user_status::increment_recommendation_count(user_status_registry, author_addr, clock);
+        
+        // Distribute creation reward (0.5 BOCA)
+        rewards::distribute_creation_reward(
+            treasury_cap,
+            rewards_registry,
+            user_status_registry,
+            escrow_registry,
+            email_escrow_registry,
+            author_addr,
+            storage_id.id_string,
+            clock,
+            ctx
+        );
         
         // Emit event
         event::emit(RecommendationCreated {
             id: storage_id,
             author: author_addr,
             service_id,
+            timestamp: now,
         });
         
         recommendation
     }
     
-    /// Create user recommendation registry
-    public fun create_user_registry(ctx: &mut TxContext): RecommendationRegistry {
-        use iota::object;
-        use std::vector;
+    /// Create user engagement tracker
+    public fun create_user_engagement(ctx: &mut TxContext): UserEngagement {
+        let user_addr = tx_context::sender(ctx);
         
-        RecommendationRegistry {
+        UserEngagement {
             id: object::new(ctx),
-            recommendations: vector::empty<StorageId>(),
+            user_address: user_addr,
+            liked_recommendations: table::new<String, bool>(ctx),
+            saved_recommendations: table::new<String, bool>(ctx),
+            commented_recommendations: table::new<String, u64>(ctx),
         }
     }
     
-    /// Add recommendation to user registry
-    public fun add_to_user_registry(
-        registry: &mut RecommendationRegistry,
-        storage_id: StorageId
-    ) {
-        use std::vector;
-        
-        vector::push_back(&mut registry.recommendations, storage_id);
-    }
-    
-    /// Upvote a recommendation - simplified for standalone deployment
-    public fun upvote_recommendation(
+    /// Like a recommendation (no reward for likes)
+    public fun like_recommendation(
+        user_status_registry: &mut user_status::UserStatusRegistry,
         recommendation: &mut Recommendation,
-        voter_addr: address,
-        voter_trust_modifier: u64, // Simplified - would get from reputation system
-        social_distance: u8, // Simplified - would calculate from social graph
+        user_engagement: &mut UserEngagement,
+        clock: &Clock,
         ctx: &mut TxContext
     ) {
-        use std::vector;
+        let user_addr = tx_context::sender(ctx);
+        let now = clock::timestamp_ms(clock);
         
-        // Check if voter is not the author
-        assert!(recommendation.author != voter_addr, E_CANNOT_VOTE_OWN);
+        // Verify user owns the engagement tracker
+        assert!(user_engagement.user_address == user_addr, E_NOT_AUTHOR);
         
-        // Check if voter has already voted
-        assert!(!has_voted(recommendation, voter_addr), E_ALREADY_VOTED);
+        // Check if user is not the author
+        assert!(recommendation.author != user_addr, E_CANNOT_ENGAGE_OWN);
         
-        // Calculate trust weight
-        let trust_weight = calculate_trust_weight(social_distance, voter_trust_modifier);
+        // Check if user has already liked
+        let storage_id_str = std::string::utf8(*std::string::bytes(&recommendation.storage_id.id_string));
+        assert!(!table::contains(&user_engagement.liked_recommendations, storage_id_str), 
+                E_ALREADY_ENGAGED);
         
-        // Add upvote
-        vector::push_back(&mut recommendation.upvotes, voter_addr);
+        // Add like
+        vector::push_back(&mut recommendation.likes, user_addr);
+        table::add(&mut user_engagement.liked_recommendations, storage_id_str, true);
         
-        // Update trust score
-        update_trust_score(recommendation);
+        // Get user's tier weight
+        let tier_weight = user_status::get_engagement_weight(user_status_registry, user_addr);
         
-        // Update trust weight sum
-        recommendation.trust_weight_sum = recommendation.trust_weight_sum + trust_weight;
+        // Calculate engagement points for this like
+        let like_points = (LIKE_VALUE * tier_weight) / 1000;
         
-        // Check if recommendation now meets threshold for rewards
-        if (!recommendation.has_reward_threshold && recommendation.trust_score >= BASE_REWARD_THRESHOLD) {
-            recommendation.has_reward_threshold = true;
-            // Trigger reward calculation - would call token module in full implementation
-        };
+        // Update engagement points
+        recommendation.engagement_points = recommendation.engagement_points + like_points;
+        recommendation.last_updated = now;
+        
+        // Check validation threshold (no rewards distributed here, just check)
+        check_validation_threshold_internal(
+            recommendation, 
+            user_status_registry, 
+            clock
+        );
         
         // Emit event
-        event::emit(RecommendationUpvoted {
+        event::emit(RecommendationLiked {
             id: recommendation.storage_id,
-            voter: voter_addr,
-            new_trust_score: recommendation.trust_score,
+            user: user_addr,
+            new_engagement_points: recommendation.engagement_points,
+            timestamp: now,
         });
     }
     
-    /// Downvote a recommendation
-    public fun downvote_recommendation(
+    /// Save a recommendation - rewards the AUTHOR of the recommendation
+    public fun save_recommendation(
+        treasury_cap: &mut TreasuryCap<TOKEN>,
+        rewards_registry: &mut rewards::GlobalRewardsRegistry,
+        user_status_registry: &mut user_status::UserStatusRegistry,
+        escrow_registry: &mut escrow::GlobalEscrowRegistry,
+        email_escrow_registry: &mut email_escrow::GlobalEmailEscrowRegistry,
         recommendation: &mut Recommendation,
-        voter_addr: address,
-        _ctx: &mut TxContext
+        user_engagement: &mut UserEngagement,
+        clock: &Clock,
+        ctx: &mut TxContext
     ) {
-        use std::vector;
+        let user_addr = tx_context::sender(ctx);
+        let now = clock::timestamp_ms(clock);
         
-        // Check if voter is not the author
-        assert!(recommendation.author != voter_addr, E_CANNOT_VOTE_OWN);
+        // Verify user owns the engagement tracker
+        assert!(user_engagement.user_address == user_addr, E_NOT_AUTHOR);
         
-        // Check if voter has already voted
-        assert!(!has_voted(recommendation, voter_addr), E_ALREADY_VOTED);
+        // Check if user is not the author
+        assert!(recommendation.author != user_addr, E_CANNOT_ENGAGE_OWN);
         
-        // Add downvote
-        vector::push_back(&mut recommendation.downvotes, voter_addr);
+        // Check if user has already saved
+        let storage_id_str = std::string::utf8(*std::string::bytes(&recommendation.storage_id.id_string));
+        assert!(!table::contains(&user_engagement.saved_recommendations, storage_id_str), 
+                E_ALREADY_ENGAGED);
         
-        // Update trust score
-        update_trust_score(recommendation);
+        // Add save
+        vector::push_back(&mut recommendation.saves, user_addr);
+        table::add(&mut user_engagement.saved_recommendations, storage_id_str, true);
+        
+        // Get user's tier weight
+        let tier_weight = user_status::get_engagement_weight(user_status_registry, user_addr);
+        
+        // Calculate engagement points for this save
+        let save_points = (SAVE_VALUE * tier_weight) / 1000;
+        
+        // Update engagement points
+        recommendation.engagement_points = recommendation.engagement_points + save_points;
+        recommendation.last_updated = now;
+        
+        // Distribute engagement reward to AUTHOR (0.1 BOCA × tier weight)
+        rewards::distribute_engagement_reward(
+            treasury_cap,
+            rewards_registry,
+            user_status_registry,
+            escrow_registry,
+            email_escrow_registry,
+            recommendation.author,  // Reward goes to the author
+            2,  // REWARD_TYPE_ENGAGEMENT_SAVE
+            recommendation.storage_id.id_string,
+            clock,
+            ctx
+        );
+        
+        // Check validation threshold
+        check_validation_threshold(
+            treasury_cap,
+            rewards_registry,
+            user_status_registry,
+            escrow_registry,
+            email_escrow_registry,
+            recommendation,
+            clock,
+            ctx
+        );
         
         // Emit event
-        event::emit(RecommendationDownvoted {
+        event::emit(RecommendationSaved {
             id: recommendation.storage_id,
-            voter: voter_addr,
-            new_trust_score: recommendation.trust_score,
+            user: user_addr,
+            new_engagement_points: recommendation.engagement_points,
+            timestamp: now,
         });
     }
     
-    /// Calculate trust weight based on social distance and reputation
-    fun calculate_trust_weight(social_dist: u8, voter_trust_modifier: u64): u64 {
-        let base_weight = if (social_dist == 1) {
-            DIRECT_FOLLOWER_WEIGHT
-        } else if (social_dist == 2) {
-            INDIRECT_FOLLOWER_WEIGHT
-        } else {
-            MIN_TRUST_WEIGHT
+    /// Add a comment to a recommendation - rewards the AUTHOR of the recommendation
+    public fun add_comment(
+        treasury_cap: &mut TreasuryCap<TOKEN>,
+        rewards_registry: &mut rewards::GlobalRewardsRegistry,
+        user_status_registry: &mut user_status::UserStatusRegistry,
+        escrow_registry: &mut escrow::GlobalEscrowRegistry,
+        email_escrow_registry: &mut email_escrow::GlobalEmailEscrowRegistry,
+        recommendation: &mut Recommendation,
+        user_engagement: &mut UserEngagement,
+        comment_text: String,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let user_addr = tx_context::sender(ctx);
+        let now = clock::timestamp_ms(clock);
+        
+        // Verify user owns the engagement tracker
+        assert!(user_engagement.user_address == user_addr, E_NOT_AUTHOR);
+        
+        // Check if user is not the author
+        assert!(recommendation.author != user_addr, E_CANNOT_ENGAGE_OWN);
+        
+        // Validate comment text is not empty
+        assert!(std::string::length(&comment_text) > 0, E_INVALID_COMMENT);
+        
+        // Get user's tier weight
+        let tier_weight = user_status::get_engagement_weight(user_status_registry, user_addr);
+        
+        // Create comment
+        let comment = Comment {
+            commenter: user_addr,
+            comment_text,
+            timestamp: now,
+            engagement_weight: tier_weight,
         };
         
-        // Apply reputation modifier
-        base_weight * voter_trust_modifier / 100 // Normalize by dividing by 100
-    }
-    
-    /// Update trust score for a recommendation based on votes
-    fun update_trust_score(recommendation: &mut Recommendation) {
-        use std::vector;
+        // Add comment to recommendation
+        vector::push_back(&mut recommendation.comments, comment);
         
-        let upvote_count = vector::length(&recommendation.upvotes);
-        let downvote_count = vector::length(&recommendation.downvotes);
-        
-        if (upvote_count == 0 && downvote_count == 0) {
-            recommendation.trust_score = 0;
-            return
+        // Track user's comment count for this recommendation
+        let storage_id_str = std::string::utf8(*std::string::bytes(&recommendation.storage_id.id_string));
+        let current_count = if (table::contains(&user_engagement.commented_recommendations, storage_id_str)) {
+            *table::borrow(&user_engagement.commented_recommendations, storage_id_str)
+        } else {
+            0
         };
         
-        // Calculate ratio of upvotes
-        let total_votes = upvote_count + downvote_count;
-        let upvote_ratio = (upvote_count * 100) / total_votes;
-        
-        // Apply volume factor (square root of total votes, capped)
-        let volume_factor = if (total_votes > 100) {
-            10 // Cap at 10x for 100+ votes
+        if (current_count == 0) {
+            table::add(&mut user_engagement.commented_recommendations, storage_id_str, 1);
         } else {
-            // Simplified approximation of square root factor
-            let sqrt_factor = if (total_votes < 4) { total_votes } else if (total_votes < 9) { 2 + (total_votes / 4) } else { 3 + (total_votes / 9) };
-            sqrt_factor
+            *table::borrow_mut(&mut user_engagement.commented_recommendations, storage_id_str) = current_count + 1;
         };
         
-        // Calculate trust score (upvote_ratio * volume_factor)
-        let raw_score = upvote_ratio * volume_factor;
+        // Calculate engagement points for this comment
+        let comment_points = (COMMENT_VALUE * tier_weight) / 1000;
         
-        // Cap at max trust score (10.00) 
-        if (raw_score > MAX_TRUST_SCORE) {
-            recommendation.trust_score = MAX_TRUST_SCORE;
-        } else {
-            recommendation.trust_score = raw_score;
-        }
+        // Update engagement points
+        recommendation.engagement_points = recommendation.engagement_points + comment_points;
+        recommendation.last_updated = now;
+        
+        // Distribute engagement reward to AUTHOR (0.05 BOCA × tier weight)
+        rewards::distribute_engagement_reward(
+            treasury_cap,
+            rewards_registry,
+            user_status_registry,
+            escrow_registry,
+            email_escrow_registry,
+            recommendation.author,  // Reward goes to the author
+            3,  // REWARD_TYPE_ENGAGEMENT_COMMENT
+            recommendation.storage_id.id_string,
+            clock,
+            ctx
+        );
+        
+        // Check validation threshold
+        check_validation_threshold(
+            treasury_cap,
+            rewards_registry,
+            user_status_registry,
+            escrow_registry,
+            email_escrow_registry,
+            recommendation,
+            clock,
+            ctx
+        );
+        
+        // Emit event
+        event::emit(CommentAdded {
+            id: recommendation.storage_id,
+            user: user_addr,
+            comment_text,
+            new_engagement_points: recommendation.engagement_points,
+            timestamp: now,
+        });
     }
     
-    /// Check if a user has already voted on a recommendation
-    fun has_voted(recommendation: &Recommendation, voter: address): bool {
-        use std::vector;
-        
-        vector::contains(&recommendation.upvotes, &voter) || 
-        vector::contains(&recommendation.downvotes, &voter)
-    }
-    
-    /// Find a recommendation by ID in global registry
-    public fun find_recommendation_in_registry(
-        global_registry: &GlobalRecommendationRegistry,
-        storage_id: &StorageId
-    ): bool {
-        use std::vector;
-        use std::string;
-        
-        let mut i = 0;
-        let len = vector::length(&global_registry.recommendations);
-        
-        while (i < len) {
-            let rec_id = vector::borrow(&global_registry.recommendations, i);
-            if (string::as_bytes(&rec_id.id_string) == string::as_bytes(&storage_id.id_string)) {
-                return true
+    /// Check if recommendation has reached validation threshold and distribute bonus
+    fun check_validation_threshold(
+        treasury_cap: &mut TreasuryCap<TOKEN>,
+        rewards_registry: &mut rewards::GlobalRewardsRegistry,
+        user_status_registry: &mut user_status::UserStatusRegistry,
+        escrow_registry: &mut escrow::GlobalEscrowRegistry,
+        email_escrow_registry: &mut email_escrow::GlobalEmailEscrowRegistry,
+        recommendation: &mut Recommendation,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        if (!recommendation.validation_threshold_met && 
+            recommendation.engagement_points >= VALIDATION_THRESHOLD) {
+            
+            recommendation.validation_threshold_met = true;
+            
+            // Notify user_status that recommendation is validated
+            user_status::mark_recommendation_validated(
+                user_status_registry,
+                recommendation.author,
+                clock
+            );
+            
+            // Distribute validation bonus if not already claimed (1.0 BOCA)
+            if (!recommendation.validation_bonus_claimed) {
+                rewards::distribute_validation_bonus(
+                    treasury_cap,
+                    rewards_registry,
+                    user_status_registry,
+                    escrow_registry,
+                    email_escrow_registry,
+                    recommendation.author,
+                    recommendation.storage_id.id_string,
+                    clock,
+                    ctx
+                );
+                
+                recommendation.validation_bonus_claimed = true;
             };
-            i = i + 1;
+            
+            // Emit event
+            event::emit(ValidationThresholdReached {
+                id: recommendation.storage_id,
+                author: recommendation.author,
+                engagement_points: recommendation.engagement_points,
+                timestamp: clock::timestamp_ms(clock),
+            });
         };
-        
-        false
     }
     
-    /// Get recommendation data (public view)
-    public fun get_recommendation_data(recommendation: &Recommendation): (address, String, u64, u64, u64, String) {
-        use std::vector;
+    /// Internal check without reward distribution (used by like_recommendation)
+    fun check_validation_threshold_internal(
+        recommendation: &mut Recommendation,
+        user_status_registry: &mut user_status::UserStatusRegistry,
+        clock: &Clock,
+    ) {
+        if (!recommendation.validation_threshold_met && 
+            recommendation.engagement_points >= VALIDATION_THRESHOLD) {
+            
+            recommendation.validation_threshold_met = true;
+            
+            // Notify user_status that recommendation is validated
+            user_status::mark_recommendation_validated(
+                user_status_registry,
+                recommendation.author,
+                clock
+            );
+            
+            // Note: Validation bonus will be claimed when this function is called
+            // with treasury_cap parameter (via save or comment actions)
+            
+            // Emit event
+            event::emit(ValidationThresholdReached {
+                id: recommendation.storage_id,
+                author: recommendation.author,
+                engagement_points: recommendation.engagement_points,
+                timestamp: clock::timestamp_ms(clock),
+            });
+        };
+    }
+    
+    /// Manually claim validation bonus (if threshold was met via likes)
+    public fun claim_validation_bonus(
+        treasury_cap: &mut TreasuryCap<TOKEN>,
+        rewards_registry: &mut rewards::GlobalRewardsRegistry,
+        user_status_registry: &user_status::UserStatusRegistry,
+        escrow_registry: &mut escrow::GlobalEscrowRegistry,
+        email_escrow_registry: &mut email_escrow::GlobalEmailEscrowRegistry,
+        recommendation: &mut Recommendation,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let caller = tx_context::sender(ctx);
         
-        let upvotes = vector::length(&recommendation.upvotes);
-        let downvotes = vector::length(&recommendation.downvotes);
+        // Verify caller is the author
+        assert!(caller == recommendation.author, E_NOT_AUTHOR);
         
+        // Verify threshold is met
+        assert!(recommendation.validation_threshold_met, E_RECOMMENDATION_NOT_FOUND);
+        
+        // Verify bonus not already claimed
+        assert!(!recommendation.validation_bonus_claimed, E_REWARD_ALREADY_CLAIMED);
+        
+        // Distribute validation bonus (1.0 BOCA)
+        rewards::distribute_validation_bonus(
+            treasury_cap,
+            rewards_registry,
+            user_status_registry,
+            escrow_registry,
+            email_escrow_registry,
+            recommendation.author,
+            recommendation.storage_id.id_string,
+            clock,
+            ctx
+        );
+        
+        recommendation.validation_bonus_claimed = true;
+    }
+    
+    /// Get recommendation data
+    public fun get_recommendation_data(recommendation: &Recommendation): (
+        address,      // author
+        String,       // service_id
+        u64,          // engagement_points
+        u64,          // likes count
+        u64,          // saves count
+        u64,          // comments count
+        bool,         // validation_threshold_met
+        bool,         // validation_bonus_claimed
+        String        // ipfs_cid
+    ) {
         (
             recommendation.author,
             recommendation.service_id,
-            recommendation.trust_score,
-            upvotes,
-            downvotes,
+            recommendation.engagement_points,
+            vector::length(&recommendation.likes),
+            vector::length(&recommendation.saves),
+            vector::length(&recommendation.comments),
+            recommendation.validation_threshold_met,
+            recommendation.validation_bonus_claimed,
             recommendation.ipfs_cid.cid_string
         )
     }
     
-    /// Get recommendation by ID (public view wrapper for compatibility)
-    public fun get_recommendation(_id: String): (bool, address, String, u64, u64, u64, String) {
-        use std::string;
-        
-        // This is a simplified version - in a real implementation,
-        // you would need to pass in the recommendation object or have a global lookup
-        // For now, return default values to maintain interface compatibility
-        (false, @0x0, string::utf8(b""), 0, 0, 0, string::utf8(b""))
+    /// Get engagement breakdown
+    public fun get_engagement_breakdown(recommendation: &Recommendation): (u64, u64, u64, u64) {
+        (
+            vector::length(&recommendation.likes),
+            vector::length(&recommendation.saves),
+            vector::length(&recommendation.comments),
+            recommendation.engagement_points
+        )
     }
     
-    /// Calculate reward for a recommendation
-    public fun calculate_reward_multiplier(recommendation: &Recommendation): u64 {
-        // No reward if threshold not met
-        if (!recommendation.has_reward_threshold) {
-            return 0
-        };
-        
-        // Cap the multiplier at TRUST_MULTIPLIER_CAP (3.00)
-        if (recommendation.trust_weight_sum > TRUST_MULTIPLIER_CAP) {
-            return TRUST_MULTIPLIER_CAP
+    /// Get comments
+    public fun get_comments(recommendation: &Recommendation): vector<Comment> {
+        recommendation.comments
+    }
+    
+    /// Check if user has liked a recommendation
+    public fun has_liked(
+        user_engagement: &UserEngagement,
+        storage_id: &StorageId
+    ): bool {
+        let storage_id_str = std::string::utf8(*std::string::bytes(&storage_id.id_string));
+        table::contains(&user_engagement.liked_recommendations, storage_id_str)
+    }
+    
+    /// Check if user has saved a recommendation
+    public fun has_saved(
+        user_engagement: &UserEngagement,
+        storage_id: &StorageId
+    ): bool {
+        let storage_id_str = std::string::utf8(*std::string::bytes(&storage_id.id_string));
+        table::contains(&user_engagement.saved_recommendations, storage_id_str)
+    }
+    
+    /// Get user's comment count for a recommendation
+    public fun get_user_comment_count(
+        user_engagement: &UserEngagement,
+        storage_id: &StorageId
+    ): u64 {
+        let storage_id_str = std::string::utf8(*std::string::bytes(&storage_id.id_string));
+        if (table::contains(&user_engagement.commented_recommendations, storage_id_str)) {
+            *table::borrow(&user_engagement.commented_recommendations, storage_id_str)
         } else {
-            return recommendation.trust_weight_sum
+            0
         }
     }
     
-    /// Mark recommendation reward as claimed
-    public fun mark_reward_claimed(recommendation: &mut Recommendation) {
-        recommendation.reward_claimed = true;
+    /// Get storage ID string
+    public fun get_storage_id_string(storage_id: &StorageId): String {
+        storage_id.id_string
     }
     
-    /// Get recommendation statistics
-    public fun get_recommendation_stats(recommendation: &Recommendation): (u64, u64, u64, bool, bool) {
-        use std::vector;
-        
+    /// Get global registry stats
+    public fun get_registry_stats(registry: &GlobalRecommendationRegistry): (u64, u64, u64) {
         (
-            vector::length(&recommendation.upvotes),
-            vector::length(&recommendation.downvotes),
-            recommendation.trust_score,
-            recommendation.has_reward_threshold,
-            recommendation.reward_claimed
+            registry.last_id,
+            registry.total_recommendations,
+            registry.total_engagement_points
         )
     }
     
     /// Convert u64 to string (helper function)
     fun u64_to_string(value: u64): String {
         use std::string;
-        use std::vector;
         
         if (value == 0) {
             return string::utf8(b"0")
@@ -452,26 +734,22 @@ module omeone::recommendation {
             *vector::borrow_mut(&mut buffer, i) = *vector::borrow(&buffer, j);
             *vector::borrow_mut(&mut buffer, j) = temp_val;
             i = i + 1;
-            j = j - 1;
+            if (j > 0) {
+                j = j - 1;
+            };
         };
         
         string::utf8(buffer)
     }
     
-    /// Get storage ID string
-    public fun get_storage_id_string(storage_id: &StorageId): String {
-        storage_id.id_string
-    }
-    
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
-        use iota::object;
-        use std::vector;
-        
         let global_registry = GlobalRecommendationRegistry {
             id: object::new(ctx),
             recommendations: vector::empty<StorageId>(),
             last_id: 0,
+            total_recommendations: 0,
+            total_engagement_points: 0,
         };
         
         transfer::share_object(global_registry);

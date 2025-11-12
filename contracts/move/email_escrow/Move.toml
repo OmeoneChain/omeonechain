@@ -1,0 +1,14 @@
+[package]
+name = "email_escrow"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+Iota = { git = "https://github.com/iotaledger/iota.git", subdir = "crates/iota-framework/packages/iota-framework", rev = "framework/testnet" }
+token = { local = "../token" }
+escrow = { local = "../escrow" }
+
+[addresses]
+email_escrow = "0x0"
+bocaboca = "0xa455c5a7bce8e0d28f42234deeb16ea496cec40f0d87a15ad26c6620b5352fb6"
+escrow = "0x0b8aca5827456ac537829f01637a93a79fb9d3401ac513c028c4a25f75d6d21e"

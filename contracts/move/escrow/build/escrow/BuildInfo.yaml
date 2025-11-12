@@ -1,0 +1,35 @@
+---
+compiled_package_info:
+  package_name: escrow
+  address_alias_instantiation:
+    bocaboca: a455c5a7bce8e0d28f42234deeb16ea496cec40f0d87a15ad26c6620b5352fb6
+    escrow: "0000000000000000000000000000000000000000000000000000000000000000"
+    iota: "0000000000000000000000000000000000000000000000000000000000000002"
+    std: "0000000000000000000000000000000000000000000000000000000000000001"
+    user_status: 36b7e8497d3210ab5697700f866654d8e8179f7d0b6c31a8195452344a9394f1
+  source_digest: 0B01726EE72227C6A6ECDDFFC2A2F368BA3FF423249B4708087AFAEC56820ECF
+  build_flags:
+    dev_mode: false
+    test_mode: false
+    generate_docs: false
+    save_disassembly: false
+    install_dir: ~
+    force_recompilation: false
+    lock_file: "./Move.lock"
+    fetch_deps_only: false
+    skip_fetch_latest_git_deps: false
+    default_flavor: iota
+    default_edition: ~
+    deps_as_root: false
+    silence_warnings: false
+    warnings_are_errors: false
+    json_errors: false
+    additional_named_addresses: {}
+    lint_flag:
+      no_lint: false
+      lint: false
+dependencies:
+  - Iota
+  - MoveStdlib
+  - token
+  - user_status

@@ -1,0 +1,14 @@
+[package]
+name = "bounty"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+Iota = { git = "https://github.com/iotaledger/iota.git", subdir = "crates/iota-framework/packages/iota-framework", rev = "framework/testnet" }
+token = { local = "../token" }
+user_status = { local = "../user_status" }
+
+[addresses]
+bounty = "0x0"
+bocaboca = "0xa455c5a7bce8e0d28f42234deeb16ea496cec40f0d87a15ad26c6620b5352fb6"
+user_status = "0x36b7e8497d3210ab5697700f866654d8e8179f7d0b6c31a8195452344a9394f1"

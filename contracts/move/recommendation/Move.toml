@@ -1,11 +1,20 @@
 [package]
 name = "recommendation"
-version = "1.0.0"
-edition = "2024.beta"
+version = "0.1.0"
+edition = "2024"
 
 [dependencies]
-MoveStdlib = { git = "https://github.com/iotaledger/iota", subdir = "crates/iota-framework/packages/move-stdlib", rev = "framework/testnet" }
-Iota = { git = "https://github.com/iotaledger/iota", subdir = "crates/iota-framework/packages/iota-framework", rev = "framework/testnet" }
+Iota = { git = "https://github.com/iotaledger/iota.git", subdir = "crates/iota-framework/packages/iota-framework", rev = "framework/testnet" }
+token = { local = "../token" }
+user_status = { local = "../user_status" }
+escrow = { local = "../escrow" }
+email_escrow = { local = "../email_escrow" }
+rewards = { local = "../rewards" }
 
 [addresses]
-omeone = "0x0"
+recommendation = "0x0"
+bocaboca = "0xa455c5a7bce8e0d28f42234deeb16ea496cec40f0d87a15ad26c6620b5352fb6"
+user_status = "0x36b7e8497d3210ab5697700f866654d8e8179f7d0b6c31a8195452344a9394f1"
+escrow = "0x0b8aca5827456ac537829f01637a93a79fb9d3401ac513c028c4a25f75d6d21e"
+email_escrow = "0x9fba0f28e326d8bbfdbcbb6ee03f07a41a8a903bde063c08839424edb53590db"
+rewards = "0xa38c2800afdbf7144985b6df295f4274a288d95f2f7f97bfd25598a381dcb84a"

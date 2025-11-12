@@ -1,0 +1,43 @@
+---
+compiled_package_info:
+  package_name: photo_contest
+  address_alias_instantiation:
+    bocaboca: a455c5a7bce8e0d28f42234deeb16ea496cec40f0d87a15ad26c6620b5352fb6
+    email_escrow: 9fba0f28e326d8bbfdbcbb6ee03f07a41a8a903bde063c08839424edb53590db
+    escrow: 0b8aca5827456ac537829f01637a93a79fb9d3401ac513c028c4a25f75d6d21e
+    iota: "0000000000000000000000000000000000000000000000000000000000000002"
+    photo_contest: "0000000000000000000000000000000000000000000000000000000000000000"
+    recommendation: 296d6464874fca09b9f38a8b719aab2a2647ac35f089aab87656e2e0bb23eeee
+    rewards: a38c2800afdbf7144985b6df295f4274a288d95f2f7f97bfd25598a381dcb84a
+    std: "0000000000000000000000000000000000000000000000000000000000000001"
+    user_status: 36b7e8497d3210ab5697700f866654d8e8179f7d0b6c31a8195452344a9394f1
+  source_digest: B7FCBA656061ABA861080C0AA494D4BA6E0D05D7050559A597873AA6C6C27180
+  build_flags:
+    dev_mode: false
+    test_mode: false
+    generate_docs: false
+    save_disassembly: false
+    install_dir: ~
+    force_recompilation: false
+    lock_file: "./Move.lock"
+    fetch_deps_only: false
+    skip_fetch_latest_git_deps: false
+    default_flavor: iota
+    default_edition: ~
+    deps_as_root: false
+    silence_warnings: false
+    warnings_are_errors: false
+    json_errors: false
+    additional_named_addresses: {}
+    lint_flag:
+      no_lint: false
+      lint: false
+dependencies:
+  - Iota
+  - MoveStdlib
+  - email_escrow
+  - escrow
+  - recommendation
+  - rewards
+  - token
+  - user_status

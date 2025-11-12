@@ -1,12 +1,10 @@
 [package]
 name = "token"
-edition = "2024.beta"
+version = "0.1.0"
+edition = "2024"
 
 [dependencies]
 Iota = { git = "https://github.com/iotaledger/iota.git", subdir = "crates/iota-framework/packages/iota-framework", rev = "framework/testnet" }
 
 [addresses]
-omeone = "0x0"
-omeonechain = "0x0"
-omeone_token = "0x0"
-token = "0x0"
+bocaboca = "0xa455c5a7bce8e0d28f42234deeb16ea496cec40f0d87a15ad26c6620b5352fb6"
