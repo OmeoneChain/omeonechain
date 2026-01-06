@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { X, Globe, Loader, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 
 interface Restaurant {
   id: string | number;
@@ -35,6 +36,7 @@ export default function PublishGuideModal({
   onClose,
   onSuccess
 }: PublishGuideModalProps) {
+  const t = useTranslations();
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,18 +52,18 @@ export default function PublishGuideModal({
     // FIXED: Use the correct localStorage key for token
     const token = localStorage.getItem('omeone_auth_token');
     if (!token) {
-      setError('You must be logged in to publish a guide. Please log in and try again.');
+      setError(t('savedLists.publish.errors.notLoggedIn'));
       return;
     }
 
     // Validation
     if (!title.trim()) {
-      setError('Guide title is required');
+      setError(t('savedLists.publish.validation.titleRequired'));
       return;
     }
 
     if (list.items.length === 0) {
-      setError('Cannot publish an empty guide. Add at least one restaurant.');
+      setError(t('savedLists.publish.validation.emptyList'));
       return;
     }
 
@@ -69,7 +71,7 @@ export default function PublishGuideModal({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lists/from-saved-list`, {
+      const response = await fetch(`${API_BASE_URL}/lists/from-saved-list`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -90,17 +92,17 @@ export default function PublishGuideModal({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to publish guide');
+        throw new Error(errorData.error || t('savedLists.publish.errors.publishFailed'));
       }
 
       const data = await response.json();
-      alert(`Guide "${title}" published successfully! View it on the Discover page.`);
+      alert(t('savedLists.publish.success', { title }));
       onSuccess(data.guide.id); // This will trigger parent to refresh
       onClose();
       onClose();
     } catch (err) {
       console.error('Error publishing guide:', err);
-      setError(err instanceof Error ? err.message : 'Failed to publish guide. Please try again.');
+      setError(err instanceof Error ? err.message : t('savedLists.publish.errors.publishFailed'));
     } finally {
       setIsPublishing(false);
     }
@@ -131,11 +133,12 @@ export default function PublishGuideModal({
           <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-500 to-purple-500">
             <div className="flex items-center gap-3">
               <Globe className="text-white" size={24} />
-              <h2 className="text-2xl font-bold text-white">Publish as Guide</h2>
+              <h2 className="text-2xl font-bold text-white">{t('savedLists.publish.title')}</h2>
             </div>
             <button
               onClick={onClose}
               className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
+              aria-label={t('common.close')}
             >
               <X size={24} />
             </button>
@@ -149,10 +152,10 @@ export default function PublishGuideModal({
                 <AlertCircle className="text-blue-600 mt-0.5" size={20} />
                 <div className="flex-1">
                   <h3 className="font-medium text-blue-900 mb-1">
-                    Convert your private list into a public guide
+                    {t('savedLists.publish.infoBanner.title')}
                   </h3>
                   <p className="text-sm text-blue-700">
-                    Your list will become discoverable by others. You can edit or unpublish it anytime.
+                    {t('savedLists.publish.infoBanner.description')}
                   </p>
                 </div>
               </div>
@@ -168,31 +171,34 @@ export default function PublishGuideModal({
               {/* Title */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Guide Title *
+                  {t('savedLists.publish.fields.title.label')} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., Best Date Night Restaurants in Brasília"
+                  placeholder={t('savedLists.publish.fields.title.placeholder')}
                 />
               </div>
 
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description *
+                  {t('savedLists.publish.fields.description.label')} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={4}
-                  placeholder="Describe your guide... (This will be the main content readers see)"
+                  placeholder={t('savedLists.publish.fields.description.placeholder')}
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  {list.notes ? 'Pre-filled from your notes. Edit as needed.' : 'Add a description to help readers understand what makes this guide special.'}
+                  {list.notes 
+                    ? t('savedLists.publish.fields.description.hintPrefilled') 
+                    : t('savedLists.publish.fields.description.hintEmpty')
+                  }
                 </p>
               </div>
 
@@ -200,25 +206,25 @@ export default function PublishGuideModal({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category
+                    {t('savedLists.publish.fields.category.label')}
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="restaurants">Restaurants</option>
-                    <option value="cafes">Cafés & Coffee</option>
-                    <option value="bars">Bars & Nightlife</option>
-                    <option value="quick_bites">Quick Bites</option>
-                    <option value="fine_dining">Fine Dining</option>
-                    <option value="local_favorites">Local Favorites</option>
+                    <option value="restaurants">{t('savedLists.publish.fields.category.options.restaurants')}</option>
+                    <option value="cafes">{t('savedLists.publish.fields.category.options.cafes')}</option>
+                    <option value="bars">{t('savedLists.publish.fields.category.options.bars')}</option>
+                    <option value="quick_bites">{t('savedLists.publish.fields.category.options.quickBites')}</option>
+                    <option value="fine_dining">{t('savedLists.publish.fields.category.options.fineDining')}</option>
+                    <option value="local_favorites">{t('savedLists.publish.fields.category.options.localFavorites')}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    City
+                    {t('savedLists.publish.fields.city.label')}
                   </label>
                   <select
                     value={city}
@@ -236,43 +242,45 @@ export default function PublishGuideModal({
               {/* Best For */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Best For (Optional)
+                  {t('savedLists.publish.fields.bestFor.label')}
                 </label>
                 <input
                   type="text"
                   value={bestFor}
                   onChange={(e) => setBestFor(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., Date nights, Family dinners, Solo dining"
+                  placeholder={t('savedLists.publish.fields.bestFor.placeholder')}
                 />
               </div>
 
               {/* Tags */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tags (Optional)
+                  {t('savedLists.publish.fields.tags.label')}
                 </label>
                 <input
                   type="text"
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="italian, romantic, cozy (comma-separated)"
+                  placeholder={t('savedLists.publish.fields.tags.placeholder')}
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Separate tags with commas. These help people discover your guide.
+                  {t('savedLists.publish.fields.tags.hint')}
                 </p>
               </div>
 
               {/* Preview */}
               <div className="border-t pt-5">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">
-                  Guide Preview
+                  {t('savedLists.publish.preview.title')}
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Restaurants included:</p>
-                    <p className="font-medium text-gray-900">{list.items.length} restaurants</p>
+                    <p className="text-xs text-gray-500 mb-1">{t('savedLists.publish.preview.restaurantsIncluded')}</p>
+                    <p className="font-medium text-gray-900">
+                      {t('savedLists.publish.preview.restaurantCount', { count: list.items.length })}
+                    </p>
                   </div>
                   {list.items.length > 0 && (
                     <div className="text-sm text-gray-600">
@@ -287,7 +295,7 @@ export default function PublishGuideModal({
                       ))}
                       {list.items.length > 3 && (
                         <p className="text-xs text-gray-500 mt-2">
-                          + {list.items.length - 3} more restaurants
+                          {t('savedLists.publish.preview.moreRestaurants', { count: list.items.length - 3 })}
                         </p>
                       )}
                     </div>
@@ -300,7 +308,7 @@ export default function PublishGuideModal({
           {/* Footer */}
           <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
             <p className="text-sm text-gray-600">
-              Your original list will remain private
+              {t('savedLists.publish.footerNote')}
             </p>
 
             <div className="flex items-center gap-3">
@@ -309,7 +317,7 @@ export default function PublishGuideModal({
                 disabled={isPublishing}
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handlePublish}
@@ -319,12 +327,12 @@ export default function PublishGuideModal({
                 {isPublishing ? (
                   <>
                     <Loader className="animate-spin" size={18} />
-                    Publishing...
+                    {t('savedLists.publish.actions.publishing')}
                   </>
                 ) : (
                   <>
                     <Globe size={18} />
-                    Publish Guide
+                    {t('savedLists.publish.actions.publish')}
                   </>
                 )}
               </button>

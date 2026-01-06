@@ -11,24 +11,64 @@ const socialService = new SocialService();
 // FIXED: Remove authenticate middleware from routes - server.ts handles it
 // The authentication is handled at the server level in server.ts
 
-// Get users for discovery
+// UPDATED: Get users for discovery (with sorting and limit params)
 router.get('/users/discover', async (req, res) => {
   try {
     console.log('GET /api/social/users/discover');
     
-    // Get current user from request (set by server.ts authenticate middleware)
     const currentUserId = req.user?.id;
-    console.log('Fetching discover users for currentUserId:', currentUserId);
+    const limit = parseInt(req.query.limit as string) || 20;
+    const sortBy = (req.query.sortBy as string) || 'followers_count';
+    const city = req.query.city as string;
     
-    const users = await socialService.getDiscoverUsers(currentUserId);
+    console.log('Discover params:', { currentUserId, limit, sortBy, city });
     
-    console.log(`Returning ${users.length} users from database for discover`);
+    const users = await socialService.getDiscoverUsers(currentUserId, {
+      limit,
+      sortBy: sortBy as 'followers_count' | 'total_recommendations' | 'created_at',
+      city
+    });
+    
+    console.log(`Returning ${users.length} users for discover`);
     res.json({ success: true, users });
   } catch (error) {
     console.error('Error fetching discover users:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch users'
+    });
+  }
+});
+
+// NEW: Search users endpoint
+router.get('/users/search', async (req, res) => {
+  try {
+    console.log('GET /api/social/users/search');
+    
+    const query = req.query.q as string;
+    const city = req.query.city as string;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const currentUserId = req.user?.id;
+    
+    if (!query || query.trim().length < 2) {
+      return res.json({ success: true, users: [], message: 'Query too short (min 2 characters)' });
+    }
+    
+    console.log('Search params:', { query, city, limit, currentUserId });
+    
+    const users = await socialService.searchUsers(query, {
+      currentUserId,
+      city,
+      limit
+    });
+    
+    console.log(`Returning ${users.length} users for search`);
+    res.json({ success: true, users });
+  } catch (error) {
+    console.error('Error searching users:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to search users'
     });
   }
 });

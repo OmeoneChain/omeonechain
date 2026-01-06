@@ -1,75 +1,215 @@
-// File: code/poc/frontend/src/components/restaurant/CleanHeader.tsx
-// Updated to use AuthModal with social login buttons
+// File: code/poc/frontend/components/restaurant/CleanHeader.tsx
+// REFACTORED: Full i18n support with next-intl
+// FIXED: Now uses PNG logo image for pixel-perfect display
+
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Menu, X, Search, Bell, Wallet, Mail, Users, ChevronDown, Settings, LogOut } from 'lucide-react';
+import Image from 'next/image';
+import { useRouter, usePathname } from 'next/navigation';
+import { Menu, X, Search, Bell, Wallet, Mail, Users, ChevronDown, Settings, LogOut, Coins, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthModal } from '@/components/auth/AuthModal';
+import WalletConnect from '@/components/auth/WalletConnect';
+import { useAuth } from '@/hooks/useAuth';
+import { NotificationBell } from './notifications/NotificationBell';
+import tokenBalanceService from '@/services/TokenBalanceService';
+import { useLocale, useTranslations } from 'next-intl';
+import { switchLocale } from '@/navigation';
 
 interface CleanHeaderProps {
   className?: string;
 }
 
+// ============================================
+// LOGO COMPONENT - Uses PNG for pixel-perfect display
+// ============================================
+// 
+// SETUP INSTRUCTIONS:
+// 1. Create an icon-only version of your logo (just the two B shapes, no text)
+// 2. Save it as: public/BocaBoca_Logo.png
+// 3. Recommended size: 128x128px or larger for retina displays
+//
+// If you only have the full logo with text, use BocaBocaLogoFromFullImage instead
+//
+const BocaBocaLogo = ({ size = 32 }: { size?: number }) => (
+  <Image
+    src="/BocaBoca_Logo.png"
+    alt="BocaBoca"
+    width={size}
+    height={size}
+    className="object-contain"
+    priority
+  />
+);
+
+// Alternative: Use this if you only have the full logo with text
+// It crops the image to show only the icon portion
+// Save your full logo as: public/bocaboca-logo-full.png
+const BocaBocaLogoFromFullImage = ({ size = 32 }: { size?: number }) => (
+  <div 
+    style={{ 
+      width: size, 
+      height: size, 
+      overflow: 'hidden',
+      position: 'relative'
+    }}
+  >
+    <Image
+      src="/bocaboca-logo-full.png"
+      alt="BocaBoca"
+      width={size * 2}
+      height={size * 2}
+      style={{
+        position: 'absolute',
+        top: '-15%',
+        left: '-50%',
+        objectFit: 'contain'
+      }}
+      priority
+    />
+  </div>
+);
+
+// ============================================
+// LANGUAGE SWITCHER COMPONENT
+// ============================================
+const LanguageSwitcher = () => {
+  const locale = useLocale();
+  const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const languages = [
+    { code: 'pt-BR', label: 'Português', flag: '🇧🇷' },
+    { code: 'en', label: 'English', flag: '🇺🇸' },
+  ];
+
+  const currentLang = languages.find(l => l.code === locale) || languages[0];
+
+  const handleSwitchLocale = (newLocale: string) => {
+    console.log('🌐 Switching locale:', { from: locale, to: newLocale, pathname });
+    const newPath = switchLocale(newLocale, pathname);
+    console.log('🌐 New path:', newPath);
+    window.location.href = newPath;
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => {
+          console.log('🌐 Language button clicked');
+          setIsOpen(!isOpen);
+        }}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+        aria-label="Change language"
+      >
+        <Globe size={18} style={{ color: '#666' }} />
+        <span className="text-sm hidden sm:inline">{currentLang.flag}</span>
+        <ChevronDown size={14} style={{ color: '#999' }} />
+      </button>
+
+      {isOpen && (
+        <>
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setIsOpen(false)} 
+          />
+          <div 
+            className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg py-1 z-50"
+            style={{ border: '1px solid #E5E5E5' }}
+          >
+            {languages.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => handleSwitchLocale(lang.code)}
+                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                  locale === lang.code ? 'font-semibold' : ''
+                }`}
+                style={{ 
+                  color: locale === lang.code ? '#FF644A' : '#666',
+                  backgroundColor: locale === lang.code ? '#FFF5F3' : 'transparent'
+                }}
+              >
+                <span>{lang.flag}</span>
+                <span>{lang.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// MAIN HEADER COMPONENT
+// ============================================
 export function CleanHeader({ className = '' }: CleanHeaderProps) {
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authMode, setAuthMode] = useState<'email' | 'wallet'>('email');
-  const [user, setUser] = useState<any>(null);
+  const pathname = usePathname();
+  const t = useTranslations();
+  
+  const { 
+    isAuthenticated, 
+    user, 
+    authMode,
+    logout: logoutFromHook,
+    isLoading,
+    login,
+    refreshAuth
+  } = useAuth();
+  
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [showWalletConnect, setShowWalletConnect] = useState(false);
-  const [trustMode, setTrustMode] = useState<'social' | 'global'>('social');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showEmailSignup, setShowEmailSignup] = useState(false);
+  
+  // Token balance state
+  const [tokenBalance, setTokenBalance] = useState<number>(0);
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
+  // Load token balance when user is authenticated
   useEffect(() => {
-    // Check authentication status
-    const token = localStorage.getItem('authToken');
-    const userData = localStorage.getItem('user');
-    
-    if (token && userData) {
-      try {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
-        
-        // Determine auth mode
-        if (parsedUser.walletAddress) {
-          setAuthMode('wallet');
-        } else {
-          setAuthMode('email');
+    const loadBalance = async () => {
+      if (isAuthenticated && user?.id) {
+        try {
+          setIsLoadingBalance(true);
+          const result = await tokenBalanceService.getRealTokenBalance(user.id);
+          setTokenBalance(result.balance);
+        } catch (error) {
+          console.error('Failed to load token balance:', error);
+          setTokenBalance(0);
+        } finally {
+          setIsLoadingBalance(false);
         }
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
+      } else {
+        setTokenBalance(0);
       }
-    }
-  }, []);
+    };
 
-  useEffect(() => {
-    // Fetch notifications if authenticated
-    if (isAuthenticated) {
-      // Placeholder - replace with actual API call
-      setNotifications([]);
-      setUnreadCount(0);
+    loadBalance();
+
+    // Subscribe to optimistic updates
+    if (isAuthenticated && user?.id) {
+      const unsubscribe = tokenBalanceService.onBalanceChange((newBalance) => {
+        console.log('💰 Header: Balance updated optimistically:', newBalance);
+        setTokenBalance(newBalance);
+      });
+
+      return () => unsubscribe();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.id, pathname]);
 
   const handleConnectWallet = () => {
-    if (authMode === 'email') {
-      // Show upgrade flow for existing email users
+    if (isAuthenticated && authMode === 'email') {
       setShowOnboarding(true);
     } else {
-      // Show wallet connection
       setShowWalletConnect(true);
     }
   };
@@ -83,11 +223,7 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    setIsAuthenticated(false);
-    setUser(null);
-    setAuthMode('email');
+    logoutFromHook();
     router.push('/');
   };
 
@@ -115,23 +251,15 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
     }
   };
 
-  const markNotificationAsRead = async (notificationId: string) => {
-    try {
-      const token = localStorage.getItem('authToken');
-      await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      setNotifications(notifications.map(n => 
-        n.id === notificationId ? { ...n, read: true } : n
-      ));
-      setUnreadCount(Math.max(0, unreadCount - 1));
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
+  const getDisplayName = () => {
+    if (!user) return 'User';
+    return user.display_name || user.displayName || user.username || user.name || 'User';
+  };
+
+  const getInitial = () => {
+    if (!user) return 'U';
+    const name = getDisplayName();
+    return name[0]?.toUpperCase() || 'U';
   };
 
   const AuthButtons = ({ mobile = false }: { mobile?: boolean }) => (
@@ -139,17 +267,19 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
       {!isAuthenticated && (
         <button 
           onClick={handleSignUp}
-          className="px-4 py-2 text-sm text-network-600 hover:text-network-800 transition-colors"
+          className="px-4 py-2 text-sm hover:opacity-70 transition-opacity"
+          style={{ color: '#666' }}
         >
-          Sign Up
+          {t('header.signUp')}
         </button>
       )}
       <button 
         onClick={handleConnectWallet}
-        className={`${mobile ? 'w-full' : ''} bg-trust-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-trust-600 transition-colors flex items-center justify-center gap-2`}
+        className={`${mobile ? 'w-full' : ''} text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2`}
+        style={{ backgroundColor: '#FF644A' }}
       >
         <Wallet size={16} />
-        Connect Wallet
+        {t('header.connectWallet')}
       </button>
       {mobile && (
         <button
@@ -157,153 +287,239 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
             handleSignUp();
             setIsMobileMenuOpen(false);
           }}
-          className="w-full border border-network-300 text-network-700 px-4 py-2 rounded-lg font-medium hover:bg-network-50 transition-colors flex items-center justify-center gap-2"
+          className="w-full px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+          style={{ 
+            border: '2px solid #FF644A',
+            color: '#FF644A'
+          }}
         >
           <Mail size={16} />
-          Email Sign Up
+          {t('header.emailSignUp')}
         </button>
       )}
     </>
   );
 
+  if (isLoading) {
+    return (
+      <header className={`bg-white border-b sticky top-0 z-40 ${className}`} style={{ borderColor: '#E5E5E5' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/" className="flex items-center gap-3">
+              <BocaBocaLogo size={32} />
+              <span className="font-bold text-xl hidden sm:inline" style={{ color: '#1F1E2A' }}>
+                BocaBoca
+              </span>
+            </Link>
+            <div className="animate-pulse h-8 w-24 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <>
-      <header className={`bg-white border-b border-gray-200 sticky top-0 z-40 ${className}`}>
+      <header className={`bg-white border-b sticky top-0 z-40 ${className}`} style={{ borderColor: '#E5E5E5' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-trust-500 to-trust-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">OC</span>
-              </div>
-              <div className="hidden sm:block">
-                <div className="font-bold text-lg text-gray-900">OmeoneChain</div>
-                <div className="text-xs text-gray-500 -mt-1">Trust-Based Recommendations</div>
-              </div>
+            <Link href="/" className="flex items-center gap-3">
+              <BocaBocaLogo size={32} />
+              <span className="font-bold text-xl hidden sm:inline" style={{ color: '#1F1E2A' }}>
+                BocaBoca
+              </span>
             </Link>
 
-            {/* Desktop Navigation */}
+            {/* Navigation Links */}
             <nav className="hidden md:flex items-center gap-6">
               <Link 
-                href="/discover" 
-                className="text-gray-600 hover:text-trust-600 transition-colors"
+                href="/create" 
+                className="transition-colors"
+                style={{ color: pathname === '/create' ? '#FF644A' : '#666' }}
               >
-                Discover
+                {t('navigation.create')}
+              </Link>
+              <Link 
+                href="/discover" 
+                className="transition-colors"
+                style={{ color: pathname === '/discover' ? '#FF644A' : '#666' }}
+              >
+                {t('navigation.discover')}
               </Link>
               <Link 
                 href="/community" 
-                className="text-gray-600 hover:text-trust-600 transition-colors"
+                className="transition-colors"
+                style={{ color: pathname === '/community' ? '#FF644A' : '#666' }}
               >
-                Community
+                {t('navigation.community')}
               </Link>
               <Link 
-                href="/create" 
-                className="text-gray-600 hover:text-trust-600 transition-colors"
+                href="/rewards" 
+                className="transition-colors relative"
+                style={{ color: pathname === '/rewards' ? '#FF644A' : '#666' }}
               >
-                Create
+                {t('navigation.rewards')}
+                {isAuthenticated && authMode === 'email' && (
+                  <span 
+                    className="absolute -top-1 -right-12 text-xs px-1.5 py-0.5 rounded whitespace-nowrap"
+                    style={{ 
+                      backgroundColor: '#FFE8E3',
+                      color: '#E65441',
+                      fontSize: '10px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {t('header.upgradeBadge')}
+                  </span>
+                )}
               </Link>
             </nav>
 
-            {/* Desktop Right Section */}
+            {/* Right Side Actions */}
             <div className="hidden md:flex items-center gap-3">
-              {/* Search Button */}
+              {/* Language Switcher */}
+              <LanguageSwitcher />
+              
               <button
                 onClick={() => setShowSearch(!showSearch)}
-                className="p-2 text-gray-600 hover:text-trust-600 transition-colors"
-                aria-label="Search"
+                className="p-2 transition-colors"
+                style={{ color: '#666' }}
+                aria-label={t('common.search')}
               >
                 <Search size={20} />
               </button>
 
-              {/* Notifications */}
-              {isAuthenticated && (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="p-2 text-gray-600 hover:text-trust-600 transition-colors relative"
-                    aria-label="Notifications"
-                  >
-                    <Bell size={20} />
-                    {unreadCount > 0 && (
-                      <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </button>
+              {isAuthenticated && <NotificationBell />}
+
+              {/* Token Balance Display */}
+              {isAuthenticated && authMode === 'wallet' && (
+                <div 
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                  style={{ 
+                    backgroundColor: '#FFE8E3',
+                    border: '1px solid #FFD4CC'
+                  }}
+                >
+                  <Coins className="w-4 h-4" style={{ color: '#FF644A' }} />
+                  {isLoadingBalance ? (
+                    <div className="animate-pulse h-4 w-12 rounded" style={{ backgroundColor: '#FFD4CC' }}></div>
+                  ) : (
+                    <span className="text-sm font-semibold" style={{ color: '#E65441' }}>
+                      {tokenBalance.toFixed(2)} BOCA
+                    </span>
+                  )}
                 </div>
               )}
 
-              {/* Auth Buttons / User Menu */}
               {!isAuthenticated ? (
                 <AuthButtons />
               ) : (
                 <div className="relative group">
-                  <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="w-8 h-8 bg-gradient-to-br from-trust-500 to-trust-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                      {user?.displayName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U'}
+                  <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div 
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                      style={{ 
+                        background: 'linear-gradient(135deg, #FFB3AB 0%, #FF644A 100%)'
+                      }}
+                    >
+                      {getInitial()}
                     </div>
-                    <ChevronDown size={16} className="text-gray-500" />
+                    <ChevronDown size={16} style={{ color: '#999' }} />
                   </button>
 
-                  {/* Dropdown Menu */}
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <div className="font-medium text-gray-900">
-                        {user?.displayName || user?.username || 'User'}
+                  <div 
+                    className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all"
+                    style={{ border: '1px solid #E5E5E5' }}
+                  >
+                    <div className="px-4 py-3 border-b" style={{ borderColor: '#F5F5F5' }}>
+                      <div className="font-medium" style={{ color: '#1F1E2A' }}>
+                        {getDisplayName()}
                       </div>
                       {user?.email && (
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div className="text-sm" style={{ color: '#999' }}>{user.email}</div>
                       )}
-                      {user?.walletAddress && (
-                        <div className="text-xs text-gray-400 font-mono">
-                          {formatAddress(user.walletAddress)}
+                      {(user?.walletAddress || user?.wallet_address) && (
+                        <div className="text-xs font-mono" style={{ color: '#BBB' }}>
+                          {formatAddress(user.walletAddress || user.wallet_address || '')}
                         </div>
                       )}
                       <div className="mt-2">
-                        <span className={`inline-block px-2 py-1 text-xs rounded ${
-                          authMode === 'wallet' 
-                            ? 'bg-blue-100 text-blue-700' 
-                            : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {authMode === 'wallet' ? '🔷 Wallet Account' : '📧 Email Account'}
+                        <span 
+                          className="inline-block px-2 py-1 text-xs rounded"
+                          style={{
+                            backgroundColor: authMode === 'wallet' ? '#E3F2FD' : '#F5F5F5',
+                            color: authMode === 'wallet' ? '#1976D2' : '#666'
+                          }}
+                        >
+                          {authMode === 'wallet' ? `🔷 ${t('header.walletAccount')}` : `📧 ${t('header.emailAccount')}`}
                         </span>
                       </div>
+                      
+                      {/* Token balance in dropdown */}
+                      {authMode === 'wallet' && (
+                        <div className="mt-2 pt-2 border-t" style={{ borderColor: '#F5F5F5' }}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs" style={{ color: '#999' }}>{t('header.bocaBalance')}:</span>
+                            <span className="text-sm font-semibold" style={{ color: '#FF644A' }}>
+                              {tokenBalance.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <Link
                       href="/dashboard"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="block px-4 py-2 text-sm hover:bg-gray-50"
+                      style={{ color: '#666' }}
                     >
-                      Dashboard
+                      {t('navigation.dashboard')}
                     </Link>
                     <Link
                       href={`/users/${user?.id}`}
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="block px-4 py-2 text-sm hover:bg-gray-50"
+                      style={{ color: '#666' }}
                     >
-                      Profile
+                      {t('navigation.profile')}
                     </Link>
                     <Link
                       href="/saved-lists"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="block px-4 py-2 text-sm hover:bg-gray-50"
+                      style={{ color: '#666' }}
                     >
-                      Saved Lists
+                      {t('navigation.savedLists')}
                     </Link>
                     
                     {authMode === 'email' && (
                       <button
                         onClick={handleConnectWallet}
-                        className="w-full text-left px-4 py-2 text-sm text-trust-600 hover:bg-trust-50 font-medium border-t border-gray-100"
+                        className="w-full text-left px-4 py-2 text-sm font-medium border-t"
+                        style={{ 
+                          color: '#FF644A',
+                          borderColor: '#F5F5F5',
+                          backgroundColor: 'transparent'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#FFE8E3'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        ⬆️ Upgrade to Wallet
+                        ⬆️ {t('header.upgradeToWallet')}
                       </button>
                     )}
 
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-gray-100 flex items-center gap-2"
+                      className="w-full text-left px-4 py-2 text-sm border-t flex items-center gap-2"
+                      style={{ 
+                        color: '#DC2626',
+                        borderColor: '#F5F5F5',
+                        backgroundColor: 'transparent'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#FEE2E2'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       <LogOut size={14} />
-                      Sign Out
+                      {t('navigation.signOut')}
                     </button>
                   </div>
                 </div>
@@ -313,7 +529,8 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 text-gray-600"
+              className="md:hidden p-2"
+              style={{ color: '#666' }}
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -321,18 +538,19 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
           </div>
         </div>
 
-        {/* Search Bar (Desktop) */}
+        {/* Search Bar Dropdown */}
         <AnimatePresence>
           {showSearch && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="border-t border-gray-200 bg-white"
+              className="bg-white"
+              style={{ borderTop: '1px solid #E5E5E5' }}
             >
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" size={20} style={{ color: '#999' }} />
                   <input
                     type="text"
                     value={searchQuery}
@@ -340,36 +558,51 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                       setSearchQuery(e.target.value);
                       handleSearch(e.target.value);
                     }}
-                    placeholder="Search recommendations, users, or restaurants..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trust-500 focus:border-trust-500 outline-none"
+                    placeholder={t('header.searchPlaceholder')}
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none"
+                    style={{ borderColor: '#E5E5E5' }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = '#FF644A';
+                      e.currentTarget.style.boxShadow = '0 0 0 2px rgba(255, 100, 74, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = '#E5E5E5';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
                     autoFocus
                   />
                   {isSearching && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-trust-500"></div>
+                      <div 
+                        className="animate-spin rounded-full h-5 w-5 border-b-2"
+                        style={{ borderColor: '#FF644A' }}
+                      ></div>
                     </div>
                   )}
                 </div>
 
-                {/* Search Results */}
                 {searchResults.length > 0 && (
-                  <div className="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                  <div 
+                    className="mt-2 bg-white rounded-lg shadow-lg max-h-96 overflow-y-auto"
+                    style={{ border: '1px solid #E5E5E5' }}
+                  >
                     {searchResults.map((result: any, index: number) => (
                       <Link
                         key={index}
                         href={result.url}
-                        className="block px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        className="block px-4 py-3 hover:bg-gray-50 border-b last:border-b-0"
+                        style={{ borderColor: '#F5F5F5' }}
                         onClick={() => {
                           setShowSearch(false);
                           setSearchQuery('');
                           setSearchResults([]);
                         }}
                       >
-                        <div className="font-medium text-gray-900">{result.title}</div>
+                        <div className="font-medium" style={{ color: '#1F1E2A' }}>{result.title}</div>
                         {result.description && (
-                          <div className="text-sm text-gray-600 mt-1">{result.description}</div>
+                          <div className="text-sm mt-1" style={{ color: '#666' }}>{result.description}</div>
                         )}
-                        <div className="text-xs text-gray-400 mt-1">{result.type}</div>
+                        <div className="text-xs mt-1" style={{ color: '#999' }}>{result.type}</div>
                       </Link>
                     ))}
                   </div>
@@ -387,12 +620,12 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-b border-gray-200"
+            className="md:hidden bg-white border-b"
+            style={{ borderColor: '#E5E5E5' }}
           >
             <div className="px-4 py-4 space-y-3">
-              {/* Mobile Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" size={20} style={{ color: '#999' }} />
                 <input
                   type="text"
                   value={searchQuery}
@@ -400,49 +633,100 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                     setSearchQuery(e.target.value);
                     handleSearch(e.target.value);
                   }}
-                  placeholder="Search..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trust-500 focus:border-trust-500 outline-none"
+                  placeholder={t('header.searchPlaceholder')}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none"
+                  style={{ borderColor: '#E5E5E5' }}
                 />
               </div>
 
-              {/* Mobile Navigation Links */}
+              {/* Language Switcher in Mobile Menu */}
+              <div className="flex justify-center py-2">
+                <LanguageSwitcher />
+              </div>
+
+              {/* Token balance in mobile menu */}
+              {isAuthenticated && authMode === 'wallet' && (
+                <div 
+                  className="flex items-center justify-between p-3 rounded-lg"
+                  style={{ 
+                    backgroundColor: '#FFE8E3',
+                    border: '1px solid #FFD4CC'
+                  }}
+                >
+                  <span className="text-sm" style={{ color: '#666' }}>{t('header.bocaBalance')}:</span>
+                  {isLoadingBalance ? (
+                    <div className="animate-pulse h-4 w-16 rounded" style={{ backgroundColor: '#FFD4CC' }}></div>
+                  ) : (
+                    <span className="text-sm font-semibold" style={{ color: '#FF644A' }}>
+                      {tokenBalance.toFixed(2)} BOCA
+                    </span>
+                  )}
+                </div>
+              )}
+
               <Link
                 href="/discover"
-                className="block py-2 text-gray-600 hover:text-trust-600"
+                className="block py-2 transition-colors"
+                style={{ color: pathname === '/discover' ? '#FF644A' : '#666' }}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Discover
+                {t('navigation.discover')}
               </Link>
               <Link
                 href="/community"
-                className="block py-2 text-gray-600 hover:text-trust-600"
+                className="block py-2 transition-colors"
+                style={{ color: pathname === '/community' ? '#FF644A' : '#666' }}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Community
+                {t('navigation.community')}
+              </Link>
+              <Link
+                href="/rewards"
+                className="block py-2 transition-colors relative"
+                style={{ color: pathname === '/rewards' ? '#FF644A' : '#666' }}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {t('navigation.rewards')}
+                {isAuthenticated && authMode === 'email' && (
+                  <span 
+                    className="ml-2 text-xs px-1.5 py-0.5 rounded"
+                    style={{ 
+                      backgroundColor: '#FFE8E3',
+                      color: '#E65441',
+                      fontSize: '10px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {t('header.upgradeBadge')}
+                  </span>
+                )}
               </Link>
               <Link
                 href="/create"
-                className="block py-2 text-gray-600 hover:text-trust-600"
+                className="block py-2 transition-colors"
+                style={{ color: pathname === '/create' ? '#FF644A' : '#666' }}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Create
+                {t('navigation.create')}
               </Link>
 
               {isAuthenticated ? (
                 <>
                   <Link
                     href="/dashboard"
-                    className="block py-2 text-gray-600 hover:text-trust-600"
+                    className="block py-2"
+                    style={{ color: '#666' }}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    Dashboard
+                    {t('navigation.dashboard')}
                   </Link>
                   <Link
                     href={`/users/${user?.id}`}
-                    className="block py-2 text-gray-600 hover:text-trust-600"
+                    className="block py-2"
+                    style={{ color: '#666' }}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    Profile
+                    {t('navigation.profile')}
                   </Link>
                   {authMode === 'email' && (
                     <button
@@ -450,9 +734,10 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                         handleConnectWallet();
                         setIsMobileMenuOpen(false);
                       }}
-                      className="w-full text-left py-2 text-trust-600 hover:text-trust-700 font-medium"
+                      className="w-full text-left py-2 font-medium"
+                      style={{ color: '#FF644A' }}
                     >
-                      ⬆️ Upgrade to Wallet
+                      ⬆️ {t('header.upgradeToWallet')}
                     </button>
                   )}
                   <button
@@ -460,13 +745,14 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                       handleLogout();
                       setIsMobileMenuOpen(false);
                     }}
-                    className="w-full text-left py-2 text-red-600 hover:text-red-700"
+                    className="w-full text-left py-2"
+                    style={{ color: '#DC2626' }}
                   >
-                    Sign Out
+                    {t('navigation.signOut')}
                   </button>
                 </>
               ) : (
-                <div className="space-y-2 pt-2 border-t border-gray-200">
+                <div className="space-y-2 pt-2 border-t" style={{ borderColor: '#E5E5E5' }}>
                   <AuthButtons mobile />
                 </div>
               )}
@@ -474,153 +760,78 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Notifications Dropdown */}
+      
+      {/* WalletConnect Modal */}
       <AnimatePresence>
-        {showNotifications && (
-          <>
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setShowNotifications(false)}
-            />
+        {showWalletConnect && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute right-4 top-16 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative"
             >
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900">Notifications</h3>
-                  {unreadCount > 0 && (
-                    <span className="text-xs text-gray-500">{unreadCount} unread</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="max-h-96 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
-                    <Bell size={32} className="mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">No notifications yet</p>
-                  </div>
-                ) : (
-                  notifications.map((notification: any) => (
-                    <div
-                      key={notification.id}
-                      className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                        !notification.read ? 'bg-blue-50' : ''
-                      }`}
-                      onClick={() => {
-                        if (!notification.read) {
-                          markNotificationAsRead(notification.id);
-                        }
-                        if (notification.link) {
-                          router.push(notification.link);
-                          setShowNotifications(false);
-                        }
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0">
-                          {notification.type === 'follow' && <Users size={20} className="text-blue-500" />}
-                          {notification.type === 'comment' && <Mail size={20} className="text-green-500" />}
-                          {notification.type === 'recommendation' && <Bell size={20} className="text-orange-500" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900">{notification.message}</p>
-                          <p className="text-xs text-gray-500 mt-1">{notification.timestamp}</p>
-                        </div>
-                        {!notification.read && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <WalletConnect 
+                onSuccess={async (token, userData) => {
+                  console.log('✅ CleanHeader: Wallet connection successful!');
+                  console.log('📦 Token:', token ? 'Received' : 'Missing');
+                  console.log('👤 User data:', userData);
+    
+                  try {
+                    setShowWalletConnect(false);
+                    login(token, userData);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await refreshAuth();
+                    console.log('🚀 Redirecting to /feed');
+                    router.push('/feed');
+                  } catch (error) {
+                    console.error('❌ Error during post-auth processing:', error);
+                    window.location.href = '/feed';
+                  }
+                }}
+                onCancel={() => {
+                  console.log('❌ Wallet connection cancelled');
+                  setShowWalletConnect(false);
+                }}
+              />
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
 
-      {/* Trust Mode Toggle - shown when authenticated */}
-      {isAuthenticated && (
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">View Mode:</span>
-              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setTrustMode('social')}
-                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                    trustMode === 'social'
-                      ? 'bg-trust-500 text-white'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Social Trust
-                </button>
-                <button
-                  onClick={() => setTrustMode('global')}
-                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                    trustMode === 'global'
-                      ? 'bg-trust-500 text-white'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Global
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Wallet Connect Modal */}
-      {showWalletConnect && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Connect Wallet</h2>
-            <p className="text-gray-600 mb-4">
-              Connect your wallet to access full features including token claims and NFT loyalty cards.
-            </p>
-            <button
-              onClick={() => setShowWalletConnect(false)}
-              className="w-full px-4 py-2 bg-trust-500 text-white rounded-lg hover:bg-trust-600"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Onboarding/Upgrade Modal */}
+      {/* Upgrade Modal */}
       <AnimatePresence>
         {showOnboarding && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-xl max-w-md w-full p-6"
             >
-              <h2 className="text-xl font-bold mb-4">Upgrade to Wallet Account</h2>
-              <p className="text-gray-600 mb-4">
-                Connect a wallet to claim your earned tokens and access full features.
+              <h2 className="text-xl font-bold mb-4" style={{ color: '#1F1E2A' }}>
+                {t('auth.upgradeTitle')}
+              </h2>
+              <p className="mb-4" style={{ color: '#666' }}>
+                {t('auth.upgradeMessage')}
               </p>
               <div className="space-y-2">
                 <button
-                  onClick={() => setShowOnboarding(false)}
-                  className="w-full px-4 py-2 bg-trust-500 text-white rounded-lg hover:bg-trust-600"
+                  onClick={() => {
+                    setShowOnboarding(false);
+                    setShowWalletConnect(true);
+                  }}
+                  className="w-full px-4 py-2 text-white rounded-lg hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: '#FF644A' }}
                 >
-                  Connect Wallet
+                  {t('header.connectWallet')}
                 </button>
                 <button
                   onClick={() => setShowOnboarding(false)}
-                  className="w-full px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="w-full px-4 py-2 hover:opacity-70 transition-opacity"
+                  style={{ color: '#666' }}
                 >
-                  Maybe Later
+                  {t('auth.maybeLater')}
                 </button>
               </div>
             </motion.div>
@@ -628,7 +839,7 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
         )}
       </AnimatePresence>
 
-      {/* Email Signup Modal - REPLACED WITH AuthModal */}
+      {/* Email Signup Modal */}
       <AnimatePresence>
         {showEmailSignup && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -638,34 +849,30 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative"
             >
-              {/* Close Button */}
               <button
                 onClick={() => setShowEmailSignup(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
-                aria-label="Close modal"
+                className="absolute top-4 right-4 transition-colors z-10"
+                style={{ color: '#999' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#666'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#999'}
+                aria-label={t('common.close')}
               >
                 <X size={24} />
               </button>
 
-              {/* AuthModal with social buttons */}
               <div className="p-6">
                 <AuthModal 
                   onSuccess={(token, user) => {
                     localStorage.setItem('authToken', token);
                     localStorage.setItem('user', JSON.stringify(user));
-                    setIsAuthenticated(true);
-                    setUser(user);
                     setShowEmailSignup(false);
                     
-                    // Determine auth mode
-                    if (user.walletAddress) {
-                      setAuthMode('wallet');
+                    const isNewUser = user.onboarding_completed === false;
+                    if (isNewUser) {
+                      window.location.href = '/onboarding';
                     } else {
-                      setAuthMode('email');
+                      window.location.href = '/discover';
                     }
-                    
-                    // Redirect to discover page
-                    router.push('/discover');
                   }}
                   onClose={() => setShowEmailSignup(false)}
                   defaultTab="email"

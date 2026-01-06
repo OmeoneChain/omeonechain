@@ -1,0 +1,484 @@
+{
+  "creation": {
+    "title": "New Recommendation",
+    "chooseRestaurant": "Choose a Restaurant",
+    "searchRestaurant": "Search restaurant...",
+    "addNewRestaurant": "Add New Restaurant",
+    "reviewAndPublish": "Review & Publish",
+    "addTextAndPhotos": "Add Text & Photos",
+
+    "restaurant": {
+      "name": "Restaurant name",
+      "address": "Address",
+      "cuisineType": "Cuisine type/category",
+      "createNew": "Create New",
+      "creating": "Creating..."
+    },
+
+    "rating": {
+      "overall": "Overall Rating",
+      "labels": {
+        "0": "Horrible",
+        "1": "Terrible",
+        "2": "Very Bad",
+        "3": "Bad",
+        "4": "Below Average",
+        "5": "Average",
+        "6": "Good",
+        "7": "Very Good",
+        "8": "Great",
+        "9": "Excellent",
+        "10": "Perfect"
+      }
+    },
+
+    "contextTags": {
+      "title": "Context Tags",
+      "placeholder": "Add custom tags: #vegan #petfriendly",
+      "romantic": "Romantic",
+      "family": "Family",
+      "quick": "Quick",
+      "celebration": "Celebration"
+    },
+
+    "optionalDetails": "Optional details (click to expand):",
+
+    "dishes": {
+      "title": "Individual Dishes",
+      "addDish": "Add Dish",
+      "editDish": "Edit Dish",
+      "dishName": "Dish name",
+      "dishNotes": "Notes about the dish (optional)",
+      "wouldOrderAgain": "Would order again",
+      "wouldNotOrderAgain": "Would not order again"
+    },
+
+    "aspects": {
+      "title": "Restaurant Aspects",
+      "ambiance": "Ambiance & Decor",
+      "service": "Service",
+      "valueForMoney": "Value for Money",
+      "noiseLevel": "Noise Level",
+      "waitTime": "Wait Time",
+      "quiet": "Quiet",
+      "moderate": "Moderate",
+      "loud": "Loud"
+    },
+
+    "context": {
+      "title": "Visit Context",
+      "occasion": "Occasion",
+      "partySize": "Party Size",
+      "mealType": "Meal Type",
+      "dateTime": "Date and Time of Visit",
+      "totalSpent": "Total Spent",
+      "visitDuration": "Visit Duration",
+      "occasions": {
+        "date_night": "Date Night",
+        "family_dinner": "Family Dinner",
+        "quick_lunch": "Quick Lunch",
+        "celebration": "Celebration",
+        "business_lunch": "Business Lunch",
+        "casual": "Casual"
+      },
+      "mealTypes": {
+        "breakfast": "Breakfast",
+        "brunch": "Brunch",
+        "lunch": "Lunch",
+        "dinner": "Dinner",
+        "late_night": "Late Night"
+      }
+    },
+
+    "preview": {
+      "title": "Recommendation Title",
+      "titlePlaceholder": "e.g., Best Neapolitan pizza in town!",
+      "category": "Category",
+      "selectCategory": "Select a category",
+      "content": "Your Recommendation",
+      "contentPlaceholder": "Share what made this place special. What would you recommend to a friend?",
+      "photos": "Photos (up to 5)",
+      "photoBonus": "Bonus: +{amount} TOK for {count} photo(s)"
+    },
+
+    "categories": {
+      "breakfast": "Breakfast",
+      "lunch": "Lunch",
+      "dinner": "Dinner",
+      "coffeeAndDrinks": "Coffee & Drinks",
+      "desserts": "Desserts",
+      "specialOccasion": "Special Occasion",
+      "quickBite": "Quick Bite",
+      "lateNight": "Late Night"
+    },
+
+    "summary": {
+      "title": "Trust Score 2.0 Summary",
+      "overallRating": "Overall Rating",
+      "dishesRated": "Dishes Rated",
+      "aspects": "Aspects",
+      "context": "Context",
+      "occasion": "Occasion",
+      "partySize": "Party Size"
+    },
+
+    "submit": {
+      "publish": "Publish",
+      "publishAndEarn": "Publish & Earn {amount} BOCA",
+      "publishing": "Publishing...",
+      "success": "Recommendation published! You earned {amount} BOCA",
+      "error": "Error creating recommendation"
+    },
+
+    "validation": {
+      "fillRequiredFields": "Please fill in all required fields (title and recommendation text)",
+      "fillRestaurantDetails": "Please fill in restaurant name and address"
+    },
+
+    "priceRanges": {
+      "budget": "€ - Budget (up to $30)",
+      "moderate": "€€ - Moderate ($30-60)",
+      "expensive": "€€€ - Expensive ($60-120)",
+      "veryExpensive": "€€€€ - Very Expensive ($120+)"
+    }
+  },
+
+  "card": {
+    "trustScore": "Trust Score",
+    "dish": "dish",
+    "dishes": "dishes",
+    "readMore": "Read more",
+    "viewMore": "View more",
+    "helpful": "Helpful",
+    "save": "Save",
+    "share": "Share",
+    "comment": "Comment",
+    "boost": "Boost",
+    "edit": "Edit",
+    "report": "Report",
+    "previewMode": "Preview Mode - Ready to Publish",
+    "person": "person",
+    "people": "people",
+    "dishesCount": "{count} dishes rated",
+    "showLess": "Show less",
+    "viewAll": "View all",
+    "moreCount": "+{count} more",
+    "onChainVerified": "On-chain verified",
+    "social": {
+      "yourFriend": "Your friend",
+      "friendOfFriend": "Friend of friend"
+    },
+    "badges": {
+      "expert": "Expert",
+      "verified": "Verified"
+    }
+  },
+
+  "singleScreen": {
+    "restaurantLabel": "Restaurant",
+    "title": "New Recommendation",
+    "subtitle": "Rate it, add details, and publish",
+    "publishHint": "Tip: Some bonuses are unlocked through validation and community engagement",
+    "restaurant": {
+      "change": "Change"
+    },
+    "sections": {
+      "photos": "Photos",
+      "dishes": "Individual Dishes",
+      "aspects": "Restaurant Aspects",
+      "context": "Visit Context",
+      "labels": "Labels",
+      "comments": "Comments"
+    },
+    "sectionSubtitle": {
+      "comments": "Add optional comments about your experience"
+    },
+
+    "optional": "optional",
+
+    "publish": {
+      "button": "Publish & earn {tokens} tokens",
+      "publishing": "Publishing...",
+      "bonusEarned": "Bonus earned for extra details!",
+      "disabledReason": {
+        "noRestaurant": "Select a restaurant to publish",
+        "noRating": "Add a rating to publish"
+      }
+    }
+  },
+
+  "photos": {
+    "tagging": {
+      "title": "Tag photos (optional)",
+      "help": "This helps show the right photos on restaurant pages (e.g., by dish).",
+      "label": "Dish for this photo",
+      "skip": "Skip",
+      "fromDishes": "From your rated dishes",
+      "other": "Other dish…",
+      "otherPlaceholder": "Type dish name",
+      "current": "Tagged:",
+      "notTagged": "Not tagged",
+      "categories": "Categories",
+      "vibe": "Ambiance/Vibe",
+      "menu": "Menu",
+      "drink": "Drink"
+    }
+  },
+
+  "reshare": {
+    "title": "Quote Reshare",
+    "addThoughts": "Add your thoughts (optional)",
+    "placeholder": "What do you think about this recommendation?",
+    "charCount": "{count}/280",
+    "cancel": "Cancel",
+    "reshare": "Reshare",
+    "resharing": "Resharing...",
+    "success": "Reshared! +0.2 BOCA earned",
+    "successWithComment": "Reshared with commentary!",
+    "removed": "Reshare removed",
+    "failed": "Failed to update reshare"
+  },
+
+  "occasions": {
+    "dateNight": "Date Night",
+    "familyDinner": "Family Dinner",
+    "quickLunch": "Quick Lunch",
+    "celebration": "Celebration",
+    "businessLunch": "Business Lunch",
+    "casual": "Casual"
+  },
+
+  "mealTypes": {
+    "breakfast": "Breakfast",
+    "brunch": "Brunch",
+    "lunch": "Lunch",
+    "dinner": "Dinner",
+    "lateNight": "Late Night"
+  },
+
+  "aspects": {
+    "title": "Restaurant Aspects",
+    "ambiance": "Ambiance",
+    "service": "Service",
+    "valueForMoney": "Value",
+    "noiseLevel": "Noise Level",
+    "waitTime": "Wait Time",
+    "minutesPlaceholder": "Minutes",
+    "minutes": "min"
+  },
+
+  "ratings": {
+    "0": "Horrible",
+    "1": "Avoid",
+    "2": "Poor",
+    "3": "Below Average",
+    "4": "Fair",
+    "5": "Average",
+    "6": "Above Average",
+    "7": "Good",
+    "8": "Very Good",
+    "9": "Excellent",
+    "10": "Outstanding"
+  },
+
+  "photoUpload": {
+    "location": {
+      "getting": "Getting location...",
+      "found": "Location: {address}",
+      "unavailable": "Location unavailable",
+      "ready": "Location services ready",
+      "retry": "Retry location"
+    },
+    "errors": {
+      "couldNotGetAddress": "Could not get address",
+      "maxPhotos": "Maximum {max} photos allowed",
+      "notImage": "{name} is not an image file",
+      "tooLarge": "{name} is too large (max {max}MB)",
+      "processingFailed": "Error processing {name}"
+    },
+    "photoAlt": "Photo {number}",
+    "processing": "Processing...",
+    "addPhoto": "Add Photo",
+    "tapOrDrag": "Tap or drag to upload",
+    "info": {
+      "photoCount": "{count}/{max} photos",
+      "photosWithLocation": "{count} photos with location",
+      "totalSize": "Total size: {size}MB"
+    },
+    "takePhoto": "Take Photo",
+    "fromGallery": "From Gallery"
+  },
+
+  "categories": {
+    "breakfast": "Breakfast",
+    "lunch": "Lunch",
+    "dinner": "Dinner",
+    "coffee": "Coffee & Drinks",
+    "desserts": "Desserts",
+    "special": "Special Occasion",
+    "snack": "Quick Snack",
+    "lateNight": "Late Night"
+  },
+
+  "noiseLevel": {
+    "quiet": "Quiet",
+    "moderate": "Moderate",
+    "loud": "Loud"
+  },
+
+  "priceRanges": {
+    "budget": "€ - Budget (up to $15)",
+    "moderate": "€€ - Moderate ($15-30)",
+    "expensive": "€€€ - Expensive ($30-60)",
+    "veryExpensive": "€€€€ - Very Expensive ($60+)"
+  },
+
+  "contextTags": {
+    "romantic": "Romantic",
+    "family": "Family",
+    "quick": "Quick",
+    "celebration": "Celebration"
+  },
+
+  "steps": {
+    "restaurant": {
+      "title": "Choose a Restaurant",
+      "titleBranded": "Share a Recommendation",
+      "subtitle": "Which restaurant would you like to recommend?",
+      "shortLabel": "Restaurant",
+      "helpText": "Search for a restaurant you've visited and want to recommend to others.",
+      "connectedAs": "Connected as: {name} ({id})",
+      "location": "Location: {city}, {country}",
+      "searchPlaceholder": "Search restaurant...",
+      "addNew": "Add New Restaurant"
+    },
+    "essentials": {
+      "title": "New Recommendation",
+      "titleBranded": "Rate Your Experience",
+      "subtitle": "How was your visit?",
+      "shortLabel": "Details",
+      "helpText": "Share the details of your dining experience.",
+      "overallRating": "Overall Rating",
+      "contextTags": "Context Tags (optional)",
+      "customTagPlaceholder": "Add custom tags: #vegan #petfriendly",
+      "optionalDetails": "Optional details (click to expand):",
+      "addTextPhotos": "Add Text & Photos"
+    },
+    "preview": {
+      "title": "Review & Publish",
+      "titleBranded": "Review & Publish",
+      "subtitle": "Almost there! Review your recommendation before publishing.",
+      "shortLabel": "Publish",
+      "helpText": "Add a title and write your recommendation.",
+      "dishCount": "{count} dish(es)",
+      "titleLabel": "Recommendation Title",
+      "titlePlaceholder": "e.g., Best pizza in town!",
+      "categoryLabel": "Category (optional)",
+      "selectCategory": "Select a category",
+      "reviewLabel": "Your Recommendation",
+      "reviewPlaceholder": "Share what made this place special. What would you recommend to a friend?",
+      "characterCount": "{count}/2000 characters",
+      "photosLabel": "Photos (up to 5)",
+      "photoBonus": "Bonus: +{bonus} TOK for {count} photo(s)"
+    }
+  },
+
+  "newRestaurant": {
+    "title": "Add New Restaurant",
+    "namePlaceholder": "Restaurant name",
+    "addressPlaceholder": "Address",
+    "categoryPlaceholder": "Cuisine type/category",
+    "validation": {
+      "fillRequired": "Please fill in restaurant name and address"
+    },
+    "errors": {
+      "createFailed": "Error creating restaurant: {error}"
+    }
+  },
+
+  "dishes": {
+    "title": "Individual Dishes",
+    "addDish": "Add Dish",
+    "editDish": "Edit Dish",
+    "namePlaceholder": "Dish name",
+    "notesPlaceholder": "Notes about the dish (optional)",
+    "wouldOrderAgain": "Would order again",
+    "wouldNotOrderAgain": "Would not order again",
+    "validation": {
+      "enterName": "Please enter the dish name"
+    }
+  },
+
+  "context": {
+    "title": "Visit Context",
+    "occasion": "Occasion",
+    "partySize": "Party Size",
+    "people": "people",
+    "mealType": "Meal Type",
+    "dateTime": "Date & Time of Visit",
+    "totalSpent": "Total Spent",
+    "visitDuration": "Visit Duration"
+  },
+
+  "summary": {
+    "title": "📊 Trust Score 2.0 Summary",
+    "overallRating": "Overall Rating:",
+    "dishesRated": "Dishes Rated: ({count})",
+    "moreItems": "+ {count} more...",
+    "aspects": "Aspects:",
+    "context": "Context:"
+  },
+
+  "rewards": {
+    "title": "💰 Expected Rewards",
+    "baseReward": "Base reward: 1.00 TOK",
+    "dishBonus": "Dish bonus: +{bonus} TOK",
+    "aspectsBonus": "Aspects bonus: +0.3 TOK",
+    "contextBonus": "Context bonus: +0.2 TOK",
+    "photoBonus": "Photo bonus: +{bonus} TOK",
+    "tagsBonus": "Tags bonus: +{bonus} TOK",
+    "total": "Estimated total: {total} TOK"
+  },
+
+  "connection": {
+    "testing": "Testing IOTA Rebased connection...",
+    "connected": "IOTA Rebased connected! ({contracts}/5 active contracts)",
+    "fallback": "IOTA limited mode - basic functionality available"
+  },
+
+  "auth": {
+    "required": "Authentication Required",
+    "connectWalletMessage": "You need to connect your wallet to create recommendations and earn tokens.",
+    "connectWallet": "Connect Wallet"
+  },
+
+  "actions": {
+    "cancel": "Cancel",
+    "add": "Add",
+    "creating": "Creating...",
+    "back": "Back",
+    "edit": "Edit",
+    "remove": "Remove",
+    "save": "Save",
+    "yes": "Yes",
+    "no": "No",
+    "publishing": "Publishing...",
+    "publishAndEarn": "Publish & Earn {tokens} BOCA",
+    "done": "Done"
+  },
+
+  "errors": {
+    "noUserLoggedIn": "No user logged in - please connect your wallet first",
+    "iotaConnectionLimited": "IOTA connection limited. Using fallback mode.",
+    "connectWalletFirst": "Please connect your wallet before creating recommendations",
+    "createFailed": "Error creating recommendation: {error}"
+  },
+
+  "validation": {
+    "fillRequired": "Please fill in all required fields (title and recommendation text)"
+  },
+
+  "success": {
+    "published": "🎉 Recommendation published! You earned {tokens} BOCA"
+  }
+}

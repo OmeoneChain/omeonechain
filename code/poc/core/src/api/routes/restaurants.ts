@@ -3,7 +3,10 @@
 
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { authenticateToken } from '../../middleware/auth';
+import { authenticateToken, optionalAuth } from '../../middleware/auth';
+import { createRestaurantService } from '../../services/restaurant-service';
+import { Pool } from 'pg';
+import { getGooglePlacesCacheService } from '../../services/google-places-cache';
 
 const router = Router();
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -15,11 +18,53 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
+// Initialize restaurant service for Google Places integration
+let restaurantService: ReturnType<typeof createRestaurantService> | null = null;
+
+// Middleware to initialize service
+router.use(async (req, res, next) => {
+  if (!restaurantService && req.app.locals.db) {
+    try {
+      restaurantService = createRestaurantService(req.app.locals.db as Pool);
+      console.log('✅ Restaurant service initialized for Google Places');
+    } catch (error) {
+      console.error('❌ Failed to initialize restaurant service:', error);
+    }
+  }
+  next();
+});
+
 // =============================================================================
 // INTERFACES
 // =============================================================================
 
-interface TieredRecommendation {
+interface RestaurantPhoto {
+  id: string;
+  ipfsHash: string;
+  tagType: string | null;
+  dishName: string | null;
+  caption: string | null;
+  helpfulCount: number;
+  createdAt: string;
+  user: {
+    id: string;
+    displayName: string;
+    username: string;
+    avatar?: string;
+  };
+  recommendationId: string;
+  userHasMarkedHelpful?: boolean;
+}
+
+interface PopularDish {
+  dishName: string;
+  photoCount: number;
+  recommendationCount: number;
+  totalHelpful: number;
+  thumbnailHash: string;
+}
+
+interface NetworkRecommendation {
   id: string;
   rating: number;
   reviewText: string;
@@ -30,20 +75,24 @@ interface TieredRecommendation {
   }>;
   contextTags: string[];
   createdAt: string;
-  recommender: {
+  author: {
     id: string;
     displayName: string;
+    username: string;
     avatar?: string;
-    isAnonymized: boolean;
-    tasteMatch?: number;
-    socialDistance?: number;
-    credibility?: {
-      totalRecommendations: number;
-      avgTrustScore: number;
-      specialties: string[];
-    };
   };
-  tier: 1 | 2 | 3;
+  // Relationship flags for frontend categorization
+  is_friend: boolean;        // Mutual follow
+  is_following: boolean;     // User follows this author
+  is_followed_by: boolean;   // This author follows user
+  taste_alignment: number;   // 0-1 scale
+  // Additional metadata
+  trust_score?: number;
+  engagement?: {
+    saves: number;
+    comments: number;
+    helpful: number;
+  };
 }
 
 interface DishRating {
@@ -57,20 +106,55 @@ interface DishRating {
 // HELPER FUNCTIONS
 // =============================================================================
 
-// Helper: Get user's social connections
-async function getUserSocialConnections(userId: string): Promise<Set<string>> {
-  const { data: connections, error } = await supabase
+/**
+ * Get BIDIRECTIONAL social connections for a user
+ * Returns: { following: Set<userId>, followers: Set<userId>, mutuals: Set<userId> }
+ */
+async function getBidirectionalConnections(userId: string): Promise<{
+  following: Set<string>;
+  followers: Set<string>;
+  mutuals: Set<string>;
+}> {
+  // Get who user follows
+  const { data: followingData, error: followingError } = await supabase
     .from('social_connections')
     .select('following_id')
     .eq('follower_id', userId)
     .eq('is_active', true);
 
-  if (error) {
-    console.error('Error fetching social connections:', error);
-    return new Set();
+  if (followingError) {
+    console.error('Error fetching following:', followingError);
   }
 
-  return new Set(connections?.map(c => c.following_id) || []);
+  // Get who follows user
+  const { data: followersData, error: followersError } = await supabase
+    .from('social_connections')
+    .select('follower_id')
+    .eq('following_id', userId)
+    .eq('is_active', true);
+
+  if (followersError) {
+    console.error('Error fetching followers:', followersError);
+  }
+
+  const following = new Set<string>(followingData?.map(c => c.following_id) || []);
+  const followers = new Set<string>(followersData?.map(c => c.follower_id) || []);
+  
+  // Mutuals are intersection of following and followers
+  const mutuals = new Set<string>();
+  following.forEach(id => {
+    if (followers.has(id)) {
+      mutuals.add(id);
+    }
+  });
+
+  console.log('📊 Bidirectional connections:', {
+    following: following.size,
+    followers: followers.size,
+    mutuals: mutuals.size
+  });
+
+  return { following, followers, mutuals };
 }
 
 // Helper: Get taste alignments for a user
@@ -188,6 +272,107 @@ async function fetchGooglePlacesData(restaurantName: string, address: string, la
   }
 }
 
+/**
+ * GET /api/restaurants/autocomplete
+ * Autocomplete restaurant names as user types
+ */
+router.get('/autocomplete', async (req: Request, res: Response) => {
+  try {
+    const { input, lat, lng } = req.query;
+
+    // Validation
+    if (!input || typeof input !== 'string' || input.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Input must be at least 2 characters'
+      });
+    }
+
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
+
+    if (isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid latitude and longitude required'
+      });
+    }
+
+    if (!restaurantService) {
+      return res.status(500).json({
+        success: false,
+        error: 'Restaurant service not initialized'
+      });
+    }
+
+    console.log(`🔍 Autocomplete: "${input}" near (${latitude}, ${longitude})`);
+
+    const suggestions = await restaurantService.autocompleteRestaurants(
+      input,
+      latitude,
+      longitude
+    );
+
+    return res.json({
+      success: true,
+      suggestions
+    });
+
+  } catch (error) {
+    console.error('❌ Autocomplete error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to autocomplete restaurants',
+      message: (error as Error).message
+    });
+  }
+});
+
+/**
+ * POST /api/restaurants/from-external
+ * Create restaurant in database from Google Place ID
+ */
+router.post('/from-external', async (req: Request, res: Response) => {
+  try {
+    const { external_id, city } = req.body;
+
+    if (!external_id || typeof external_id !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'external_id is required'
+      });
+    }
+
+    if (!restaurantService) {
+      return res.status(500).json({
+        success: false,
+        error: 'Restaurant service not initialized'
+      });
+    }
+
+    console.log(`🏪 Creating restaurant from Google Place ID: ${external_id}`);
+
+    const restaurant = await restaurantService.findOrCreateFromExternalProvider(
+      external_id,
+      city
+    );
+
+    return res.json({
+      success: true,
+      restaurant,
+      message: 'Restaurant created/retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Create from external error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to create restaurant from external provider',
+      message: (error as Error).message
+    });
+  }
+});
+
 // GET /api/restaurants/:id - Get restaurant details
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -196,30 +381,14 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     console.log('🏪 Fetching restaurant details:', { restaurantId, userId });
 
-    const { data: restaurant, error } = await supabase
-      .from('restaurants')
-      .select(`
-        *,
-        recommendations:recommendations(count)
-      `)
-      .eq('id', restaurantId)
-      .single();
+    // Use the cache service to get restaurant with Google data
+    const cacheService = getGooglePlacesCacheService();
+    const restaurant = await cacheService.getRestaurantDetails(restaurantId.toString());
 
-    if (error || !restaurant) {
+    if (!restaurant) {
       return res.status(404).json({
         error: 'Restaurant not found'
       });
-    }
-
-    // Fetch Google Places data if coordinates available
-    let googleData = null;
-    if (restaurant.latitude && restaurant.longitude) {
-      googleData = await fetchGooglePlacesData(
-        restaurant.name,
-        restaurant.address,
-        restaurant.latitude,
-        restaurant.longitude
-      );
     }
 
     // Calculate average trust score from all recommendations
@@ -233,26 +402,43 @@ router.get('/:id', async (req: Request, res: Response) => {
     if (!trustError && recTrustScores && recTrustScores.length > 0) {
       const totalTrustScore = recTrustScores.reduce((sum, rec) => sum + (rec.trust_score || 0), 0);
       avgTrustScore = totalTrustScore / recTrustScores.length;
-      // Convert from 0-1 scale to 0-10 scale for display
       avgTrustScore = avgTrustScore * 10;
-      avgTrustScore = Math.round(avgTrustScore * 10) / 10; // Round to 1 decimal place
+      avgTrustScore = Math.round(avgTrustScore * 10) / 10;
     }
+
+    // Get recommendation count
+    const { count: totalRecommendations } = await supabase
+      .from('recommendations')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId);
+
+    // Get photo count from restaurant_photos
+    const { count: totalPhotos } = await supabase
+      .from('restaurant_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId);
 
     const formattedRestaurant = {
       id: restaurant.id,
       name: restaurant.name,
-      address: restaurant.address,
+      address: restaurant.formatted_address || restaurant.address,
       city: restaurant.city,
       cuisineType: restaurant.category,
-      priceRange: undefined, // Add when schema supports it
-      phone: restaurant.phone || googleData?.phone,
-      website: restaurant.website || googleData?.website,
+      cuisineTypes: restaurant.cuisine_types,
+      priceRange: restaurant.price_range,
+      priceLevel: restaurant.price_level,
+      phone: restaurant.phone,
+      website: restaurant.website,
       latitude: restaurant.latitude,
       longitude: restaurant.longitude,
       avgTrustScore: avgTrustScore,
-      totalRecommendations: restaurant.recommendations?.[0]?.count || 0,
-      googleRating: googleData?.rating || null,
-      googleReviewCount: googleData?.reviewCount || null
+      totalRecommendations: totalRecommendations || 0,
+      totalPhotos: totalPhotos || 0,
+      googleRating: restaurant.google_rating,
+      googleReviewCount: restaurant.google_review_count,
+      // Metadata
+      googleDataFetchedAt: restaurant.google_data_fetched_at,
+      googlePlaceId: restaurant.google_place_id
     };
 
     console.log('✅ Restaurant fetched with avgTrustScore:', avgTrustScore, '(from', recTrustScores?.length, 'recommendations)');
@@ -270,7 +456,324 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/restaurants/:id/recommendations - Get tiered recommendations
+// =============================================================================
+// PHOTO GALLERY ENDPOINTS
+// =============================================================================
+
+/**
+ * GET /api/restaurants/:id/photos
+ * Get all community photos for a restaurant with user attribution
+ * Query params:
+ *   - limit (default 20)
+ *   - offset (default 0)
+ *   - dish_name (optional filter)
+ *   - userId (optional - to check if user has marked photos helpful)
+ */
+router.get('/:id/photos', async (req: Request, res: Response) => {
+  try {
+    const restaurantId = parseInt(req.params.id);
+    const {
+      limit = '20',
+      offset = '0',
+      dish_name,
+      userId
+    } = req.query;
+
+    const limitNum = Math.min(parseInt(limit as string) || 20, 50);
+    const offsetNum = parseInt(offset as string) || 0;
+
+    console.log('📷 Fetching restaurant photos:', { 
+      restaurantId, 
+      limit: limitNum, 
+      offset: offsetNum, 
+      dish_name,
+      userId 
+    });
+
+    // Build query
+    let query = supabase
+      .from('restaurant_photos')
+      .select(`
+        id,
+        ipfs_hash,
+        tag_type,
+        dish_name,
+        caption,
+        helpful_count,
+        created_at,
+        recommendation_id,
+        user_id,
+        users!user_id(
+          id,
+          display_name,
+          username,
+          avatar_url
+        )
+      `, { count: 'exact' })
+      .eq('restaurant_id', restaurantId)
+      .order('created_at', { ascending: false })
+      .range(offsetNum, offsetNum + limitNum - 1);
+
+    // Apply dish name filter if provided
+    if (dish_name && typeof dish_name === 'string') {
+      query = query.eq('dish_name', dish_name);
+    }
+
+    const { data: photos, error: photosError, count } = await query;
+
+    if (photosError) {
+      console.error('❌ Error fetching photos:', photosError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch photos: ' + photosError.message
+      });
+    }
+
+    // If userId provided, check which photos user has marked helpful
+    let userHelpfulSet = new Set<string>();
+    if (userId && typeof userId === 'string' && photos && photos.length > 0) {
+      const photoIds = photos.map(p => p.id);
+      const { data: helpfulMarks } = await supabase
+        .from('restaurant_photo_helpful')
+        .select('photo_id')
+        .eq('user_id', userId)
+        .in('photo_id', photoIds);
+
+      if (helpfulMarks) {
+        userHelpfulSet = new Set(helpfulMarks.map(h => h.photo_id));
+      }
+    }
+
+    // Format response - ensure tagType is included
+    const formattedPhotos: RestaurantPhoto[] = (photos || []).map(photo => ({
+      id: photo.id,
+      ipfsHash: photo.ipfs_hash,
+      tagType: photo.tag_type || 'other',  // Include tag type with fallback
+      dishName: photo.dish_name,
+      caption: photo.caption,
+      helpfulCount: photo.helpful_count || 0,
+      createdAt: photo.created_at,
+      recommendationId: photo.recommendation_id,
+      user: {
+        id: photo.users.id,
+        displayName: photo.users.display_name || photo.users.username || 'BocaBoca Member',
+        username: photo.users.username || '',
+        avatar: photo.users.avatar_url
+      },
+      userHasMarkedHelpful: userId ? userHelpfulSet.has(photo.id) : undefined
+    }));
+
+    console.log(`✅ Fetched ${formattedPhotos.length} photos for restaurant ${restaurantId}`);
+
+    return res.json({
+      success: true,
+      photos: formattedPhotos,
+      total: count || 0,
+      limit: limitNum,
+      offset: offsetNum
+    });
+
+  } catch (error) {
+    console.error('❌ Error in restaurant photos:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error: ' + (error as Error).message
+    });
+  }
+});
+
+/**
+ * GET /api/restaurants/:id/popular-dishes
+ * Get popular dishes with photo thumbnails for "Popular dishes" section
+ * Uses the restaurant_popular_dishes view
+ */
+router.get('/:id/popular-dishes', async (req: Request, res: Response) => {
+  try {
+    const restaurantId = parseInt(req.params.id);
+    const { limit = '10' } = req.query;
+    const limitNum = Math.min(parseInt(limit as string) || 10, 20);
+
+    console.log('🍽️ Fetching popular dishes with photos:', { restaurantId, limit: limitNum });
+
+    const { data: dishes, error } = await supabase
+      .from('restaurant_popular_dishes')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .order('recommendation_count', { ascending: false })
+      .limit(limitNum);
+
+    if (error) {
+      console.error('❌ Error fetching popular dishes:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch popular dishes: ' + error.message
+      });
+    }
+
+    // Format response
+    const formattedDishes: PopularDish[] = (dishes || []).map(dish => ({
+      dishName: dish.dish_name,
+      photoCount: dish.photo_count || 0,
+      recommendationCount: dish.recommendation_count || 0,
+      totalHelpful: dish.total_helpful || 0,
+      thumbnailHash: dish.thumbnail_hash
+    }));
+
+    console.log(`✅ Found ${formattedDishes.length} popular dishes for restaurant ${restaurantId}`);
+
+    return res.json({
+      success: true,
+      dishes: formattedDishes
+    });
+
+  } catch (error) {
+    console.error('❌ Error in popular dishes:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error: ' + (error as Error).message
+    });
+  }
+});
+
+/**
+ * POST /api/restaurants/:id/photos/:photoId/helpful
+ * Mark a photo as helpful (authenticated)
+ */
+router.post('/:id/photos/:photoId/helpful', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const restaurantId = parseInt(req.params.id);
+    const photoId = req.params.photoId;
+    const userId = req.user!.id;
+
+    console.log('👍 Marking photo as helpful:', { restaurantId, photoId, userId });
+
+    // Verify photo exists and belongs to this restaurant
+    const { data: photo, error: photoError } = await supabase
+      .from('restaurant_photos')
+      .select('id')
+      .eq('id', photoId)
+      .eq('restaurant_id', restaurantId)
+      .single();
+
+    if (photoError || !photo) {
+      return res.status(404).json({
+        success: false,
+        error: 'Photo not found'
+      });
+    }
+
+    // Insert helpful mark (will fail silently if already exists due to PK constraint)
+    const { error: insertError } = await supabase
+      .from('restaurant_photo_helpful')
+      .upsert(
+        { photo_id: photoId, user_id: userId },
+        { onConflict: 'photo_id,user_id', ignoreDuplicates: true }
+      );
+
+    if (insertError) {
+      console.error('❌ Error marking photo helpful:', insertError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to mark photo as helpful'
+      });
+    }
+
+    // Get updated helpful count
+    const { data: updatedPhoto } = await supabase
+      .from('restaurant_photos')
+      .select('helpful_count')
+      .eq('id', photoId)
+      .single();
+
+    console.log('✅ Photo marked as helpful');
+
+    return res.json({
+      success: true,
+      helpfulCount: updatedPhoto?.helpful_count || 0
+    });
+
+  } catch (error) {
+    console.error('❌ Error in mark helpful:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error: ' + (error as Error).message
+    });
+  }
+});
+
+/**
+ * DELETE /api/restaurants/:id/photos/:photoId/helpful
+ * Remove helpful mark from a photo (authenticated)
+ */
+router.delete('/:id/photos/:photoId/helpful', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const restaurantId = parseInt(req.params.id);
+    const photoId = req.params.photoId;
+    const userId = req.user!.id;
+
+    console.log('👎 Removing helpful mark:', { restaurantId, photoId, userId });
+
+    // Delete helpful mark
+    const { error: deleteError } = await supabase
+      .from('restaurant_photo_helpful')
+      .delete()
+      .eq('photo_id', photoId)
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      console.error('❌ Error removing helpful mark:', deleteError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to remove helpful mark'
+      });
+    }
+
+    // Get updated helpful count
+    const { data: updatedPhoto } = await supabase
+      .from('restaurant_photos')
+      .select('helpful_count')
+      .eq('id', photoId)
+      .single();
+
+    console.log('✅ Helpful mark removed');
+
+    return res.json({
+      success: true,
+      helpfulCount: updatedPhoto?.helpful_count || 0
+    });
+
+  } catch (error) {
+    console.error('❌ Error removing helpful:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error: ' + (error as Error).message
+    });
+  }
+});
+
+// =============================================================================
+// END PHOTO GALLERY ENDPOINTS
+// =============================================================================
+
+// =============================================================================
+// RECOMMENDATIONS ENDPOINT - UPDATED FOR FRONTEND COMPATIBILITY
+// =============================================================================
+
+/**
+ * GET /api/restaurants/:id/recommendations
+ * Get ALL recommendations with relationship flags for frontend categorization
+ * 
+ * Returns flat array with:
+ *   - is_friend: boolean (mutual follow)
+ *   - is_following: boolean (user follows author)
+ *   - is_followed_by: boolean (author follows user)
+ *   - taste_alignment: number (0-1 scale)
+ * 
+ * Frontend handles categorization:
+ *   - Your Network: is_friend || is_following || is_followed_by
+ *   - Similar Taste: !network && taste_alignment >= 0.70
+ *   - All Reviews: everyone
+ */
 router.get('/:id/recommendations', async (req: Request, res: Response) => {
   try {
     const restaurantId = parseInt(req.params.id);
@@ -282,7 +785,7 @@ router.get('/:id/recommendations', async (req: Request, res: Response) => {
       });
     }
 
-    console.log('🎯 Fetching tiered recommendations:', { restaurantId, userId });
+    console.log('🎯 Fetching recommendations with relationship flags:', { restaurantId, userId });
 
     // Step 1: Get user's own recommendations for this restaurant
     const { data: userRecommendations, error: userRecError } = await supabase
@@ -294,10 +797,12 @@ router.get('/:id/recommendations', async (req: Request, res: Response) => {
         context_tags,
         created_at,
         author_id,
+        trust_score,
         users!inner(
           id,
           display_name,
-          username
+          username,
+          avatar_url
         ),
         dishes(
           name,
@@ -347,7 +852,7 @@ router.get('/:id/recommendations', async (req: Request, res: Response) => {
       };
     }
 
-    // Step 2: Get all OTHER users' recommendations for this restaurant
+    // Step 2: Get ALL other users' recommendations for this restaurant
     const { data: recommendations, error: recError } = await supabase
       .from('recommendations')
       .select(`
@@ -358,10 +863,13 @@ router.get('/:id/recommendations', async (req: Request, res: Response) => {
         created_at,
         author_id,
         trust_score,
+        save_count,
+        comment_count,
         users!inner(
           id,
           display_name,
-          username
+          username,
+          avatar_url
         ),
         dishes(
           name,
@@ -384,61 +892,37 @@ router.get('/:id/recommendations', async (req: Request, res: Response) => {
       return res.json({
         success: true,
         userOwnReviews,
-        tier1: [],
-        tier2: [],
-        tier3: [],
+        all_network: [],
         totalCount: 0
       });
     }
 
-    // Step 3: Get user's social connections and taste alignments
-    const [socialConnections, tasteAlignments] = await Promise.all([
-      getUserSocialConnections(userId),
+    // Step 3: Get BIDIRECTIONAL social connections and taste alignments
+    const [connections, tasteAlignments] = await Promise.all([
+      getBidirectionalConnections(userId),
       getTasteAlignments(userId)
     ]);
 
     console.log('📊 User context:', {
-      connectionsCount: socialConnections.size,
-      alignmentsCount: tasteAlignments.size
+      following: connections.following.size,
+      followers: connections.followers.size,
+      mutuals: connections.mutuals.size,
+      tasteAlignments: tasteAlignments.size
     });
 
-    // Step 4: Categorize recommendations into tiers
-    const tier1: TieredRecommendation[] = [];
-    const tier2: TieredRecommendation[] = [];
-    const tier3: TieredRecommendation[] = [];
+    // Step 4: Build flat array with relationship flags
+    const allNetworkRecs: NetworkRecommendation[] = recommendations.map(rec => {
+      const authorId = rec.author_id;
+      
+      // Determine relationship flags
+      const is_following = connections.following.has(authorId);
+      const is_followed_by = connections.followers.has(authorId);
+      const is_friend = connections.mutuals.has(authorId); // mutual follow
+      
+      // Get taste alignment (0-1 scale)
+      const taste_alignment = tasteAlignments.get(authorId) || 0;
 
-    for (const rec of recommendations) {
-      const isFriend = socialConnections.has(rec.author_id);
-      const tasteMatch = tasteAlignments.get(rec.author_id);
-      const tasteMatchPercent = tasteMatch ? Math.round(tasteMatch * 100) : 0;
-
-      // Determine tier
-      let tier: 1 | 2 | 3;
-      let isAnonymized = false;
-
-      if (isFriend && tasteMatchPercent >= 70) {
-        // Tier 1: Friends with good taste alignment
-        tier = 1;
-      } else if (!isFriend && tasteMatchPercent >= 80) {
-        // Tier 2: High taste match strangers (anonymized)
-        tier = 2;
-        isAnonymized = true;
-      } else if (isFriend) {
-        // Tier 3: Friends with lower taste match
-        tier = 3;
-      } else {
-        // Skip: strangers with low taste match
-        continue;
-      }
-
-      // Get user credibility for tier 2
-      let credibility;
-      if (tier === 2) {
-        credibility = await getUserCredibility(rec.author_id);
-      }
-
-      // Build recommendation object
-      const tieredRec: TieredRecommendation = {
+      return {
         id: rec.id,
         rating: rec.overall_rating || 0,
         reviewText: rec.content || '',
@@ -449,58 +933,78 @@ router.get('/:id/recommendations', async (req: Request, res: Response) => {
         })),
         contextTags: rec.context_tags || [],
         createdAt: rec.created_at,
-        recommender: {
-          id: isAnonymized ? 'anonymous' : rec.author_id,
-          displayName: isAnonymized 
-            ? `Anonymous user with ${tasteMatchPercent}% taste match`
-            : (rec.users.display_name || rec.users.username || 'User'),
-          isAnonymized,
-          tasteMatch: tasteMatchPercent,
-          socialDistance: isFriend ? 1 : undefined,
-          credibility
+        author: {
+          id: authorId,
+          displayName: rec.users.display_name || rec.users.username || 'BocaBoca Member',
+          username: rec.users.username || '',
+          avatar: rec.users.avatar_url
         },
-        tier
+        // Relationship flags for frontend categorization
+        is_friend,
+        is_following,
+        is_followed_by,
+        taste_alignment,
+        // Additional metadata
+        trust_score: rec.trust_score,
+        engagement: {
+          saves: rec.save_count || 0,
+          comments: rec.comment_count || 0,
+          helpful: 0 // Can be added if tracked
+        }
       };
+    });
 
-      // Add to appropriate tier
-      if (tier === 1) tier1.push(tieredRec);
-      else if (tier === 2) tier2.push(tieredRec);
-      else tier3.push(tieredRec);
-    }
+    // Step 5: Sort by relevance (network first, then taste match, then date)
+    allNetworkRecs.sort((a, b) => {
+      // Priority 1: Network connections first
+      const aInNetwork = a.is_friend || a.is_following || a.is_followed_by;
+      const bInNetwork = b.is_friend || b.is_following || b.is_followed_by;
+      if (aInNetwork && !bInNetwork) return -1;
+      if (!aInNetwork && bInNetwork) return 1;
+      
+      // Priority 2: Higher taste alignment
+      if (b.taste_alignment !== a.taste_alignment) {
+        return b.taste_alignment - a.taste_alignment;
+      }
+      
+      // Priority 3: More recent
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
-    // Step 5: Sort each tier by taste match
-    const sortByTasteMatch = (a: TieredRecommendation, b: TieredRecommendation) => {
-      return (b.recommender.tasteMatch || 0) - (a.recommender.tasteMatch || 0);
-    };
+    // Calculate summary stats for logging
+    const networkCount = allNetworkRecs.filter(r => 
+      r.is_friend || r.is_following || r.is_followed_by
+    ).length;
+    const similarTasteCount = allNetworkRecs.filter(r => 
+      !r.is_friend && !r.is_following && !r.is_followed_by && r.taste_alignment >= 0.70
+    ).length;
 
-    tier1.sort(sortByTasteMatch);
-    tier2.sort(sortByTasteMatch);
-    tier3.sort(sortByTasteMatch);
-
-    console.log('✅ Tiered recommendations:', {
+    console.log('✅ Recommendations with relationship flags:', {
       userOwnReviews: userOwnReviews ? userOwnReviews.totalReviews : 0,
-      tier1: tier1.length,
-      tier2: tier2.length,
-      tier3: tier3.length,
-      total: tier1.length + tier2.length + tier3.length
+      totalRecommendations: allNetworkRecs.length,
+      inNetwork: networkCount,
+      similarTaste: similarTasteCount,
+      other: allNetworkRecs.length - networkCount - similarTasteCount
     });
 
     return res.json({
       success: true,
       userOwnReviews,
-      tier1,
-      tier2,
-      tier3,
-      totalCount: tier1.length + tier2.length + tier3.length
+      all_network: allNetworkRecs,
+      totalCount: allNetworkRecs.length
     });
 
   } catch (error) {
-    console.error('❌ Error in tiered recommendations:', error);
+    console.error('❌ Error in recommendations:', error);
     return res.status(500).json({
       error: 'Internal server error: ' + (error as Error).message
     });
   }
 });
+
+// =============================================================================
+// END RECOMMENDATIONS ENDPOINT
+// =============================================================================
 
 // GET /api/restaurants/:id/dishes - Get aggregated dish ratings by taste similarity
 router.get('/:id/dishes', async (req: Request, res: Response) => {

@@ -10,7 +10,6 @@ module bounty::bounty {
     use iota::event;
     use iota::table::{Self, Table};
     use bocaboca::token::TOKEN;
-    use user_status::user_status;
 
     /// One-time witness for initialization
     public struct BOUNTY has drop {}

@@ -1,0 +1,158 @@
+{
+  "hub": {
+    "title": "Share",
+    "subtitle": "What would you like to share with your network?",
+    "comingSoon": "Coming Soon",
+    "rewardsHint": "Quality contributions earn BOCA tokens.",
+    "learnMore": "Learn more →",
+    "options": {
+      "recommendation": {
+        "title": "Recommendation",
+        "description": "Share a restaurant you love with your friends"
+      },
+      "list": {
+        "title": "Curated List",
+        "description": "Group restaurants by theme (e.g., \"Best Tacos in Town\")"
+      },
+      "request": {
+        "title": "Request",
+        "description": "Ask your network for recommendations"
+      }
+    }
+  },
+  "recommendation": {
+    "title": "Share a Recommendation",
+    "restaurant": {
+      "label": "Which restaurant?",
+      "nearLocation": "Near {location}",
+      "changeLocation": "Change"
+    },
+    "rating": {
+      "overallLabel": "How would you rate it overall?"
+    },
+    "ratingLabels": {
+      "low": "Not recommended",
+      "medium": "It's okay",
+      "high": "Really good",
+      "excellent": "Exceptional!"
+    },
+    "review": {
+      "label": "Tell us about your experience",
+      "placeholder": "What made this place special? Any dishes you'd recommend?",
+      "hint": "Tip: Mention specific dishes or experiences to help others"
+    },
+    "context": {
+      "label": "Best for"
+    },
+    "contextTags": {
+      "dateNight": "Date Night",
+      "familyFriendly": "Family Friendly",
+      "businessLunch": "Business Lunch",
+      "quickBite": "Quick Bite",
+      "specialOccasion": "Special Occasion",
+      "casualDining": "Casual Dining",
+      "outdoorSeating": "Outdoor Seating",
+      "goodForGroups": "Good for Groups"
+    },
+    "dishes": {
+      "label": "Rate specific dishes",
+      "optional": "(optional)",
+      "addPlaceholder": "Dish name (e.g., Cacio e Pepe)",
+      "addButton": "Add"
+    },
+    "photos": {
+      "label": "Add photos",
+      "optional": "(optional, up to 5)",
+      "add": "Add"
+    },
+    "submit": {
+      "button": "Share Recommendation",
+      "submitting": "Sharing..."
+    }
+  },
+  "list": {
+    "title": "Create a Curated List",
+    "comingSoonMessage": "Curated lists are coming soon! You'll be able to group your favorite restaurants by theme and share them with your network."
+  },
+  "request": {
+    "title": "Ask for Recommendations",
+    "comingSoonMessage": "Requests are coming soon! You'll be able to ask your network for restaurant suggestions and even set bounties for the best recommendations."
+  },
+  "autocomplete": {
+    "placeholder": "Search for a restaurant...",
+    "ariaLabel": "Restaurant search",
+    "minCharsHint": "Type at least 2 characters to search",
+    "adding": "Adding restaurant...",
+    "noResults": "No restaurants found",
+    "errors": {
+      "searchFailed": "Failed to search restaurants. Please try again.",
+      "addFailed": "Failed to add restaurant. Please try again."
+    }
+  },
+  "lists": {
+    "createFlow": {
+      "title": "Create a Curated List",
+      "aria": {
+        "close": "Close dialog"
+      },
+      "steps": {
+        "stepNumber": "Step {step}",
+        "details": "List details",
+        "selectRestaurants": "Select restaurants",
+        "review": "Review and create"
+      },
+      "form": {
+        "titleLabel": "List title",
+        "titlePlaceholder": "e.g., Best Tacos in Town",
+        "characterCount": "{count}/{max} characters",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "What's this list about?",
+        "optional": "optional",
+        "visibilityLabel": "Who can see this list?",
+        "visibility": {
+          "public": "Public - Anyone can see",
+          "followers": "Followers only",
+          "private": "Private - Only you"
+        }
+      },
+      "search": {
+        "label": "Search for restaurants to add",
+        "placeholder": "Type restaurant name...",
+        "searching": "Searching...",
+        "noResults": "No restaurants found for \"{query}\"",
+        "hint": "Search and add restaurants to your list",
+        "add": "Add",
+        "added": "Added"
+      },
+      "selected": {
+        "title": "Selected restaurants ({count})",
+        "remove": "Remove"
+      },
+      "review": {
+        "detailsTitle": "List Details",
+        "visibility": "Visibility",
+        "restaurantsTitle": "Restaurants ({count})"
+      },
+      "buttons": {
+        "cancel": "Cancel",
+        "back": "Back",
+        "next": "Next",
+        "create": "Create List",
+        "creating": "Creating..."
+      },
+      "toast": {
+        "added": "{name} added to list",
+        "alreadyAdded": "Restaurant already in list",
+        "created": "List created successfully!"
+      },
+      "errors": {
+        "searchFailed": "Failed to search restaurants",
+        "loginRequired": "Please log in to create a list",
+        "titleRequired": "Please enter a title for your list",
+        "restaurantRequired": "Please add at least one restaurant",
+        "createFailed": "Failed to create list. Please try again.",
+        "invalidResponse": "Invalid response from server"
+      }
+    }
+  }
+}

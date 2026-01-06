@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Check } from 'lucide-react';
+import { X, Plus, Check, FolderHeart, Bookmark, Layers, ChefHat } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import CreateListForm from './CreateListForm';
 import savedListsService, { SavedList } from '@/lib/services/saved-lists-service';
 
@@ -12,12 +13,26 @@ interface SaveToListModalProps {
   onSave: () => void;
 }
 
+// Map list types to clean icons (no emoji)
+const getListIcon = (listType: string) => {
+  switch (listType) {
+    case 'places':
+      return FolderHeart;
+    case 'bookmarks':
+      return Bookmark;
+    case 'mixed':
+    default:
+      return Layers;
+  }
+};
+
 export default function SaveToListModal({
   itemType,
   itemId,
   onClose,
   onSave
 }: SaveToListModalProps) {
+  const t = useTranslations();
   const [lists, setLists] = useState<SavedList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [showCreateNew, setShowCreateNew] = useState(false);
@@ -33,11 +48,9 @@ export default function SaveToListModal({
     try {
       setIsLoading(true);
       const response = await savedListsService.getUserLists();
-      // Handle different response formats
       const userLists = Array.isArray(response) ? response : (response.lists || response.data || []);
       setLists(userLists);
       
-      // Check which lists already contain this item
       const alreadySaved = new Set<string>();
       for (const list of userLists) {
         try {
@@ -52,7 +65,7 @@ export default function SaveToListModal({
       setSavedToLists(alreadySaved);
     } catch (error) {
       console.error('Error fetching lists:', error);
-      showToast('Failed to load lists', 'error');
+      showToast(t('savedLists.modal.toast.loadFailed'), 'error');
     } finally {
       setIsLoading(false);
     }
@@ -60,9 +73,9 @@ export default function SaveToListModal({
 
   const getTitle = () => {
     switch(itemType) {
-      case 'restaurant': return 'Add to Try List';
-      case 'recommendation': return 'Bookmark to List';
-      case 'guide': return 'Save Guide to List';
+      case 'restaurant': return t('savedLists.modal.title.restaurant');
+      case 'recommendation': return t('savedLists.modal.title.recommendation');
+      case 'guide': return t('savedLists.modal.title.guide');
     }
   };
 
@@ -76,12 +89,12 @@ export default function SaveToListModal({
         itemId
       });
 
-      showToast('Saved successfully!');
+      showToast(t('savedLists.modal.toast.saved'));
       onSave();
       onClose();
     } catch (error) {
       console.error('Error saving to list:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to save', 'error');
+      showToast(error instanceof Error ? error.message : t('savedLists.modal.toast.saveFailed'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -95,16 +108,13 @@ export default function SaveToListModal({
     setTimeout(() => toast.remove(), 3000);
   };
 
-  // FIXED: Auto-save item when list is created
   const handleListCreated = async (newList: SavedList) => {
     console.log('New list created:', newList);
     
     try {
-      // Update the lists array
       setLists([...lists, newList]);
       setShowCreateNew(false);
       
-      // Immediately save the item to the new list
       setIsSaving(true);
       console.log('Auto-saving item to new list...');
       
@@ -114,47 +124,38 @@ export default function SaveToListModal({
       });
 
       console.log('Item saved successfully to new list');
-      showToast(`Created "${newList.name}" and saved item!`);
+      showToast(t('savedLists.modal.toast.createdAndSaved', { name: newList.name }));
       
-      // Trigger parent refresh and close modal
       onSave();
       onClose();
     } catch (error) {
       console.error('Error saving to new list:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to save to new list', 'error');
-      // Keep modal open on error so user can try again
+      showToast(error instanceof Error ? error.message : t('savedLists.modal.toast.saveToNewFailed'), 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleListClick = (list: SavedList) => {
-    // Debug logging
-    console.log('List clicked:', list.id, list.name);
-    console.log('Already saved?', savedToLists.has(list.id));
+    if (savedToLists.has(list.id)) return;
     
-    // Don't allow selecting already-saved lists
-    if (savedToLists.has(list.id)) {
-      console.log('Cannot select - already saved to this list');
-      return;
-    }
-    
-    // Close create form if open
     if (showCreateNew) {
       setShowCreateNew(false);
     }
     
-    // Select the list
     setSelectedListId(list.id);
-    console.log('List selected:', list.id);
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
+        {/* Header */}
         <div className="modal-header">
+          <div className="header-icon">
+            <Bookmark className="w-5 h-5 text-[#E65441]" />
+          </div>
           <h2>{getTitle()}</h2>
-          <button onClick={onClose} className="close-button">
+          <button onClick={onClose} className="close-button" aria-label={t('common.close')}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -163,47 +164,56 @@ export default function SaveToListModal({
           {isLoading ? (
             <div className="loading-state">
               <div className="spinner" />
-              <p>Loading your lists...</p>
+              <p>{t('savedLists.modal.loading')}</p>
             </div>
           ) : (
             <>
               <div className="list-selector">
                 {lists.length === 0 ? (
                   <div className="empty-state">
-                    <p>You don't have any lists yet.</p>
-                    <p className="text-sm text-gray-500">Create your first list to get started!</p>
+                    <div className="empty-icon">
+                      <FolderHeart className="w-8 h-8 text-[#E65441]" />
+                    </div>
+                    <p className="empty-title">{t('savedLists.modal.empty.title')}</p>
+                    <p className="empty-description">{t('savedLists.modal.empty.description')}</p>
                   </div>
                 ) : (
-                  lists.map(list => (
-                    <div
-                      key={list.id}
-                      className={`list-option ${selectedListId === list.id ? 'selected' : ''} ${savedToLists.has(list.id) ? 'already-saved' : ''}`}
-                      onClick={() => handleListClick(list)}
-                    >
-                      <div className="list-icon">{list.icon || '📚'}</div>
-                      <div className="list-info">
-                        <div className="list-name">{list.name}</div>
-                        {list.description && (
-                          <div className="list-description">{list.description}</div>
-                        )}
-                        <div className="list-meta">
-                          {list.itemCount || 0} items
+                  lists.map(list => {
+                    const ListIcon = getListIcon(list.listType);
+                    const isSelected = selectedListId === list.id;
+                    const isAlreadySaved = savedToLists.has(list.id);
+                    
+                    return (
+                      <div
+                        key={list.id}
+                        className={`list-option ${isSelected ? 'selected' : ''} ${isAlreadySaved ? 'already-saved' : ''}`}
+                        onClick={() => handleListClick(list)}
+                      >
+                        {/* Clean icon container instead of emoji */}
+                        <div className={`list-icon-container ${isSelected ? 'selected' : ''}`}>
+                          <ListIcon className="w-5 h-5" />
                         </div>
-                      </div>
-                      {savedToLists.has(list.id) ? (
-                        <div className="saved-indicator">
-                          <Check className="w-5 h-5 text-green-600" />
-                          <span className="text-sm text-green-600">Saved</span>
-                        </div>
-                      ) : (
-                        selectedListId === list.id && (
-                          <div className="selected-indicator">
-                            <div className="radio-selected" />
+                        
+                        <div className="list-info">
+                          <div className="list-name">{list.name}</div>
+                          <div className="list-meta">
+                            {list.itemCount || 0} {(list.itemCount || 0) === 1 ? 'item' : 'items'}
                           </div>
-                        )
-                      )}
-                    </div>
-                  ))
+                        </div>
+                        
+                        {isAlreadySaved ? (
+                          <div className="saved-badge">
+                            <Check className="w-4 h-4" />
+                            <span>Saved</span>
+                          </div>
+                        ) : isSelected ? (
+                          <div className="selected-indicator">
+                            <div className="radio-dot" />
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })
                 )}
               </div>
 
@@ -211,12 +221,12 @@ export default function SaveToListModal({
                 <button 
                   onClick={() => {
                     setShowCreateNew(true);
-                    setSelectedListId(null); // Clear selection when creating new
+                    setSelectedListId(null);
                   }}
                   className="create-new-button"
                 >
                   <Plus className="w-4 h-4" />
-                  Create New List
+                  {t('savedLists.modal.actions.createNew')}
                 </button>
               ) : (
                 <div className="create-form-wrapper">
@@ -233,18 +243,18 @@ export default function SaveToListModal({
           )}
         </div>
 
-        {/* Only show footer when NOT creating a new list */}
+        {/* Footer - only when not creating */}
         {!showCreateNew && (
           <div className="modal-footer">
             <button onClick={onClose} className="button-secondary">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button 
               onClick={handleSave} 
               disabled={!selectedListId || isSaving}
               className="button-primary"
             >
-              {isSaving ? 'Saving...' : 'Save'}
+              {isSaving ? t('savedLists.modal.actions.saving') : t('common.save')}
             </button>
           </div>
         )}
@@ -257,7 +267,7 @@ export default function SaveToListModal({
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
+          background: rgba(31, 30, 42, 0.5);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -268,26 +278,38 @@ export default function SaveToListModal({
         .modal-content {
           background: white;
           border-radius: 1rem;
-          max-width: 500px;
+          max-width: 420px;
           width: 100%;
           max-height: 90vh;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 20px 25px -5px rgba(31, 30, 42, 0.15);
         }
 
         .modal-header {
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          padding: 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
+          gap: 0.75rem;
+          padding: 1.25rem 1.5rem;
+          border-bottom: 1px solid #f3f4f6;
+        }
+
+        .header-icon {
+          width: 2.25rem;
+          height: 2.25rem;
+          border-radius: 0.5rem;
+          background: linear-gradient(135deg, #FFE8E4 0%, #FFF4E1 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .modal-header h2 {
+          flex: 1;
           margin: 0;
-          font-size: 1.25rem;
+          font-size: 1.125rem;
           font-weight: 600;
+          color: #1F1E2A;
         }
 
         .close-button {
@@ -296,17 +318,19 @@ export default function SaveToListModal({
           cursor: pointer;
           padding: 0.5rem;
           border-radius: 0.5rem;
-          transition: background 0.2s;
+          color: #6b7280;
+          transition: all 0.2s;
         }
 
         .close-button:hover {
           background: #f3f4f6;
+          color: #1F1E2A;
         }
 
         .modal-body {
           flex: 1;
           overflow-y: auto;
-          padding: 1.5rem;
+          padding: 1.25rem 1.5rem;
         }
 
         .loading-state {
@@ -314,15 +338,15 @@ export default function SaveToListModal({
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 2rem;
+          padding: 2.5rem;
           gap: 1rem;
         }
 
         .spinner {
           width: 2rem;
           height: 2rem;
-          border: 3px solid #e5e7eb;
-          border-top-color: #3b82f6;
+          border: 3px solid #FFE8E4;
+          border-top-color: #E65441;
           border-radius: 50%;
           animation: spin 1s linear infinite;
         }
@@ -334,39 +358,54 @@ export default function SaveToListModal({
         .list-selector {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.5rem;
           margin-bottom: 1rem;
         }
 
         .list-option {
           display: flex;
           align-items: center;
-          gap: 1rem;
-          padding: 1rem;
-          border: 2px solid #e5e7eb;
+          gap: 0.875rem;
+          padding: 0.875rem 1rem;
+          border: 2px solid #f3f4f6;
           border-radius: 0.75rem;
           cursor: pointer;
           transition: all 0.2s;
+          background: white;
         }
 
         .list-option:hover:not(.already-saved) {
-          border-color: #3b82f6;
-          background: #eff6ff;
+          border-color: #E65441;
+          background: #FFF4E1;
         }
 
         .list-option.selected {
-          border-color: #3b82f6;
-          background: #eff6ff;
+          border-color: #E65441;
+          background: #FFF4E1;
         }
 
         .list-option.already-saved {
           opacity: 0.6;
           cursor: not-allowed;
+          background: #f9fafb;
         }
 
-        .list-icon {
-          font-size: 1.5rem;
+        /* Clean icon container - no emoji! */
+        .list-icon-container {
+          width: 2.5rem;
+          height: 2.5rem;
+          border-radius: 0.625rem;
+          background: linear-gradient(135deg, #E65441 0%, #C94232 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
           flex-shrink: 0;
+        }
+
+        .list-icon-container.selected {
+          background: linear-gradient(135deg, #FF644A 0%, #E65441 100%);
+          box-shadow: 0 4px 12px rgba(230, 84, 65, 0.3);
         }
 
         .list-info {
@@ -376,44 +415,70 @@ export default function SaveToListModal({
 
         .list-name {
           font-weight: 600;
-          font-size: 1rem;
-          margin-bottom: 0.25rem;
-        }
-
-        .list-description {
-          font-size: 0.875rem;
-          color: #6b7280;
-          margin-bottom: 0.25rem;
+          font-size: 0.9375rem;
+          color: #1F1E2A;
+          margin-bottom: 0.125rem;
         }
 
         .list-meta {
-          font-size: 0.75rem;
+          font-size: 0.8125rem;
           color: #9ca3af;
         }
 
-        .saved-indicator {
+        .saved-badge {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.375rem;
+          padding: 0.25rem 0.625rem;
+          background: #ecfdf5;
+          border-radius: 1rem;
+          color: #059669;
+          font-size: 0.75rem;
+          font-weight: 500;
         }
 
         .selected-indicator {
-          flex-shrink: 0;
-        }
-
-        .radio-selected {
           width: 1.25rem;
           height: 1.25rem;
           border-radius: 50%;
-          background: #3b82f6;
-          border: 3px solid white;
-          box-shadow: 0 0 0 2px #3b82f6;
+          border: 2px solid #E65441;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .radio-dot {
+          width: 0.625rem;
+          height: 0.625rem;
+          border-radius: 50%;
+          background: #E65441;
         }
 
         .empty-state {
           text-align: center;
-          padding: 2rem;
-          color: #6b7280;
+          padding: 2rem 1rem;
+        }
+
+        .empty-icon {
+          width: 4rem;
+          height: 4rem;
+          border-radius: 1rem;
+          background: linear-gradient(135deg, #FFE8E4 0%, #FFF4E1 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 1rem;
+        }
+
+        .empty-title {
+          font-weight: 600;
+          color: #1F1E2A;
+          margin-bottom: 0.25rem;
+        }
+
+        .empty-description {
+          font-size: 0.875rem;
+          color: #9ca3af;
         }
 
         .create-new-button {
@@ -428,26 +493,29 @@ export default function SaveToListModal({
           background: white;
           color: #6b7280;
           font-weight: 500;
+          font-size: 0.875rem;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .create-new-button:hover {
-          border-color: #3b82f6;
-          color: #3b82f6;
-          background: #eff6ff;
+          border-color: #E65441;
+          color: #E65441;
+          background: #FFF4E1;
         }
 
         .create-form-wrapper {
           margin-top: 0.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid #f3f4f6;
         }
 
         .modal-footer {
           display: flex;
           justify-content: flex-end;
           gap: 0.75rem;
-          padding: 1.5rem;
-          border-top: 1px solid #e5e7eb;
+          padding: 1.25rem 1.5rem;
+          border-top: 1px solid #f3f4f6;
         }
 
         .button-secondary {
@@ -456,27 +524,31 @@ export default function SaveToListModal({
           border-radius: 0.5rem;
           background: white;
           font-weight: 500;
+          font-size: 0.875rem;
+          color: #4b5563;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .button-secondary:hover {
           background: #f9fafb;
+          border-color: #9ca3af;
         }
 
         .button-primary {
-          padding: 0.625rem 1.25rem;
+          padding: 0.625rem 1.5rem;
           border: none;
           border-radius: 0.5rem;
-          background: #3b82f6;
+          background: #FF644A;
           color: white;
           font-weight: 500;
+          font-size: 0.875rem;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .button-primary:hover:not(:disabled) {
-          background: #2563eb;
+          background: #E65441;
         }
 
         .button-primary:disabled {
@@ -490,7 +562,7 @@ export default function SaveToListModal({
           right: 2rem;
           padding: 1rem 1.5rem;
           border-radius: 0.5rem;
-          background: #10b981;
+          background: #059669;
           color: white;
           font-weight: 500;
           box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -499,7 +571,7 @@ export default function SaveToListModal({
         }
 
         :global(.toast-error) {
-          background: #ef4444;
+          background: #E65441;
         }
 
         @keyframes slideIn {

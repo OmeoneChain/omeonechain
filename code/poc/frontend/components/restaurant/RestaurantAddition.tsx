@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MapPin, Plus, Search, Check, AlertCircle, Star, ExternalLink, Loader } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 // Updated Restaurant interface with integer ID
 interface Restaurant {
@@ -58,11 +59,12 @@ interface EnhancedRestaurantAdditionProps {
   defaultCity?: string;
 }
 
-const CUISINE_TYPES = [
-  'Brasileira', 'Nordestina', 'Mineira', 'Italiana', 'Japonesa', 'Chinesa',
-  'Francesa', 'Mediterranea', 'Frutos do Mar', 'Steakhouse', 'Fast Food',
-  'Cafe', 'Vegetariana', 'Vegana', 'Internacional', 'Árabe', 'Indiana', 'Tailandesa', 'Outra'
-];
+// Cuisine type keys for translation lookup
+const CUISINE_TYPE_KEYS = [
+  'brazilian', 'northeastern', 'mineira', 'italian', 'japanese', 'chinese',
+  'french', 'mediterranean', 'seafood', 'steakhouse', 'fastFood',
+  'cafe', 'vegetarian', 'vegan', 'international', 'arabic', 'indian', 'thai', 'other'
+] as const;
 
 const SUPPORTED_CITIES = [
   { name: 'Brasília', country: 'Brazil', state: 'DF' },
@@ -76,6 +78,10 @@ export default function RestaurantAddition({
   userWallet,
   defaultCity = 'Brasília'
 }: EnhancedRestaurantAdditionProps) {
+  const t = useTranslations('common');
+  const tCuisine = useTranslations('common.cuisineTypes');
+  const tRest = useTranslations('common.restaurants.addition');
+
   const [searchMode, setSearchMode] = useState<'search' | 'add'>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Restaurant[]>([]);
@@ -175,13 +181,13 @@ export default function RestaurantAddition({
         console.warn('Restaurant search failed:', response.status);
         setSearchResults([]);
         setSuggestions([]);
-        setErrors({ search: 'Erro ao buscar restaurantes. Tente novamente.' });
+        setErrors({ search: tRest('search.error') });
       }
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
       setSuggestions([]);
-      setErrors({ search: 'Erro ao buscar restaurantes. Tente novamente.' });
+      setErrors({ search: tRest('search.error') });
     } finally {
       setLoading(false);
     }
@@ -196,7 +202,7 @@ export default function RestaurantAddition({
   // Get current location for new restaurant
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setErrors({ location: 'Geolocalização não é suportada pelo seu navegador' });
+      setErrors({ location: tRest('geolocation.notSupported') });
       return;
     }
 
@@ -212,16 +218,16 @@ export default function RestaurantAddition({
         setErrors(prev => ({ ...prev, location: '' }));
       },
       (error) => {
-        let errorMessage = 'Não foi possível obter sua localização';
+        let errorMessage = tRest('geolocation.failed');
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = 'Permissão de localização negada';
+            errorMessage = tRest('geolocation.permissionDenied');
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Localização não disponível';
+            errorMessage = tRest('geolocation.unavailable');
             break;
           case error.TIMEOUT:
-            errorMessage = 'Tempo limite para obter localização';
+            errorMessage = tRest('geolocation.timeout');
             break;
         }
         setErrors({ location: errorMessage });
@@ -236,33 +242,33 @@ export default function RestaurantAddition({
     const newErrors: Record<string, string> = {};
     
     if (!newRestaurant.name?.trim()) {
-      newErrors.name = 'Nome do restaurante é obrigatório';
+      newErrors.name = tRest('validation.nameRequired');
     } else if (newRestaurant.name.length < 2) {
-      newErrors.name = 'Nome deve ter pelo menos 2 caracteres';
+      newErrors.name = tRest('validation.nameTooShort');
     }
     
     if (!newRestaurant.address?.trim()) {
-      newErrors.address = 'Endereço é obrigatório';
+      newErrors.address = tRest('validation.addressRequired');
     } else if (newRestaurant.address.length < 10) {
-      newErrors.address = 'Por favor, forneça um endereço mais detalhado';
+      newErrors.address = tRest('validation.addressTooShort');
     }
     
     if (!newRestaurant.latitude || !newRestaurant.longitude) {
-      newErrors.location = 'Localização é obrigatória - use GPS ou insira manualmente';
+      newErrors.location = tRest('validation.locationRequired');
     }
 
     if (newRestaurant.website && newRestaurant.website.trim()) {
       try {
         new URL(newRestaurant.website);
       } catch {
-        newErrors.website = 'URL do website inválida';
+        newErrors.website = tRest('validation.websiteInvalid');
       }
     }
 
     if (newRestaurant.phone && newRestaurant.phone.trim()) {
       const phoneRegex = /^[\+]?[0-9\s\-\(\)]{8,}$/;
       if (!phoneRegex.test(newRestaurant.phone.replace(/\s/g, ''))) {
-        newErrors.phone = 'Formato de telefone inválido';
+        newErrors.phone = tRest('validation.phoneInvalid');
       }
     }
     
@@ -326,9 +332,9 @@ export default function RestaurantAddition({
       setSearchMode('search');
       setErrors({});
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating restaurant:', error);
-      setErrors({ submit: `Erro ao adicionar restaurante: ${error.message}` });
+      setErrors({ submit: tRest('apiError', { message: error.message }) });
     } finally {
       setIsSubmitting(false);
     }
@@ -350,7 +356,7 @@ export default function RestaurantAddition({
 
     return (
       <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
-        Trust {score.toFixed(1)}
+        {tRest('search.trust', { score: score.toFixed(1) })}
       </div>
     );
   };
@@ -363,9 +369,9 @@ export default function RestaurantAddition({
           <div className="flex items-center gap-3">
             <Check className="h-5 w-5 text-green-600" />
             <div>
-              <h3 className="font-medium text-green-900">Restaurante adicionado!</h3>
+              <h3 className="font-medium text-green-900">{tRest('success.title')}</h3>
               <p className="text-sm text-green-700 mt-1">
-                O restaurante foi adicionado à base de dados e está sendo verificado.
+                {tRest('success.message')}
               </p>
             </div>
           </div>
@@ -383,7 +389,7 @@ export default function RestaurantAddition({
           }`}
         >
           <Search className="mr-2 h-4 w-4 inline" />
-          Buscar Existente
+          {tRest('modeToggle.searchExisting')}
         </button>
         <button
           onClick={() => setSearchMode('add')}
@@ -394,7 +400,7 @@ export default function RestaurantAddition({
           }`}
         >
           <Plus className="mr-2 h-4 w-4 inline" />
-          Adicionar Novo
+          {tRest('modeToggle.addNew')}
         </button>
       </div>
 
@@ -405,7 +411,7 @@ export default function RestaurantAddition({
             <div className="relative">
               <input
                 type="text"
-                placeholder={`Buscar restaurantes em ${defaultCity}...`}
+                placeholder={tRest('search.placeholder', { city: defaultCity })}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -421,7 +427,7 @@ export default function RestaurantAddition({
             {loading && (
               <p className="mt-2 text-sm text-gray-500 flex items-center">
                 <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full mr-2"></div>
-                Buscando restaurantes...
+                {tRest('search.searching')}
               </p>
             )}
             
@@ -433,7 +439,7 @@ export default function RestaurantAddition({
           {/* Recent Searches */}
           {!searchQuery && recentSearches.length > 0 && (
             <div className="border-t pt-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Buscas recentes:</h4>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">{tRest('search.recentSearches')}</h4>
               <div className="flex flex-wrap gap-2">
                 {recentSearches.map((search, index) => (
                   <button
@@ -452,7 +458,7 @@ export default function RestaurantAddition({
           {showSuggestions && suggestions.length > 0 && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-3 text-orange-600">
-                Você quis dizer...?
+                {tRest('search.didYouMean')}
               </h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {suggestions.map((suggestion, index) => (
@@ -483,9 +489,9 @@ export default function RestaurantAddition({
                             </span>
                           )}
                           <span className="text-orange-600">
-                            Similaridade: {Math.round(suggestion.similarity * 100)}%
+                            {tRest('search.similarity', { percent: Math.round(suggestion.similarity * 100) })}
                           </span>
-                          <span className="ml-2 text-gray-500">ID: {suggestion.restaurant.id}</span>
+                          <span className="ml-2 text-gray-500">{tRest('search.id', { id: suggestion.restaurant.id })}</span>
                         </div>
                       </div>
                     </div>
@@ -508,7 +514,7 @@ export default function RestaurantAddition({
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium text-gray-900">{restaurant.name}</h3>
                       {restaurant.verified && (
-                        <Check className="h-4 w-4 text-green-600" title="Verificado" />
+                        <Check className="h-4 w-4 text-green-600" title={tRest('search.verified')} />
                       )}
                       {restaurant.website && (
                         <ExternalLink className="h-3 w-3 text-gray-400" />
@@ -524,7 +530,7 @@ export default function RestaurantAddition({
                         </span>
                       )}
                       {restaurant.priceRange && (
-                        <span className="text-xs" title={`Faixa de preço: ${restaurant.priceRange}/4`}>
+                        <span className="text-xs" title={`${restaurant.priceRange}/4`}>
                           {renderPriceRange(restaurant.priceRange)}
                         </span>
                       )}
@@ -535,7 +541,7 @@ export default function RestaurantAddition({
                             : `${restaurant.distance.toFixed(1)}km`}
                         </span>
                       )}
-                      <span className="text-xs text-gray-500">ID: {restaurant.id}</span>
+                      <span className="text-xs text-gray-500">{tRest('search.id', { id: restaurant.id })}</span>
                     </div>
 
                     {restaurant.topRecommendation && (
@@ -553,7 +559,7 @@ export default function RestaurantAddition({
                   <div className="text-right ml-4">
                     {renderTrustScoreBadge(restaurant.avgTrustScore || 0, restaurant.totalRecommendations || 0)}
                     <p className="text-xs text-gray-500 mt-1">
-                      {restaurant.totalRecommendations || 0} recomendações
+                      {tRest('search.recommendations', { count: restaurant.totalRecommendations || 0 })}
                     </p>
                   </div>
                 </div>
@@ -564,7 +570,7 @@ export default function RestaurantAddition({
             {searchQuery && !loading && searchResults.length === 0 && suggestions.length === 0 && !errors.search && (
               <div className="text-center py-8 text-gray-500">
                 <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                <p>Nenhum restaurante encontrado para "{searchQuery}"</p>
+                <p>{tRest('search.noResults', { query: searchQuery })}</p>
                 <button
                   onClick={() => {
                     setNewRestaurant(prev => ({ ...prev, name: searchQuery }));
@@ -572,7 +578,7 @@ export default function RestaurantAddition({
                   }}
                   className="mt-2 text-blue-600 hover:text-blue-700 font-medium"
                 >
-                  Adicionar como novo restaurante
+                  {tRest('search.addAsNew')}
                 </button>
               </div>
             )}
@@ -585,9 +591,9 @@ export default function RestaurantAddition({
             <div className="flex items-start gap-3">
               <Plus className="h-5 w-5 text-blue-600 mt-0.5" />
               <div>
-                <h3 className="font-medium text-blue-900">Adicionar Novo Restaurante</h3>
+                <h3 className="font-medium text-blue-900">{tRest('addMode.title')}</h3>
                 <p className="text-sm text-blue-700 mt-1">
-                  Ajude a construir a base de dados da comunidade adicionando restaurantes que você quer recomendar.
+                  {tRest('addMode.description')}
                 </p>
               </div>
             </div>
@@ -603,14 +609,14 @@ export default function RestaurantAddition({
           {/* Restaurant Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nome do Restaurante *
+              {tRest('addMode.form.nameLabel')}
             </label>
             <input
               type="text"
               value={newRestaurant.name || ''}
               onChange={(e) => setNewRestaurant(prev => ({ ...prev, name: e.target.value }))}
               className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Digite o nome do restaurante"
+              placeholder={tRest('addMode.form.namePlaceholder')}
             />
             {errors.name && (
               <p className="text-sm text-red-600 mt-1">{errors.name}</p>
@@ -620,14 +626,14 @@ export default function RestaurantAddition({
           {/* Address */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Endereço Completo *
+              {tRest('addMode.form.addressLabel')}
             </label>
             <textarea
               value={newRestaurant.address || ''}
               onChange={(e) => setNewRestaurant(prev => ({ ...prev, address: e.target.value }))}
               className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={2}
-              placeholder="Rua, número, bairro, cidade"
+              placeholder={tRest('addMode.form.addressPlaceholder')}
             />
             {errors.address && (
               <p className="text-sm text-red-600 mt-1">{errors.address}</p>
@@ -637,7 +643,7 @@ export default function RestaurantAddition({
           {/* Location */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Localização GPS *
+              {tRest('addMode.form.locationLabel')}
             </label>
             <div className="flex gap-2">
               <button
@@ -649,16 +655,16 @@ export default function RestaurantAddition({
                 {isGettingLocation ? (
                   <>
                     <Loader className="animate-spin h-4 w-4" />
-                    Obtendo...
+                    {tRest('addMode.form.gettingLocation')}
                   </>
                 ) : (
-                  'Usar GPS'
+                  tRest('addMode.form.useGps')
                 )}
               </button>
               {newRestaurant.latitude && newRestaurant.longitude && (
                 <div className="flex items-center px-3 py-2 bg-green-50 text-green-700 rounded-lg text-sm">
                   <Check className="h-4 w-4 mr-2" />
-                  Localização Definida ({newRestaurant.latitude.toFixed(4)}, {newRestaurant.longitude.toFixed(4)})
+                  {tRest('addMode.form.locationSet')} {tRest('addMode.form.coordinates', { lat: newRestaurant.latitude.toFixed(4), lng: newRestaurant.longitude.toFixed(4) })}
                 </div>
               )}
             </div>
@@ -671,7 +677,7 @@ export default function RestaurantAddition({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Cidade *
+                {tRest('addMode.form.cityLabel')}
               </label>
               <select
                 value={newRestaurant.city || ''}
@@ -694,7 +700,7 @@ export default function RestaurantAddition({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                País
+                {tRest('addMode.form.countryLabel')}
               </label>
               <input
                 type="text"
@@ -709,32 +715,32 @@ export default function RestaurantAddition({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Culinária
+                {tRest('addMode.form.cuisineTypeLabel')}
               </label>
               <select
                 value={newRestaurant.cuisineType || ''}
                 onChange={(e) => setNewRestaurant(prev => ({ ...prev, cuisineType: e.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">Selecione o tipo de culinária</option>
-                {CUISINE_TYPES.map((cuisine) => (
-                  <option key={cuisine} value={cuisine}>{cuisine}</option>
+                <option value="">{tRest('addMode.form.cuisineTypePlaceholder')}</option>
+                {CUISINE_TYPE_KEYS.map((cuisineKey) => (
+                  <option key={cuisineKey} value={cuisineKey}>{tCuisine(cuisineKey)}</option>
                 ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Faixa de Preço
+                {tRest('addMode.form.priceRangeLabel')}
               </label>
               <select
                 value={newRestaurant.priceRange || 2}
                 onChange={(e) => setNewRestaurant(prev => ({ ...prev, priceRange: Number(e.target.value) as 1|2|3|4 }))}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value={1}>💰 - Até R$30 por pessoa</option>
-                <option value={2}>💰💰 - R$30-60 por pessoa</option>
-                <option value={3}>💰💰💰 - R$60-120 por pessoa</option>
-                <option value={4}>💰💰💰💰 - R$120+ por pessoa</option>
+                <option value={1}>{tRest('addMode.priceRange.1')}</option>
+                <option value={2}>{tRest('addMode.priceRange.2')}</option>
+                <option value={3}>{tRest('addMode.priceRange.3')}</option>
+                <option value={4}>{tRest('addMode.priceRange.4')}</option>
               </select>
             </div>
           </div>
@@ -743,14 +749,14 @@ export default function RestaurantAddition({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Telefone (Opcional)
+                {tRest('addMode.form.phoneLabel')}
               </label>
               <input
                 type="tel"
                 value={newRestaurant.phone || ''}
                 onChange={(e) => setNewRestaurant(prev => ({ ...prev, phone: e.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="+55 61 1234-5678"
+                placeholder={tRest('addMode.form.phonePlaceholder')}
               />
               {errors.phone && (
                 <p className="text-sm text-red-600 mt-1">{errors.phone}</p>
@@ -758,14 +764,14 @@ export default function RestaurantAddition({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Website (Opcional)
+                {tRest('addMode.form.websiteLabel')}
               </label>
               <input
                 type="url"
                 value={newRestaurant.website || ''}
                 onChange={(e) => setNewRestaurant(prev => ({ ...prev, website: e.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="https://site-do-restaurante.com"
+                placeholder={tRest('addMode.form.websitePlaceholder')}
               />
               {errors.website && (
                 <p className="text-sm text-red-600 mt-1">{errors.website}</p>
@@ -783,10 +789,10 @@ export default function RestaurantAddition({
               {isSubmitting ? (
                 <>
                   <Loader className="animate-spin h-4 w-4 mr-2" />
-                  Adicionando...
+                  {tRest('addMode.form.submitting')}
                 </>
               ) : (
-                'Adicionar Restaurante & Continuar'
+                tRest('addMode.form.submitButton')
               )}
             </button>
             <button
@@ -796,7 +802,7 @@ export default function RestaurantAddition({
               }}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
-              Cancelar
+              {tRest('addMode.form.cancelButton')}
             </button>
           </div>
         </div>

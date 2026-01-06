@@ -1,348 +1,371 @@
-'use client';
+// components/saved-lists/SavedListCard.tsx
+// V4: Deep Terracotta gradient (#E65441 → #C94232)
+// Clean, premium look matching BocaBoca brand palette
+"use client";
 
 import { useState } from 'react';
-import { MoreVertical, Edit2, Trash2, Eye, Share2, Globe, Lock, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import savedListsService, { SavedList } from '@/lib/services/saved-lists-service';
 import { motion } from 'framer-motion';
+import { 
+  MapPin, 
+  Lock, 
+  Globe,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Share2,
+  Utensils,
+  Bookmark,
+  Heart,
+  List,
+  FolderHeart,
+  Layers
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface Restaurant {
+  id: string | number;
+  name: string;
+  image?: string;
+  cuisine?: string;
+  location?: string;
+}
+
+interface SavedList {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  listType: 'places' | 'bookmarks' | 'mixed';
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+  itemCount?: number;
+  restaurant_count?: number;
+  items?: Restaurant[];
+}
 
 interface SavedListCardProps {
   list: SavedList;
-  onDeleted: (listId: string) => void;
-  onUpdated: (list: SavedList) => void;
+  onEdit?: (list: SavedList) => void;
+  onDelete?: (listId: string) => void;
+  onShare?: (list: SavedList) => void;
+  variant?: 'default' | 'compact';
 }
 
-export default function SavedListCard({ list, onDeleted, onUpdated }: SavedListCardProps) {
+export default function SavedListCard({ 
+  list, 
+  onEdit, 
+  onDelete, 
+  onShare,
+  variant = 'default'
+}: SavedListCardProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const handleView = () => {
+  const restaurantCount = list.restaurant_count || list.itemCount || 0;
+  const previewItems = list.items?.slice(0, 4) || [];
+  
+  // Get the first restaurant with an image for hero
+  const heroImage = previewItems.find(item => item.image)?.image;
+  
+  // Format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInHours < 48) return 'Yesterday';
+    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  // Get list type label and icon (NO EMOJI - Lucide only)
+  const getListTypeInfo = (listType: string) => {
+    switch (listType) {
+      case 'places':
+        return { 
+          label: 'Places to Try', 
+          Icon: FolderHeart,
+        };
+      case 'bookmarks':
+        return { 
+          label: 'Bookmarks', 
+          Icon: Bookmark,
+        };
+      case 'mixed':
+        return { 
+          label: 'Collection', 
+          Icon: Layers,
+        };
+      default:
+        return { 
+          label: 'List', 
+          Icon: List,
+        };
+    }
+  };
+
+  const typeInfo = getListTypeInfo(list.listType);
+  const TypeIcon = typeInfo.Icon;
+
+  const handleCardClick = () => {
     router.push(`/saved-lists/${list.id}`);
   };
 
-  const handleEdit = () => {
-    // TODO: Implement edit modal
-    console.log('Edit list:', list.id);
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowMenu(!showMenu);
   };
 
-  const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete "${list.name}"? This will remove all items from this list.`)) {
-      return;
-    }
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    onEdit?.(list);
+  };
 
-    try {
-      setIsDeleting(true);
-      await savedListsService.deleteList(list.id);
-      onDeleted(list.id);
-      showToast('List deleted successfully');
-    } catch (error) {
-      console.error('Error deleting list:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to delete list', 'error');
-    } finally {
-      setIsDeleting(false);
-      setShowMenu(false);
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    if (window.confirm(`Delete "${list.name}"? This cannot be undone.`)) {
+      onDelete?.(list.id);
     }
   };
 
-  const handlePublish = () => {
-    // TODO: Implement publish as guide functionality
-    showToast('Publish feature coming soon!');
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    onShare?.(list);
   };
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const getListTypeLabel = (type: string) => {
-    switch (type) {
-      case 'places': return 'Places to Try';
-      case 'bookmarks': return 'Bookmarks';
-      case 'mixed': return 'Mixed';
-      default: return type;
-    }
-  };
-
-  const getListTypeColor = (type: string) => {
-    switch (type) {
-      case 'places': return 'from-blue-500 to-cyan-500';
-      case 'bookmarks': return 'from-green-500 to-emerald-500';
-      case 'mixed': return 'from-purple-500 to-pink-500';
-      default: return 'from-gray-500 to-slate-500';
-    }
-  };
-
-  // Get first few restaurant items for preview (mock data - replace with actual items)
-  const displayedRestaurants = (list as any).items?.slice(0, 3) || [];
-  const remainingCount = Math.max(0, (list.itemCount || 0) - 3);
 
   return (
     <motion.div
-      className={cn(
-        "bg-white rounded-xl border border-gray-200 overflow-hidden transition-all duration-200 cursor-pointer",
-        "hover:shadow-lg hover:border-gray-300"
-      )}
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      onClick={handleView}
+      className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+      onClick={handleCardClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => { setIsHovered(false); setShowMenu(false); }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      whileHover={{ y: -2 }}
+      transition={{ duration: 0.2 }}
     >
-      {/* Gradient Header - matches ListCard style */}
-      <div className={cn(
-        "relative bg-gradient-to-r px-4 py-3",
-        getListTypeColor(list.listType)
-      )}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-white">
-            <span className="text-2xl">{list.icon || '📚'}</span>
-            <span className="font-medium text-sm">{getListTypeLabel(list.listType)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Privacy Badge */}
-            <span className="px-2 py-0.5 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded-full flex items-center gap-1">
-              {list.isPublic ? (
-                <>
-                  <Globe size={10} />
-                  Public
-                </>
-              ) : (
-                <>
-                  <Lock size={10} />
-                  Private
-                </>
-              )}
-            </span>
-            {/* Menu Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-              className="p-1 hover:bg-white/20 rounded transition-colors"
-            >
-              <MoreVertical className="w-4 h-4 text-white" />
-            </button>
-          </div>
-        </div>
-
-        {/* Menu Dropdown */}
-        {showMenu && (
+      {/* Hero Image Area */}
+      <div className="relative h-48 overflow-hidden">
+        {heroImage ? (
+          // If we have a restaurant image, show it
+          <Image
+            src={heroImage}
+            alt={list.name}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          // Deep Terracotta gradient placeholder (135deg diagonal)
           <div 
-            className="absolute right-4 top-14 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[160px]"
-            onClick={(e) => e.stopPropagation()}
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(135deg, #E65441 0%, #C94232 100%)'
+            }}
           >
-            <button onClick={handleView} className="menu-item">
-              <Eye className="w-4 h-4" />
-              <span>View List</span>
-            </button>
-            <button onClick={handleEdit} className="menu-item">
-              <Edit2 className="w-4 h-4" />
-              <span>Edit Details</span>
-            </button>
-            {!list.isPublic && (
-              <button onClick={handlePublish} className="menu-item">
-                <Share2 className="w-4 h-4" />
-                <span>Publish as Guide</span>
-              </button>
-            )}
-            <div className="border-t border-gray-100 my-1" />
-            <button 
-              onClick={handleDelete} 
-              className="menu-item danger"
-              disabled={isDeleting}
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>{isDeleting ? 'Deleting...' : 'Delete List'}</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="p-4 space-y-3">
-        {/* Title and Description */}
-        <div>
-          <h3 className="font-semibold text-gray-900 text-lg leading-tight mb-1">
-            {list.name}
-          </h3>
-          {list.description && (
-            <p className="text-sm text-gray-600 line-clamp-2">
-              {list.description}
-            </p>
-          )}
-        </div>
-
-        {/* Restaurant Previews - Similar to ListCard carousel */}
-        {displayedRestaurants.length > 0 && (
-          <div className="py-1">
-            <div className="flex gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-              {displayedRestaurants.map((item: any, index: number) => (
-                <div key={index} className="flex-shrink-0 w-24 group">
-                  <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 mb-1 border border-gray-200 group-hover:border-purple-300 transition-colors">
-                    {item.image ? (
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        width={96}
-                        height={96}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-3xl">
-                        🍽️
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-xs font-medium text-gray-900 line-clamp-2 leading-tight">
-                    {item.name || 'Restaurant'}
-                  </div>
-                </div>
-              ))}
-              {remainingCount > 0 && (
-                <div className="flex-shrink-0 w-24">
-                  <div className="w-24 h-24 rounded-lg bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center mb-1">
-                    <div className="text-center">
-                      <div className="text-xl font-semibold text-gray-400">+{remainingCount}</div>
-                      <div className="text-xs text-gray-500">more</div>
-                    </div>
-                  </div>
-                </div>
-              )}
+            {/* Subtle decorative pattern overlay */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute inset-0" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.5'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }} />
+            </div>
+            
+            {/* Subtle centered icon */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full bg-white/15 flex items-center justify-center">
+                <TypeIcon size={40} className="text-white/70" strokeWidth={1.5} />
+              </div>
             </div>
           </div>
         )}
 
-        {/* Empty State */}
-        {displayedRestaurants.length === 0 && (
-          <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-            <div className="text-4xl mb-2">📝</div>
-            <p className="text-sm text-gray-500">
-              No items yet. Start adding restaurants!
-            </p>
-          </div>
-        )}
+        {/* Gradient overlay for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
-        {/* Stats and Metadata */}
-        <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-100">
-          <div className="flex items-center gap-2 text-gray-600">
-            <span className="font-medium">
-              {list.itemCount || 0} {list.itemCount === 1 ? 'item' : 'items'}
-            </span>
-            <span>•</span>
-            <span>
-              Updated {formatDate(list.updatedAt)}
-            </span>
+        {/* Top badges row */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+          {/* List type badge - NO EMOJI */}
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-[#1F1E2A] text-xs font-medium rounded-full shadow-sm">
+            <TypeIcon size={14} className="text-[#E65441]" />
+            <span>{typeInfo.label}</span>
+          </span>
+
+          {/* Menu button */}
+          <div className="relative">
+            <button
+              onClick={handleMenuClick}
+              className="p-1.5 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-colors shadow-sm"
+            >
+              <MoreHorizontal size={16} className="text-gray-700" />
+            </button>
+
+            {/* Dropdown menu */}
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px] z-20">
+                <button
+                  onClick={handleEdit}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-[#FFE8E4] flex items-center gap-2"
+                >
+                  <Edit size={14} />
+                  Edit
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-[#FFE8E4] flex items-center gap-2"
+                >
+                  <Share2 size={14} />
+                  Share
+                </button>
+                <hr className="my-1 border-gray-100" />
+                <button
+                  onClick={handleDelete}
+                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Action Button - View Full List */}
-        <button
-          onClick={handleView}
-          className={cn(
-            "w-full px-4 py-2 bg-gradient-to-r text-white rounded-lg transition-all text-sm font-medium",
-            getListTypeColor(list.listType),
-            "hover:shadow-md"
-          )}
-        >
-          View Full List
-        </button>
+        {/* Bottom content on image */}
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <h3 className="text-xl font-bold text-white mb-1 line-clamp-2">
+            {list.name}
+          </h3>
+          <div className="flex items-center gap-3 text-white/90 text-sm">
+            <span className="flex items-center gap-1">
+              <Utensils size={14} />
+              {restaurantCount} restaurant{restaurantCount !== 1 ? 's' : ''}
+            </span>
+            {previewItems[0]?.location && (
+              <>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <MapPin size={14} />
+                  {previewItems[0].location}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
-      <style jsx>{`
-        .menu-item {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          width: 100%;
-          padding: 0.75rem 1rem;
-          background: none;
-          border: none;
-          text-align: left;
-          cursor: pointer;
-          transition: background 0.2s;
-          font-size: 0.875rem;
-          color: #374151;
-        }
+      {/* Card Body */}
+      <div className="p-4">
+        {/* Author row */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
+              style={{
+                background: 'linear-gradient(135deg, #E65441 0%, #C94232 100%)'
+              }}
+            >
+              Y
+            </div>
+            <div>
+              <p className="text-sm font-medium text-[#1F1E2A]">By you</p>
+              <p className="text-xs text-gray-500">{formatDate(list.updatedAt)}</p>
+            </div>
+          </div>
+          
+          {/* Privacy badge */}
+          <span className={cn(
+            "inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full",
+            list.isPublic 
+              ? "bg-[#FFE8E4] text-[#C94232]" 
+              : "bg-[#FFF4E1] text-[#E65441]"
+          )}>
+            {list.isPublic ? (
+              <>
+                <Globe size={12} />
+                Public
+              </>
+            ) : (
+              <>
+                <Lock size={12} />
+                Private
+              </>
+            )}
+          </span>
+        </div>
 
-        .menu-item:hover {
-          background: #f9fafb;
-        }
+        {/* Description if exists */}
+        {list.description && (
+          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+            {list.description}
+          </p>
+        )}
 
-        .menu-item.danger {
-          color: #dc2626;
-        }
+        {/* Restaurant preview strip - NO EMOJI */}
+        {previewItems.length > 0 && (
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100">
+            <div className="flex -space-x-2">
+              {previewItems.slice(0, 4).map((item, idx) => (
+                <div 
+                  key={item.id} 
+                  className="w-8 h-8 rounded-lg border-2 border-white bg-[#FFE8E4] flex items-center justify-center text-sm overflow-hidden"
+                  style={{ zIndex: 4 - idx }}
+                >
+                  {item.image ? (
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      width={32}
+                      height={32}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Utensils size={14} className="text-[#E65441]" />
+                  )}
+                </div>
+              ))}
+              {restaurantCount > 4 && (
+                <div 
+                  className="w-8 h-8 rounded-lg border-2 border-white bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-600"
+                  style={{ zIndex: 0 }}
+                >
+                  +{restaurantCount - 4}
+                </div>
+              )}
+            </div>
+            <span className="text-xs text-gray-500 truncate">
+              {previewItems.map(r => r.name).join(', ')}
+            </span>
+          </div>
+        )}
 
-        .menu-item.danger:hover {
-          background: #fef2f2;
-        }
-
-        .menu-item:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        :global(.toast) {
-          position: fixed;
-          bottom: 2rem;
-          right: 2rem;
-          padding: 1rem 1.5rem;
-          border-radius: 0.5rem;
-          background: #10b981;
-          color: white;
-          font-weight: 500;
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-          z-index: 2000;
-          animation: slideIn 0.3s ease-out;
-        }
-
-        :global(.toast-error) {
-          background: #ef4444;
-        }
-
-        @keyframes slideIn {
-          from {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-
-        /* Scrollbar Styles */
-        .scrollbar-thin::-webkit-scrollbar {
-          height: 6px;
-        }
-
-        .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
-          background-color: #d1d5db;
-          border-radius: 3px;
-        }
-
-        .scrollbar-track-gray-100::-webkit-scrollbar-track {
-          background-color: #f3f4f6;
-          border-radius: 3px;
-        }
-      `}</style>
+        {/* Action row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4 text-gray-500">
+            <button className="flex items-center gap-1 hover:text-[#E65441] transition-colors">
+              <Heart size={16} />
+              <span className="text-sm">0</span>
+            </button>
+            <button className="flex items-center gap-1 hover:text-[#E65441] transition-colors">
+              <Bookmark size={16} />
+              <span className="text-sm">0</span>
+            </button>
+          </div>
+          
+          <button 
+            onClick={handleCardClick}
+            className="flex items-center gap-1 text-[#E65441] font-medium text-sm hover:text-[#C94232] hover:underline transition-colors"
+          >
+            View List →
+          </button>
+        </div>
+      </div>
     </motion.div>
   );
 }

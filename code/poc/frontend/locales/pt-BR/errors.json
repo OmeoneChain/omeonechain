@@ -1,0 +1,71 @@
+{
+  "generic": {
+    "somethingWentWrong": "Algo deu errado",
+    "tryAgain": "Por favor, tente novamente",
+    "networkError": "Erro de rede. Verifique sua conexão.",
+    "serverError": "Erro no servidor. Tente novamente mais tarde.",
+    "notFound": "Não encontrado",
+    "unauthorized": "Você precisa estar logado",
+    "forbidden": "Você não tem permissão para fazer isso",
+    "timeout": "Tempo esgotado. Por favor, tente novamente."
+  },
+  
+  "validation": {
+    "required": "Este campo é obrigatório",
+    "invalidEmail": "Por favor, insira um email válido",
+    "passwordTooShort": "A senha deve ter pelo menos {min} caracteres",
+    "passwordMismatch": "As senhas não coincidem",
+    "usernameTaken": "Este nome de usuário já está em uso",
+    "emailTaken": "Este email já está cadastrado",
+    "invalidFormat": "Formato inválido",
+    "tooLong": "Máximo de {max} caracteres permitidos",
+    "tooShort": "Mínimo de {min} caracteres necessários"
+  },
+  
+  "auth": {
+    "invalidCredentials": "Email ou senha inválidos",
+    "accountLocked": "Conta temporariamente bloqueada. Tente mais tarde.",
+    "sessionExpired": "Sua sessão expirou. Por favor, entre novamente.",
+    "walletNotConnected": "Por favor, conecte sua carteira primeiro",
+    "signatureRejected": "Assinatura foi rejeitada",
+    "walletNotFound": "Nenhuma carteira detectada. Por favor, instale uma carteira."
+  },
+  
+  "recommendations": {
+    "createFailed": "Falha ao criar recomendação",
+    "updateFailed": "Falha ao atualizar recomendação",
+    "deleteFailed": "Falha ao excluir recomendação",
+    "notFound": "Recomendação não encontrada",
+    "alreadyExists": "Você já recomendou este restaurante"
+  },
+  
+  "restaurants": {
+    "createFailed": "Falha ao adicionar restaurante",
+    "notFound": "Restaurante não encontrado",
+    "searchFailed": "Busca falhou. Por favor, tente novamente."
+  },
+  
+  "rewards": {
+    "claimFailed": "Falha ao resgatar tokens",
+    "insufficientBalance": "Saldo de tokens insuficiente",
+    "walletRequired": "Conexão de carteira necessária para esta ação",
+    "alreadyParticipated": "Você já participou esta semana",
+    "contestClosed": "Este concurso está fechado",
+    "bountyExpired": "Este pedido expirou"
+  },
+  
+  "upload": {
+    "fileTooLarge": "Arquivo muito grande. Máximo de {max}MB permitido.",
+    "invalidFileType": "Tipo de arquivo inválido. Permitidos: {types}",
+    "uploadFailed": "Falha no upload. Por favor, tente novamente.",
+    "maxFilesReached": "Máximo de {max} arquivos permitidos"
+  },
+  
+  "social": {
+    "followFailed": "Falha ao seguir usuário",
+    "unfollowFailed": "Falha ao deixar de seguir usuário",
+    "commentFailed": "Falha ao postar comentário",
+    "likeFailed": "Falha ao curtir",
+    "saveFailed": "Falha ao salvar"
+  }
+}

@@ -1,3 +1,15 @@
+// File: code/poc/core/src/api/routes/recommendation.ts
+// White Paper v1.0 Token Rewards - Simplified flat rewards
+// 
+// REWARD STRUCTURE (White Paper v1.0):
+// - Create recommendation (wallet tier): 5.0 BOCA flat
+// - Create recommendation (email tier):  2.5 BOCA flat
+// - Receive like:                         1.0 BOCA (tier-weighted)
+// - Receive save/bookmark:                1.0 BOCA (tier-weighted)
+//
+// NOTE: Validation bonus (+10.0 BOCA at 3.0 engagement points) handled separately
+// NOTE: First reviewer bonus (+10.0 BOCA) handled by database trigger
+
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { RecommendationEngine } from '../../recommendation/engine';
@@ -14,6 +26,33 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+
+// =============================================================================
+// WHITE PAPER v1.0 TOKEN REWARD CONSTANTS
+// =============================================================================
+
+/** Flat reward for creating a recommendation (wallet-tier users) */
+const CREATION_REWARD_WALLET = 5.0;
+
+/** Flat reward for creating a recommendation (email-tier users) */
+const CREATION_REWARD_EMAIL = 2.5;
+
+/** Base reward when someone likes your recommendation */
+const LIKE_REWARD_BASE = 1.0;
+
+/** Base reward when someone saves/bookmarks your recommendation */
+const SAVE_REWARD_BASE = 1.0;
+
+/** Tier multipliers for engagement rewards */
+const TIER_MULTIPLIERS: Record<string, number> = {
+  'new': 0.5,
+  'established': 1.0,
+  'trusted': 1.5
+};
+
+// =============================================================================
+// TYPE DEFINITIONS
+// =============================================================================
 
 interface Dish {
   name: string;
@@ -49,6 +88,12 @@ interface Location {
   city?: string;
 }
 
+interface PhotoTag {
+  cid: string;
+  tag: string;  // 'skip' | 'vibe' | 'menu' | 'drink' | 'other' | 'dish:{id}'
+  description?: string;
+}
+
 interface EnhancedRecommendationSubmission {
   restaurantName: string;
   restaurantAddress?: string;
@@ -62,6 +107,7 @@ interface EnhancedRecommendationSubmission {
   content: string;
   category: string;
   photos?: string[];
+  photo_tagging?: PhotoTag[]; 
   tags?: string[];
   context_tags?: string[];
   cuisine_type?: string;
@@ -179,6 +225,154 @@ async function calculateAverageRestaurantTrustScore(supabase: any, restaurantId:
   }
 }
 
+/**
+ * 🎯 Calculate and update user's reputation tier
+ */
+async function updateUserReputationTier(userId: string): Promise<'new' | 'established' | 'trusted'> {
+  // Fetch user stats
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('created_at, spam_flags')
+    .eq('id', userId)
+    .single();
+
+  if (userError || !user) {
+    console.warn('⚠️ Could not fetch user for tier calculation:', userError);
+    return 'new'; // Default to 'new' if error
+  }
+
+  // Calculate account age in days
+  const accountAge = Math.floor(
+    (Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  // Count validated recommendations (3+ engagement points)
+  const { data: validatedRecs } = await supabase
+    .from('recommendations')
+    .select('id, likes_count, saves_count')
+    .eq('author_id', userId);
+
+  let validatedCount = 0;
+  if (validatedRecs) {
+    validatedCount = validatedRecs.filter(rec => {
+      const engagementPoints = (rec.likes_count || 0) + (rec.saves_count || 0);
+      return engagementPoints >= 3;
+    }).length;
+  }
+
+  // Check for spam flags
+  const hasSpamFlags = (user.spam_flags || 0) > 0;
+
+  // Determine tier (White Paper v1.0 simplified tiers)
+  let tier: 'new' | 'established' | 'trusted' = 'new';
+
+  if (hasSpamFlags) {
+    tier = 'new'; // Spam flags = always 'new'
+  } else if (accountAge >= 30 && validatedCount >= 3) {
+    tier = 'trusted';
+  } else if (accountAge >= 7) {
+    tier = 'established';
+  } else {
+    tier = 'new';
+  }
+
+  // Update user's reputation_tier in database
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ reputation_tier: tier })
+    .eq('id', userId);
+
+  if (updateError) {
+    console.error('❌ Failed to update reputation tier:', updateError);
+  } else {
+    console.log(`🎯 Updated user ${userId} tier: ${tier} (age: ${accountAge}d, validated recs: ${validatedCount})`);
+  }
+
+  return tier;
+}
+
+/**
+ * 💰 Get flat creation reward based on account tier (White Paper v1.0)
+ * 
+ * Wallet-tier users: 5.0 BOCA
+ * Email-tier users:  2.5 BOCA
+ */
+function getCreationReward(accountTier: string): number {
+  if (accountTier === 'wallet_full') {
+    console.log(`💰 Creation reward: ${CREATION_REWARD_WALLET} BOCA (wallet tier)`);
+    return CREATION_REWARD_WALLET;
+  } else {
+    console.log(`💰 Creation reward: ${CREATION_REWARD_EMAIL} BOCA (email tier)`);
+    return CREATION_REWARD_EMAIL;
+  }
+}
+
+/**
+ * 💰 Get tier multiplier for engagement rewards
+ */
+function getTierMultiplier(reputationTier: string): number {
+  return TIER_MULTIPLIERS[reputationTier] || TIER_MULTIPLIERS['established'];
+}
+
+/**
+ * 💰 Calculate token reward for INTERACTIONS (like/save) based on engager's reputation tier
+ * 
+ * White Paper v1.0: Base reward is 1.0 BOCA, weighted by engager's tier
+ * - New (0.5x):         0.50 BOCA
+ * - Established (1.0x): 1.00 BOCA
+ * - Trusted (1.5x):     1.50 BOCA
+ */
+async function calculateEngagementReward(engagerUserId: string, baseReward: number): Promise<number> {
+  const { data: userData } = await supabase
+    .from('users')
+    .select('reputation_tier')
+    .eq('id', engagerUserId)
+    .single();
+
+  const engagerTier = userData?.reputation_tier || 'established';
+  const tierMultiplier = getTierMultiplier(engagerTier);
+  const tokensEarned = baseReward * tierMultiplier;
+
+  console.log(`💰 Engagement reward: ${tokensEarned.toFixed(2)} BOCA (base: ${baseReward}, engager tier: ${engagerTier}, multiplier: ${tierMultiplier})`);
+  
+  return tokensEarned;
+}
+
+/**
+ * 💰 Award tokens to user
+ */
+async function awardTokens(userId: string, amount: number): Promise<void> {
+  console.log(`💰 Awarding ${amount.toFixed(2)} BOCA to user ${userId}...`);
+  
+  const { data: user, error: fetchError } = await supabase
+    .from('users')
+    .select('tokens_earned')
+    .eq('id', userId)
+    .single();
+  
+  if (fetchError) {
+    console.error('❌ Failed to fetch user for token award:', fetchError);
+    throw fetchError;
+  }
+  
+  const currentAmount = user?.tokens_earned || 0;
+  const newAmount = currentAmount + amount;
+  
+  console.log(`💰 Current: ${currentAmount.toFixed(2)} BOCA → New: ${newAmount.toFixed(2)} BOCA`);
+  
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ tokens_earned: newAmount })
+    .eq('id', userId);
+  
+  if (updateError) {
+    console.error('❌ Failed to update tokens:', updateError);
+    throw updateError;
+  }
+  
+  console.log(`✅ Awarded ${amount.toFixed(2)} BOCA to user ${userId}`);
+}
+
 // =============================================================================
 // CRUD ENDPOINTS
 // =============================================================================
@@ -200,13 +394,32 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       aspects,
       context,
       photos = [],
+      photo_tagging = [],
       tags = [],
       context_tags = [],
       cuisine_type
     } = req.body as EnhancedRecommendationSubmission;
 
+    // -------------------------------
+    // Normalize optional fields safely
+    // -------------------------------
+    const safeTitle = typeof title === 'string' ? title.trim() : '';
+    const safeContent = typeof content === 'string' ? content.trim() : '';
+    const safeCategory = typeof category === 'string' ? category.trim() : '';
+    const safeRestaurantName = typeof restaurantName === 'string' ? restaurantName.trim() : '';
+
+    const finalTitle =
+      safeTitle.length > 0 ? safeTitle : `Recommendation for ${safeRestaurantName || 'restaurant'}`;
+
+    // If you truly want to allow empty content, keep as ''.
+    // (But your UI/backend currently still expects 10+ chars sometimes; see note below.)
+    const finalContent = safeContent;
+
+    const finalCategory = safeCategory.length > 0 ? safeCategory : 'restaurant';
+
     const authorId = req.user!.id;
     const authorName = req.user!.display_name || req.user!.username || 'User';
+    const accountTier = req.user!.accountTier || 'email_basic';
 
     console.log('🔵 Creating Trust Score 2.0 recommendation:', {
       title,
@@ -215,20 +428,17 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       dishCount: dishes.length,
       hasAspects: !!aspects,
       hasContext: !!context,
-      authorId
+      authorId,
+      accountTier
     });
 
     // Validation - Basic fields
-    if (!title || typeof title !== 'string' || title.trim().length < 3 || title.length > 200) {
-      return res.status(400).json({
-        error: 'Title is required and must be between 3 and 200 characters'
-      });
-    }
-
-    if (!content || typeof content !== 'string' || content.trim().length < 10 || content.length > 2000) {
-      return res.status(400).json({
-        error: 'Content is required and must be between 10 and 2000 characters'
-      });
+    if (title != null && title !== '') {
+      if (typeof title !== 'string' || title.trim().length < 3 || title.length > 200) {
+        return res.status(400).json({
+          error: 'Title must be between 3 and 200 characters (if provided)'
+        });
+      }
     }
 
     if (!restaurantName || typeof restaurantName !== 'string') {
@@ -308,7 +518,8 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
           display_name: authorName,
           username: req.user!.username || authorName.toLowerCase().replace(/\s+/g, '_'),
           location_city: 'Brasília',
-          verification_status: req.user!.verification_status || 'basic'
+          verification_status: req.user!.verification_status || 'basic',
+          account_tier: accountTier
         })
         .select()
         .single();
@@ -394,7 +605,11 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       console.log(`✅ Restaurant created: ID ${restaurantId}`);
     }
 
-    // Step 3: Submit to blockchain (optional)
+    // Step 3: Calculate token reward (White Paper v1.0 - FLAT rewards)
+    const userAccountTier = user.account_tier || accountTier;
+    const tokenReward = getCreationReward(userAccountTier);
+
+    // Step 4: Submit to blockchain (optional)
     console.log('🔗 Submitting to blockchain...');
     let blockchainRecommendation;
     
@@ -403,7 +618,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       
       const recommendationData = {
         serviceId: restaurant.id.toString(),
-        category,
+        category: finalCategory,
         location: {
           latitude: latitude || 0,
           longitude: longitude || 0,
@@ -412,8 +627,8 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         },
         rating: overall_rating || 7,
         content: {
-          title: title.trim(),
-          body: content.trim(),
+          title: finalTitle,
+          body: finalContent,
           media: photos.map(photo => ({
             type: 'image' as const,
             url: photo,
@@ -431,7 +646,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       blockchainRecommendation = null;
     }
 
-    // Step 4: Create recommendation in database
+    // Step 5: Create recommendation in database
     console.log('🔵 Creating recommendation in database...');
     
     const { data: recommendation, error: recommendationError } = await supabase
@@ -439,16 +654,16 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       .insert({
         restaurant_id: restaurant.id,
         author_id: user.id,
-        title: title.trim(),
-        content: content.trim(),
-        category: category,
+        title: finalTitle,
+        content: finalContent,
+        category: finalCategory,
         overall_rating: overall_rating,
-        cuisine_type: cuisine_type || category,
+        cuisine_type: cuisine_type || finalCategory,
         photos: photos,
         tags: tags,
         context_tags: context_tags,
         trust_score: blockchainRecommendation ? 0.25 : 0.15,
-        base_reward: 1.0,
+        base_reward: tokenReward,
         location_data: {
           address: restaurantAddress,
           coordinates: latitude && longitude ? { lat: latitude, lng: longitude } : null
@@ -472,7 +687,19 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 
     console.log('✅ Recommendation created:', recommendation.id);
 
-    // Step 5: Insert dishes (if provided)
+    // Step 5b: Increment user's recommendation count
+    const { error: countUpdateError } = await supabase
+      .from('users')
+      .update({ total_recommendations: (user.total_recommendations || 0) + 1 })
+      .eq('id', user.id);
+
+    if (countUpdateError) {
+      console.error('⚠️ Error updating recommendation count:', countUpdateError);
+    } else {
+      console.log('✅ User recommendation count updated');
+    }
+
+    // Step 6: Insert dishes (if provided)
     if (dishes && dishes.length > 0) {
       console.log(`🍽️ Creating ${dishes.length} dishes...`);
       
@@ -497,7 +724,69 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       }
     }
 
-    // Step 6: Insert restaurant aspects (if provided)
+    // Step 6b: Insert photos into restaurant_photos table
+    if (photo_tagging && photo_tagging.length > 0) {
+      console.log(`📷 Creating ${photo_tagging.length} photo records...`);
+      console.log(`📷 Photo tagging payload:`, JSON.stringify(photo_tagging, null, 2));
+  
+      const photoInserts = photo_tagging.map(pt => {
+        let tagType = 'other';  // Default for untagged/skipped photos
+        let dishName: string | null = null;
+        
+        // Handle 'skip' - still save the photo, just as 'other' type
+        if (pt.tag === 'skip' || !pt.tag) {
+          tagType = 'other';
+          console.log(`📷 Photo untagged, saving as "other"`);
+        }
+        // Handle dish tags - check for both formats
+        else if (pt.tag === 'dish' && (pt as any).dish_name) {
+          tagType = 'dish';
+          dishName = (pt as any).dish_name;
+          console.log(`📷 Photo tagged as dish: "${dishName}"`);
+        } else if (pt.tag.startsWith('dish:')) {
+          tagType = 'dish';
+          const dishId = pt.tag.replace('dish:', '');
+          const dish = dishes?.find((d: any) => 
+            d.id === dishId || d.name === dishId
+          );
+          dishName = dish?.name || pt.description || dishId;
+          console.log(`📷 Photo tagged as dish (legacy format): "${dishName}"`);
+        } else if (['vibe', 'menu', 'drink', 'food', 'other'].includes(pt.tag)) {
+          tagType = pt.tag;
+          console.log(`📷 Photo tagged as category: "${tagType}"`);
+        } else {
+          console.log(`📷 Photo has unknown tag "${pt.tag}", defaulting to "other"`);
+        }
+    
+        return {
+          restaurant_id: restaurant.id,
+          recommendation_id: recommendation.id,
+          user_id: user.id,
+          ipfs_hash: pt.cid,
+          tag_type: tagType,
+          dish_name: dishName,
+          caption: pt.description || (pt as any).other || null
+        };
+      });
+
+      console.log(`📷 Inserting ${photoInserts.length} photos`);
+
+      if (photoInserts.length > 0) {
+        const { data: insertedPhotos, error: photoError } = await supabase
+          .from('restaurant_photos')
+          .insert(photoInserts)
+          .select();
+
+        if (photoError) {
+          console.error('⚠️ Error inserting photos:', photoError);
+          console.error('⚠️ Photo inserts that failed:', JSON.stringify(photoInserts, null, 2));
+        } else {
+          console.log(`✅ ${insertedPhotos?.length || photoInserts.length} photos created in restaurant_photos`);
+        }
+      }
+    }
+  
+    // Step 7: Insert restaurant aspects (if provided)
     if (aspects) {
       console.log('🏢 Creating restaurant aspects...');
       
@@ -519,7 +808,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       }
     }
 
-    // Step 7: Insert contextual factors (if provided)
+    // Step 8: Insert contextual factors (if provided)
     if (context) {
       console.log('📅 Creating contextual factors...');
       
@@ -543,7 +832,33 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       }
     }
 
-    // Step 8: Update restaurant metrics
+    // Step 9: Award tokens to user (White Paper v1.0 flat reward)
+    console.log(`💰 Awarding ${tokenReward.toFixed(2)} BOCA to user ${user.id}...`);
+    
+    const currentTokens = user.tokens_earned || 0;
+    const newTokenBalance = currentTokens + tokenReward;
+    
+    const { data: updatedUser, error: tokenError } = await supabase
+      .from('users')
+      .update({
+        tokens_earned: newTokenBalance
+      })
+      .eq('id', user.id)
+      .select()
+      .single();
+
+    if (tokenError) {
+      console.error('⚠️ Failed to award tokens:', tokenError);
+      console.error('   This is a critical error - user did not receive tokens!');
+    } else {
+      console.log(`✅ Tokens awarded! User balance: ${currentTokens.toFixed(2)} → ${newTokenBalance.toFixed(2)} BOCA`);
+      console.log(`   Increase: +${tokenReward.toFixed(2)} BOCA`);
+    }
+
+    // Step 10: Update user reputation tier
+    await updateUserReputationTier(user.id);
+
+    // Step 11: Update restaurant metrics
     const { error: updateError } = await supabase
       .from('restaurants')
       .update({
@@ -576,7 +891,13 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       success: true,
       recommendation: completeRecommendation || recommendation,
       restaurant,
-      user,
+      user: updatedUser || user,
+      tokens_earned: tokenReward,
+      reward_info: {
+        amount: tokenReward,
+        account_tier: userAccountTier,
+        reward_type: userAccountTier === 'wallet_full' ? 'wallet_creation' : 'email_creation'
+      },
       trustScore2_0: {
         dishCount: dishes.length,
         hasAspects: !!aspects,
@@ -589,7 +910,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         contentHash: blockchainRecommendation.contentHash,
         trustScore: blockchainRecommendation.trust_score || 0.25
       } : null,
-      message: `Trust Score 2.0 recommendation created! ID: ${recommendation.id}`
+      message: `Recommendation created! Earned ${tokenReward.toFixed(1)} BOCA.`
     });
 
   } catch (error) {
@@ -649,7 +970,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Apply filters
     if (author) {
-      query = query.or(`users.wallet_address.eq.${author},users.id.eq.${author}`);
+      query = query.eq('author_id', author);
     }
 
     if (category && category !== 'all') {
@@ -825,7 +1146,16 @@ router.get('/:id', async (req: Request, res: Response) => {
         users!inner(*),
         dishes(*),
         restaurant_aspects(*),
-        contextual_factors(*)
+        contextual_factors(*),
+        users:user_id (id, username, display_name, avatar_url, trust_score),
+        restaurant_photos!recommendation_id (
+          id,
+          ipfs_hash,
+          tag_type,
+          dish_name,
+          caption,
+          helpful_count
+        )
       `)
       .eq('id', id)
       .single();
@@ -894,7 +1224,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 });
 
 // =============================================================================
-// INTERACTION ENDPOINTS (LIKE/BOOKMARK WITH COUNT UPDATES)
+// INTERACTION ENDPOINTS (LIKE/BOOKMARK WITH TOKEN REWARDS)
 // =============================================================================
 
 // GET /status - Get user's like/bookmark status for all recommendations
@@ -950,7 +1280,7 @@ router.get('/status', authenticateToken, async (req: Request, res: Response) => 
   }
 });
 
-// POST /:id/like - Toggle like on a recommendation (WITH COUNT UPDATE)
+// POST /:id/like - Toggle like on a recommendation (WITH TOKEN REWARDS)
 router.post('/:id/like', authenticateToken, async (req: Request, res: Response) => {
   try {
     const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
@@ -959,10 +1289,10 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
 
     console.log('❤️ Toggling like:', { recommendationId, userId });
 
-    // Check if recommendation exists
+    // Check if recommendation exists and get author
     const { data: recommendation, error: recError } = await supabase
       .from('recommendations')
-      .select('id, likes_count')
+      .select('id, likes_count, author_id')
       .eq('id', recommendationId)
       .single();
 
@@ -982,6 +1312,7 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
 
     let action: 'liked' | 'unliked';
     let newCount: number;
+    let tokensEarned = 0;
 
     if (existingLike) {
       // Unlike: Remove the like
@@ -1039,6 +1370,15 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
         console.warn('⚠️ Failed to update like count:', updateError);
       }
 
+      // 💰 Award tokens to recommendation author (NOT self-likes)
+      if (recommendation.author_id !== userId) {
+        tokensEarned = await calculateEngagementReward(userId, LIKE_REWARD_BASE);
+        await awardTokens(recommendation.author_id, tokensEarned);
+        console.log(`💰 Author ${recommendation.author_id} earned ${tokensEarned.toFixed(2)} BOCA from like`);
+      } else {
+        console.log('⚠️ Self-like detected - no tokens awarded');
+      }
+
       action = 'liked';
       console.log(`❤️ Liked recommendation, new count: ${newCount}`);
     }
@@ -1046,7 +1386,13 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
     return res.json({
       success: true,
       action,
-      newCount
+      newCount,
+      reward: tokensEarned > 0 ? {
+        amount: tokensEarned,
+        recipient: recommendation.author_id,
+        recipient_type: 'recommendation_author',
+        reason: 'like_received'
+      } : null
     });
 
   } catch (error) {
@@ -1057,7 +1403,7 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
   }
 });
 
-// POST /:id/bookmark - Toggle bookmark on a recommendation (WITH COUNT UPDATE)
+// POST /:id/bookmark - Toggle bookmark on a recommendation (WITH TOKEN REWARDS)
 router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Response) => {
   try {
     const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
@@ -1066,10 +1412,10 @@ router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Respon
 
     console.log('🔖 Toggling bookmark:', { recommendationId, userId });
 
-    // Check if recommendation exists
+    // Check if recommendation exists and get author
     const { data: recommendation, error: recError } = await supabase
       .from('recommendations')
-      .select('id, saves_count')
+      .select('id, saves_count, author_id')
       .eq('id', recommendationId)
       .single();
 
@@ -1089,6 +1435,7 @@ router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Respon
 
     let action: 'bookmarked' | 'unbookmarked';
     let newCount: number;
+    let tokensEarned = 0;
 
     if (existingBookmark) {
       // Unbookmark: Remove the bookmark
@@ -1146,6 +1493,15 @@ router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Respon
         console.warn('⚠️ Failed to update bookmark count:', updateError);
       }
 
+      // 💰 Award tokens to recommendation author (NOT self-saves)
+      if (recommendation.author_id !== userId) {
+        tokensEarned = await calculateEngagementReward(userId, SAVE_REWARD_BASE);
+        await awardTokens(recommendation.author_id, tokensEarned);
+        console.log(`💰 Author ${recommendation.author_id} earned ${tokensEarned.toFixed(2)} BOCA from save`);
+      } else {
+        console.log('⚠️ Self-save detected - no tokens awarded');
+      }
+
       action = 'bookmarked';
       console.log(`🔖 Bookmarked recommendation, new count: ${newCount}`);
     }
@@ -1153,7 +1509,13 @@ router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Respon
     return res.json({
       success: true,
       action,
-      newCount
+      newCount,
+      reward: tokensEarned > 0 ? {
+        amount: tokensEarned,
+        recipient: recommendation.author_id,
+        recipient_type: 'recommendation_author',
+        reason: 'save_received'
+      } : null
     });
 
   } catch (error) {

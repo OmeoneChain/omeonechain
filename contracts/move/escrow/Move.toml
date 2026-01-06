@@ -1,14 +1,14 @@
 [package]
 name = "escrow"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
+published-at = "0x2eda7dffc30aad952a86a4e5d2e8a4a2f683f0c37642f79a9576091d39e56e8a"
 
 [dependencies]
-Iota = { git = "https://github.com/iotaledger/iota.git", subdir = "crates/iota-framework/packages/iota-framework", rev = "framework/testnet" }
-token = { local = "../token" }
+bocaboca = { local = "../token" }
 user_status = { local = "../user_status" }
 
 [addresses]
-escrow = "0x0"
-bocaboca = "0xa455c5a7bce8e0d28f42234deeb16ea496cec40f0d87a15ad26c6620b5352fb6"
-user_status = "0x36b7e8497d3210ab5697700f866654d8e8179f7d0b6c31a8195452344a9394f1"
+escrow = "0x2eda7dffc30aad952a86a4e5d2e8a4a2f683f0c37642f79a9576091d39e56e8a"
+bocaboca = "0x32d94416d61d92428f25c970485313ca900dc202bb8522e931afbf3231eae408"
+user_status = "0x09b0fc0b5d0ded7ef4bcb437b1a6b9a783f253319c1c166910d33ac60771b3e7"

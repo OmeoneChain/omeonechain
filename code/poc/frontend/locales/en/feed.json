@@ -1,0 +1,73 @@
+{
+  "title": "Your Feed",
+  "refresh": "Refresh feed",
+  "create": "Create",
+  "unknownRestaurant": "Unknown Restaurant",
+  "unknownUser": "Unknown User",
+  "foodExpert": "Food Expert",
+  "createMenu": {
+    "recommendation": "Recommendation",
+    "list": "List"
+  },
+  "empty": {
+    "title": "Your feed is empty",
+    "description": "Follow some food experts to see their recommendations here",
+    "action": "Discover People"
+  },
+  "quickActions": {
+    "title": "Quick Actions",
+    "createRecommendation": "Create Recommendation",
+    "createList": "Create List",
+    "discover": "Discover"
+  },
+  "trending": {
+    "title": "Trending Now",
+    "empty": "No trending content yet"
+  },
+  "diningMemory": {
+    "title": "Your Dining Memory",
+    "recentRecommendations": "Recent recommendations:",
+    "savedLists": "Saved lists:",
+    "following": "Following:",
+    "foodExperts": "{count} food experts",
+    "viewHistory": "View All History"
+  },
+  "communityStats": {
+    "title": "Community Stats",
+    "activeMembers": "Active Members",
+    "growingDaily": "Growing Daily",
+    "recommendations": "Recommendations",
+    "inFeed": "{count} in feed",
+    "curatedLists": "Curated Lists",
+    "available": "{count} available"
+  },
+  "timeAgo": {
+    "now": "Just now",
+    "minutes": "{count}m",
+    "hours": "{count}h",
+    "days": "{count}d",
+    "weeks": "{count}w"
+  },
+  "toast": {
+    "saved": "Saved! Author earned {tokens} BOCA",
+    "liked": "Liked! Author earned {tokens} BOCA",
+    "linkCopied": "Link copied to clipboard!",
+    "bookmarkFailed": "Failed to bookmark",
+    "likeFailed": "Failed to like",
+    "reportSubmitted": "Report submitted"
+  },
+  "listCard": {
+    "badge": "List",
+    "more": "more",
+    "social": {
+      "friend": "Your friend",
+      "friendOfFriend": "Friend of friend"
+    },
+    "time": {
+      "recent": "Recently"
+    },
+    "actions": {
+      "report": "Report"
+    }
+  }
+}

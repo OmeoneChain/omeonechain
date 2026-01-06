@@ -8,6 +8,7 @@ import { MapPin, Star, Users, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { generateRestaurantUrl, formatEngagementCount } from '@/lib/utils';
 import SaveButton from '@/components/saved-lists/SaveButton';
+import { useTranslations } from 'next-intl';
 
 interface Restaurant {
   id: string;
@@ -49,6 +50,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
   viewMode, 
   searchQuery,
 }) => {
+  const t = useTranslations('restaurantCard');
   const [showTrustScoreTooltip, setShowTrustScoreTooltip] = useState(false);
 
   const getTrustScoreColor = (score: number) => {
@@ -59,10 +61,10 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
   };
 
   const getTrustScoreLabel = (score: number) => {
-    if (score >= 9) return 'Excelente';
-    if (score >= 7) return 'Muito Bom';
-    if (score >= 5) return 'Bom';
-    return 'Regular';
+    if (score >= 9) return t('trustScore.excellent');
+    if (score >= 7) return t('trustScore.veryGood');
+    if (score >= 5) return t('trustScore.good');
+    return t('trustScore.average');
   };
 
   const renderPriceRange = (range: number) => {
@@ -145,7 +147,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
                     >
                       <div className="text-center">
                         <div className="text-lg font-bold">{(restaurant.avgTrustScore || 0).toFixed(1)}/10</div>
-                        <div className="text-xs font-medium">Trust Score</div>
+                        <div className="text-xs font-medium">{t('trustScore.label')}</div>
                       </div>
                     </div>
 
@@ -154,11 +156,10 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
                       <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-10">
                         <div className="text-sm">
                           <div className="font-semibold text-gray-900 mb-1">
-                            Trust Score: {getTrustScoreLabel(restaurant.avgTrustScore || 0)}
+                            {t('trustScore.label')}: {getTrustScoreLabel(restaurant.avgTrustScore || 0)}
                           </div>
                           <div className="text-gray-600">
-                            Baseado em {restaurant.totalRecommendations || 0} recomendações de pessoas 
-                            na sua rede social, ponderado pela proximidade social e reputação.
+                            {t('trustScore.tooltipFull', { count: restaurant.totalRecommendations || 0 })}
                           </div>
                         </div>
                       </div>
@@ -180,12 +181,12 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
                   )}
                   {restaurant.verified && (
                     <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
-                      Verificado
+                      {t('badges.verified')}
                     </span>
                   )}
                   <span className="text-gray-600 flex items-center text-sm">
                     <Users className="h-4 w-4 mr-1" />
-                    {formatEngagementCount(restaurant.totalRecommendations || 0)} recomendações
+                    {t('stats.recommendations', { count: formatEngagementCount(restaurant.totalRecommendations || 0) })}
                   </span>
                 </div>
 
@@ -201,7 +202,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-500">
-                          por {restaurant.topRecommendation.author}
+                          {t('topRecommendation.by', { author: restaurant.topRecommendation.author })}
                         </span>
                         <div className="flex items-center">
                           <Star className="h-4 w-4 text-yellow-500 fill-current" />
@@ -259,7 +260,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
             >
               <div className="text-center">
                 <div className="text-lg font-bold">{(restaurant.avgTrustScore || 0).toFixed(1)}/10</div>
-                <div className="text-xs font-medium">Trust Score</div>
+                <div className="text-xs font-medium">{t('trustScore.label')}</div>
               </div>
             </div>
 
@@ -268,11 +269,10 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
               <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-10">
                 <div className="text-sm">
                   <div className="font-semibold text-gray-900 mb-1">
-                    Trust Score: {getTrustScoreLabel(restaurant.avgTrustScore || 0)}
+                    {t('trustScore.label')}: {getTrustScoreLabel(restaurant.avgTrustScore || 0)}
                   </div>
                   <div className="text-gray-600">
-                    Baseado em {restaurant.totalRecommendations || 0} recomendações de pessoas 
-                    na sua rede social.
+                    {t('trustScore.tooltipShort', { count: restaurant.totalRecommendations || 0 })}
                   </div>
                 </div>
               </div>
@@ -361,7 +361,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({
 
           {/* Action Button */}
           <button className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium">
-            Ver Recomendações
+            {t('actions.viewRecommendations')}
           </button>
         </div>
       </Link>

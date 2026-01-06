@@ -1,0 +1,114 @@
+{
+  "hero": {
+    "title": "Recommendations from People You Trust",
+    "subtitle": "All the restaurant advice you get from friends. {br}Captured, ranked, and searchable when you need it."
+  },
+  "quote": {
+    "main": "The restaurant recommendation you got from your best friend last week was more valuable than 10,000 Google reviews.",
+    "tagline": "BocaBoca makes that kind of trusted discovery scalable."
+  },
+  "comparison": {
+    "instead": "Instead of this:",
+    "stars": "4.3 (247 reviews)",
+    "starsNote": "When everything is 4.5 stars, nothing stands out",
+    "youGet": "You get this:"
+  },
+  "problem": {
+    "title": "The Problem",
+    "subtitle": "Online reviews are broken, and AI is making it worse.",
+    "trustCollapsed": {
+      "title": "Trust Has Collapsed",
+      "description": "Consumer trust in online reviews has dropped sharply in recent years. AI-generated fake reviews are now cheap to produce at scale."
+    },
+    "lostInScroll": {
+      "title": "Lost in the Scroll",
+      "description": "Your friend mentioned a perfect restaurant last week—but you can't find the message. Valuable word-of-mouth wisdom disappears in the scroll."
+    },
+    "ratingsLostMeaning": {
+      "title": "Ratings Lost Their Meaning",
+      "description": "When everything is 4.5 stars, there's no way to differentiate. A vegan's glowing review tells a steak lover nothing. Your context is ignored."
+    }
+  },
+  "solution": {
+    "title": "The Solution",
+    "subtitle": "BocaBoca captures and organizes authentic word-of-mouth recommendations, making them persistent and searchable.",
+    "trust": {
+      "title": "Recommendations You Can Trust",
+      "description": "Every suggestion shows who made it and why their taste aligns with yours. See where your friends are eating—no anonymous crowds, no hidden algorithms."
+    },
+    "neverLost": {
+      "title": "Find It When You Need It",
+      "description": "Your dining intelligence stays organized and searchable forever. Find that perfect restaurant your friend mentioned six months ago."
+    },
+    "ownProfile": {
+      "title": "Own Your Taste Profile",
+      "description": "Your documented preferences become a portable asset you control. In an AI-driven world, verified human taste data is the missing ingredient."
+    },
+    "example": {
+      "intro": "Get dish-level precision like:",
+      "quote": "Their Cacio e Pepe is incredible <green>(9/10)</green> but skip the tiramisu <red>(5/10)</red>.",
+      "attribution": "— From 3 friends with 87% taste alignment"
+    }
+  },
+  "whyNow": {
+    "title": "Why Now?",
+    "subtitle": "Three forces are converging to create urgency and opportunity.",
+    "aiCheap": {
+      "title": "AI Made Fake Reviews Trivially Cheap",
+      "description": "Content generation has accelerated platform corruption. Restaurants can generate thousands of optimized reviews for almost nothing."
+    },
+    "awareness": {
+      "title": "Consumer Awareness Hit Critical Mass",
+      "description": "People know not to trust what they see. 65% of consumers believe businesses manipulate reviews."
+    },
+    "infrastructure": {
+      "title": "The Infrastructure Is Finally Ready",
+      "description": "The technology now exists to make trusted recommendations persistent and verifiable at scale. The window for building verified taste infrastructure is now."
+    }
+  },
+  "differentiators": {
+    "title": "Key Differentiators",
+    "trust": {
+      "title": "Recommendations You Can Trust",
+      "description": "No anonymous crowds, no hidden algorithms, no pay-to-play."
+    },
+    "neverLost": {
+      "title": "Find It When You Need It",
+      "description": "Find that perfect restaurant your friend mentioned six months ago."
+    },
+    "ownProfile": {
+      "title": "Own Your Taste Profile",
+      "description": "Your preferences become a portable asset you control."
+    }
+  },
+  "cta": {
+    "title": "Ready to Trust Your Network's Taste?",
+    "subtitle": "Start capturing the recommendations you already rely on—and find them when it matters.",
+    "getStarted": "Get Started",
+    "exploreDemo": "Explore Demo"
+  },
+  "footer": {
+    "tagline": "Recommendations from people you trust. Built for the long term.",
+    "platform": "Platform",
+    "discover": "Discover",
+    "create": "Create",
+    "community": "Community",
+    "learn": "Learn",
+    "howItWorks": "How it Works",
+    "trustScores": "Trust Scores",
+    "tokenRewards": "Token Rewards",
+    "whitePaper": "White Paper",
+    "discord": "Discord",
+    "twitter": "Twitter",
+    "github": "GitHub",
+    "blog": "Blog",
+    "copyright": "© 2025 BocaBoca. Built for the long term.",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "status": "Status"
+  },
+  "loading": {
+    "signingIn": "Signing you in...",
+    "pleaseWait": "Please wait while we complete your authentication"
+  }
+}

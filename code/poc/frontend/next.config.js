@@ -1,3 +1,5 @@
+const withNextIntl = require('next-intl/plugin')('./i18n.ts');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Remove deprecated experimental.appDir (App Router is now stable)
@@ -31,9 +33,31 @@ const nextConfig = {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
   
-  // Image configuration for external sources (fixes Unsplash image error)
+  // Image configuration - ALL remote patterns in ONE place
   images: {
     remotePatterns: [
+      // IPFS Gateways
+      {
+        protocol: 'https',
+        hostname: 'ipfs.io',
+        pathname: '/ipfs/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cloudflare-ipfs.com',
+        pathname: '/ipfs/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'gateway.pinata.cloud',
+        pathname: '/ipfs/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'dweb.link',
+        pathname: '/ipfs/**',
+      },
+      // Other external sources
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
@@ -51,7 +75,7 @@ const nextConfig = {
         hostname: 'api.dicebear.com',
         port: '',
         pathname: '**',
-      }
+      },
     ],
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
@@ -59,4 +83,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withNextIntl(nextConfig);

@@ -104,11 +104,12 @@ class SavedListsService {
     return result.rows.map(row => this.formatList(row));
   }
 
-  /**
-   * Get a specific list by ID
+/**
+   * Get a specific list by ID with items
    */
   async getListById(listId: string, userId: string): Promise<SavedList | null> {
-    const result = await this.db.query(
+    // First get the list
+    const listResult = await this.db.query(
       `SELECT sl.*, COUNT(sli.id) as item_count
        FROM user_saved_lists sl
        LEFT JOIN saved_list_items sli ON sli.list_id = sl.id
@@ -117,8 +118,41 @@ class SavedListsService {
       [listId, userId]
     );
 
-    if (result.rows.length === 0) return null;
-    return this.formatList(result.rows[0]);
+    if (listResult.rows.length === 0) return null;
+    
+    const list = this.formatList(listResult.rows[0]);
+
+    // Fetch items WITHOUT complex joins
+    const itemsResult = await this.db.query(
+      `SELECT 
+        id,
+        item_type,
+        item_id,
+        notes,
+        priority,
+        added_at,
+        visited,
+        visited_at
+       FROM saved_list_items
+       WHERE list_id = $1
+       ORDER BY priority ASC, added_at DESC`,
+      [listId]
+    );
+
+    // Simple item mapping
+    list.items = itemsResult.rows.map(row => ({
+      id: row.id,
+      itemType: row.item_type,
+      itemId: row.item_id,
+      notes: row.notes,
+      priority: row.priority,
+      addedAt: row.added_at,
+      visited: row.visited,
+      visitedAt: row.visited_at,
+      details: null
+    }));
+
+    return list;
   }
 
   /**
@@ -654,7 +688,7 @@ class SavedListsService {
         
       case 'guide':
         query = `
-          SELECT created_by as id
+          SELECT author_id as id
           FROM food_guides
           WHERE id = $1
         `;

@@ -5,7 +5,7 @@ import TrustScoreService, {
   TrustScoreBreakdown, 
   UserReputation, 
   Recommendation 
-} from '../services/TrustScoreService';
+} from '../services/TierService';
 
 export interface UseTrustScoreReturn {
   // User data

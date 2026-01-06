@@ -1,6 +1,7 @@
 // Reusable Follow Button Component - FIXED API CALLS
 
 import React, { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Users, UserPlus, UserMinus } from 'lucide-react';
 
 interface FollowButtonProps {
@@ -24,6 +25,7 @@ export function FollowButton({
   showIcon = true,
   disabled = false
 }: FollowButtonProps) {
+  const t = useTranslations('common');
   const [isLoading, setIsLoading] = useState(false);
 
   // Don't show follow button for own profile
@@ -110,15 +112,20 @@ export function FollowButton({
   // Button text
   const getButtonText = () => {
     if (isLoading) {
-      return isFollowing ? 'Unfollowing...' : 'Following...';
+      return isFollowing 
+        ? t('social.follow.unfollowing') 
+        : t('social.follow.followingAction');
     }
-    return isFollowing ? 'Following' : 'Follow';
+    return isFollowing 
+      ? t('social.follow.following') 
+      : t('social.follow.follow');
   };
 
   return (
     <button
       onClick={handleFollow}
       disabled={isLoading || disabled}
+      aria-label={isFollowing ? t('social.follow.aria.unfollow') : t('social.follow.aria.follow')}
       className={`
         inline-flex items-center gap-2 font-medium rounded-lg transition-all duration-200
         ${sizeClasses[size]}

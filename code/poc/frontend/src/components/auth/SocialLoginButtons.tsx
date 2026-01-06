@@ -1,7 +1,11 @@
 // File: code/poc/frontend/src/components/auth/SocialLoginButtons.tsx
 // Social authentication buttons including Instagram (popular in Brazil)
+// UPDATED: Internationalized with next-intl
+
+'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 
 interface SocialLoginButtonsProps {
   onSocialLogin?: (provider: 'google' | 'apple' | 'twitter' | 'instagram') => void;
@@ -12,6 +16,7 @@ export const SocialLoginButtons: React.FC<SocialLoginButtonsProps> = ({
   onSocialLogin,
   disabled = false 
 }) => {
+  const t = useTranslations('auth.social');
   
   const handleSocialClick = (provider: 'google' | 'apple' | 'twitter' | 'instagram') => {
     if (onSocialLogin) {
@@ -33,7 +38,7 @@ export const SocialLoginButtons: React.FC<SocialLoginButtonsProps> = ({
         className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <GoogleIcon className="w-5 h-5" />
-        <span className="text-sm font-medium text-gray-700">Continue with Google</span>
+        <span className="text-sm font-medium text-gray-700">{t('continueWithGoogle')}</span>
       </button>
 
       {/* Instagram */}
@@ -44,7 +49,7 @@ export const SocialLoginButtons: React.FC<SocialLoginButtonsProps> = ({
         className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <InstagramIcon className="w-5 h-5" />
-        <span className="text-sm font-medium text-gray-700">Continue with Instagram</span>
+        <span className="text-sm font-medium text-gray-700">{t('continueWithInstagram')}</span>
       </button>
 
       {/* Apple */}
@@ -55,7 +60,7 @@ export const SocialLoginButtons: React.FC<SocialLoginButtonsProps> = ({
         className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <AppleIcon className="w-5 h-5" />
-        <span className="text-sm font-medium text-gray-700">Continue with Apple</span>
+        <span className="text-sm font-medium text-gray-700">{t('continueWithApple')}</span>
       </button>
 
       {/* Twitter */}
@@ -66,7 +71,7 @@ export const SocialLoginButtons: React.FC<SocialLoginButtonsProps> = ({
         className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <TwitterIcon className="w-5 h-5" />
-        <span className="text-sm font-medium text-gray-700">Continue with Twitter</span>
+        <span className="text-sm font-medium text-gray-700">{t('continueWithTwitter')}</span>
       </button>
     </div>
   );

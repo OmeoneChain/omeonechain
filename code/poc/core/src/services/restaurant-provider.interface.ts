@@ -1,5 +1,4 @@
 // File: code/poc/core/src/services/restaurant-provider.interface.ts
-
 /**
  * Restaurant Provider Interface
  * 
@@ -29,8 +28,22 @@ export interface RestaurantDetails extends RestaurantSuggestion {
   website?: string;
   hours?: any;  // Provider-specific format
   photos?: string[];
+  
+  // Location details extracted from address components
+  city?: string;           // e.g., "São Paulo", "Lisbon"
+  state?: string;          // e.g., "São Paulo", "Lisboa" (full name)
+  stateShort?: string;     // e.g., "SP", "LI" (abbreviation)
+  country?: string;        // e.g., "Brazil", "Portugal" (full name)
+  countryShort?: string;   // e.g., "BR", "PT" (ISO code)
+  
   // NOTE: External ratings NOT included - we don't want them
 }
+
+/**
+ * Result type for search operations
+ * Alias for RestaurantDetails for backward compatibility
+ */
+export type RestaurantSearchResult = RestaurantDetails;
 
 export interface RestaurantSearchProvider {
   /**

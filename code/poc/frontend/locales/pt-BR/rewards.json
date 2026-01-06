@@ -1,0 +1,354 @@
+{
+  "page": {
+    "title": "Ganhe Tokens BOCA",
+    "subtitle": "Participe de concursos semanais e recompensas para ganhar prêmios"
+  },
+  
+  "tabs": {
+    "overview": "Visão Geral",
+    "lottery": "Loteria",
+    "photoContest": "Concurso de Fotos",
+    "bounties": "Pedidos"
+  },
+
+  "overview": {
+    "header": {
+      "title": "Como Ganhar Tokens BOCA",
+      "subtitle": "Guia completo de todas as oportunidades de ganhos no BocaBoca"
+    },
+    "welcome": {
+      "title": "Recompensas de Boas-vindas",
+      "subtitle": "Bônus único de até 50 BOCA",
+      "follow3": "Seguir 3 usuários",
+      "create5": "Criar 5 recomendações",
+      "engage10": "Interagir com 10 posts de 3+ autores"
+    },
+    "content": {
+      "title": "Criação de Conteúdo",
+      "subtitle": "Ganhe tokens por cada recomendação",
+      "createWallet": "Criar recomendação (carteira)",
+      "createEmail": "Criar recomendação (email)",
+      "validationBonus": "Bônus de validação (3+ pontos de engajamento)",
+      "firstReviewer": "Bônus de primeiro avaliador"
+    },
+    "engagement": {
+      "title": "Engajamento Recebido",
+      "subtitle": "Ganhe quando outros interagem com suas recomendações",
+      "save": "Receber salvamento/favorito",
+      "comment": "Receber comentário",
+      "helpful": "Marcação de \"Útil\"",
+      "tier": "peso do nível"
+    },
+    "tiers": {
+      "title": "Sistema de Níveis",
+      "subtitle": "Seu nível afeta as recompensas ganhas",
+      "new": "Novo",
+      "newDays": "0-6 dias",
+      "established": "Estabelecido",
+      "establishedDays": "7+ dias",
+      "trusted": "Confiável",
+      "trustedDays": "30+ dias + 3 validadas",
+      "example": "Exemplo: Usuário Estabelecido (1.0×) salva sua rec → Você ganha 1.0 BOCA"
+    },
+    "social": {
+      "title": "Amplificação Social",
+      "subtitle": "Compartilhe e amplifique ótimas recomendações",
+      "boost": "Impulsionar recomendação",
+      "reshare": "Recompartilhar recomendação",
+      "attribution": "Sua recomendação é recompartilhada"
+    },
+    "contests": {
+      "title": "Concursos Semanais",
+      "subtitle": "Prêmios adicionais toda semana",
+      "lottery": {
+        "title": "Loteria Semanal",
+        "pool": "Premiação Total",
+        "eligible": "Top 20-100 contribuidores elegíveis",
+        "spotlights": "destaque recs"
+      },
+      "photo": {
+        "title": "Concurso de Fotos",
+        "subtitle": "Melhores fotos de comida ganham prêmios",
+        "participation": "Bônus de participação",
+        "homepage": "destaque na página inicial",
+        "banner": "destaque em banner"
+      },
+      "first": "1º Lugar",
+      "second": "2º Lugar",
+      "third": "3º Lugar"
+    },
+    "bounties": {
+      "title": "Pedidos de Descoberta",
+      "subtitle": "Responda pedidos de descoberta por recompensas",
+      "create": "Criar pedido (mínimo)",
+      "win": "Ganhar pedido",
+      "ofPledge": "da promessa",
+      "fee": "10% taxa da plataforma queimada"
+    },
+    "curation": {
+      "title": "Curadoria",
+      "subtitle": "Crie e mantenha listas",
+      "createList": "Criar lista (5+ restaurantes)",
+      "list10": "Lista atinge 10 salvamentos",
+      "list50": "Lista atinge 50 salvamentos"
+    },
+    "moderation": {
+      "title": "Moderação da Comunidade",
+      "subtitle": "Ajude a manter a qualidade da plataforma",
+      "spamReport": "Denúncia de spam validada",
+      "spamReportBonus": "+ 10% do escrow confiscado",
+      "falseReport": "Denúncia falsa de spam"
+    }
+  },
+
+  "error": {
+    "title": "Erro ao carregar dados",
+    "retry": "Tentar novamente"
+  },
+
+  "sidebar": {
+    "wallet": {
+      "connected": {
+        "title": "Carteira Conectada",
+        "subtitle": "Você pode ganhar recompensas",
+        "lotteryTickets": "Bilhetes de Loteria:",
+        "engagementScore": "Pontuação de Engajamento:"
+      },
+      "upgrade": {
+        "title": "Atualize para Ganhar",
+        "subtitle": "Conecte a carteira para recompensas",
+        "description": "Conecte sua carteira para participar de concursos e ganhar tokens BOCA.",
+        "cta": "Atualizar Agora"
+      },
+      "guest": {
+        "title": "Junte-se ao BocaBoca",
+        "description": "Cadastre-se para começar a ganhar tokens BOCA",
+        "cta": "Cadastrar"
+      }
+    },
+    "quickStats": {
+      "title": "Estatísticas Rápidas",
+      "nextLottery": "Próxima Loteria",
+      "prizePool": "Premiação Total",
+      "activeBounties": "Pedidos Ativos",
+      "loading": "Carregando..."
+    },
+    "howItWorks": {
+      "title": "Como Funciona",
+      "lottery": {
+        "title": "🎰 Loteria Semanal",
+        "description": "Ganhe bilhetes através do engajamento. Sorteio toda terça-feira às 23h UTC."
+      },
+      "photoContest": {
+        "title": "📸 Concurso de Fotos",
+        "description": "Envie suas melhores fotos de comida. Vencedores anunciados todo domingo."
+      },
+      "bounties": {
+        "title": "🎯 Pedidos",
+        "description": "Responda pedidos de descoberta e ganhe BOCA dos solicitantes."
+      }
+    }
+  },
+  
+  "lottery": {
+    "title": "Loteria Semanal",
+    "description": "Ganhe bilhetes através do engajamento. Os melhores contribuidores ganham prêmios toda terça-feira.",
+    "currentWeek": "Semana Atual",
+    "nextDrawing": "Próximo Sorteio",
+    "yourScore": "Sua Pontuação",
+    "yourTickets": "Seus Bilhetes",
+    "leaderboard": {
+      "title": "Ranking Semanal",
+      "topParticipants": "Top {count} participantes",
+      "columns": {
+        "rank": "Posição",
+        "user": "Usuário",
+        "engagement": "Engajamento",
+        "tickets": "Bilhetes",
+        "status": "Status"
+      },
+      "points": "pontos",
+      "eligible": "✓ Elegível",
+      "notEligible": "Não elegível",
+      "viewFull": "Ver Ranking Completo ({count} participantes)"
+    },
+    "rank": "Posição",
+    "user": "Usuário",
+    "score": "Pontos",
+    "tickets": "Bilhetes",
+    "prizePool": {
+      "title": "Premiação Total",
+      "nextDrawing": "Próximo Sorteio"
+    },
+    "prizes": {
+      "title": "Prêmios Semanais",
+      "first": "1º Lugar",
+      "second": "2º Lugar",
+      "third": "3º Lugar",
+      "spotlight": "+ destaque de recomendação"
+    },
+    "participants": {
+      "title": "{count} Participantes",
+      "eligible": "Top {max} elegíveis para prêmios"
+    },
+    "howItWorks": {
+      "title": "Como Funciona",
+      "step1": "Crie recomendações e interaja com outras",
+      "step2": "Ganhe pontos de engajamento (curtidas, salvos, comentários)",
+      "step3": "Pontos viram bilhetes de loteria (√pontos, máx 10)",
+      "step4": "Sorteio toda terça às 23h UTC"
+    },
+    "walletRequired": "🔐 Conecte sua carteira para participar da loteria semanal",
+    "history": "Ganhadores Anteriores",
+    "noData": "Nenhum dado de loteria disponível"
+  },
+  
+  "photoContest": {
+    "title": "Concurso de Fotos Semanal",
+    "description": "Envie sua melhor fotografia gastronômica. A comunidade vota nos vencedores.",
+    "currentRound": "Rodada Atual",
+    "phase": {
+      "nomination": "Fase de Indicação",
+      "nominations": "Indicações Abertas",
+      "voting": "Fase de Votação",
+      "completed": "Concurso Finalizado",
+      "ended": "Concurso Encerrado",
+      "stats": "{nominations} indicações, {finalists} finalistas"
+    },
+    "timeLeft": "Tempo restante",
+    "timeRemaining": "Tempo Restante",
+    "nominate": "Indicar uma Foto",
+    "nominateDescription": "Selecione uma foto de suas recomendações para participar",
+    "nominationCost": "Indicação ganha 0.05 BOCA",
+    "vote": "Votar",
+    "voted": "Votado",
+    "votes": "votos",
+    "prizes": {
+      "title": "Prêmios Semanais",
+      "first": "1º Lugar",
+      "second": "2º Lugar", 
+      "third": "3º Lugar",
+      "feature": "+ destaque na página inicial"
+    },
+    "timeline": {
+      "title": "Cronograma",
+      "monWed": "Seg-Qua",
+      "nominations": "Indicações",
+      "thursday": "Quinta",
+      "finalists": "Finalistas",
+      "thuSat": "Qui-Sáb",
+      "voting": "Votação",
+      "sunday": "Domingo",
+      "winners": "Vencedores"
+    },
+    "finalists": {
+      "title": "Finalistas desta Semana",
+      "votes": "{count} votos",
+      "voted": "✓ Votado",
+      "alreadyVoted": "Já votou",
+      "vote": "Votar",
+      "loginToVote": "Entre para votar",
+      "viewAll": "Ver Todos os {count} Finalistas →"
+    },
+    "noFinalists": "Finalistas serão anunciados quinta 9h UTC",
+    "pastWinners": {
+      "title": "Vencedores Recentes",
+      "viewAll": "Ver Todos os Vencedores Anteriores →"
+    },
+    "howToParticipate": {
+      "title": "Como Participar",
+      "step1": "Crie uma recomendação com uma ótima foto de comida (Seg-Qua)",
+      "step2": "Indique sua foto para o concurso (bônus de participação de 0,05 BOCA)",
+      "step3": "10 finalistas selecionados aleatoriamente na quinta de manhã",
+      "step4": "Comunidade vota de quinta a sábado",
+      "step5": "Vencedores anunciados no domingo à noite"
+    },
+    "walletRequired": "🔐 Conecte sua carteira para indicar fotos e votar nos concursos",
+    "history": "Ganhadores Anteriores",
+    "noData": "Nenhum dado do concurso de fotos disponível"
+  },
+  
+  "bounties": {
+    "title": "Pedidos de Descoberta",
+    "description": "Usuários financiam pedidos de descoberta. Responda-os e ganhe tokens BOCA.",
+    "active": {
+      "title": "Pedidos Ativos",
+      "submissions": "{count} respostas",
+      "posted": "Publicado {time}",
+      "viewAll": "Ver Todos os {count} Pedidos"
+    },
+    "create": "Criar Pedido",
+    "noBounties": "Nenhum pedido ativo",
+    "beFirst": "Seja o primeiro a criar um!",
+    "empty": {
+      "title": "Nenhum Pedido Ativo",
+      "description": "Seja o primeiro a criar um pedido de descoberta"
+    },
+    "amount": "Valor do Pedido",
+    "minAmount": "Mínimo 1.0 BOCA",
+    "deadline": "Prazo",
+    "submissions": "respostas",
+    "submit": "Enviar Resposta",
+    "selectWinner": "Selecionar Vencedor",
+    "yourBounties": "Seus Pedidos",
+    "yourSubmissions": "Suas Respostas",
+    "howItWorks": {
+      "title": "Como Funciona",
+      "step1": {
+        "title": "1. Pedido Publicado",
+        "description": "Usuário cria um pedido com promessa em BOCA"
+      },
+      "step2": {
+        "title": "2. Envie Respostas",
+        "description": "Comunidade envia recomendações"
+      },
+      "step3": {
+        "title": "3. Vencedor Leva 90%",
+        "description": "Solicitante escolhe vencedor, 10% queimados"
+      }
+    },
+    "createNew": {
+      "title": "Criar Novo Pedido",
+      "description": "Descreva o que você está procurando",
+      "descriptionPlaceholder": "ex: Melhor restaurante italiano escondido no centro...",
+      "amount": "Valor do Pedido (BOCA)",
+      "duration": "Duração",
+      "days": "dias",
+      "create": "Criar Pedido",
+      "creating": "Criando...",
+      "fee": "10% de taxa da plataforma sobre o prêmio"
+    },
+    "status": {
+      "open": "Aberto",
+      "closed": "Fechado",
+      "completed": "Concluído",
+      "expired": "Expirado"
+    },
+    "walletRequired": "🔐 Conecte sua carteira para criar ou enviar pedidos"
+  },
+  
+  "earnings": {
+    "title": "Seus Ganhos",
+    "total": "Total Ganho",
+    "pending": "Pendente",
+    "claimed": "Resgatado",
+    "thisWeek": "Esta Semana",
+    "thisMonth": "Este Mês",
+    "breakdown": "Detalhamento de Ganhos",
+    "recommendations": "Recomendações",
+    "engagement": "Engajamento",
+    "contests": "Concursos & Loteria",
+    "bounties": "Pedidos",
+    "referrals": "Indicações"
+  },
+  
+  "tiers": {
+    "title": "Seu Nível",
+    "new": "Novo",
+    "established": "Estabelecido",
+    "trusted": "Confiável",
+    "newDescription": "0-6 dias • 0.5× recompensas • 7 dias de custódia",
+    "establishedDescription": "7+ dias • 1.0× recompensas • Sem custódia",
+    "trustedDescription": "30+ dias + 3 validadas • 1.5× recompensas • Governança"
+  }
+}

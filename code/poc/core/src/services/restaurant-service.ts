@@ -70,10 +70,12 @@ export class RestaurantService {
   /**
    * Create restaurant from external provider data (Google Places)
    * Called when user selects a restaurant from search/autocomplete
+   * 
+   * Now properly extracts city, state, country from Google's addressComponents
    */
   async createFromExternalProvider(
     externalId: string,
-    city?: string
+    cityOverride?: string
   ): Promise<Restaurant> {
     // Get detailed information from provider
     const details = await this.searchProvider.getDetails(externalId);
@@ -88,14 +90,30 @@ export class RestaurantService {
       return existing;
     }
 
+    // Use Google's parsed address components, with fallbacks
+    // Priority: Google's parsed data > cityOverride parameter > fallback extraction > 'Unknown'
+    const city = details.city || cityOverride || this.extractCity(details.address) || 'Unknown';
+    const state = details.state || details.stateShort || null;
+    const country = details.country || details.countryShort || 'Unknown';
+
+    console.log('📍 Creating restaurant with location:', { 
+      name: details.name,
+      city, 
+      state, 
+      country,
+      fromGoogle: !!details.city 
+    });
+
     // Create in our database
     const result = await this.db.query(
       `INSERT INTO restaurants (
         foursquare_place_id,
+        google_place_id,
         name,
         normalized_name,
         address,
         city,
+        state_province,
         country,
         latitude,
         longitude,
@@ -103,15 +121,17 @@ export class RestaurantService {
         data_source,
         foursquare_data,
         last_synced_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
       RETURNING *`,
       [
+        externalId,
         externalId,
         details.name,
         this.normalizeName(details.name),
         details.address,
-        city || this.extractCity(details.address) || 'Brasília',
-        'BR',
+        city,
+        state,
+        country,
         details.latitude,
         details.longitude,
         details.categories?.[0] || 'Restaurant',
@@ -225,13 +245,16 @@ export class RestaurantService {
   }
 
   /**
-   * Extract city from address string (simple heuristic)
+   * Extract city from address string (fallback heuristic)
+   * Used when Google's addressComponents don't include city
    */
   private extractCity(address: string): string | null {
     if (!address) return null;
     
     // Very simple extraction - just look for known cities
-    const knownCities = ['Brasília', 'São Paulo', 'Rio de Janeiro', 'Belo Horizonte'];
+    const knownCities = ['Brasília', 'São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 
+                         'Salvador', 'Fortaleza', 'Curitiba', 'Recife', 'Porto Alegre',
+                         'Lisbon', 'Porto', 'Miami', 'New York', 'Los Angeles'];
     for (const city of knownCities) {
       if (address.includes(city)) {
         return city;

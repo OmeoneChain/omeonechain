@@ -10,15 +10,12 @@ module email_escrow::email_escrow {
     use iota::event;
     use iota::table::{Self, Table};
     use bocaboca::token::TOKEN;
-    use user_status::user_status;
 
     /// One-time witness for initialization
     public struct EMAIL_ESCROW has drop {}
 
     /// Error codes
     const E_NOT_AUTHORIZED: u64 = 501;
-    const E_NOT_EMAIL_USER: u64 = 502;
-    const E_ALREADY_WALLET_USER: u64 = 503;
     const E_NO_PENDING_TOKENS: u64 = 504;
     const E_ESCROW_NOT_EXPIRED: u64 = 505;
     const E_ESCROW_ALREADY_CLAIMED: u64 = 506;
@@ -28,45 +25,34 @@ module email_escrow::email_escrow {
     /// Constants
     const ESCROW_DURATION_MS: u64 = 15_552_000_000;  // 6 months (180 days) in milliseconds
     const EXPIRATION_WARNING_MS: u64 = 2_592_000_000; // 30 days before expiration
-    const MIN_PENDING_AMOUNT: u64 = 1_000;            // 0.001 BOCA minimum (6 decimals)
 
     /// Email user's pending token escrow
     public struct EmailEscrowHold has key, store {
         id: UID,
         user: address,
-        pending_balance: Balance<TOKEN>,      // Accumulated tokens
-        
-        // Timing
-        created_at: u64,                      // When first tokens were escrowed
-        expiration_time: u64,                 // created_at + 6 months
-        last_deposit: u64,                    // Last time tokens were added
-        
-        // Status tracking
-        total_deposited: u64,                 // Lifetime deposits
-        claimed_on_upgrade: bool,             // True if claimed via wallet upgrade
-        expired: bool,                        // True if 6 months passed without upgrade
-        claimed_at: u64,                      // When claimed (0 if not claimed)
-        expired_at: u64,                      // When expired (0 if not expired)
+        pending_balance: Balance<TOKEN>,
+        created_at: u64,
+        expiration_time: u64,
+        last_deposit: u64,
+        total_deposited: u64,
+        claimed_on_upgrade: bool,
+        expired: bool,
+        claimed_at: u64,
+        expired_at: u64,
     }
 
     /// Global email escrow registry
     public struct GlobalEmailEscrowRegistry has key {
         id: UID,
-        
-        // Statistics
         total_email_escrows: u64,
-        total_pending_amount: u64,            // Total BOCA currently in escrow
-        total_claimed_amount: u64,            // Total BOCA claimed on upgrade
-        total_expired_amount: u64,            // Total BOCA expired (returned to treasury)
-        total_upgrades: u64,                  // Number of successful upgrades
-        
-        // User escrow tracking
+        total_pending_amount: u64,
+        total_claimed_amount: u64,
+        total_expired_amount: u64,
+        total_upgrades: u64,
         user_escrows: Table<address, EmailEscrowHold>,
-        
-        // Admin
         moderators: vector<address>,
         admin: address,
-        treasury: address,                    // Where expired tokens go
+        treasury: address,
     }
 
     /// Events
@@ -119,7 +105,7 @@ module email_escrow::email_escrow {
             user_escrows: table::new(ctx),
             moderators: vector::empty(),
             admin,
-            treasury: admin, // Default treasury to admin, can be changed later
+            treasury: admin,
         };
 
         vector::push_back(&mut registry.moderators, admin);
@@ -127,29 +113,25 @@ module email_escrow::email_escrow {
         transfer::share_object(registry);
     }
 
-    /// Create or add to email escrow for a user
+    /// Add pending tokens for an email user (moderator only - tier check done off-chain)
     public fun add_pending_tokens(
         registry: &mut GlobalEmailEscrowRegistry,
-        user_status_registry: &user_status::UserStatusRegistry,
         user: address,
         tokens: Coin<TOKEN>,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
+        let caller = tx_context::sender(ctx);
+        assert!(is_moderator(registry, caller), E_NOT_AUTHORIZED);
+
         let amount = coin::value(&tokens);
         assert!(amount > 0, E_INVALID_AMOUNT);
 
         let now = clock::timestamp_ms(clock);
 
-        // Verify user is email-tier
-        assert!(user_status::is_email_tier(user_status_registry, user), E_NOT_EMAIL_USER);
-
-        // Check if escrow already exists
         if (table::contains(&registry.user_escrows, user)) {
-            // Add to existing escrow
             let escrow = table::borrow_mut(&mut registry.user_escrows, user);
             
-            // Cannot add to expired or claimed escrow
             assert!(!escrow.expired, E_ESCROW_ALREADY_EXPIRED);
             assert!(!escrow.claimed_on_upgrade, E_ESCROW_ALREADY_CLAIMED);
 
@@ -162,7 +144,6 @@ module email_escrow::email_escrow {
             let new_total = balance::value(&escrow.pending_balance);
             registry.total_pending_amount = registry.total_pending_amount + amount;
 
-            // Check if approaching expiration (30 days warning)
             let time_until_expiration = if (now < escrow.expiration_time) {
                 escrow.expiration_time - now
             } else {
@@ -170,7 +151,7 @@ module email_escrow::email_escrow {
             };
 
             if (time_until_expiration <= EXPIRATION_WARNING_MS && time_until_expiration > 0) {
-                let days_remaining = time_until_expiration / 86_400_000; // Convert to days
+                let days_remaining = time_until_expiration / 86_400_000;
                 event::emit(ExpirationWarning {
                     user,
                     pending_amount: new_total,
@@ -186,7 +167,6 @@ module email_escrow::email_escrow {
                 timestamp: now,
             });
         } else {
-            // Create new escrow
             let expiration_time = now + ESCROW_DURATION_MS;
             
             let escrow = EmailEscrowHold {
@@ -216,47 +196,40 @@ module email_escrow::email_escrow {
         };
     }
 
-    /// Claim all pending tokens on wallet upgrade
+    /// Claim pending tokens on wallet upgrade (moderator triggers after verifying upgrade)
     public fun claim_on_upgrade(
         registry: &mut GlobalEmailEscrowRegistry,
-        user_status_registry: &user_status::UserStatusRegistry,
+        user: address,
         clock: &Clock,
         ctx: &mut TxContext
     ): Coin<TOKEN> {
-        let user = tx_context::sender(ctx);
+        let caller = tx_context::sender(ctx);
+        assert!(is_moderator(registry, caller), E_NOT_AUTHORIZED);
+
         let now = clock::timestamp_ms(clock);
 
-        // Verify user has upgraded to wallet (this function should be called AFTER upgrade)
-        assert!(user_status::is_wallet_tier(user_status_registry, user), E_ALREADY_WALLET_USER);
-
-        // Get escrow
         assert!(table::contains(&registry.user_escrows, user), E_NO_PENDING_TOKENS);
         let escrow = table::borrow_mut(&mut registry.user_escrows, user);
 
-        // Verify not already claimed or expired
         assert!(!escrow.claimed_on_upgrade, E_ESCROW_ALREADY_CLAIMED);
         assert!(!escrow.expired, E_ESCROW_ALREADY_EXPIRED);
 
         let amount = balance::value(&escrow.pending_balance);
         assert!(amount > 0, E_NO_PENDING_TOKENS);
 
-        // Calculate days until expiration (for analytics)
         let days_until_expiration = if (now < escrow.expiration_time) {
             (escrow.expiration_time - now) / 86_400_000
         } else {
             0
         };
 
-        // Mark as claimed
         escrow.claimed_on_upgrade = true;
         escrow.claimed_at = now;
 
-        // Update registry stats
         registry.total_pending_amount = registry.total_pending_amount - amount;
         registry.total_claimed_amount = registry.total_claimed_amount + amount;
         registry.total_upgrades = registry.total_upgrades + 1;
 
-        // Extract tokens
         let claimed_balance = balance::withdraw_all(&mut escrow.pending_balance);
         let claimed_coin = coin::from_balance(claimed_balance, ctx);
 
@@ -270,36 +243,33 @@ module email_escrow::email_escrow {
         claimed_coin
     }
 
-    /// Expire unclaimed tokens (callable by anyone after expiration)
+    /// Expire unclaimed tokens (callable by moderator after expiration)
     public fun expire_unclaimed_tokens(
         registry: &mut GlobalEmailEscrowRegistry,
         user: address,
         clock: &Clock,
         ctx: &mut TxContext
     ): Coin<TOKEN> {
+        let caller = tx_context::sender(ctx);
+        assert!(is_moderator(registry, caller), E_NOT_AUTHORIZED);
+
         let now = clock::timestamp_ms(clock);
 
         assert!(table::contains(&registry.user_escrows, user), E_NO_PENDING_TOKENS);
         let escrow = table::borrow_mut(&mut registry.user_escrows, user);
 
-        // Verify not already claimed or expired
         assert!(!escrow.claimed_on_upgrade, E_ESCROW_ALREADY_CLAIMED);
         assert!(!escrow.expired, E_ESCROW_ALREADY_EXPIRED);
-
-        // Verify expiration time has passed
         assert!(now >= escrow.expiration_time, E_ESCROW_NOT_EXPIRED);
 
         let amount = balance::value(&escrow.pending_balance);
         
-        // Mark as expired
         escrow.expired = true;
         escrow.expired_at = now;
 
-        // Update registry stats
         registry.total_pending_amount = registry.total_pending_amount - amount;
         registry.total_expired_amount = registry.total_expired_amount + amount;
 
-        // Extract tokens to return to treasury
         let expired_balance = balance::withdraw_all(&mut escrow.pending_balance);
         let expired_coin = coin::from_balance(expired_balance, ctx);
 
@@ -310,7 +280,6 @@ module email_escrow::email_escrow {
             timestamp: now,
         });
 
-        // Return coin to be sent to treasury
         expired_coin
     }
 
@@ -324,11 +293,7 @@ module email_escrow::email_escrow {
         };
 
         let escrow = table::borrow(&registry.user_escrows, user);
-        
-        // Has pending if not claimed, not expired, and has balance
-        !escrow.claimed_on_upgrade && 
-        !escrow.expired && 
-        balance::value(&escrow.pending_balance) > 0
+        !escrow.claimed_on_upgrade && !escrow.expired && balance::value(&escrow.pending_balance) > 0
     }
 
     /// Get pending token amount for user
@@ -360,7 +325,6 @@ module email_escrow::email_escrow {
         let escrow = table::borrow(&registry.user_escrows, user);
         let now = clock::timestamp_ms(clock);
         
-        // Calculate days until expiration
         let days_until_expiration = if (now < escrow.expiration_time && !escrow.expired) {
             (escrow.expiration_time - now) / 86_400_000
         } else {
@@ -368,39 +332,13 @@ module email_escrow::email_escrow {
         };
         
         (
-            balance::value(&escrow.pending_balance),  // current pending amount
-            escrow.total_deposited,                   // lifetime deposits
-            escrow.expiration_time,                   // expiration timestamp
-            days_until_expiration,                    // days remaining
-            escrow.claimed_on_upgrade,                // claimed status
-            escrow.expired                            // expired status
+            balance::value(&escrow.pending_balance),
+            escrow.total_deposited,
+            escrow.expiration_time,
+            days_until_expiration,
+            escrow.claimed_on_upgrade,
+            escrow.expired
         )
-    }
-
-    /// Check if escrow is approaching expiration (within 30 days)
-    public fun is_approaching_expiration(
-        registry: &GlobalEmailEscrowRegistry,
-        user: address,
-        clock: &Clock,
-    ): bool {
-        if (!table::contains(&registry.user_escrows, user)) {
-            return false
-        };
-
-        let escrow = table::borrow(&registry.user_escrows, user);
-        
-        if (escrow.claimed_on_upgrade || escrow.expired) {
-            return false
-        };
-
-        let now = clock::timestamp_ms(clock);
-        let time_until_expiration = if (now < escrow.expiration_time) {
-            escrow.expiration_time - now
-        } else {
-            0
-        };
-
-        time_until_expiration <= EXPIRATION_WARNING_MS && time_until_expiration > 0
     }
 
     /// Get global escrow statistics
@@ -422,7 +360,6 @@ module email_escrow::email_escrow {
     ) {
         let caller = tx_context::sender(ctx);
         assert!(caller == registry.admin, E_NOT_AUTHORIZED);
-        
         registry.treasury = new_treasury;
     }
 
@@ -448,43 +385,6 @@ module email_escrow::email_escrow {
     /// Check if address is a moderator
     fun is_moderator(registry: &GlobalEmailEscrowRegistry, addr: address): bool {
         vector::contains(&registry.moderators, &addr) || addr == registry.admin
-    }
-
-    /// Batch expire multiple users' tokens (moderator only, for cleanup)
-    public fun batch_expire_tokens(
-        registry: &mut GlobalEmailEscrowRegistry,
-        users: vector<address>,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ): vector<Coin<TOKEN>> {
-        let caller = tx_context::sender(ctx);
-        assert!(is_moderator(registry, caller), E_NOT_AUTHORIZED);
-
-        let mut expired_coins = vector::empty<Coin<TOKEN>>();
-        let mut i = 0;
-        let len = vector::length(&users);
-
-        while (i < len) {
-            let user = *vector::borrow(&users, i);
-            
-            // Only expire if conditions are met
-            if (table::contains(&registry.user_escrows, user)) {
-                let escrow = table::borrow(&registry.user_escrows, user);
-                let now = clock::timestamp_ms(clock);
-                
-                if (!escrow.claimed_on_upgrade && 
-                    !escrow.expired && 
-                    now >= escrow.expiration_time) {
-                    
-                    let expired_coin = expire_unclaimed_tokens(registry, user, clock, ctx);
-                    vector::push_back(&mut expired_coins, expired_coin);
-                };
-            };
-            
-            i = i + 1;
-        };
-
-        expired_coins
     }
 
     #[test_only]

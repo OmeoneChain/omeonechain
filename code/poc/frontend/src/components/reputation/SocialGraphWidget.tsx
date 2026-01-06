@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { 
   UserPlusIcon, 
   UserMinusIcon, 
@@ -67,6 +68,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
   showAnalytics = false,
   className = ''
 }) => {
+  const t = useTranslations('common');
   const [following, setFollowing] = useState<RelationshipResult | null>(null);
   const [followers, setFollowers] = useState<RelationshipResult | null>(null);
   const [analytics, setAnalytics] = useState<SocialGraphAnalytics | null>(null);
@@ -133,7 +135,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}` // Adjust based on your auth
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
 
@@ -162,7 +164,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}` // Adjust based on your auth
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
 
@@ -204,7 +206,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-1">
               <UsersIcon className="w-5 h-5 text-gray-500" />
-              <span className="font-medium text-gray-900">Social Network</span>
+              <span className="font-medium text-gray-900">{t('reputation.socialGraph.title')}</span>
             </div>
           </div>
           
@@ -212,6 +214,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
             <button
               onClick={isFollowing ? handleUnfollow : handleFollow}
               disabled={actionLoading}
+              aria-label={isFollowing ? t('reputation.socialGraph.aria.unfollow') : t('reputation.socialGraph.aria.follow')}
               className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 isFollowing
                   ? 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100'
@@ -225,7 +228,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
               ) : (
                 <UserPlusIcon className="w-4 h-4 mr-1" />
               )}
-              {isFollowing ? 'Unfollow' : 'Follow'}
+              {isFollowing ? t('reputation.socialGraph.unfollow') : t('reputation.socialGraph.follow')}
             </button>
           )}
         </div>
@@ -238,13 +241,13 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
             <div className="text-2xl font-bold text-gray-900">
               {followers?.total.toLocaleString() || 0}
             </div>
-            <div className="text-sm text-gray-500">Followers</div>
+            <div className="text-sm text-gray-500">{t('reputation.socialGraph.stats.followers')}</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-gray-900">
               {following?.total.toLocaleString() || 0}
             </div>
-            <div className="text-sm text-gray-500">Following</div>
+            <div className="text-sm text-gray-500">{t('reputation.socialGraph.stats.following')}</div>
           </div>
         </div>
       </div>
@@ -260,7 +263,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            Following
+            {t('reputation.socialGraph.tabs.following')}
           </button>
           <button
             onClick={() => setActiveTab('followers')}
@@ -270,7 +273,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            Followers
+            {t('reputation.socialGraph.tabs.followers')}
           </button>
           {showAnalytics && (
             <button
@@ -281,7 +284,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              Analytics
+              {t('reputation.socialGraph.tabs.analytics')}
             </button>
           )}
         </nav>
@@ -301,10 +304,10 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
                   </div>
                   <div>
                     <div className="text-sm font-medium text-gray-900">
-                      User {relationship.followedId.slice(-6)}
+                      {t('reputation.socialGraph.user', { id: relationship.followedId.slice(-6) })}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Trust Weight: {(relationship.trustWeight * 100).toFixed(0)}%
+                      {t('reputation.socialGraph.trustWeight', { weight: (relationship.trustWeight * 100).toFixed(0) })}
                     </div>
                   </div>
                 </div>
@@ -313,7 +316,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
             {following.total > 5 && (
               <div className="text-center pt-2">
                 <button className="text-sm text-blue-600 hover:text-blue-700">
-                  View all {following.total} following
+                  {t('reputation.socialGraph.viewAllFollowing', { count: following.total })}
                 </button>
               </div>
             )}
@@ -332,10 +335,10 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
                   </div>
                   <div>
                     <div className="text-sm font-medium text-gray-900">
-                      User {relationship.followerId.slice(-6)}
+                      {t('reputation.socialGraph.user', { id: relationship.followerId.slice(-6) })}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Trust Weight: {(relationship.trustWeight * 100).toFixed(0)}%
+                      {t('reputation.socialGraph.trustWeight', { weight: (relationship.trustWeight * 100).toFixed(0) })}
                     </div>
                   </div>
                 </div>
@@ -344,7 +347,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
             {followers.total > 5 && (
               <div className="text-center pt-2">
                 <button className="text-sm text-blue-600 hover:text-blue-700">
-                  View all {followers.total} followers
+                  {t('reputation.socialGraph.viewAllFollowers', { count: followers.total })}
                 </button>
               </div>
             )}
@@ -355,18 +358,20 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
           <div className="space-y-4">
             {/* Network Overview */}
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-2">Network Overview</h4>
+              <h4 className="text-sm font-medium text-gray-900 mb-2">
+                {t('reputation.socialGraph.analytics.networkOverview')}
+              </h4>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-500">Network Size:</span>
+                  <span className="text-gray-500">{t('reputation.socialGraph.analytics.networkSize')}</span>
                   <span className="ml-2 font-medium">{analytics.networkSize}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Density:</span>
+                  <span className="text-gray-500">{t('reputation.socialGraph.analytics.density')}</span>
                   <span className="ml-2 font-medium">{(analytics.density * 100).toFixed(1)}%</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Influence Score:</span>
+                  <span className="text-gray-500">{t('reputation.socialGraph.analytics.influenceScore')}</span>
                   <span className="ml-2 font-medium">{analytics.influenceScore.toFixed(2)}</span>
                 </div>
               </div>
@@ -377,7 +382,7 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
                   <MapPinIcon className="w-4 h-4 mr-1" />
-                  Geographic Distribution
+                  {t('reputation.socialGraph.analytics.geographicDistribution')}
                 </h4>
                 <div className="space-y-2">
                   {analytics.geographicDistribution.slice(0, 3).map((region) => (
@@ -395,13 +400,15 @@ export const SocialGraphWidget: React.FC<SocialGraphProps> = ({
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
                   <TagIcon className="w-4 h-4 mr-1" />
-                  Interest Clusters
+                  {t('reputation.socialGraph.analytics.interestClusters')}
                 </h4>
                 <div className="space-y-2">
                   {analytics.interestClusters.slice(0, 3).map((cluster) => (
                     <div key={cluster.category} className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">{cluster.category}</span>
-                      <span className="font-medium">{cluster.connections} connections</span>
+                      <span className="font-medium">
+                        {t('reputation.socialGraph.analytics.connections', { count: cluster.connections })}
+                      </span>
                     </div>
                   ))}
                 </div>

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import savedListsService, { SavedList } from '@/lib/services/saved-lists-service';
 
 interface CreateListFormProps {
@@ -9,50 +10,18 @@ interface CreateListFormProps {
   onCancel: () => void;
 }
 
-// Reduced to 6 most relevant icons (per Architecture Plan feedback)
-const ICON_OPTIONS = [
-  '🍽️', // Places/Restaurants
-  '📖', // Bookmarks
-  '⭐', // Favorites
-  '📚', // Collections
-  '❤️', // Love/Must-try
-  '🎯'  // Goals/Plans
-];
-
-const LIST_TYPE_OPTIONS = [
-  { value: 'places', label: 'Places to Try', icon: '🍽️' },
-  { value: 'bookmarks', label: 'Bookmarks', icon: '📖' },
-  { value: 'mixed', label: 'Mixed Collection', icon: '📚' }
-];
-
 export default function CreateListForm({ onCreated, onCancel }: CreateListFormProps) {
+  const t = useTranslations();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState('📚');
-  const [listType, setListType] = useState<'places' | 'bookmarks' | 'mixed'>('places');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('CreateListForm state:', {
-      name,
-      description,
-      selectedIcon,
-      listType,
-      isSubmitting,
-      isNameValid: name.trim().length > 0,
-      buttonShouldBeEnabled: !isSubmitting && name.trim().length > 0
-    });
-  }, [name, description, selectedIcon, listType, isSubmitting]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Form submitted with:', { name, description, selectedIcon, listType });
-    
     if (!name.trim()) {
-      setError('Please enter a list name');
+      setError(t('savedLists.form.validation.nameRequired'));
       return;
     }
 
@@ -60,19 +29,17 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
       setIsSubmitting(true);
       setError('');
 
-      console.log('Creating list...');
       const newList = await savedListsService.createList({
         name: name.trim(),
         description: description.trim() || undefined,
-        icon: selectedIcon,
-        listType
+        icon: 'folder-heart', // Default icon
+        listType: 'places'    // Always 'places' for user-created lists
       });
 
-      console.log('List created successfully:', newList);
       onCreated(newList);
     } catch (err) {
       console.error('Error creating list:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create list. Please try again.');
+      setError(err instanceof Error ? err.message : t('savedLists.form.errors.createFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -80,25 +47,22 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    console.log('Name changed to:', newValue);
     setName(newValue);
-    if (error) setError(''); // Clear error when user types
+    if (error) setError('');
   };
 
-  // Check if form is valid
   const isFormValid = name.trim().length > 0;
   const isButtonDisabled = isSubmitting || !isFormValid;
-
-  console.log('Render - Button disabled?', isButtonDisabled, { isSubmitting, isFormValid, nameLength: name.length });
 
   return (
     <form onSubmit={handleSubmit} className="create-list-form">
       <div className="form-header">
-        <h3>Create New List</h3>
+        <h3>{t('savedLists.form.title')}</h3>
         <button 
           type="button" 
           onClick={onCancel}
           className="close-button"
+          aria-label={t('common.close')}
         >
           <X className="w-4 h-4" />
         </button>
@@ -110,78 +74,39 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
         </div>
       )}
 
+      {/* List Name */}
       <div className="form-group">
         <label htmlFor="list-name">
-          List Name <span className="required">*</span>
+          {t('savedLists.form.fields.name.label')} <span className="required">*</span>
         </label>
         <input
           id="list-name"
           type="text"
           value={name}
           onChange={handleNameChange}
-          placeholder="e.g., Buenos Aires Trip, Read Later, Date Night Ideas"
+          placeholder={t('savedLists.form.fields.name.placeholder')}
           maxLength={100}
           autoFocus
           required
         />
-        {/* Debug helper */}
-        <small style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
-          Characters: {name.length} | Valid: {isFormValid ? 'Yes' : 'No'}
-        </small>
       </div>
 
+      {/* Description */}
       <div className="form-group">
         <label htmlFor="list-description">
-          Description <span className="optional">(optional)</span>
+          {t('savedLists.form.fields.description.label')} <span className="optional">({t('common.optional')})</span>
         </label>
         <textarea
           id="list-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What's this list for?"
+          placeholder={t('savedLists.form.fields.description.placeholder')}
           maxLength={500}
           rows={2}
         />
       </div>
 
-      <div className="form-group">
-        <label>List Type</label>
-        <div className="list-type-options">
-          {LIST_TYPE_OPTIONS.map(type => (
-            <button
-              key={type.value}
-              type="button"
-              className={`type-option ${listType === type.value ? 'selected' : ''}`}
-              onClick={() => {
-                console.log('List type selected:', type.value);
-                setListType(type.value as 'places' | 'bookmarks' | 'mixed');
-              }}
-            >
-              <span className="type-icon">{type.icon}</span>
-              <span className="type-label">{type.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label>Choose an Icon</label>
-        <div className="icon-picker">
-          {ICON_OPTIONS.map(icon => (
-            <button
-              key={icon}
-              type="button"
-              className={`icon-option ${selectedIcon === icon ? 'selected' : ''}`}
-              onClick={() => {
-                console.log('Icon selected:', icon);
-                setSelectedIcon(icon);
-              }}
-            >
-              {icon}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* No List Type selector - defaults to 'places' */}
 
       <div className="form-actions">
         <button 
@@ -190,23 +115,23 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
           className="button-secondary"
           disabled={isSubmitting}
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button 
           type="submit"
           className="button-primary"
           disabled={isButtonDisabled}
         >
-          {isSubmitting ? 'Creating...' : 'Create List'}
+          {isSubmitting ? t('savedLists.form.actions.creating') : t('savedLists.form.actions.create')}
         </button>
       </div>
 
       <style jsx>{`
         .create-list-form {
-          background: #f9fafb;
-          border: 1px solid #e5e7eb;
+          background: white;
+          border: 1px solid #f3f4f6;
           border-radius: 0.75rem;
-          padding: 1.5rem;
+          padding: 1.25rem;
         }
 
         .form-header {
@@ -220,25 +145,28 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
           margin: 0;
           font-size: 1rem;
           font-weight: 600;
+          color: #1F1E2A;
         }
 
         .close-button {
           background: none;
           border: none;
           cursor: pointer;
-          padding: 0.25rem;
-          border-radius: 0.25rem;
-          transition: background 0.2s;
+          padding: 0.375rem;
+          border-radius: 0.375rem;
+          color: #9ca3af;
+          transition: all 0.2s;
         }
 
         .close-button:hover {
-          background: #e5e7eb;
+          background: #f3f4f6;
+          color: #1F1E2A;
         }
 
         .error-message {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #dc2626;
+          background: #FEF2F2;
+          border: 1px solid #FECACA;
+          color: #DC2626;
           padding: 0.75rem;
           border-radius: 0.5rem;
           margin-bottom: 1rem;
@@ -254,11 +182,11 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
           font-weight: 500;
           font-size: 0.875rem;
           margin-bottom: 0.5rem;
-          color: #374151;
+          color: #1F1E2A;
         }
 
         .required {
-          color: #dc2626;
+          color: #E65441;
         }
 
         .optional {
@@ -269,19 +197,25 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
         .form-group input,
         .form-group textarea {
           width: 100%;
-          padding: 0.625rem;
-          border: 1px solid #d1d5db;
+          padding: 0.75rem;
+          border: 1px solid #e5e7eb;
           border-radius: 0.5rem;
           font-size: 0.875rem;
           font-family: inherit;
           transition: all 0.2s;
+          background: white;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+          color: #9ca3af;
         }
 
         .form-group input:focus,
         .form-group textarea:focus {
           outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+          border-color: #E65441;
+          box-shadow: 0 0 0 3px rgba(230, 84, 65, 0.1);
         }
 
         .form-group textarea {
@@ -289,96 +223,30 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
           min-height: 60px;
         }
 
-        .list-type-options {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 0.5rem;
-        }
-
-        .type-option {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem;
-          border: 2px solid #e5e7eb;
-          border-radius: 0.5rem;
-          background: white;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .type-option:hover {
-          border-color: #3b82f6;
-          background: #eff6ff;
-        }
-
-        .type-option.selected {
-          border-color: #3b82f6;
-          background: #eff6ff;
-        }
-
-        .type-icon {
-          font-size: 1.5rem;
-        }
-
-        .type-label {
-          font-size: 0.75rem;
-          font-weight: 500;
-          text-align: center;
-        }
-
-        .icon-picker {
-          display: grid;
-          grid-template-columns: repeat(6, 1fr);
-          gap: 0.5rem;
-        }
-
-        .icon-option {
-          aspect-ratio: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.5rem;
-          border: 2px solid #e5e7eb;
-          border-radius: 0.5rem;
-          background: white;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .icon-option:hover {
-          border-color: #3b82f6;
-          background: #eff6ff;
-          transform: scale(1.1);
-        }
-
-        .icon-option.selected {
-          border-color: #3b82f6;
-          background: #eff6ff;
-          transform: scale(1.15);
-        }
-
         .form-actions {
           display: flex;
           justify-content: flex-end;
           gap: 0.75rem;
           margin-top: 1.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid #f3f4f6;
         }
 
         .button-secondary {
-          padding: 0.5rem 1rem;
+          padding: 0.625rem 1.25rem;
           border: 1px solid #d1d5db;
           border-radius: 0.5rem;
           background: white;
           font-weight: 500;
           font-size: 0.875rem;
+          color: #4b5563;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .button-secondary:hover:not(:disabled) {
           background: #f9fafb;
+          border-color: #9ca3af;
         }
 
         .button-secondary:disabled {
@@ -387,10 +255,10 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
         }
 
         .button-primary {
-          padding: 0.5rem 1rem;
+          padding: 0.625rem 1.25rem;
           border: none;
           border-radius: 0.5rem;
-          background: #3b82f6;
+          background: #FF644A;
           color: white;
           font-weight: 500;
           font-size: 0.875rem;
@@ -399,7 +267,7 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
         }
 
         .button-primary:hover:not(:disabled) {
-          background: #2563eb;
+          background: #E65441;
         }
 
         .button-primary:disabled {

@@ -1,0 +1,354 @@
+{
+  "page": {
+    "title": "Earn BOCA Tokens",
+    "subtitle": "Participate in weekly contests and bounties to earn rewards"
+  },
+  
+  "tabs": {
+    "overview": "Overview",
+    "lottery": "Lottery",
+    "photoContest": "Photo Contest",
+    "bounties": "Bounties"
+  },
+
+  "overview": {
+    "header": {
+      "title": "How to Earn BOCA Tokens",
+      "subtitle": "Complete guide to all earning opportunities on BocaBoca"
+    },
+    "welcome": {
+      "title": "Welcome Rewards",
+      "subtitle": "One-time bonus up to 50 BOCA",
+      "follow3": "Follow 3 users",
+      "create5": "Create 5 recommendations",
+      "engage10": "Engage with 10 posts from 3+ authors"
+    },
+    "content": {
+      "title": "Content Creation",
+      "subtitle": "Earn tokens for every recommendation",
+      "createWallet": "Create recommendation (wallet)",
+      "createEmail": "Create recommendation (email)",
+      "validationBonus": "Validation bonus (3+ engagement points)",
+      "firstReviewer": "First reviewer bonus"
+    },
+    "engagement": {
+      "title": "Engagement Received",
+      "subtitle": "Earn when others interact with your recommendations",
+      "save": "Receive save/bookmark",
+      "comment": "Receive comment",
+      "helpful": "\"Helpful\" mark",
+      "tier": "tier weight"
+    },
+    "tiers": {
+      "title": "Tier System",
+      "subtitle": "Your tier affects rewards earned",
+      "new": "New",
+      "newDays": "0-6 days",
+      "established": "Established",
+      "establishedDays": "7+ days",
+      "trusted": "Trusted",
+      "trustedDays": "30+ days + 3 validated",
+      "example": "Example: Established user (1.0×) saves your rec → You earn 1.0 BOCA"
+    },
+    "social": {
+      "title": "Social Amplification",
+      "subtitle": "Share and amplify great recommendations",
+      "boost": "Boost recommendation",
+      "reshare": "Reshare recommendation",
+      "attribution": "Your recommendation gets reshared"
+    },
+    "contests": {
+      "title": "Weekly Contests",
+      "subtitle": "Additional prizes every week",
+      "lottery": {
+        "title": "Weekly Lottery",
+        "pool": "Prize Pool",
+        "eligible": "Top 20-100 contributors eligible",
+        "spotlights": "spotlight recs"
+      },
+      "photo": {
+        "title": "Photo Contest",
+        "subtitle": "Best food photos win prizes",
+        "participation": "Participation bonus",
+        "homepage": "homepage feature",
+        "banner": "banner feature"
+      },
+      "first": "1st Place",
+      "second": "2nd Place",
+      "third": "3rd Place"
+    },
+    "bounties": {
+      "title": "Discovery Bounties",
+      "subtitle": "Answer discovery requests for rewards",
+      "create": "Create bounty (minimum)",
+      "win": "Win bounty",
+      "ofPledge": "of pledge",
+      "fee": "10% platform fee burned"
+    },
+    "curation": {
+      "title": "Curation",
+      "subtitle": "Create and maintain lists",
+      "createList": "Create list (5+ restaurants)",
+      "list10": "List reaches 10 saves",
+      "list50": "List reaches 50 saves"
+    },
+    "moderation": {
+      "title": "Community Moderation",
+      "subtitle": "Help maintain platform quality",
+      "spamReport": "Validated spam report",
+      "spamReportBonus": "+ 10% of forfeited escrow",
+      "falseReport": "False spam report"
+    }
+  },
+
+  "error": {
+    "title": "Error loading data",
+    "retry": "Retry"
+  },
+
+  "sidebar": {
+    "wallet": {
+      "connected": {
+        "title": "Wallet Connected",
+        "subtitle": "You can earn rewards",
+        "lotteryTickets": "Lottery Tickets:",
+        "engagementScore": "Engagement Score:"
+      },
+      "upgrade": {
+        "title": "Upgrade to Earn",
+        "subtitle": "Connect wallet for rewards",
+        "description": "Connect your wallet to participate in contests and earn BOCA tokens.",
+        "cta": "Upgrade Now"
+      },
+      "guest": {
+        "title": "Join BocaBoca",
+        "description": "Sign up to start earning BOCA tokens",
+        "cta": "Sign Up"
+      }
+    },
+    "quickStats": {
+      "title": "Quick Stats",
+      "nextLottery": "Next Lottery",
+      "prizePool": "Prize Pool",
+      "activeBounties": "Active Bounties",
+      "loading": "Loading..."
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "lottery": {
+        "title": "🎰 Weekly Lottery",
+        "description": "Earn tickets through engagement. Drawing every Tuesday at 11pm UTC."
+      },
+      "photoContest": {
+        "title": "📸 Photo Contest",
+        "description": "Submit your best food photos. Winners announced every Sunday."
+      },
+      "bounties": {
+        "title": "🎯 Bounties",
+        "description": "Answer discovery requests and earn BOCA from requesters."
+      }
+    }
+  },
+  
+  "lottery": {
+    "title": "Weekly Lottery",
+    "description": "Earn tickets through engagement. Top contributors win prizes every Tuesday.",
+    "currentWeek": "Current Week",
+    "nextDrawing": "Next Drawing",
+    "yourScore": "Your Score",
+    "yourTickets": "Your Tickets",
+    "leaderboard": {
+      "title": "Weekly Leaderboard",
+      "topParticipants": "Top {count} participants",
+      "columns": {
+        "rank": "Rank",
+        "user": "User",
+        "engagement": "Engagement",
+        "tickets": "Tickets",
+        "status": "Status"
+      },
+      "points": "points",
+      "eligible": "✓ Eligible",
+      "notEligible": "Not eligible",
+      "viewFull": "View Full Leaderboard ({count} participants)"
+    },
+    "rank": "Rank",
+    "user": "User",
+    "score": "Score",
+    "tickets": "Tickets",
+    "prizePool": {
+      "title": "Total Prize Pool",
+      "nextDrawing": "Next Drawing"
+    },
+    "prizes": {
+      "title": "Weekly Prizes",
+      "first": "1st Place",
+      "second": "2nd Place",
+      "third": "3rd Place",
+      "spotlight": "+ recommendation spotlight"
+    },
+    "participants": {
+      "title": "{count} Participants",
+      "eligible": "Top {max} eligible for prizes"
+    },
+    "howItWorks": {
+      "title": "How it Works",
+      "step1": "Create recommendations and engage with others",
+      "step2": "Earn engagement points (likes, saves, comments)",
+      "step3": "Points convert to lottery tickets (√score, max 10)",
+      "step4": "Drawing every Tuesday at 11pm UTC"
+    },
+    "walletRequired": "🔐 Connect your wallet to participate in the weekly lottery",
+    "history": "Past Winners",
+    "noData": "No lottery data available"
+  },
+  
+  "photoContest": {
+    "title": "Weekly Photo Contest",
+    "description": "Submit your best food photography. Community votes for winners.",
+    "currentRound": "Current Round",
+    "phase": {
+      "nomination": "Nomination Phase",
+      "nominations": "Nominations Open",
+      "voting": "Voting Phase",
+      "completed": "Contest Completed",
+      "ended": "Contest Ended",
+      "stats": "{nominations} nominations, {finalists} finalists"
+    },
+    "timeLeft": "Time left",
+    "timeRemaining": "Time Remaining",
+    "nominate": "Nominate a Photo",
+    "nominateDescription": "Select one of your recommendation photos to enter",
+    "nominationCost": "Nomination earns 0.05 BOCA",
+    "vote": "Vote",
+    "voted": "Voted",
+    "votes": "votes",
+    "prizes": {
+      "title": "Weekly Prizes",
+      "first": "1st Place",
+      "second": "2nd Place", 
+      "third": "3rd Place",
+      "feature": "+ homepage feature"
+    },
+    "timeline": {
+      "title": "Timeline",
+      "monWed": "Mon-Wed",
+      "nominations": "Nominations",
+      "thursday": "Thursday",
+      "finalists": "Finalists",
+      "thuSat": "Thu-Sat",
+      "voting": "Voting",
+      "sunday": "Sunday",
+      "winners": "Winners"
+    },
+    "finalists": {
+      "title": "This Week's Finalists",
+      "votes": "{count} votes",
+      "voted": "✓ Voted",
+      "alreadyVoted": "Already voted",
+      "vote": "Vote",
+      "loginToVote": "Login to vote",
+      "viewAll": "View All {count} Finalists →"
+    },
+    "noFinalists": "Finalists will be announced Thursday 9am UTC",
+    "pastWinners": {
+      "title": "Recent Winners",
+      "viewAll": "View All Past Winners →"
+    },
+    "howToParticipate": {
+      "title": "How to Participate",
+      "step1": "Create a recommendation with a great food photo (Mon-Wed)",
+      "step2": "Nominate your photo for the contest (0.05 BOCA participation bonus)",
+      "step3": "10 finalists randomly selected Thursday morning",
+      "step4": "Community votes Thursday-Saturday",
+      "step5": "Winners announced Sunday evening"
+    },
+    "walletRequired": "🔐 Connect your wallet to nominate photos and vote in contests",
+    "history": "Past Winners",
+    "noData": "No photo contest data available"
+  },
+  
+  "bounties": {
+    "title": "Discovery Bounties",
+    "description": "Users fund discovery requests. Answer them and earn BOCA tokens.",
+    "active": {
+      "title": "Active Bounties",
+      "submissions": "{count} submissions",
+      "posted": "Posted {time}",
+      "viewAll": "View All {count} Bounties"
+    },
+    "create": "Create Bounty",
+    "noBounties": "No active bounties",
+    "beFirst": "Be the first to create one!",
+    "empty": {
+      "title": "No Active Bounties",
+      "description": "Be the first to create a discovery bounty"
+    },
+    "amount": "Bounty Amount",
+    "minAmount": "Minimum 1.0 BOCA",
+    "deadline": "Deadline",
+    "submissions": "submissions",
+    "submit": "Submit Solution",
+    "selectWinner": "Select Winner",
+    "yourBounties": "Your Bounties",
+    "yourSubmissions": "Your Submissions",
+    "howItWorks": {
+      "title": "How It Works",
+      "step1": {
+        "title": "1. Request Posted",
+        "description": "User creates a bounty with BOCA pledge"
+      },
+      "step2": {
+        "title": "2. Submit Solutions",
+        "description": "Community submits recommendations"
+      },
+      "step3": {
+        "title": "3. Winner Gets 90%",
+        "description": "Requester picks winner, 10% burned"
+      }
+    },
+    "createNew": {
+      "title": "Create New Bounty",
+      "description": "Describe what you're looking for",
+      "descriptionPlaceholder": "e.g., Best hidden gem Italian restaurant in downtown...",
+      "amount": "Bounty Amount (BOCA)",
+      "duration": "Duration",
+      "days": "days",
+      "create": "Create Bounty",
+      "creating": "Creating...",
+      "fee": "10% platform fee on winning"
+    },
+    "status": {
+      "open": "Open",
+      "closed": "Closed",
+      "completed": "Completed",
+      "expired": "Expired"
+    },
+    "walletRequired": "🔐 Connect your wallet to create or submit to bounties"
+  },
+  
+  "earnings": {
+    "title": "Your Earnings",
+    "total": "Total Earned",
+    "pending": "Pending",
+    "claimed": "Claimed",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "breakdown": "Earnings Breakdown",
+    "recommendations": "Recommendations",
+    "engagement": "Engagement",
+    "contests": "Contests & Lottery",
+    "bounties": "Bounties",
+    "referrals": "Referrals"
+  },
+  
+  "tiers": {
+    "title": "Your Tier",
+    "new": "New",
+    "established": "Established",
+    "trusted": "Trusted",
+    "newDescription": "0-6 days • 0.5× rewards • 7-day escrow",
+    "establishedDescription": "7+ days • 1.0× rewards • No escrow",
+    "trustedDescription": "30+ days + 3 validated • 1.5× rewards • Governance"
+  }
+}

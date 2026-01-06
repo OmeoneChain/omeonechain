@@ -1,0 +1,178 @@
+{
+  "profile": {
+    "tabs": {
+      "tasteMap": "Taste Map",
+      "activity": "Activity",
+      "network": "Network",
+      "settings": "Settings",
+      "recommendations": "Recommendations",
+      "reshares": "Reshares",
+      "guides": "Guides",
+      "likes": "Likes",
+      "myLists": "My Lists",
+      "followers": "Followers",
+      "following": "Following",
+      "rewards": "Rewards",
+      "security": "Security",
+      "recommendationsFull": "Recommendations"
+    },
+    "stats": {
+      "recommendations": "Recommendations",
+      "followers": "Followers",
+      "following": "Following",
+      "tokensEarned": "Tokens Earned"
+    },
+    "header": {
+      "joined": "Joined {date}",
+      "editProfile": "Edit Profile",
+      "follow": "Follow",
+      "following": "Following",
+      "unfollow": "Unfollow"
+    },
+    "actions": {
+      "share": "Share",
+      "tryAgain": "Try Again",
+      "refresh": "Refresh"
+    },
+    "cards": {
+      "viewProfile": "View Profile",
+      "viewDetails": "View Details"
+    },
+    "rewardsTab": {
+      "balance": {
+        "title": "Token Balance",
+        "description": "Your earned BOCA tokens from platform contributions"
+      },
+      "onboarding": {
+        "title": "Onboarding Rewards",
+        "complete": "complete",
+        "nextStep": "Next step:"
+      }
+    },
+    "errors": {
+      "loadingRecommendations": "Failed to load recommendations",
+      "loadingLists": "Failed to load guides",
+      "network": "Network error. Please check your connection."
+    },
+    "activity": {
+      "security": {
+        "title": "Account Security",
+        "status": "Account Status",
+        "profileCompletion": "Profile Completion",
+        "accountStatus": "Account Status",
+        "securityFeatures": "Security Features",
+        "active": "Active",
+        "basic": "Basic",
+        "backup": {
+          "title": "Account Recovery",
+          "description": "Secure your account with backup options",
+          "emailVerification": "Email Verified",
+          "accountBackup": "Account Backup",
+          "twoFactor": "Two-Factor Authentication"
+        }
+      }
+    },
+    "empty": {
+      "recommendations": {
+        "own": "You haven't made any recommendations yet",
+        "other": "No recommendations yet",
+        "ownDescription": "Share your favorite restaurants and dishes with the community",
+        "otherDescription": "This user hasn't shared any recommendations yet",
+        "cta": "Create Your First Recommendation"
+      },
+      "reshares": {
+        "own": "You haven't reshared any recommendations yet",
+        "other": "No reshares yet",
+        "ownDescription": "Reshare great recommendations to help others discover amazing places",
+        "otherDescription": "This user hasn't reshared any recommendations yet",
+        "cta": "Discover Recommendations"
+      },
+      "likes": {
+        "own": "You haven't liked any recommendations yet",
+        "other": "No likes yet",
+        "ownDescription": "Like recommendations to save them and show appreciation",
+        "otherDescription": "This user hasn't liked any recommendations yet",
+        "cta": "Discover Recommendations"
+      },
+      "bookmarks": {
+        "own": "You haven't saved any recommendations yet",
+        "other": "No saved recommendations",
+        "ownDescription": "Save recommendations to find them easily later",
+        "otherDescription": "This user hasn't saved any recommendations yet",
+        "cta": "Discover Recommendations"
+      },
+      "lists": {
+        "own": "You haven't created any guides yet",
+        "other": "No guides yet",
+        "ownDescription": "Create curated lists of your favorite restaurants to share with others",
+        "otherDescription": "This user hasn't created any guides yet",
+        "cta": "Create a Guide"
+      },
+      "following": {
+        "own": "You're not following anyone yet",
+        "other": "Not following anyone",
+        "ownDescription": "Discover and follow users to see their recommendations in your feed",
+        "otherDescription": "This user isn't following anyone yet",
+        "cta": "Find People to Follow"
+      },
+      "followers": {
+        "own": "You don't have any followers yet",
+        "other": "No followers yet",
+        "ownDescription": "Share great recommendations to attract followers",
+        "otherDescription": "This user doesn't have any followers yet",
+        "cta": "Share Your Profile"
+      }
+    }
+  },
+  "profileMap": {
+    "header": {
+      "ownTitle": "Your Taste Map",
+      "otherTitle": "{name}'s Taste Map"
+    },
+    "viewToggle": {
+      "map": "Map",
+      "list": "List"
+    },
+    "stats": {
+      "reviews": "Reviews",
+      "avgRating": "Avg Rating",
+      "loved": "Loved",
+      "liked": "Liked",
+      "meh": "Meh"
+    },
+    "legend": {
+      "title": "Rating Legend",
+      "loved": "Loved (8-10)",
+      "liked": "Liked (5-7)",
+      "meh": "Meh (1-4)"
+    },
+    "infoWindow": {
+      "reviewed": "Reviewed",
+      "viewRestaurant": "View Restaurant",
+      "directions": "Directions"
+    },
+    "list": {
+      "restaurant": "Restaurant"
+    },
+    "hints": {
+      "tapMarker": "Tap a marker to see details"
+    },
+    "empty": {
+      "ownProfile": {
+        "title": "No Reviews Yet",
+        "description": "Start exploring and reviewing restaurants to build your taste map!",
+        "cta": "Discover Restaurants"
+      },
+      "otherProfile": {
+        "title": "No Reviews Yet",
+        "description": "{name} hasn't reviewed any restaurants yet.",
+        "defaultUsername": "This user"
+      }
+    },
+    "errors": {
+      "loadFailed": "Failed to load taste map",
+      "mapLoadError": "Could not load map",
+      "tryAgainLater": "Please try again later"
+    }
+  }
+}

@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { ChevronDownIcon, ChevronUpIcon, UserGroupIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 interface TrustScoreProps {
@@ -49,6 +50,7 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
   showBreakdown = false,
   className = ''
 }) => {
+  const t = useTranslations('common');
   const [trustData, setTrustData] = useState<TrustScoreData | null>(null);
   const [reputationData, setReputationData] = useState<ReputationData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +80,7 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
           setReputationData(reputationResult);
         }
       } catch (err) {
-        setError('Failed to load trust data');
+        setError(t('reputation.trustScore.error.loadFailed'));
         console.error('Trust data fetch error:', err);
       } finally {
         setLoading(false);
@@ -86,7 +88,7 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
     };
 
     fetchTrustData();
-  }, [userId, targetId]);
+  }, [userId, targetId, t]);
 
   const getTrustScoreColor = (score: number): string => {
     if (score >= 0.75) return 'text-green-600 bg-green-50 border-green-200';
@@ -111,10 +113,10 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
   };
 
   const getTrustLabel = (score: number): string => {
-    if (score >= 0.75) return 'High Trust';
-    if (score >= 0.5) return 'Medium Trust';
-    if (score >= 0.25) return 'Low Trust';
-    return 'No Trust';
+    if (score >= 0.75) return t('reputation.trustScore.levels.high');
+    if (score >= 0.5) return t('reputation.trustScore.levels.medium');
+    if (score >= 0.25) return t('reputation.trustScore.levels.low');
+    return t('reputation.trustScore.levels.none');
   };
 
   if (loading) {
@@ -139,7 +141,7 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
   if (style === 'inline') {
     return (
       <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full border ${scoreColorClass} ${className}`}>
-        Trust {formatTrustScore(displayScore)}
+        {t('reputation.trustScore.trust')} {formatTrustScore(displayScore)}
         {reputationData && getVerificationIcon(reputationData.verificationLevel)}
       </span>
     );
@@ -149,11 +151,14 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
     return (
       <div className={`inline-flex items-center space-x-2 ${className}`}>
         <div className={`px-3 py-1 text-sm font-medium rounded-lg border ${scoreColorClass}`}>
-          Trust {formatTrustScore(displayScore)}
+          {t('reputation.trustScore.trust')} {formatTrustScore(displayScore)}
         </div>
         {reputationData && getVerificationIcon(reputationData.verificationLevel)}
         {trustData?.pathAnalysis?.directConnection && (
-          <UserGroupIcon className="w-4 h-4 text-green-600" title="Direct Connection" />
+          <UserGroupIcon 
+            className="w-4 h-4 text-green-600" 
+            title={t('reputation.trustScore.directConnection')} 
+          />
         )}
       </div>
     );
@@ -165,24 +170,30 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
       <div 
         className="p-4 cursor-pointer"
         onClick={() => setExpanded(!expanded)}
+        role="button"
+        aria-expanded={expanded}
+        aria-label={t('reputation.trustScore.aria.toggleBreakdown')}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className={`px-4 py-2 rounded-lg border font-semibold ${scoreColorClass}`}>
-              Trust {formatTrustScore(displayScore)} / 10
+              {t('reputation.trustScore.trustOutOf', { score: formatTrustScore(displayScore) })}
             </div>
             {reputationData && (
               <div className="flex items-center space-x-1">
                 {getVerificationIcon(reputationData.verificationLevel)}
                 <span className="text-sm text-gray-600 capitalize">
-                  {reputationData.verificationLevel}
+                  {t(`reputation.trustScore.verificationLevels.${reputationData.verificationLevel}`)}
                 </span>
               </div>
             )}
           </div>
           <div className="flex items-center space-x-2">
             {trustData?.pathAnalysis?.directConnection && (
-              <UserGroupIcon className="w-5 h-5 text-green-600" title="Direct Connection" />
+              <UserGroupIcon 
+                className="w-5 h-5 text-green-600" 
+                title={t('reputation.trustScore.directConnection')} 
+              />
             )}
             {showBreakdown && (
               expanded ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />
@@ -193,7 +204,7 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
         <div className="mt-2">
           <span className="text-sm text-gray-600">
             {getTrustLabel(displayScore)}
-            {trustData && ` (±${trustData.pathAnalysis.shortestPath} hop${trustData.pathAnalysis.shortestPath !== 1 ? 's' : ''})`}
+            {trustData && ` (${t('reputation.trustScore.hops', { count: trustData.pathAnalysis.shortestPath })})`}
           </span>
         </div>
       </div>
@@ -202,16 +213,20 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
         <div className="border-t border-gray-100 p-4 space-y-3">
           {trustData && (
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-2">Trust Path Analysis</h4>
+              <h4 className="text-sm font-medium text-gray-900 mb-2">
+                {t('reputation.trustScore.pathAnalysis.title')}
+              </h4>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-500">Connection Type:</span>
+                  <span className="text-gray-500">{t('reputation.trustScore.pathAnalysis.connectionType')}</span>
                   <span className="ml-2 font-medium">
-                    {trustData.pathAnalysis.directConnection ? 'Direct' : 'Friend-of-Friend'}
+                    {trustData.pathAnalysis.directConnection 
+                      ? t('reputation.trustScore.pathAnalysis.direct') 
+                      : t('reputation.trustScore.pathAnalysis.friendOfFriend')}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Trust Multiplier:</span>
+                  <span className="text-gray-500">{t('reputation.trustScore.pathAnalysis.trustMultiplier')}</span>
                   <span className="ml-2 font-medium">
                     {(trustData.pathAnalysis.trustMultiplier * 100).toFixed(0)}%
                   </span>
@@ -222,22 +237,24 @@ export const TrustScoreBadge: React.FC<TrustScoreProps> = ({
 
           {reputationData && (
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-2">Social Metrics</h4>
+              <h4 className="text-sm font-medium text-gray-900 mb-2">
+                {t('reputation.trustScore.socialMetrics.title')}
+              </h4>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-500">Followers:</span>
+                  <span className="text-gray-500">{t('reputation.trustScore.socialMetrics.followers')}</span>
                   <span className="ml-2 font-medium">{reputationData.followers.toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Following:</span>
+                  <span className="text-gray-500">{t('reputation.trustScore.socialMetrics.following')}</span>
                   <span className="ml-2 font-medium">{reputationData.following.toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Network Quality:</span>
+                  <span className="text-gray-500">{t('reputation.trustScore.socialMetrics.networkQuality')}</span>
                   <span className="ml-2 font-medium capitalize">{reputationData.socialMetrics.connectionQuality}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Avg Trust Weight:</span>
+                  <span className="text-gray-500">{t('reputation.trustScore.socialMetrics.avgTrustWeight')}</span>
                   <span className="ml-2 font-medium">
                     {(reputationData.socialMetrics.avgTrustWeight * 100).toFixed(0)}%
                   </span>

@@ -1,17 +1,24 @@
 // code/poc/frontend/lib/auth.ts
-// FIXED VERSION: Enhanced with comprehensive debugging and null safety
+// FIXED VERSION: Uses two-tier authentication endpoints
 
 import { toast } from 'react-hot-toast';
 
 // Types for authentication
 export interface User {
   id: string;
-  address: string;
+  address?: string;
+  email?: string;
   username?: string;
   display_name?: string;
   avatar_url?: string;
   verification_status?: 'basic' | 'verified' | 'expert';
   created_at?: string;
+  // Two-tier fields
+  onboarding_completed?: boolean;
+  profileCompletion?: number;
+  isNewUser?: boolean;
+  accountTier?: string;
+  authMethod?: string;
 }
 
 export interface AuthState {
@@ -36,7 +43,7 @@ export class WalletManager {
            (window as any).ethereum.isMetaMask;
   }
 
-  // Connect to MetaMask - FIXED with comprehensive null safety
+  // Connect to MetaMask
   static async connectMetaMask(): Promise<WalletInfo> {
     if (!this.isMetaMaskAvailable()) {
       throw new Error('MetaMask not found. Please install MetaMask browser extension.');
@@ -47,17 +54,11 @@ export class WalletManager {
       
       console.log('🔌 WalletManager: Starting MetaMask connection...');
       
-      // Request account access
       const addresses = await ethereum.request({
         method: 'eth_requestAccounts'
       });
 
       console.log('🔌 WalletManager: Received addresses:', addresses);
-      console.log('🔌 WalletManager: Addresses type:', typeof addresses);
-      console.log('🔌 WalletManager: Is array:', Array.isArray(addresses));
-      console.log('🔌 WalletManager: Length:', addresses?.length);
-      console.log('🔌 WalletManager: First address:', addresses?.[0]);
-      console.log('🔌 WalletManager: First address type:', typeof addresses?.[0]);
 
       if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
         throw new Error('No accounts found. Please unlock MetaMask.');
@@ -65,55 +66,27 @@ export class WalletManager {
 
       const address = addresses[0];
       
-      // CRITICAL: Check if address is actually a valid string before using it
       if (!address || typeof address !== 'string' || address.trim() === '') {
-        console.error('❌ WalletManager: Invalid address received:', address);
-        console.error('❌ WalletManager: Address type:', typeof address);
-        console.error('❌ WalletManager: Address is null:', address === null);
-        console.error('❌ WalletManager: Address is undefined:', address === undefined);
-        throw new Error('Invalid address received from MetaMask. Please try reconnecting.');
+        throw new Error('Invalid address received from MetaMask.');
       }
       
-      // Clean and validate the address
       const cleanedAddress = address.trim();
       
-      console.log('🔌 WalletManager: Cleaned address:', cleanedAddress);
-      console.log('🔌 WalletManager: Cleaned address length:', cleanedAddress.length);
-      
       if (!/^0x[a-fA-F0-9]{40}$/.test(cleanedAddress)) {
-        console.error('❌ WalletManager: Address format invalid:', cleanedAddress);
-        console.error('❌ WalletManager: Address does not match Ethereum format');
-        throw new Error('Invalid Ethereum address format received from MetaMask.');
+        throw new Error('Invalid Ethereum address format.');
       }
       
-      console.log('✅ WalletManager: Valid address confirmed:', cleanedAddress);
-      
-      // Skip public key retrieval - it's deprecated and not needed
-      console.log('🔌 WalletManager: Skipping deprecated eth_getEncryptionPublicKey');
-
-      // Ensure address is lowercase before creating the object
       const lowercaseAddress = cleanedAddress.toLowerCase();
-      console.log('🔌 WalletManager: Lowercase address:', lowercaseAddress);
-      console.log('🔌 WalletManager: Lowercase address type:', typeof lowercaseAddress);
-      console.log('🔌 WalletManager: Lowercase address length:', lowercaseAddress.length);
 
       const walletInfo: WalletInfo = {
         address: lowercaseAddress,
         publicKey: undefined,
         provider: 'metamask'
       };
-      
-      console.log('✅ WalletManager: Created wallet info object');
-      console.log('✅ WalletManager: walletInfo.address:', walletInfo.address);
-      console.log('✅ WalletManager: walletInfo.address type:', typeof walletInfo.address);
-      console.log('✅ WalletManager: Returning wallet info');
 
       return walletInfo;
     } catch (error: any) {
       console.error('❌ WalletManager: Connection error:', error);
-      console.error('❌ WalletManager: Error name:', error.name);
-      console.error('❌ WalletManager: Error message:', error.message);
-      console.error('❌ WalletManager: Error stack:', error.stack);
       throw new Error(`Failed to connect MetaMask: ${error.message}`);
     }
   }
@@ -128,8 +101,6 @@ export class WalletManager {
       const ethereum = (window as any).ethereum;
       
       console.log('✍️ WalletManager: Signing message...');
-      console.log('✍️ WalletManager: Message length:', message.length);
-      console.log('✍️ WalletManager: Address:', address);
       
       const signature = await ethereum.request({
         method: 'personal_sign',
@@ -137,8 +108,6 @@ export class WalletManager {
       });
 
       console.log('✅ WalletManager: Signature received');
-      console.log('✅ WalletManager: Signature type:', typeof signature);
-      console.log('✅ WalletManager: Signature length:', signature?.length);
 
       return signature;
     } catch (error: any) {
@@ -154,7 +123,6 @@ export class WalletManager {
     const ethereum = (window as any).ethereum;
     ethereum.on('accountsChanged', callback);
     
-    // Return cleanup function
     return () => {
       if (ethereum && ethereum.removeListener) {
         ethereum.removeListener('accountsChanged', callback);
@@ -169,7 +137,6 @@ export class WalletManager {
     const ethereum = (window as any).ethereum;
     ethereum.on('chainChanged', callback);
     
-    // Return cleanup function
     return () => {
       if (ethereum && ethereum.removeListener) {
         ethereum.removeListener('chainChanged', callback);
@@ -178,28 +145,23 @@ export class WalletManager {
   }
 }
 
-// FIXED: Corrected URL detection and API base configuration
+// API base URL configuration
 const getApiBaseUrl = (): string => {
-  // Try environment variables in order of preference
   const nextPublicUrl = process.env.NEXT_PUBLIC_API_URL;
   const reactAppUrl = process.env.REACT_APP_API_URL;
   
   console.log('🔧 lib/auth.ts Environment Check:', {
     NEXT_PUBLIC_API_URL: nextPublicUrl,
     REACT_APP_API_URL: reactAppUrl,
-    NODE_ENV: process.env.NODE_ENV,
-    window_location: typeof window !== 'undefined' ? window.location.href : 'SSR'
+    NODE_ENV: process.env.NODE_ENV
   });
 
-  // FIXED: Use backend port 3001 (where your Express server runs) WITHOUT extra /api suffix
   const defaultUrl = nextPublicUrl || reactAppUrl;
   
-  // If no env var is set, detect Codespaces URL or use localhost
   if (!defaultUrl) {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       if (hostname.includes('github.dev') || hostname.includes('gitpod.io')) {
-        // Extract Codespaces/Gitpod base and point to backend port
         const baseUrl = `${window.location.protocol}//${hostname.replace('-3000', '-3001')}`;
         console.log('🔗 lib/auth.ts: Detected Codespaces/Gitpod, using:', baseUrl);
         return baseUrl;
@@ -209,7 +171,6 @@ const getApiBaseUrl = (): string => {
     return 'http://localhost:3001';
   }
   
-  // FIXED: Ensure URL does NOT have /api suffix (we'll add it in the API calls)
   const baseUrl = defaultUrl.replace(/\/api.*$/, '');
   console.log('🔗 lib/auth.ts using API base URL:', baseUrl);
   
@@ -222,10 +183,10 @@ export class AuthAPI {
     return getApiBaseUrl();
   }
 
-  // FIXED: Generate authentication challenge with correct endpoint
+  // ✅ FIXED: Generate authentication challenge using two-tier endpoint
   static async getAuthChallenge(walletAddress: string): Promise<{ challenge: string; timestamp: number; nonce: string }> {
     try {
-      const fullUrl = `${this.baseURL}/api/auth/challenge`;
+      const fullUrl = `${this.baseURL}/api/auth/wallet/challenge`;  // ✅ Changed from /auth/challenge
       console.log('🔐 lib/auth.ts: Getting auth challenge from:', fullUrl);
       console.log('🔐 lib/auth.ts: Wallet address:', walletAddress);
       
@@ -239,18 +200,16 @@ export class AuthAPI {
       });
 
       console.log('🔐 lib/auth.ts: Challenge response status:', response.status);
-      console.log('🔐 lib/auth.ts: Challenge response ok:', response.ok);
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ lib/auth.ts: Challenge failed:', response.status, errorText);
-        throw new Error(`Failed to get auth challenge: ${response.status} ${response.statusText} - ${errorText}`);
+        throw new Error(`Failed to get auth challenge: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ lib/auth.ts: Challenge data received:', data);
+      console.log('✅ lib/auth.ts: Challenge data received');
       
-      // FIXED: Handle backend response format
       if (data.success) {
         return {
           challenge: data.challenge,
@@ -258,15 +217,15 @@ export class AuthAPI {
           nonce: data.nonce
         };
       } else {
-        throw new Error(data.error || 'Invalid response format from auth challenge endpoint');
+        throw new Error(data.error || 'Invalid response from auth challenge');
       }
     } catch (error: any) {
       console.error('❌ lib/auth.ts: Auth challenge error:', error);
-      throw new Error(`Failed to get auth challenge: ${error.message}`);
+      throw error;
     }
   }
 
-  // FIXED: Verify signature with correct endpoint
+  // ✅ FIXED: Verify signature using two-tier endpoint
   static async verifySignature(
     walletAddress: string, 
     signature: string, 
@@ -275,15 +234,8 @@ export class AuthAPI {
     nonce?: string
   ): Promise<{ token: string; user: User }> {
     try {
-      const fullUrl = `${this.baseURL}/api/auth/login`;
+      const fullUrl = `${this.baseURL}/api/auth/wallet/verify`;  // ✅ Changed from /auth/login
       console.log('🔐 lib/auth.ts: Verifying signature at:', fullUrl);
-      console.log('🔐 lib/auth.ts: Parameters:', {
-        walletAddress,
-        signature: signature.substring(0, 20) + '...',
-        challenge: challenge.substring(0, 50) + '...',
-        timestamp,
-        nonce
-      });
       
       const response = await fetch(fullUrl, {
         method: 'POST',
@@ -311,28 +263,37 @@ export class AuthAPI {
       const data = await response.json();
       console.log('✅ lib/auth.ts: Verify data received:', data);
       
-      // FIXED: Handle backend response format
+      // ✅ FIXED: Handle two-tier response format with all fields
       if (data.success && data.token && data.user) {
         return {
           token: data.token,
           user: {
             id: data.user.id,
             address: data.user.walletAddress,
-            display_name: data.user.pseudonym || `User ${data.user.walletAddress.slice(-4)}`,
-            verification_status: 'basic',
-            created_at: new Date().toISOString()
+            display_name: data.user.display_name,
+            username: data.user.username,
+            avatar_url: data.user.avatar_url,
+            bio: data.user.bio,
+            verification_status: data.user.verificationLevel || 'basic',
+            created_at: data.user.createdAt,
+            // ✅ Two-tier fields
+            onboarding_completed: data.user.onboarding_completed,
+            profileCompletion: data.user.profileCompletion,
+            isNewUser: data.isNewUser,  // ✅ From top-level response
+            accountTier: data.user.accountTier,
+            authMethod: data.user.authMethod
           }
         };
       } else {
-        throw new Error(data.error || 'Invalid response format from auth verify endpoint');
+        throw new Error(data.error || 'Invalid response from authentication');
       }
     } catch (error: any) {
       console.error('❌ lib/auth.ts: Signature verification error:', error);
-      throw new Error(`Authentication failed: ${error.message}`);
+      throw error;
     }
   }
 
-  // FIXED: Get current user info with correct endpoint
+  // Get current user info
   static async getCurrentUser(token: string): Promise<User> {
     try {
       const fullUrl = `${this.baseURL}/api/auth/me`;
@@ -351,99 +312,125 @@ export class AuthAPI {
 
       const data = await response.json();
       
-      // FIXED: Handle backend response format
       if (data.success && data.user) {
         return {
           id: data.user.id,
           address: data.user.walletAddress,
-          display_name: data.user.pseudonym || `User ${data.user.walletAddress.slice(-4)}`,
+          email: data.user.email,
+          display_name: data.user.display_name,
+          username: data.user.username,
+          avatar_url: data.user.avatar_url,
           verification_status: 'basic',
-          created_at: data.user.created_at
+          created_at: data.user.created_at,
+          // Two-tier fields
+          onboarding_completed: data.user.onboarding_completed,
+          profileCompletion: data.user.profileCompletion,
+          accountTier: data.user.accountTier,
+          authMethod: data.user.authMethod
         };
       } else {
         throw new Error(data.error || 'Invalid user data received');
       }
     } catch (error: any) {
       console.error('Get current user error:', error);
-      throw new Error(`Failed to get user info: ${error.message}`);
+      throw error;
     }
   }
 
-// Add these methods to your AuthAPI class in lib/auth.ts
-// (Insert after the verifySignature method)
+  // Email sign-up (two-tier endpoint)
+  static async emailSignup(email: string, password: string, displayName?: string): Promise<{ token: string; user: User; isNewUser: boolean }> {
+    try {
+      console.log('📧 AuthAPI: Email sign-up request:', email);
 
-/**
- * Email sign-up (creates email_basic tier account)
- */
-async emailSignup(email: string, password: string, displayName?: string): Promise<AuthResponse> {
-  try {
-    console.log('📧 AuthAPI: Email sign-up request:', email);
+      const response = await fetch(`${this.baseURL}/api/auth/email/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          display_name: displayName
+        }),
+      });
 
-    const response = await fetch(`${this.baseUrl}/api/auth/email-signup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        password,
-        displayName
-      }),
-    });
+      console.log('📧 AuthAPI: Sign-up response status:', response.status);
 
-    console.log('📧 AuthAPI: Sign-up response status:', response.status);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Sign-up failed: ${response.status}`);
+      }
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Sign-up failed: ${response.status}`);
+      const data = await response.json();
+      console.log('✅ AuthAPI: Email sign-up successful');
+
+      return {
+        token: data.token,
+        user: {
+          id: data.user.id,
+          email: data.user.email,
+          username: data.user.username,
+          display_name: data.user.display_name,
+          accountTier: data.user.accountTier,
+          authMethod: data.user.authMethod,
+          profileCompletion: data.user.profileCompletion,
+          onboarding_completed: data.user.onboarding_completed
+        },
+        isNewUser: data.isNewUser
+      };
+    } catch (error) {
+      console.error('❌ AuthAPI: Email sign-up error:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    console.log('✅ AuthAPI: Email sign-up successful');
-
-    return data;
-  } catch (error) {
-    console.error('❌ AuthAPI: Email sign-up error:', error);
-    throw error;
   }
-}
 
-/**
- * Email login (for existing email users)
- */
-async emailLogin(email: string, password: string): Promise<AuthResponse> {
-  try {
-    console.log('📧 AuthAPI: Email login request:', email);
+  // Email login (two-tier endpoint)
+  static async emailLogin(email: string, password: string): Promise<{ token: string; user: User; isNewUser: boolean }> {
+    try {
+      console.log('📧 AuthAPI: Email login request:', email);
 
-    const response = await fetch(`${this.baseUrl}/api/auth/email-login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        password
-      }),
-    });
+      const response = await fetch(`${this.baseURL}/api/auth/email/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password
+        }),
+      });
 
-    console.log('📧 AuthAPI: Login response status:', response.status);
+      console.log('📧 AuthAPI: Login response status:', response.status);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Login failed: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Login failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ AuthAPI: Email login successful');
+
+      return {
+        token: data.token,
+        user: {
+          id: data.user.id,
+          email: data.user.email,
+          username: data.user.username,
+          display_name: data.user.display_name,
+          accountTier: data.user.accountTier,
+          authMethod: data.user.authMethod,
+          profileCompletion: data.user.profileCompletion,
+          onboarding_completed: data.user.onboarding_completed
+        },
+        isNewUser: data.isNewUser
+      };
+    } catch (error) {
+      console.error('❌ AuthAPI: Email login error:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    console.log('✅ AuthAPI: Email login successful');
-
-    return data;
-  } catch (error) {
-    console.error('❌ AuthAPI: Email login error:', error);
-    throw error;
   }
-}
 
-  // FIXED: Verify JWT token with correct endpoint
+  // Verify JWT token
   static async verifyToken(token: string): Promise<{ valid: boolean; user?: User }> {
     try {
       const fullUrl = `${this.baseURL}/api/auth/verify`;
@@ -470,8 +457,12 @@ async emailLogin(email: string, password: string): Promise<AuthResponse> {
           user: data.user ? {
             id: data.user.id,
             address: data.user.walletAddress,
-            display_name: data.user.pseudonym || `User ${data.user.walletAddress.slice(-4)}`,
+            email: data.user.email,
+            display_name: data.user.display_name,
+            username: data.user.username,
             verification_status: 'basic',
+            accountTier: data.user.accountTier,
+            authMethod: data.user.authMethod
           } : undefined
         };
       } else {
@@ -541,17 +532,15 @@ export class AuthStorage {
   }
 }
 
-// FIXED: Utility functions to match backend challenge format
+// Utility functions
 export const createAuthMessage = (challenge: string, walletAddress: string): string => {
-  // This should match the challenge message format from your backend auth routes
-  return challenge; // Backend already provides the complete formatted message
+  return challenge;
 };
 
 export const isValidEthereumAddress = (address: string): boolean => {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 };
 
-// Generate a random challenge string (fallback - backend should handle this)
 export const generateChallenge = (): string => {
   return Math.random().toString(36).substring(2, 15) + 
          Math.random().toString(36).substring(2, 15) + 

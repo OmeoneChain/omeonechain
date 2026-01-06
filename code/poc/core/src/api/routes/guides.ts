@@ -56,7 +56,7 @@ const getListsQuerySchema = z.object({
 
 const createListSchema = z.object({
   title: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
+  description: z.string().max(500).nullish(),
   restaurant_ids: z.array(z.number()).min(1).max(50),
   visibility: z.enum(['public', 'private']).default('public')
 });

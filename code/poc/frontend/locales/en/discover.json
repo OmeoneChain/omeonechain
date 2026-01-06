@@ -1,0 +1,386 @@
+{
+  "page": {
+    "title": "Discover Great Food",
+    "subtitle": "Curated recommendations from food experts in Brasília"
+  },
+
+  "search": {
+    "placeholder": "Search restaurants by name, cuisine, or location...",
+    "button": "Search",
+    "searching": "Searching...",
+    "noResults": "No results found for \"{query}\"",
+    "suggestions": {
+      "romantic": "Romantic restaurants",
+      "pizza": "Authentic pizzerias",
+      "brunch": "Brunch spots in Asa Sul",
+      "happyHour": "Happy hour downtown"
+    }
+  },
+
+  "tabs": {
+    "curated": "Curated Lists",
+    "requests": "Requests",
+    "map": "Map",
+    "mapSection": {
+      "title": "Nearby Restaurants",
+      "mapView": "Map",
+      "listView": "List",
+      "listPlaceholder": "Restaurant list view coming soon. Use the map to explore nearby places."
+    }
+  },
+
+  "header": {
+    "restaurants": "restaurants",
+    "onMap": "on map"
+  },
+
+  "legend": "Legend",
+
+  "nearMe": "Near Me",
+
+  "filters": {
+    "title": "Filters",
+    "cuisine": "Cuisine",
+    "priceRange": "Price Range",
+    "clear": "Clear filters"
+  },
+
+  "results": "Results",
+
+  "tiers": {
+    "my_network": "My Network",
+    "similar_tastes": "Similar Tastes",
+    "community": "Community",
+    "unrated": "Unrated"
+  },
+
+  "open": "Open",
+  "closed": "Closed",
+  "noReviews": "No reviews yet",
+  "recommendation": "recommendation",
+  "recommendations": "recommendations",
+  "fromNetwork": "from your network",
+  "viewDetails": "View Details",
+  "directions": "Get Directions",
+  "beFirstToReview": "Be the first to review",
+
+  "tierMyNetwork": "My Network",
+  "tierSimilarTastes": "Similar Tastes",
+  "tierCommunity": "Community",
+  "tierUnrated": "Unrated",
+
+  "noResults": {
+    "title": "No restaurants found",
+    "description": "Try adjusting your filters or searching in a different area"
+  },
+
+  "infoWindow": {
+    "rating": "Rating",
+    "by": "by",
+    "viewDetails": "View Details",
+    "noRating": "Not yet rated",
+    "recommendations": "{count} recommendations"
+  },
+
+  "mapEmpty": {
+    "title": "No restaurants found",
+    "description": "Try adjusting your filters or searching in a different area"
+  },
+
+  "mapLoading": "Loading map data...",
+
+  "mapError": {
+    "title": "Failed to load map data",
+    "retry": "Try Again"
+  },
+
+  "listSearch": {
+    "placeholder": "Search lists by name, location, cuisine, creator, or restaurant...",
+    "badge": "Lists",
+    "scopeHint": "Search across list titles, locations, cuisines, tags, creators, and restaurants",
+    "clear": "Clear search",
+    "quickFiltersTitle": "Quick searches",
+    "quickFilters": {
+      "dateNight": "Date Night",
+      "brunch": "Brunch",
+      "italian": "Italian",
+      "japanese": "Japanese",
+      "vegetarian": "Vegetarian",
+      "cocktails": "Cocktails"
+    },
+    "noResults": "No lists found for \"{query}\"",
+    "resultsCount": "{count} {count, plural, =1 {list found} other {lists found}} for \"{query}\"",
+    "clearSearch": "Clear search"
+  },
+
+  "requestSearch": {
+    "placeholder": "Search requests by title, location, cuisine, occasion...",
+    "clear": "Clear search",
+    "clearAll": "Clear all filters",
+    "clearSearch": "Clear search",
+    "filters": "Filters",
+    "badge": "Requests",
+    "scopeHint": "Search across request titles, descriptions, locations, cuisines, and occasions",
+    "noResults": "No requests match your filters",
+    "resultsCount": "Showing {count} of {total} requests",
+    "statusLabel": "Status",
+    "status": {
+      "all": "All",
+      "open": "Open",
+      "answered": "Answered",
+      "closed": "Closed"
+    },
+    "bountyLabel": "Bounty",
+    "bounty": {
+      "all": "All",
+      "withBounty": "With Bounty",
+      "noBounty": "No Bounty"
+    },
+    "budgetLabel": "Budget Range",
+    "budget": {
+      "all": "All"
+    }
+  },
+
+  "lists": {
+    "empty": {
+      "title": "No curated lists yet",
+      "description": "Be the first to create a curated list of great restaurants!",
+      "cta": "Create First List"
+    },
+    "search": {
+      "noResults": {
+        "title": "No lists found",
+        "description": "We couldn't find any lists matching \"{query}\". Try a different search or create your own list.",
+        "clearSearch": "Clear search",
+        "createList": "Create a List"
+      }
+    }
+  },
+
+  "requests": {
+    "title": "Community Requests",
+    "subtitle": "Help others find the perfect place to eat",
+    "createButton": "Create Request",
+    "noFilterResults": "No requests match your filters",
+    "tryDifferentFilters": "Try adjusting your search or filters",
+    "clearFilters": "Clear all filters",
+    "empty": {
+      "title": "No requests yet",
+      "description": "Be the first to ask the community for restaurant recommendations!",
+      "cta": "Ask for Recommendations"
+    }
+  },
+
+  "createRequest": {
+    "modal": {
+      "title": "Ask for Recommendations",
+      "subtitle": "Get personalized suggestions from the community"
+    },
+    "fields": {
+      "title": {
+        "label": "What are you looking for?",
+        "placeholder": "e.g., Best sushi for a special anniversary dinner",
+        "charCount": "{count}/200 characters"
+      },
+      "description": {
+        "label": "Additional details (optional)",
+        "placeholder": "Tell us more about what you're looking for, any preferences, past experiences...",
+        "charCount": "{count}/1000 characters"
+      },
+      "location": {
+        "label": "Location",
+        "placeholder": "e.g., São Paulo, Vila Madalena"
+      },
+      "cuisineType": {
+        "label": "Cuisine Type",
+        "placeholder": "e.g., Japanese, Italian, Brazilian"
+      },
+      "occasion": {
+        "label": "Occasion",
+        "placeholder": "Select an occasion..."
+      },
+      "budgetRange": {
+        "label": "Budget Range"
+      },
+      "dietary": {
+        "label": "Dietary Restrictions"
+      }
+    },
+    "occasions": {
+      "date_night": "Date Night",
+      "family": "Family Dinner",
+      "business": "Business Meal",
+      "casual": "Casual Dining",
+      "celebration": "Celebration",
+      "group": "Group Gathering",
+      "solo": "Solo Dining"
+    },
+    "budget": {
+      "low": "$ Budget-friendly",
+      "moderate": "$$ Moderate",
+      "upscale": "$$$ Upscale",
+      "fine": "$$$$ Fine Dining"
+    },
+    "dietary": {
+      "vegetarian": "Vegetarian",
+      "vegan": "Vegan",
+      "glutenFree": "Gluten-Free",
+      "dairyFree": "Dairy-Free",
+      "nutFree": "Nut-Free",
+      "halal": "Halal",
+      "kosher": "Kosher"
+    },
+    "validation": {
+      "titleRequired": "Please enter what you're looking for",
+      "titleTooShort": "Please provide more detail (at least 10 characters)",
+      "loginRequired": "Please log in to create a request"
+    },
+    "tip": "The more specific you are, the better recommendations you'll receive. Include details like preferred neighborhoods, price range, or any must-haves.",
+    "actions": {
+      "cancel": "Cancel",
+      "submit": "Post Request",
+      "creating": "Creating..."
+    },
+    "success": "Your request has been posted! You'll be notified when you receive recommendations.",
+    "error": "Failed to create request. Please try again."
+  },
+
+  "listCard": {
+    "badge": "Curated",
+    "by": "by",
+    "verified": "Verified",
+    "friend": "Friend",
+    "friendOfFriend": "Friend of Friend",
+    "restaurants": "restaurants",
+    "restaurant": "restaurant",
+    "viewList": "View List",
+    "likes": "likes",
+    "saves": "saves",
+    "like": "Like",
+    "save": "Save",
+    "share": "Share",
+    "report": "Report",
+    "reportList": "Report this list",
+    "moreRestaurants": "+{count} more"
+  },
+
+  "sidebar": {
+    "trending": {
+      "title": "Trending",
+      "empty": "No trending content yet",
+      "upvotes": "{count} upvotes"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "createRecommendation": "Create Recommendation",
+      "createList": "Create List",
+      "askRecommendations": "Ask for Recommendations",
+      "viewHistory": "View My History"
+    },
+    "diningMemory": {
+      "title": "Your Dining Memory",
+      "recentRecommendations": "Recent recommendations: {count}",
+      "savedLists": "Saved lists: {count}",
+      "following": "Following: {count} experts",
+      "viewAll": "View All History"
+    },
+    "communityStats": {
+      "title": "Community Stats",
+      "totalRecommendations": "Total recommendations: {count}",
+      "curatedLists": "Curated lists: {count}",
+      "openRequests": "Open requests: {count}",
+      "activeExperts": "Active experts: {count}"
+    }
+  },
+
+  "loading": {
+    "title": "Loading...",
+    "error": {
+      "title": "Error Loading Content",
+      "retry": "Try Again"
+    }
+  },
+
+  "toast": {
+    "loginRequired": "Please log in to {action}",
+    "listCreated": "List created successfully!",
+    "requestCreated": "Request created successfully!",
+    "likeFailed": "Failed to like list",
+    "bookmarkFailed": "Failed to save list",
+    "bookmarkAdded": "Request saved",
+    "bookmarkRemoved": "Bookmark removed",
+    "bookmarkRequestFailed": "Failed to save request",
+    "shareCopied": "Share link copied!",
+    "reportSubmitted": "Report submitted. Thank you!"
+  },
+
+  "actions": {
+    "createList": "create a list",
+    "createRequest": "create a request",
+    "likeLists": "like lists",
+    "bookmarkLists": "save lists",
+    "bookmarkRequests": "save requests"
+  },
+
+  "timeAgo": {
+    "now": "Just now",
+    "minutes": "{count}m",
+    "hours": "{count}h",
+    "days": "{count}d",
+    "weeks": "{count}w"
+  },
+
+  "status": {
+    "open": "Open",
+    "answered": "Answered",
+    "closed": "Closed"
+  },
+
+  "detail": {
+    "loading": "Loading request...",
+    "error": {
+      "title": "Error Loading Request",
+      "notFound": "This request was not found or may have been deleted."
+    },
+    "backToDiscover": "Back to Discover",
+    "back": "Back",
+    "requestLabel": "Discovery Request",
+    "loginToUpvote": "Please log in to upvote",
+    "upvoteSuccess": "Upvote recorded successfully",
+    "bestAnswerSuccess": "Marked as best answer",
+    "loginToRespond": "Please log in to respond",
+    "responseTooShort": "Response must be at least 20 characters",
+    "responseSuccess": "Response submitted successfully",
+    "loginToBookmark": "Please log in to bookmark",
+    "bookmarked": "Request bookmarked",
+    "unbookmarked": "Bookmark removed",
+    "reputation": "Reputation: {score}",
+    "addResponse": "Add Your Response",
+    "yourResponse": "Your Response",
+    "yourRecommendation": "Your Recommendation",
+    "responsePlaceholder": "Share your restaurant recommendations and tips...",
+    "characters": "characters",
+    "cancel": "Cancel",
+    "submitting": "Submitting...",
+    "submit": "Submit Response",
+    "responses": "{count, plural, =0 {No responses yet} =1 {1 Response} other {# Responses}}",
+    "bestAnswer": "Best Answer",
+    "markBest": "Mark as Best",
+    "recommendedPlaces": "Recommended Places:",
+    "helpful": "Helpful",
+    "noResponses": "No responses yet. Be the first to help!",
+    "beFirst": "Be the First to Respond",
+    "recommendRestaurants": "Recommend Restaurants",
+    "searchRestaurantPlaceholder": "Search for a restaurant to recommend...",
+    "searchRestaurantHelp": "Search and select restaurants you want to recommend",
+    "selectRestaurantRequired": "Please select at least one restaurant to recommend",
+    "selectedRestaurants": "Selected Restaurants",
+    "removeRestaurant": "Remove",
+    "addNotes": "Add notes (optional)",
+    "notesPlaceholder": "Why do you recommend this place?",
+    "dishRecommendations": "Dish recommendations",
+    "dishPlaceholder": "e.g., Try the carbonara!",
+    "restaurantNotesPlaceholder": "Why do you recommend this place? Any tips?"
+  }
+}

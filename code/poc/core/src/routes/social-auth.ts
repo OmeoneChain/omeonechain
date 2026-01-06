@@ -31,7 +31,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // ==========================================
-// GOOGLE OAUTH
+// GOOGLE OAUTH - UPDATED WITH ONBOARDING SUPPORT
 // ==========================================
 
 // Test endpoint to verify routes are loaded
@@ -65,6 +65,7 @@ router.get('/google', (req: Request, res: Response) => {
 /**
  * Google OAuth callback
  * GET /api/auth/social/google/callback
+ * UPDATED: Redirects to /auth/callback page with proper URL parameters
  */
 router.get('/google/callback', async (req: Request, res: Response) => {
   console.log('🔵 Google callback received');
@@ -74,12 +75,12 @@ router.get('/google/callback', async (req: Request, res: Response) => {
 
   if (error) {
     console.error('❌ OAuth error from Google:', error);
-    return res.redirect(`${FRONTEND_URL}#auth_error=${error}`);
+    return res.redirect(`${FRONTEND_URL}/auth/callback?error=${encodeURIComponent(error as string)}`);
   }
 
   if (!code) {
     console.error('❌ No code received from Google');
-    return res.redirect(`${FRONTEND_URL}#auth_error=no_code`);
+    return res.redirect(`${FRONTEND_URL}/auth/callback?error=no_code`);
   }
 
   console.log('✅ Code received, exchanging for token...');
@@ -128,28 +129,82 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     const user = await findOrCreateUserFromGoogle(userInfo);
     console.log('✅ User found/created:', user.id);
 
+    // Determine if this is a new user (created within last 60 seconds)
+    const createdAt = new Date(user.created_at);
+    const now = new Date();
+    const timeSinceCreation = now.getTime() - createdAt.getTime();
+    const isNewUser = timeSinceCreation < 60000;
+    
+    console.log(`🆕 User status: ${isNewUser ? 'NEW USER' : 'RETURNING USER'}`);
+    console.log(`⏱️  Account age: ${Math.floor(timeSinceCreation / 1000)} seconds`);
+
+    // Calculate profile completion
+    let profileCompletion = 25; // Base: email + name from Google
+    
+    if (user.username && user.username !== user.email?.split('@')[0]) {
+      profileCompletion += 10;
+    }
+    if (user.bio && user.bio.length > 10) {
+      profileCompletion += 15;
+    }
+    if (user.location_city) {
+      profileCompletion += 15;
+    }
+    if (user.profile_picture && !user.profile_picture.includes('dicebear')) {
+      profileCompletion += 10;
+    }
+    if (user.trust_score && user.trust_score > 0) {
+      profileCompletion += 15;
+    }
+    if (user.tokens_earned && user.tokens_earned > 0) {
+      profileCompletion += 10;
+    }
+    
+    profileCompletion = Math.min(profileCompletion, 100);
+    console.log(`📊 Profile completion: ${profileCompletion}%`);
+
     // Generate JWT token
     console.log('🔐 Generating JWT token...');
-    console.log('🔐 JWT_SECRET exists:', !!JWT_SECRET);
-    console.log('🔐 JWT_SECRET length:', JWT_SECRET.length);
     
     const jwtToken = jwt.sign(
       {
         userId: user.id,
         email: user.email,
-        accountTier: user.account_tier,
+        accountTier: user.account_tier || 'email_basic',
         authMethod: 'google',
       },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    console.log('✅ JWT token generated (first 20 chars):', jwtToken.substring(0, 20));
-    console.log('🔍 FRONTEND_URL:', FRONTEND_URL);
-    console.log('🚀 About to redirect to:', `${FRONTEND_URL}#auth_token=${jwtToken.substring(0, 30)}...&auth_success=true`);
+    console.log('✅ JWT token generated');
 
-    // Redirect to frontend with token
-    res.redirect(`${FRONTEND_URL}#auth_token=${jwtToken}&auth_success=true`);
+    // ✅ NEW: Build redirect URL to OAuth callback page with query parameters
+    const userDataEncoded = encodeURIComponent(JSON.stringify({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      display_name: user.display_name,
+      onboarding_completed: user.onboarding_completed || false,
+      onboarding_step: user.onboarding_step || 'welcome',
+      profile_completion: profileCompletion,
+      account_tier: user.account_tier || 'email_basic',
+      auth_method: 'google'
+    }));
+    
+    const redirectUrl = `${FRONTEND_URL}/callback?` +
+      `token=${jwtToken}&` +
+      `user=${userDataEncoded}&` +
+      `isNewUser=${isNewUser}`;
+    
+    console.log('🚀 Redirecting to OAuth callback page');
+    console.log(`   - URL: ${FRONTEND_URL}/auth/callback`);
+    console.log(`   - isNewUser: ${isNewUser}`);
+    console.log(`   - onboarding_completed: ${user.onboarding_completed || false}`);
+    console.log(`   - profileCompletion: ${profileCompletion}%`);
+
+    // Redirect to frontend OAuth callback handler
+    res.redirect(redirectUrl);
 
     console.log('✅ Redirect command executed');
 
@@ -158,7 +213,7 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     console.error('Error stack:', error.stack);
     const errorMessage = encodeURIComponent(error.message || 'Unknown error');
     console.log('🔴 Redirecting to frontend with error:', errorMessage);
-    res.redirect(`${FRONTEND_URL}#auth_error=${errorMessage}`);
+    res.redirect(`${FRONTEND_URL}/auth/callback?error=${errorMessage}`);
   }
 });
 

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { TrendingUp, Sparkles } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import ListCard from '@/components/ListCard';
 
 // Mock data for lists - keeping existing structure
+// NOTE: In production, this data will come from the database with proper translation handling
 const mockLists = [
   {
     id: 1,
@@ -178,6 +180,7 @@ const mockLists = [
 ];
 
 const DiscoverListsSection = () => {
+  const t = useTranslations();
   const [activeTab, setActiveTab] = useState('trending');
   const [lists, setLists] = useState(mockLists);
 
@@ -232,8 +235,8 @@ const DiscoverListsSection = () => {
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Listas Curadas</h2>
-            <p className="text-sm text-gray-600">Descobertas organizadas por especialistas locais</p>
+            <h2 className="text-xl font-bold text-gray-900">{t('discovery.lists.title')}</h2>
+            <p className="text-sm text-gray-600">{t('discovery.lists.subtitle')}</p>
           </div>
         </div>
         
@@ -248,7 +251,7 @@ const DiscoverListsSection = () => {
             }`}
           >
             <TrendingUp className="w-4 h-4 inline mr-1" />
-            Em Alta
+            {t('discovery.lists.tabs.trending')}
           </button>
           <button
             onClick={() => setActiveTab('new')}
@@ -259,7 +262,7 @@ const DiscoverListsSection = () => {
             }`}
           >
             <Sparkles className="w-4 h-4 inline mr-1" />
-            Novidades
+            {t('discovery.lists.tabs.new')}
           </button>
         </div>
       </div>
@@ -286,13 +289,13 @@ const DiscoverListsSection = () => {
       <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-100">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-gray-900 mb-1">Crie sua própria lista</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">{t('discovery.lists.cta.title')}</h3>
             <p className="text-sm text-gray-600">
-              Ganhe tokens compartilhando suas descobertas gastronômicas favoritas
+              {t('discovery.lists.cta.description')}
             </p>
           </div>
           <button className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-colors">
-            Criar Lista
+            {t('discovery.lists.cta.button')}
           </button>
         </div>
       </div>

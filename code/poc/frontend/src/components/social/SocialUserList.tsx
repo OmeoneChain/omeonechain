@@ -1,6 +1,7 @@
 // Social User List Component - displays followers, following, or user search results
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { User, Star, MapPin, Search, Filter, Users } from 'lucide-react';
 import { FollowButton, QuickFollowButton } from './FollowButton';
 import type { SocialUser, UserSearchFilters } from '../types/social-types';
@@ -24,6 +25,7 @@ export function SocialUserList({
   showFilters = false,
   onUserClick
 }: SocialUserListProps) {
+  const t = useTranslations('common');
   const [users, setUsers] = useState<SocialUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
@@ -143,16 +145,30 @@ export function SocialUserList({
   const getListTitle = () => {
     switch (listType) {
       case 'followers':
-        return 'Followers';
+        return t('social.userList.titles.followers');
       case 'following':
-        return 'Following';
+        return t('social.userList.titles.following');
       case 'suggestions':
-        return 'Suggested Users';
+        return t('social.userList.titles.suggestions');
       case 'search':
-        return 'Search Results';
+        return t('social.userList.titles.searchResults');
       default:
-        return 'Users';
+        return t('social.userList.titles.users');
     }
+  };
+
+  const getEmptyStateTitle = () => {
+    if (listType === 'search') {
+      return t('social.userList.empty.noUsersFound');
+    }
+    return t('social.userList.empty.noListTypeYet', { listType: t(`social.userList.listTypes.${listType}`) });
+  };
+
+  const getEmptyStateDescription = () => {
+    if (listType === 'search') {
+      return t('social.userList.empty.adjustCriteria');
+    }
+    return t('social.userList.empty.userHasNoListType', { listType: t(`social.userList.listTypes.${listType}`) });
   };
 
   return (
@@ -167,7 +183,7 @@ export function SocialUserList({
             className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             <Filter className="w-4 h-4" />
-            <span>Filters</span>
+            <span>{t('social.userList.filters.button')}</span>
           </button>
         )}
       </div>
@@ -181,7 +197,7 @@ export function SocialUserList({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search users..."
+              placeholder={t('social.userList.search.placeholder')}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -189,7 +205,7 @@ export function SocialUserList({
             type="submit"
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
           >
-            Search
+            {t('social.userList.search.button')}
           </button>
         </form>
       )}
@@ -200,7 +216,7 @@ export function SocialUserList({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Min Reputation
+                {t('social.userList.filters.minReputation')}
               </label>
               <input
                 type="number"
@@ -215,31 +231,31 @@ export function SocialUserList({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Verification
+                {t('social.userList.filters.verification')}
               </label>
               <select
                 value={filters.verification_status || ''}
                 onChange={(e) => handleFilterChange({ verification_status: e.target.value as any })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
               >
-                <option value="">All</option>
-                <option value="verified">Verified</option>
-                <option value="expert">Expert</option>
+                <option value="">{t('social.userList.filters.options.all')}</option>
+                <option value="verified">{t('social.userList.filters.options.verified')}</option>
+                <option value="expert">{t('social.userList.filters.options.expert')}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Sort By
+                {t('social.userList.filters.sortBy')}
               </label>
               <select
                 value={filters.sort_by || 'reputation'}
                 onChange={(e) => handleFilterChange({ sort_by: e.target.value as any })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
               >
-                <option value="reputation">Reputation</option>
-                <option value="followers">Followers</option>
-                <option value="recommendations">Recommendations</option>
+                <option value="reputation">{t('social.userList.filters.sortOptions.reputation')}</option>
+                <option value="followers">{t('social.userList.filters.sortOptions.followers')}</option>
+                <option value="recommendations">{t('social.userList.filters.sortOptions.recommendations')}</option>
               </select>
             </div>
 
@@ -251,7 +267,7 @@ export function SocialUserList({
                   onChange={(e) => handleFilterChange({ has_recommendations: e.target.checked })}
                   className="rounded border-gray-300"
                 />
-                <span>Has recommendations</span>
+                <span>{t('social.userList.filters.hasRecommendations')}</span>
               </label>
             </div>
           </div>
@@ -279,12 +295,10 @@ export function SocialUserList({
           <div className="text-center py-12">
             <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {listType === 'search' ? 'No users found' : `No ${listType} yet`}
+              {getEmptyStateTitle()}
             </h3>
             <p className="text-gray-500">
-              {listType === 'search' 
-                ? 'Try adjusting your search criteria' 
-                : `This user doesn't have any ${listType} yet.`}
+              {getEmptyStateDescription()}
             </p>
           </div>
         ) : (
@@ -322,10 +336,10 @@ export function SocialUserList({
                 <p className="text-sm text-gray-600 mb-1">@{user.username}</p>
                 
                 <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <span>{user.followers_count} followers</span>
-                  <span>{user.recommendations_count} recommendations</span>
+                  <span>{t('social.userList.stats.followers', { count: user.followers_count })}</span>
+                  <span>{t('social.userList.stats.recommendations', { count: user.recommendations_count })}</span>
                   {user.avg_trust_score > 0 && (
-                    <span>★ {user.avg_trust_score.toFixed(1)} trust</span>
+                    <span>{t('social.userList.stats.trust', { score: user.avg_trust_score.toFixed(1) })}</span>
                   )}
                 </div>
               </div>
@@ -351,7 +365,7 @@ export function SocialUserList({
             disabled={isLoading}
             className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
           >
-            {isLoading ? 'Loading...' : 'Load More'}
+            {isLoading ? t('social.userList.loading') : t('social.userList.loadMore')}
           </button>
         </div>
       )}
@@ -403,6 +417,8 @@ interface UserSearchProps {
 }
 
 export function UserSearch({ currentUserId, initialFilters, onUserClick }: UserSearchProps) {
+  const t = useTranslations('common');
+  
   return (
     <SocialUserList
       listType="search"
@@ -422,9 +438,13 @@ interface FollowSuggestionsProps {
 }
 
 export function FollowSuggestions({ currentUserId, onUserClick }: FollowSuggestionsProps) {
+  const t = useTranslations('common');
+  
   return (
     <div className="bg-white rounded-lg border p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Suggested for you</h2>
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        {t('social.userList.suggestedForYou')}
+      </h2>
       <SocialUserList
         listType="suggestions"
         currentUserId={currentUserId}

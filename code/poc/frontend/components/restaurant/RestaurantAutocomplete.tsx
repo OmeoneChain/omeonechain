@@ -1,6 +1,9 @@
+// components/restaurant/RestaurantAutocomplete.tsx
+
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { restaurantService, AutocompleteSuggestion, Restaurant } from '@/lib/services/restaurant-service';
 
 interface RestaurantAutocompleteProps {
@@ -9,15 +12,22 @@ interface RestaurantAutocompleteProps {
   placeholder?: string;
   className?: string;
   userLocation?: { latitude: number; longitude: number };
+  clearAfterSelect?: boolean; // NEW PROP
 }
+
+// Default location outside component to prevent re-renders
+const DEFAULT_LOCATION = { latitude: -15.7934, longitude: -47.8823 };
 
 export default function RestaurantAutocomplete({
   onSelect,
   initialValue = '',
-  placeholder = 'Search for a restaurant...',
+  placeholder,
   className = '',
-  userLocation = { latitude: -15.7934, longitude: -47.8823 }, // Default: Brasília
+  userLocation = DEFAULT_LOCATION,
+  clearAfterSelect = true, // Default to clearing after selection
 }: RestaurantAutocompleteProps) {
+  const t = useTranslations('create.restaurants.autocomplete');
+  
   const [input, setInput] = useState(initialValue);
   const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,6 +38,9 @@ export default function RestaurantAutocomplete({
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Use translated placeholder if none provided
+  const displayPlaceholder = placeholder || t('placeholder');
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -42,6 +55,7 @@ export default function RestaurantAutocomplete({
   }, []);
 
   // Fetch autocomplete suggestions with debouncing
+  // FIXED: Removed 't' from dependencies to prevent infinite loop
   useEffect(() => {
     // Clear previous timer
     if (debounceTimer.current) {
@@ -72,28 +86,27 @@ export default function RestaurantAutocomplete({
         setSelectedIndex(-1);
       } catch (err) {
         console.error('Autocomplete error:', err);
-        setError('Failed to search restaurants. Please try again.');
+        setError('Failed to search restaurants');
         setSuggestions([]);
       } finally {
         setIsLoading(false);
       }
-    }, 300); // 300ms debounce
+    }, 300);
 
     return () => {
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [input, userLocation]);
+  }, [input, userLocation.latitude, userLocation.longitude]); // FIXED: Use primitive values, removed 't'
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
 
-  // Handle suggestion selection
-  const handleSelect = async (suggestion: AutocompleteSuggestion) => {
-    setInput(suggestion.name);
+  // Handle suggestion selection - FIXED: Clear input after selection
+  const handleSelect = useCallback(async (suggestion: AutocompleteSuggestion) => {
     setIsOpen(false);
     setIsCreating(true);
     setError(null);
@@ -102,18 +115,26 @@ export default function RestaurantAutocomplete({
       // Create restaurant in our database from Google Place ID
       const restaurant = await restaurantService.createRestaurantFromExternal(
         suggestion.id,
-        'Brasília' // TODO: Get from user location or make dynamic
+        'Brasília'
       );
 
       // Pass the created restaurant to parent component
       onSelect(restaurant);
+      
+      // FIXED: Clear input after successful selection (if clearAfterSelect is true)
+      if (clearAfterSelect) {
+        setInput('');
+        setSuggestions([]);
+      } else {
+        setInput(suggestion.name);
+      }
     } catch (err) {
       console.error('Error creating restaurant:', err);
-      setError('Failed to add restaurant. Please try again.');
+      setError(t('errors.addFailed'));
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [onSelect, clearAfterSelect, t]);
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -158,10 +179,10 @@ export default function RestaurantAutocomplete({
               setIsOpen(true);
             }
           }}
-          placeholder={placeholder}
+          placeholder={displayPlaceholder}
           disabled={isCreating}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-          aria-label="Restaurant search"
+          aria-label={t('ariaLabel')}
           aria-autocomplete="list"
           aria-expanded={isOpen}
           aria-controls="autocomplete-dropdown"
@@ -243,7 +264,7 @@ export default function RestaurantAutocomplete({
       {/* Helper Text */}
       {!error && !isLoading && input.length > 0 && input.length < 2 && (
         <div className="mt-2 text-sm text-gray-500">
-          Type at least 2 characters to search
+          {t('minCharsHint')}
         </div>
       )}
 
@@ -251,7 +272,7 @@ export default function RestaurantAutocomplete({
       {isCreating && (
         <div className="mt-2 text-sm text-blue-600 flex items-center">
           <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
-          Adding restaurant...
+          {t('adding')}
         </div>
       )}
     </div>

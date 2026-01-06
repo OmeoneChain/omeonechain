@@ -1,8 +1,11 @@
+'use client';
+
 // FILE: components/profile/ProfileCompletion.tsx
 // FIXED: Profile completion progress widget with backend data integration
 // =============================================================================
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { CheckCircle2, Circle, User, MapPin, FileText, Camera, Shield } from 'lucide-react';
 
 interface ProfileCompletionProps {
@@ -14,11 +17,11 @@ interface ProfileCompletionProps {
 
 interface CompletionItem {
   id: string;
-  label: string;
+  labelKey: string;
   completed: boolean;
   points: number;
   icon: React.ElementType;
-  description: string;
+  descriptionKey: string;
 }
 
 export function ProfileCompletion({ 
@@ -27,6 +30,8 @@ export function ProfileCompletion({
   onEditProfile, 
   showDetails = false 
 }: ProfileCompletionProps) {
+  const t = useTranslations('profile.completion');
+
   // FIXED: Calculate completion based on actual backend data
   const calculateActualCompletion = (userData: any): number => {
     let score = 0;
@@ -59,83 +64,83 @@ export function ProfileCompletion({
   const completionItems: CompletionItem[] = [
     {
       id: 'username',
-      label: 'Username',
+      labelKey: 'items.username.label',
       completed: !!user?.username && user.username !== user?.id && user.username.length > 3,
       points: 10,
       icon: User,
-      description: 'Choose a unique username'
+      descriptionKey: 'items.username.description'
     },
     {
       id: 'display_name',
-      label: 'Display Name',
+      labelKey: 'items.displayName.label',
       completed: !!user?.display_name && user.display_name !== user?.username && user.display_name.length > 3,
       points: 10,
       icon: User,
-      description: 'Add a friendly display name'
+      descriptionKey: 'items.displayName.description'
     },
     {
       id: 'bio',
-      label: 'Bio',
+      labelKey: 'items.bio.label',
       completed: !!user?.bio && user.bio.length > 10,
       points: 10,
       icon: FileText,
-      description: 'Tell others about yourself'
+      descriptionKey: 'items.bio.description'
     },
     {
       id: 'avatar',
-      label: 'Profile Photo',
+      labelKey: 'items.avatar.label',
       completed: !!user?.avatar_url && !user.avatar_url.includes('dicebear'),
       points: 10,
       icon: Camera,
-      description: 'Upload a profile photo'
+      descriptionKey: 'items.avatar.description'
     },
     {
       id: 'location_city',
-      label: 'City',
+      labelKey: 'items.city.label',
       completed: !!user?.location_city && user.location_city.length > 0,
       points: 10,
       icon: MapPin,
-      description: 'Add your city'
+      descriptionKey: 'items.city.description'
     },
     {
       id: 'location_country',
-      label: 'Country',
+      labelKey: 'items.country.label',
       completed: !!user?.location_country && user.location_country !== 'BR' && user.location_country.length > 0,
       points: 10,
       icon: MapPin,
-      description: 'Add your country'
+      descriptionKey: 'items.country.description'
     },
     {
       id: 'social_activity',
-      label: 'First Recommendation',
+      labelKey: 'items.firstRecommendation.label',
       completed: (user?.total_recommendations || user?.reputation_score || user?.reputation || 0) > 0,
       points: 15,
       icon: FileText,
-      description: 'Create your first recommendation'
+      descriptionKey: 'items.firstRecommendation.description'
     },
     {
       id: 'social_following',
-      label: 'Follow Someone',
+      labelKey: 'items.followSomeone.label',
       completed: (user?.following_count || 0) > 0,
       points: 5,
       icon: User,
-      description: 'Follow other food experts'
+      descriptionKey: 'items.followSomeone.description'
     },
     {
       id: 'social_followers',
-      label: 'Gain Followers',
+      labelKey: 'items.gainFollowers.label',
       completed: (user?.followers_count || 0) > 0,
       points: 10,
       icon: User,
-      description: 'Build your network'
+      descriptionKey: 'items.gainFollowers.description'
     },
     {
       id: 'verification',
-      label: 'Verify Account',
+      labelKey: 'items.verifyAccount.label',
       completed: user?.authMode === 'wallet' || user?.auth_mode === 'wallet' || !!user?.walletAddress,
       points: 10,
       icon: Shield,
-      description: 'Connect your wallet for verification'
+      descriptionKey: 'items.verifyAccount.description'
     }
   ];
 
@@ -149,11 +154,11 @@ export function ProfileCompletion({
     return 'bg-red-500';
   };
 
-  const getProgressText = (score: number) => {
-    if (score >= 80) return 'Excellent profile! 🌟';
-    if (score >= 60) return 'Great progress! 👍';
-    if (score >= 40) return 'Good start! 📈';
-    return 'Let\'s complete your profile! 🚀';
+  const getProgressTextKey = (score: number) => {
+    if (score >= 80) return 'progress.excellent';
+    if (score >= 60) return 'progress.great';
+    if (score >= 40) return 'progress.good';
+    return 'progress.start';
   };
 
   const getMissingItems = () => {
@@ -165,12 +170,12 @@ export function ProfileCompletion({
       {/* Progress Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-semibold text-gray-900">Profile Completion</h3>
-          <p className="text-sm text-gray-600">{getProgressText(actualCompletion)}</p>
+          <h3 className="font-semibold text-gray-900">{t('title')}</h3>
+          <p className="text-sm text-gray-600">{t(getProgressTextKey(actualCompletion))}</p>
         </div>
         <div className="text-right">
           <div className="text-2xl font-bold text-gray-900">{actualCompletion}%</div>
-          <div className="text-sm text-gray-500">{completedCount} of {totalItems}</div>
+          <div className="text-sm text-gray-500">{t('countOf', { completed: completedCount, total: totalItems })}</div>
         </div>
       </div>
 
@@ -187,7 +192,7 @@ export function ProfileCompletion({
       {/* Quick Actions for Missing Items */}
       {actualCompletion < 100 && !showDetails && (
         <div className="mb-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Quick wins:</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-2">{t('quickWins')}</h4>
           <div className="space-y-2">
             {getMissingItems().map((item) => {
               const Icon = item.icon;
@@ -197,8 +202,8 @@ export function ProfileCompletion({
                   className="flex items-center gap-2 p-2 rounded-md bg-gray-50 text-sm"
                 >
                   <Icon className="w-4 h-4 text-gray-500" />
-                  <span className="text-gray-700">{item.description}</span>
-                  <span className="ml-auto text-xs text-gray-500">+{item.points} pts</span>
+                  <span className="text-gray-700">{t(item.descriptionKey)}</span>
+                  <span className="ml-auto text-xs text-gray-500">{t('points', { count: item.points })}</span>
                 </div>
               );
             })}
@@ -231,14 +236,14 @@ export function ProfileCompletion({
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className={`font-medium ${item.completed ? 'text-green-900' : 'text-gray-900'}`}>
-                      {item.label}
+                      {t(item.labelKey)}
                     </span>
                     <span className={`text-sm ${item.completed ? 'text-green-600' : 'text-gray-500'}`}>
-                      {item.points} pts
+                      {t('points', { count: item.points })}
                     </span>
                   </div>
                   <p className={`text-sm ${item.completed ? 'text-green-700' : 'text-gray-600'}`}>
-                    {item.description}
+                    {t(item.descriptionKey)}
                   </p>
                 </div>
               </div>
@@ -253,7 +258,7 @@ export function ProfileCompletion({
           onClick={onEditProfile}
           className="w-full btn-primary"
         >
-          {actualCompletion < 50 ? 'Complete Profile' : 'Finish Profile'}
+          {actualCompletion < 50 ? t('completeProfile') : t('finishProfile')}
         </button>
       )}
 
@@ -262,7 +267,7 @@ export function ProfileCompletion({
         <div className="text-center py-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
             <CheckCircle2 className="w-4 h-4" />
-            Profile Complete!
+            {t('profileComplete')}
           </div>
         </div>
       )}
@@ -316,22 +321,22 @@ export function useProfileCompletion(user: any) {
     const missing = [];
     
     if (!userData?.username || userData.username === userData?.id) {
-      missing.push({ field: 'username', label: 'Username', points: 10 });
+      missing.push({ field: 'username', labelKey: 'items.username.label', points: 10 });
     }
     if (!userData?.display_name || userData.display_name === userData?.username) {
-      missing.push({ field: 'display_name', label: 'Display Name', points: 10 });
+      missing.push({ field: 'display_name', labelKey: 'items.displayName.label', points: 10 });
     }
     if (!userData?.bio || userData.bio.length <= 10) {
-      missing.push({ field: 'bio', label: 'Bio', points: 10 });
+      missing.push({ field: 'bio', labelKey: 'items.bio.label', points: 10 });
     }
     if (!userData?.avatar_url || userData.avatar_url.includes('dicebear')) {
-      missing.push({ field: 'avatar_url', label: 'Profile Photo', points: 10 });
+      missing.push({ field: 'avatar_url', labelKey: 'items.avatar.label', points: 10 });
     }
     if (!userData?.location_city) {
-      missing.push({ field: 'location_city', label: 'City', points: 10 });
+      missing.push({ field: 'location_city', labelKey: 'items.city.label', points: 10 });
     }
     if (!userData?.location_country || userData.location_country === 'BR') {
-      missing.push({ field: 'location_country', label: 'Country', points: 10 });
+      missing.push({ field: 'location_country', labelKey: 'items.country.label', points: 10 });
     }
     
     return missing;

@@ -1,0 +1,73 @@
+{
+  "title": "Seu Feed",
+  "refresh": "Atualizar feed",
+  "create": "Criar",
+  "unknownRestaurant": "Restaurante Desconhecido",
+  "unknownUser": "Usuário Desconhecido",
+  "foodExpert": "Expert Gastronômico",
+  "createMenu": {
+    "recommendation": "Recomendação",
+    "list": "Lista"
+  },
+  "empty": {
+    "title": "Seu feed está vazio",
+    "description": "Siga alguns experts gastronômicos para ver suas recomendações aqui",
+    "action": "Descobrir Pessoas"
+  },
+  "quickActions": {
+    "title": "Ações Rápidas",
+    "createRecommendation": "Criar Recomendação",
+    "createList": "Criar Lista",
+    "discover": "Descobrir"
+  },
+  "trending": {
+    "title": "Em Alta",
+    "empty": "Nenhum conteúdo em alta ainda"
+  },
+  "diningMemory": {
+    "title": "Sua Memória Gastronômica",
+    "recentRecommendations": "Recomendações recentes:",
+    "savedLists": "Listas salvas:",
+    "following": "Seguindo:",
+    "foodExperts": "{count} experts gastronômicos",
+    "viewHistory": "Ver Todo Histórico"
+  },
+  "communityStats": {
+    "title": "Estatísticas da Comunidade",
+    "activeMembers": "Membros Ativos",
+    "growingDaily": "Crescendo Diariamente",
+    "recommendations": "Recomendações",
+    "inFeed": "{count} no feed",
+    "curatedLists": "Listas Curadas",
+    "available": "{count} disponíveis"
+  },
+  "timeAgo": {
+    "now": "Agora mesmo",
+    "minutes": "{count}min",
+    "hours": "{count}h",
+    "days": "{count}d",
+    "weeks": "{count}sem"
+  },
+  "toast": {
+    "saved": "Salvo! Autor ganhou {tokens} BOCA",
+    "liked": "Curtido! Autor ganhou {tokens} BOCA",
+    "linkCopied": "Link copiado!",
+    "bookmarkFailed": "Falha ao salvar",
+    "likeFailed": "Falha ao curtir",
+    "reportSubmitted": "Denúncia enviada"
+  },
+  "listCard": {
+    "badge": "Lista",
+    "more": "mais",
+    "social": {
+      "friend": "Seu amigo",
+      "friendOfFriend": "Amigo de amigo"
+    },
+    "time": {
+      "recent": "Recentemente"
+    },
+    "actions": {
+      "report": "Denunciar"
+    }
+  }
+}
