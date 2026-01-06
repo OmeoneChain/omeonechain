@@ -1,0 +1,386 @@
+{
+  "page": {
+    "title": "Descubra Boa Comida",
+    "subtitle": "Recomendações selecionadas por especialistas em gastronomia de Brasília"
+  },
+
+  "search": {
+    "placeholder": "Buscar restaurantes por nome, culinária ou localização...",
+    "button": "Buscar",
+    "searching": "Buscando...",
+    "noResults": "Nenhum resultado encontrado para \"{query}\"",
+    "suggestions": {
+      "romantic": "Restaurantes românticos",
+      "pizza": "Pizzarias autênticas",
+      "brunch": "Brunch na Asa Sul",
+      "happyHour": "Happy hour no centro"
+    }
+  },
+
+  "tabs": {
+    "curated": "Listas Selecionadas",
+    "requests": "Pedidos",
+    "map": "Mapa",
+    "mapSection": {
+      "title": "Restaurantes Próximos",
+      "mapView": "Mapa",
+      "listView": "Lista",
+      "listPlaceholder": "Visualização em lista em breve. Use o mapa para explorar lugares próximos."
+    }
+  },
+
+  "header": {
+    "restaurants": "restaurantes",
+    "onMap": "no mapa"
+  },
+
+  "legend": "Legenda",
+
+  "nearMe": "Perto de Mim",
+
+  "filters": {
+    "title": "Filtros",
+    "cuisine": "Culinária",
+    "priceRange": "Faixa de Preço",
+    "clear": "Limpar filtros"
+  },
+
+  "results": "Resultados",
+
+  "tiers": {
+    "my_network": "Minha Rede",
+    "similar_tastes": "Gostos Similares",
+    "community": "Comunidade",
+    "unrated": "Sem Avaliação"
+  },
+
+  "open": "Aberto",
+  "closed": "Fechado",
+  "noReviews": "Sem avaliações ainda",
+  "recommendation": "recomendação",
+  "recommendations": "recomendações",
+  "fromNetwork": "da sua rede",
+  "viewDetails": "Ver Detalhes",
+  "directions": "Como Chegar",
+  "beFirstToReview": "Seja o primeiro a avaliar",
+
+  "tierMyNetwork": "Minha Rede",
+  "tierSimilarTastes": "Gostos Similares",
+  "tierCommunity": "Comunidade",
+  "tierUnrated": "Sem Avaliação",
+
+  "noResults": {
+    "title": "Nenhum restaurante encontrado",
+    "description": "Tente ajustar seus filtros ou buscar em outra área"
+  },
+
+  "infoWindow": {
+    "rating": "Avaliação",
+    "by": "por",
+    "viewDetails": "Ver Detalhes",
+    "noRating": "Ainda não avaliado",
+    "recommendations": "{count} recomendações"
+  },
+
+  "mapEmpty": {
+    "title": "Nenhum restaurante encontrado",
+    "description": "Tente ajustar seus filtros ou buscar em outra área"
+  },
+
+  "mapLoading": "Carregando dados do mapa...",
+
+  "mapError": {
+    "title": "Falha ao carregar dados do mapa",
+    "retry": "Tentar Novamente"
+  },
+
+  "listSearch": {
+    "placeholder": "Buscar listas por nome, local, culinária, criador ou restaurante...",
+    "badge": "Listas",
+    "scopeHint": "Buscar em títulos, locais, culinárias, tags, criadores e restaurantes",
+    "clear": "Limpar busca",
+    "quickFiltersTitle": "Buscas rápidas",
+    "quickFilters": {
+      "dateNight": "Noite Romântica",
+      "brunch": "Brunch",
+      "italian": "Italiano",
+      "japanese": "Japonês",
+      "vegetarian": "Vegetariano",
+      "cocktails": "Coquetéis"
+    },
+    "noResults": "Nenhuma lista encontrada para \"{query}\"",
+    "resultsCount": "{count} {count, plural, =1 {lista encontrada} other {listas encontradas}} para \"{query}\"",
+    "clearSearch": "Limpar busca"
+  },
+
+  "requestSearch": {
+    "placeholder": "Buscar pedidos por título, local, culinária, ocasião...",
+    "clear": "Limpar busca",
+    "clearAll": "Limpar todos os filtros",
+    "clearSearch": "Limpar busca",
+    "filters": "Filtros",
+    "badge": "Pedidos",
+    "scopeHint": "Buscar em títulos, descrições, locais, culinárias e ocasiões",
+    "noResults": "Nenhum pedido corresponde aos seus filtros",
+    "resultsCount": "Mostrando {count} de {total} pedidos",
+    "statusLabel": "Status",
+    "status": {
+      "all": "Todos",
+      "open": "Abertos",
+      "answered": "Respondidos",
+      "closed": "Fechados"
+    },
+    "bountyLabel": "Recompensa",
+    "bounty": {
+      "all": "Todas",
+      "withBounty": "Com Recompensa",
+      "noBounty": "Sem Recompensa"
+    },
+    "budgetLabel": "Faixa de Preço",
+    "budget": {
+      "all": "Todas"
+    }
+  },
+
+  "lists": {
+    "empty": {
+      "title": "Nenhuma lista selecionada ainda",
+      "description": "Seja o primeiro a criar uma lista de ótimos restaurantes!",
+      "cta": "Criar Primeira Lista"
+    },
+    "search": {
+      "noResults": {
+        "title": "Nenhuma lista encontrada",
+        "description": "Não encontramos listas correspondentes a \"{query}\". Tente uma busca diferente ou crie sua própria lista.",
+        "clearSearch": "Limpar busca",
+        "createList": "Criar uma Lista"
+      }
+    }
+  },
+
+  "requests": {
+    "title": "Pedidos da Comunidade",
+    "subtitle": "Ajude outros a encontrar o lugar perfeito para comer",
+    "createButton": "Criar Pedido",
+    "noFilterResults": "Nenhum pedido corresponde aos seus filtros",
+    "tryDifferentFilters": "Tente ajustar sua busca ou filtros",
+    "clearFilters": "Limpar todos os filtros",
+    "empty": {
+      "title": "Nenhum pedido ainda",
+      "description": "Seja o primeiro a pedir recomendações de restaurantes à comunidade!",
+      "cta": "Pedir Recomendações"
+    }
+  },
+
+  "createRequest": {
+    "modal": {
+      "title": "Pedir Recomendações",
+      "subtitle": "Receba sugestões personalizadas da comunidade"
+    },
+    "fields": {
+      "title": {
+        "label": "O que você está procurando?",
+        "placeholder": "Ex: Melhor sushi para um jantar especial de aniversário",
+        "charCount": "{count}/200 caracteres"
+      },
+      "description": {
+        "label": "Detalhes adicionais (opcional)",
+        "placeholder": "Conte-nos mais sobre o que você procura, preferências, experiências anteriores...",
+        "charCount": "{count}/1000 caracteres"
+      },
+      "location": {
+        "label": "Localização",
+        "placeholder": "Ex: São Paulo, Vila Madalena"
+      },
+      "cuisineType": {
+        "label": "Tipo de Culinária",
+        "placeholder": "Ex: Japonesa, Italiana, Brasileira"
+      },
+      "occasion": {
+        "label": "Ocasião",
+        "placeholder": "Selecione uma ocasião..."
+      },
+      "budgetRange": {
+        "label": "Faixa de Preço"
+      },
+      "dietary": {
+        "label": "Restrições Alimentares"
+      }
+    },
+    "occasions": {
+      "date_night": "Noite Romântica",
+      "family": "Jantar em Família",
+      "business": "Refeição de Negócios",
+      "casual": "Refeição Casual",
+      "celebration": "Celebração",
+      "group": "Encontro em Grupo",
+      "solo": "Jantar Solo"
+    },
+    "budget": {
+      "low": "$ Econômico",
+      "moderate": "$$ Moderado",
+      "upscale": "$$$ Sofisticado",
+      "fine": "$$$$ Alta Gastronomia"
+    },
+    "dietary": {
+      "vegetarian": "Vegetariano",
+      "vegan": "Vegano",
+      "glutenFree": "Sem Glúten",
+      "dairyFree": "Sem Lactose",
+      "nutFree": "Sem Nozes",
+      "halal": "Halal",
+      "kosher": "Kosher"
+    },
+    "validation": {
+      "titleRequired": "Por favor, informe o que você está procurando",
+      "titleTooShort": "Por favor, forneça mais detalhes (mínimo 10 caracteres)",
+      "loginRequired": "Por favor, faça login para criar um pedido"
+    },
+    "tip": "Quanto mais específico você for, melhores recomendações receberá. Inclua detalhes como bairros preferidos, faixa de preço ou itens essenciais.",
+    "actions": {
+      "cancel": "Cancelar",
+      "submit": "Publicar Pedido",
+      "creating": "Criando..."
+    },
+    "success": "Seu pedido foi publicado! Você será notificado quando receber recomendações.",
+    "error": "Falha ao criar pedido. Por favor, tente novamente."
+  },
+
+  "listCard": {
+    "badge": "Selecionada",
+    "by": "por",
+    "verified": "Verificado",
+    "friend": "Amigo",
+    "friendOfFriend": "Amigo de Amigo",
+    "restaurants": "restaurantes",
+    "restaurant": "restaurante",
+    "viewList": "Ver Lista",
+    "likes": "curtidas",
+    "saves": "salvos",
+    "like": "Curtir",
+    "save": "Salvar",
+    "share": "Compartilhar",
+    "report": "Denunciar",
+    "reportList": "Denunciar esta lista",
+    "moreRestaurants": "+{count} mais"
+  },
+
+  "sidebar": {
+    "trending": {
+      "title": "Em Alta",
+      "empty": "Nenhum conteúdo em alta ainda",
+      "upvotes": "{count} votos positivos"
+    },
+    "quickActions": {
+      "title": "Ações Rápidas",
+      "createRecommendation": "Criar Recomendação",
+      "createList": "Criar Lista",
+      "askRecommendations": "Pedir Recomendações",
+      "viewHistory": "Ver Meu Histórico"
+    },
+    "diningMemory": {
+      "title": "Sua Memória Gastronômica",
+      "recentRecommendations": "Recomendações recentes: {count}",
+      "savedLists": "Listas salvas: {count}",
+      "following": "Seguindo: {count} especialistas",
+      "viewAll": "Ver Todo Histórico"
+    },
+    "communityStats": {
+      "title": "Estatísticas da Comunidade",
+      "totalRecommendations": "Total de recomendações: {count}",
+      "curatedLists": "Listas selecionadas: {count}",
+      "openRequests": "Pedidos abertos: {count}",
+      "activeExperts": "Especialistas ativos: {count}"
+    }
+  },
+
+  "loading": {
+    "title": "Carregando...",
+    "error": {
+      "title": "Erro ao Carregar Conteúdo",
+      "retry": "Tentar Novamente"
+    }
+  },
+
+  "toast": {
+    "loginRequired": "Por favor, faça login para {action}",
+    "listCreated": "Lista criada com sucesso!",
+    "requestCreated": "Pedido criado com sucesso!",
+    "likeFailed": "Falha ao curtir lista",
+    "bookmarkFailed": "Falha ao salvar lista",
+    "bookmarkAdded": "Pedido salvo",
+    "bookmarkRemoved": "Favorito removido",
+    "bookmarkRequestFailed": "Falha ao salvar pedido",
+    "shareCopied": "Link de compartilhamento copiado!",
+    "reportSubmitted": "Denúncia enviada. Obrigado!"
+  },
+
+  "actions": {
+    "createList": "criar uma lista",
+    "createRequest": "criar um pedido",
+    "likeLists": "curtir listas",
+    "bookmarkLists": "salvar listas",
+    "bookmarkRequests": "salvar pedidos"
+  },
+
+  "timeAgo": {
+    "now": "Agora mesmo",
+    "minutes": "{count}min",
+    "hours": "{count}h",
+    "days": "{count}d",
+    "weeks": "{count}sem"
+  },
+
+  "status": {
+    "open": "Aberto",
+    "answered": "Respondido",
+    "closed": "Fechado"
+  },
+
+  "detail": {
+    "loading": "Carregando pedido...",
+    "error": {
+      "title": "Erro ao Carregar Pedido",
+      "notFound": "Este pedido não foi encontrado ou pode ter sido excluído."
+    },
+    "backToDiscover": "Voltar para Descobrir",
+    "back": "Voltar",
+    "requestLabel": "Pedido de Descoberta",
+    "loginToUpvote": "Por favor, faça login para votar",
+    "upvoteSuccess": "Voto registrado com sucesso",
+    "bestAnswerSuccess": "Marcado como melhor resposta",
+    "loginToRespond": "Por favor, faça login para responder",
+    "responseTooShort": "A resposta deve ter pelo menos 20 caracteres",
+    "responseSuccess": "Resposta enviada com sucesso",
+    "loginToBookmark": "Por favor, faça login para favoritar",
+    "bookmarked": "Pedido favoritado",
+    "unbookmarked": "Favorito removido",
+    "reputation": "Reputação: {score}",
+    "addResponse": "Adicionar Sua Resposta",
+    "yourResponse": "Sua Resposta",
+    "yourRecommendation": "Sua Recomendação",
+    "responsePlaceholder": "Compartilhe suas recomendações de restaurantes e dicas...",
+    "characters": "caracteres",
+    "cancel": "Cancelar",
+    "submitting": "Enviando...",
+    "submit": "Enviar Resposta",
+    "responses": "{count, plural, =0 {Nenhuma resposta ainda} =1 {1 Resposta} other {# Respostas}}",
+    "bestAnswer": "Melhor Resposta",
+    "markBest": "Marcar como Melhor",
+    "recommendedPlaces": "Lugares Recomendados:",
+    "helpful": "Útil",
+    "noResponses": "Nenhuma resposta ainda. Seja o primeiro a ajudar!",
+    "beFirst": "Seja o Primeiro a Responder",
+    "recommendRestaurants": "Recomendar Restaurantes",
+    "searchRestaurantPlaceholder": "Buscar um restaurante para recomendar...",
+    "searchRestaurantHelp": "Busque e selecione os restaurantes que deseja recomendar",
+    "selectRestaurantRequired": "Por favor, selecione pelo menos um restaurante para recomendar",
+    "selectedRestaurants": "Restaurantes Selecionados",
+    "removeRestaurant": "Remover",
+    "addNotes": "Adicionar notas (opcional)",
+    "notesPlaceholder": "Por que você recomenda este lugar?",
+    "dishRecommendations": "Pratos recomendados",
+    "dishPlaceholder": "Ex: Experimente a carbonara!",
+    "restaurantNotesPlaceholder": "Por que você recomenda este lugar? Alguma dica?"
+  }
+}

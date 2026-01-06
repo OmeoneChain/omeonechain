@@ -1,17 +1,51 @@
-// User Profile Component - Complete with database integration for wallet progression
-// UPDATED: Saved Lists tab now shows user_saved_lists instead of recommendation_bookmarks
+// File: components/profile/UserProfile.tsx
+// Refactored: Map-first profile with 4-tab structure (Taste Map | Activity | Network | Settings [own only])
+// Preserves: all data fetching, rewards/onboarding/attribution, cards, follow/unfollow, profile editor, i18n
 
-import React, { useState, useEffect } from 'react';
-import { User, Users, Star, MapPin, Calendar, Settings, Share2, Loader2, Heart, MessageCircle, Bookmark, List, ChevronDown, ChevronUp, CheckCircle, Wallet, Mail, Award, Shield, Gift } from 'lucide-react';
-import { ProfileEditor } from '../profile/ProfileEditor';
+'use client';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
+import {
+  User,
+  Users,
+  Star,
+  MapPin,
+  Calendar,
+  Settings,
+  Share2,
+  Loader2,
+  Heart,
+  MessageCircle,
+  Bookmark,
+  List,
+  CheckCircle,
+  Wallet,
+  Mail,
+  Award,
+  Shield,
+  Gift,
+  Map as MapIcon,
+  FileText,
+  Repeat2
+} from 'lucide-react';
+
 import { useAuth } from '../../hooks/useAuth';
+import tokenBalanceService from '../../src/services/TokenBalanceService';
+import onboardingService from '../../src/services/OnboardingService';
+import { recommendationApi, AttributionRewardsResponse } from '../../src/services/api';
+
+// NOTE: These imports assume you have these components.
+// If your paths differ, only adjust these imports (rest of file should be drop-in).
+import { ProfileEditor } from '../profile/ProfileEditor';
+import ProfileMapView from '../profile/ProfileMapView';
 
 interface UserProfileProps {
   userId: string;
   currentUserId?: string;
 }
 
-// Updated to match backend response structure
 interface UserProfileData {
   userId: string;
   walletAddress: string;
@@ -38,39 +72,6 @@ interface UserProfileData {
   updatedAt: string;
 }
 
-// NEW: Wallet progression data structure
-interface WalletProgressionData {
-  user_id: string;
-  onboarding_stage: 'social_signup' | 'basic_engagement' | 'reward_awareness' | 'crypto_curious' | 'advanced_user';
-  show_crypto_features: boolean;
-  wallet_education_completed: boolean;
-  advanced_mode_enabled: boolean;
-  progression_metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-}
-
-// NEW: Virtual asset data structure
-interface VirtualAsset {
-  id: string;
-  user_id: string;
-  asset_type: 'reward_points' | 'loyalty_card' | 'achievement_badge' | 'vip_status' | 'access_token';
-  display_name: string;
-  user_description?: string;
-  blockchain_metadata: Record<string, any>;
-  blockchain_token_id?: string;
-  blockchain_contract_address?: string;
-  is_minted: boolean;
-  token_balance: number;
-  is_active: boolean;
-  is_visible_to_user: boolean;
-  associated_restaurant_id?: number;
-  rarity_tier: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-  expires_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 interface SocialUser {
   id: string;
   username: string;
@@ -84,7 +85,6 @@ interface SocialUser {
   location_city?: string;
 }
 
-// Recommendation interface to match backend
 interface UserRecommendation {
   id: string;
   title: string;
@@ -101,15 +101,16 @@ interface UserRecommendation {
   saves: number;
   createdAt: string;
   updatedAt: string;
-  // Backend might return these fields
+
+  // possible backend variants
   trust_score?: number;
   upvotes_count?: number;
   saves_count?: number;
   created_at?: string;
   updated_at?: string;
+  content?: string;
 }
 
-// New interfaces for additional content types
 interface UserList {
   id: string;
   title: string;
@@ -125,7 +126,6 @@ interface LikedRecommendation extends UserRecommendation {
   liked_at: string;
 }
 
-// UPDATED: Saved Lists interface
 interface SavedListData {
   id: string;
   userId: string;
@@ -139,61 +139,113 @@ interface SavedListData {
   updatedAt: string;
 }
 
-// FIXED: Use correct backend URL that matches working Community page
-const BACKEND_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+interface ResharedRecommendation {
+  reshare: {
+    id: string;
+    user_id: string;
+    comment: string | null;
+    created_at: string;
+  };
+  recommendation: UserRecommendation;
+}
 
-// HIDDEN: Profile completion calculation kept for future token rewards
+// ---- API base URL normalization (supports base with or without /api suffix) ----
+const FALLBACK_BACKEND_URL =
+  'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+
+function buildApiUrl(base: string, path: string) {
+  // path should be like "/api/users/123" OR "/users/123" depending on base
+  const trimmedBase = base.replace(/\/+$/, '');
+  const trimmedPath = path.startsWith('/') ? path : `/${path}`;
+
+  const baseHasApi = /\/api$/.test(trimmedBase);
+  const pathHasApi = /^\/api(\/|$)/.test(trimmedPath);
+
+  if (baseHasApi && pathHasApi) {
+    // base already ends with /api; path already starts with /api -> remove one
+    return `${trimmedBase}${trimmedPath.replace(/^\/api/, '')}`;
+  }
+  if (baseHasApi && !pathHasApi) {
+    return `${trimmedBase}${trimmedPath}`;
+  }
+  if (!baseHasApi && pathHasApi) {
+    return `${trimmedBase}${trimmedPath}`;
+  }
+  // neither has /api -> add it
+  return `${trimmedBase}/api${trimmedPath}`;
+}
+
+// ---- Profile completion ----
 const calculateProfileCompletion = (user: UserProfileData): number => {
   let score = 0;
   const maxScore = 100;
-  
-  // Basic information (50 points total)
+
   if (user.username && user.username !== user.userId && user.username.trim() !== '') score += 10;
   if (user.displayName && user.displayName !== user.username && user.displayName.trim() !== '') score += 10;
   if (user.bio && user.bio.length >= 10) score += 15;
   if (user.avatarUrl && !user.avatarUrl.includes('dicebear')) score += 15;
-  
-  // Location information (20 points total)
+
   if (user.locationCity && user.locationCity.trim() !== '') score += 10;
   if (user.locationCountry && user.locationCountry.trim() !== '') score += 10;
-  
-  // Account verification and connection (20 points total)
-  if (user.walletAddress && user.walletAddress.trim() !== '') score += 10;
+
+  if (user.walletAddress && user.walletAddress.trim() !== '' && user.walletAddress !== '0x') score += 10;
   if (user.verificationLevel !== 'basic') score += 10;
-  
-  // Social activity (10 points total)
+
   if (user.totalRecommendations > 0) score += 5;
   if (user.followers > 0 || user.following > 0) score += 5;
-  
+
   return Math.min(score, maxScore);
 };
 
-// NEW: Determine onboarding stage based on profile completion and activity
-const determineOnboardingStage = (user: UserProfileData, profileCompletion: number): WalletProgressionData['onboarding_stage'] => {
-  if (profileCompletion >= 80 && user.totalRecommendations >= 3) return 'reward_awareness';
-  if (profileCompletion >= 60 && user.totalRecommendations >= 1) return 'basic_engagement';
-  return 'social_signup';
-};
-
-// Enhanced Tab Type with new sections
-type ContentTab = 'recommendations' | 'lists' | 'likes' | 'bookmarks' | 'followers' | 'following' | 'rewards' | 'activity';
+// ---- Tab model (4-tab design + sub-tabs) ----
+type MainTab = 'tastemap' | 'activity' | 'network' | 'settings';
+type ActivitySubTab = 'recommendations' | 'reshares' | 'lists' | 'likes' | 'bookmarks';
+type NetworkSubTab = 'followers' | 'following';
+type SettingsSubTab = 'rewards' | 'security';
 
 export function UserProfile({ userId, currentUserId }: UserProfileProps) {
+  const t = useTranslations();
+  const router = useRouter();
+
+  const { user: currentUser, updateUser, token } = useAuth();
+
+  const API_BASE = useMemo(() => {
+    // If you already set NEXT_PUBLIC_API_URL, this will use it.
+    // Works whether you set it as "https://host" or "https://host/api".
+    return process.env.NEXT_PUBLIC_API_URL || FALLBACK_BACKEND_URL;
+  }, []);
+
+  // ---- Core state ----
   const [user, setUser] = useState<UserProfileData | null>(null);
-  const [isFollowing, setIsFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Follow state
+  const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<ContentTab>('recommendations');
+
+  // Tab state (default to Taste Map)
+  const [activeTab, setActiveTab] = useState<MainTab>('tastemap');
+  const [activitySubTab, setActivitySubTab] = useState<ActivitySubTab>('recommendations');
+  const [networkSubTab, setNetworkSubTab] = useState<NetworkSubTab>('followers');
+  const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('rewards');
+
+  // Profile editor
   const [showProfileEditor, setShowProfileEditor] = useState(false);
-  
-  // HIDDEN: Keep profile completion tracking for future use
+
+  // Profile completion
   const [profileCompletion, setProfileCompletion] = useState(0);
 
-  // NEW: Wallet progression state
-  const [walletProgression, setWalletProgression] = useState<WalletProgressionData | null>(null);
-  const [virtualAssets, setVirtualAssets] = useState<VirtualAsset[]>([]);
+  // Rewards / onboarding
+  const [attributionRewards, setAttributionRewards] = useState<AttributionRewardsResponse | null>(null);
+  const [attributionLoading, setAttributionLoading] = useState(false);
 
-  // Social tab data
+  const [tokenBalance, setTokenBalance] = useState<number>(0);
+  const [tokenBalanceLoading, setTokenBalanceLoading] = useState(false);
+
+  const [onboardingProgress, setOnboardingProgress] = useState<any>(null);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+
+  // Social data
   const [followersData, setFollowersData] = useState<SocialUser[]>([]);
   const [followingData, setFollowingData] = useState<SocialUser[]>([]);
   const [socialLoading, setSocialLoading] = useState(false);
@@ -204,747 +256,581 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
 
-  // Additional content tab data
+  // Activity content (lists/likes/bookmarks/reshares)
   const [listsData, setListsData] = useState<UserList[]>([]);
   const [likesData, setLikesData] = useState<LikedRecommendation[]>([]);
-  const [savedListsData, setSavedListsData] = useState<SavedListData[]>([]); // UPDATED: Changed from bookmarksData
+  const [savedListsData, setSavedListsData] = useState<SavedListData[]>([]);
+  const [resharesData, setResharesData] = useState<ResharedRecommendation[]>([]);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+  const [listsLoaded, setListsLoaded] = useState(false);
+  const [likesLoaded, setLikesLoaded] = useState(false);
+  const [savedListsLoaded, setSavedListsLoaded] = useState(false);
+  const [resharesLoaded, setResharesLoaded] = useState(false);
 
-  const { user: currentUser, updateUser, token } = useAuth();
+  const isOwnProfile = useMemo(() => {
+    if (currentUser?.id) return currentUser.id === userId;
+    if (currentUserId) return currentUserId === userId;
+    return false;
+  }, [currentUser?.id, currentUserId, userId]);
 
-  useEffect(() => {
-    loadUserProfile();
-    if (currentUserId && currentUserId !== userId) {
-      checkFollowStatus();
-    }
-  }, [userId, currentUserId]);
+  // -------------------------------
+  // Normalizers (handles snake_case payloads gracefully)
+  // -------------------------------
+  const normalizeUserProfile = useCallback((raw: any): UserProfileData => {
+    const u = raw?.user || raw;
 
-  // NEW: Enhanced profile completion effect with database integration
-  useEffect(() => {
-    if (user) {
-      const completion = calculateProfileCompletion(user);
-      setProfileCompletion(completion);
-      
-      // Load or create wallet progression data (only for own profile)
-      if (currentUserId === userId) {
-        loadWalletProgression(completion);
-        loadVirtualAssets();
-      }
-    }
-  }, [user, currentUserId, userId]);
+    return {
+      userId: u.userId || u.id || u.user_id || userId,
+      walletAddress: u.walletAddress || u.wallet_address || u.wallet || '0x',
+      username: u.username || u.handle || u.user_name || u.id || userId,
+      displayName: u.displayName || u.display_name || u.name || u.username || u.id || userId,
+      bio: u.bio ?? undefined,
+      avatarUrl: u.avatarUrl || u.avatar_url || u.avatar,
+      reputationScore: Number(u.reputationScore ?? u.reputation_score ?? 0),
+      trustScore: Number(u.trustScore ?? u.trust_score ?? 0),
+      verificationLevel:
+        (u.verificationLevel || u.verification_level || u.verification_status || 'basic') as
+          | 'basic'
+          | 'verified'
+          | 'expert',
+      specializations: Array.isArray(u.specializations) ? u.specializations : [],
+      activeSince: u.activeSince || u.active_since || '',
+      totalRecommendations: Number(u.totalRecommendations ?? u.total_recommendations ?? u.recommendations_count ?? 0),
+      upvotesReceived: Number(u.upvotesReceived ?? u.upvotes_received ?? 0),
+      tokensEarned: Number(u.tokensEarned ?? u.tokens_earned ?? 0),
+      stakingBalance: Number(u.stakingBalance ?? u.staking_balance ?? 0),
+      stakingTier: u.stakingTier || u.staking_tier || '',
+      followers: Number(u.followers ?? u.followers_count ?? 0),
+      following: Number(u.following ?? u.following_count ?? 0),
+      locationCity: u.locationCity || u.location_city || undefined,
+      locationCountry: u.locationCountry || u.location_country || undefined,
+      email: u.email || undefined,
+      createdAt: u.createdAt || u.created_at || new Date().toISOString(),
+      updatedAt: u.updatedAt || u.updated_at || new Date().toISOString()
+    };
+  }, [userId]);
 
-  // Load tab data when tabs are clicked
-  useEffect(() => {
-    if (activeTab === 'followers') {
-      loadFollowers();
-    } else if (activeTab === 'following') {
-      loadFollowing();
-    } else if (activeTab === 'recommendations') {
-      loadRecommendations();
-    } else if (activeTab === 'lists') {
-      loadUserLists();
-    } else if (activeTab === 'likes') {
-      loadUserLikes();
-    } else if (activeTab === 'bookmarks') {
-      loadUserSavedLists(); // UPDATED: Changed from loadUserBookmarks
-    }
-  }, [activeTab, userId]);
+  const normalizeRecommendation = useCallback((rec: any): UserRecommendation => {
+    const body = rec.body ?? rec.content ?? rec.description ?? '';
+    return {
+      ...rec,
+      body,
+      trustScore: Number(rec.trustScore ?? rec.trust_score ?? 0),
+      upvotes: Number(rec.upvotes ?? rec.upvotes_count ?? 0),
+      saves: Number(rec.saves ?? rec.saves_count ?? 0),
+      createdAt: rec.createdAt ?? rec.created_at ?? '',
+      updatedAt: rec.updatedAt ?? rec.updated_at ?? ''
+    };
+  }, []);
 
-  // NEW: Real API integration for wallet progression
-  const loadWalletProgression = async (profileCompletion: number) => {
-    if (!user || !token) return;
-  
-    try {
-      console.log('Loading wallet progression for user:', userId);
-      
-      const response = await fetch(`/api/users/${userId}/wallet-progression`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setWalletProgression(data);
-        console.log('Loaded existing wallet progression:', data);
-      } else if (response.status === 404) {
-        console.log('Creating new wallet progression record');
-        await createWalletProgression(profileCompletion);
-      } else {
-        console.error('Failed to load wallet progression:', response.status);
-        setWalletProgression(null);
-      }
-    } catch (error) {
-      console.error('Error loading wallet progression:', error);
-      setWalletProgression(null);
-    }
-  };
-
-  // NEW: Create wallet progression
-  const createWalletProgression = async (profileCompletion: number) => {
-    if (!user || !token) return;
-
-    try {
-      const onboardingStage = determineOnboardingStage(user, profileCompletion);
-    
-      const progressionData = {
-        onboarding_stage: onboardingStage,
-        show_crypto_features: false,
-        wallet_education_completed: false,
-        advanced_mode_enabled: false,
-        progression_metadata: {
-          profile_completion: profileCompletion,
-          initial_stage: onboardingStage,
-          created_from: 'user_profile'
-        }
-      };
-    
-      const response = await fetch(`/api/users/${userId}/wallet-progression`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(progressionData)
-      });
-    
-      if (response.ok) {
-        const data = await response.json();
-        setWalletProgression(data);
-        console.log('Created wallet progression:', data);
-      
-        if (profileCompletion >= 50) {
-          await awardProfileCompletionAssets(profileCompletion);
-        }
-      } else {
-        console.error('Failed to create wallet progression:', response.status);
-        const errorData = await response.json();
-        console.error('Error details:', errorData);
-      }
-    } catch (error) {
-      console.error('Error creating wallet progression:', error);
-    }
-  };
-
-  // NEW: Award virtual assets for profile completion
-  const awardProfileCompletionAssets = async (profileCompletion: number) => {
-    if (!token) return;
-
-    const assetsToAward = [];
-
-    if (profileCompletion >= 50) {
-      assetsToAward.push({
-        asset_type: 'achievement_badge',
-        display_name: 'Profile Builder',
-        user_description: 'Awarded for completing 50% of your profile',
-        token_balance: 1,
-        rarity_tier: 'common'
-      });
-    }
-
-    if (profileCompletion >= 80) {
-      assetsToAward.push({
-        asset_type: 'reward_points',
-        display_name: 'Completion Bonus',
-        user_description: 'Bonus points for completing most of your profile',
-        token_balance: 25,
-        rarity_tier: 'uncommon'
-      });
-    }
-
-    if (profileCompletion >= 100) {
-      assetsToAward.push({
-        asset_type: 'achievement_badge',
-        display_name: 'Profile Master',
-        user_description: 'Awarded for 100% profile completion',
-        token_balance: 1,
-        rarity_tier: 'rare'
-      });
-    }
-
-    for (const asset of assetsToAward) {
-      try {
-        const response = await fetch(`/api/users/${userId}/virtual-assets`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(asset)
-        });
-
-        if (response.ok) {
-          const createdAsset = await response.json();
-          console.log('Awarded virtual asset:', createdAsset);
-        } else {
-          console.error('Failed to award virtual asset:', response.status);
-        }
-      } catch (error) {
-        console.error('Error awarding virtual asset:', error);
-      }
-    }
-
-    await loadVirtualAssets();
-  };
-
-  // NEW: Load virtual assets with real API integration
-  const loadVirtualAssets = async () => {
-    if (!token) return;
-    
-    try {
-      console.log('Loading virtual assets for user:', userId);
-      
-      const response = await fetch(`/api/users/${userId}/virtual-assets?active=true&visible=true`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setVirtualAssets(data.assets || []);
-        console.log('Loaded virtual assets:', data);
-      } else {
-        console.error('Failed to load virtual assets:', response.status);
-        loadMockVirtualAssets();
-      }
-    } catch (error) {
-      console.error('Error loading virtual assets:', error);
-      loadMockVirtualAssets();
-    }
-  };
-
-  // Fallback mock data for development
-  const loadMockVirtualAssets = () => {
-    const mockAssets: VirtualAsset[] = [];
-    
-    if (profileCompletion >= 50) {
-      mockAssets.push({
-        id: 'badge-1',
-        user_id: userId,
-        asset_type: 'achievement_badge',
-        display_name: 'Profile Builder',
-        user_description: 'Awarded for completing 50% of your profile',
-        blockchain_metadata: {},
-        is_minted: false,
-        token_balance: 1,
-        is_active: true,
-        is_visible_to_user: true,
-        rarity_tier: 'common',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-    }
-    
-    if (profileCompletion >= 80) {
-      mockAssets.push({
-        id: 'points-1',
-        user_id: userId,
-        asset_type: 'reward_points',
-        display_name: 'Completion Bonus',
-        user_description: 'Bonus points for completing most of your profile',
-        blockchain_metadata: {},
-        is_minted: false,
-        token_balance: 25,
-        is_active: true,
-        is_visible_to_user: true,
-        rarity_tier: 'uncommon',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-    }
-    
-    if (profileCompletion >= 100) {
-      mockAssets.push({
-        id: 'badge-2',
-        user_id: userId,
-        asset_type: 'achievement_badge',
-        display_name: 'Profile Master',
-        user_description: 'Awarded for 100% profile completion',
-        blockchain_metadata: {},
-        is_minted: false,
-        token_balance: 1,
-        is_active: true,
-        is_visible_to_user: true,
-        rarity_tier: 'rare',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-    }
-    
-    setVirtualAssets(mockAssets);
-  };
-
-  // NEW: Check for stage advancement
-  const checkForStageAdvancement = async () => {
-    if (!user || !walletProgression) return;
-
-    const currentCompletion = calculateProfileCompletion(user);
-    const currentStage = walletProgression.onboarding_stage;
-    const newStage = determineOnboardingStage(user, currentCompletion);
-
-    if (newStage !== currentStage) {
-      console.log(`Advancing user from ${currentStage} to ${newStage}`);
-      await updateWalletStage(newStage, {
-        previous_stage: currentStage,
-        advancement_trigger: 'profile_completion',
-        profile_completion_at_advancement: currentCompletion
-      });
-
-      await awardProfileCompletionAssets(currentCompletion);
-    }
-  };
-
-  // NEW: Update wallet stage
-  const updateWalletStage = async (newStage: string, additionalData?: any) => {
-    if (!token) return;
-
-    try {
-      const updateData = {
-        onboarding_stage: newStage,
-        progression_metadata: {
-          ...additionalData,
-          stage_updated_at: new Date().toISOString(),
-          updated_from: 'user_profile'
-        }
-      };
-
-      const response = await fetch(`/api/users/${userId}/wallet-progression`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      });
-
-      if (response.ok) {
-        const updatedProgression = await response.json();
-        setWalletProgression(updatedProgression);
-        console.log('Updated wallet progression stage:', updatedProgression);
-        return updatedProgression;
-      } else {
-        console.error('Failed to update wallet stage:', response.status);
-        return null;
-      }
-    } catch (error) {
-      console.error('Error updating wallet stage:', error);
-      return null;
-    }
-  };
-
-  const loadUserProfile = async () => {
+  // -------------------------------
+  // Fetching functions (preserved 11)
+  // -------------------------------
+  const loadUserProfile = useCallback(async () => {
     try {
       setIsLoading(true);
-      
-      console.log(`Loading user profile for ID: ${userId}`);
-      
-      const fullUrl = `${BACKEND_URL}/api/users/${userId}`;
-      console.log(`Calling API: GET ${fullUrl}`);
-      
-      const response = await fetch(fullUrl, {
-        headers: token ? { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        } : {
-          'Content-Type': 'application/json'
-        }
+
+      const url = buildApiUrl(API_BASE, `/users/${userId}`);
+      const response = await fetch(url, {
+        headers: token
+          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          : { 'Content-Type': 'application/json' }
       });
 
-      console.log(`API Response status: ${response.status}`);
-
       if (response.ok) {
-        const userData = await response.json();
-        console.log('Loaded user data:', userData);
-        setUser(userData);
+        const data = await response.json();
+        const normalized = normalizeUserProfile(data);
+        setUser(normalized);
+      } else if (response.status === 404) {
+        setUser(null);
       } else {
+        // keep old behavior: just log and show null-safe UI
         console.error('Failed to load user profile:', response.status);
-        if (response.status === 404) {
-          console.log('User not found');
-          setUser(null);
-        }
       }
-    } catch (error) {
-      console.error('Network error loading user profile:', error);
+    } catch (e) {
+      console.error('Network error loading user profile:', e);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [API_BASE, normalizeUserProfile, token, userId]);
 
-  const loadRecommendations = async () => {
+  const loadRecommendations = useCallback(async () => {
     try {
       setRecommendationsLoading(true);
       setRecommendationsError(null);
-      
-      console.log(`Loading recommendations for user: ${userId}`);
-      
-      const endpoint = `/api/recommendations?author=${userId}`;
-      
-      const response = await fetch(endpoint, {
-        headers: token ? { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        } : {
-          'Content-Type': 'application/json'
-        }
+
+      // Preserve original endpoint shape: /api/recommendations?author=...
+      const url = buildApiUrl(API_BASE, `/recommendations?author=${encodeURIComponent(userId)}`);
+
+      const response = await fetch(url, {
+        headers: token
+          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          : { 'Content-Type': 'application/json' }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        
-        let recommendations: UserRecommendation[] = [];
-        if (data.recommendations && Array.isArray(data.recommendations)) {
-          recommendations = data.recommendations;
-        } else if (Array.isArray(data)) {
-          recommendations = data;
-        }
 
-        const normalizedRecommendations = recommendations.map(rec => ({
-          ...rec,
-          trustScore: rec.trustScore || rec.trust_score || 0,
-          upvotes: rec.upvotes || rec.upvotes_count || 0,
-          saves: rec.saves || rec.saves_count || 0,
-          createdAt: rec.createdAt || rec.created_at || '',
-          updatedAt: rec.updatedAt || rec.updated_at || ''
-        }));
+        let recs: any[] = [];
+        if (Array.isArray(data)) recs = data;
+        else if (Array.isArray(data?.recommendations)) recs = data.recommendations;
+        else if (Array.isArray(data?.results)) recs = data.results;
 
-        setRecommendationsData(normalizedRecommendations);
-        console.log(`✅ Loaded ${normalizedRecommendations.length} recommendations`);
+        const normalized = recs.map(normalizeRecommendation);
+        setRecommendationsData(normalized);
       } else {
-        setRecommendationsError(`Failed to load recommendations (${response.status})`);
+        setRecommendationsError(`${t('profile.errors.loadingRecommendations')} (${response.status})`);
         setRecommendationsData([]);
       }
-    } catch (error) {
-      console.error('Error loading recommendations:', error);
-      setRecommendationsError('Network error loading recommendations');
+    } catch (e) {
+      console.error('Error loading recommendations:', e);
+      setRecommendationsError(`${t('profile.errors.network')} - ${t('profile.errors.loadingRecommendations')}`);
       setRecommendationsData([]);
     } finally {
       setRecommendationsLoading(false);
     }
-  };
+  }, [API_BASE, normalizeRecommendation, t, token, userId]);
 
-  const loadUserLists = async () => {
+  const loadUserReshares = useCallback(async () => {
     try {
       setContentLoading(true);
       setContentError(null);
-      
-      console.log(`Loading lists for user: ${userId}`);
-      const endpoint = `/api/lists?author=${userId}`;
-      
-      const response = await fetch(endpoint, {
-        headers: token ? { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        } : {
-          'Content-Type': 'application/json'
-        }
+
+      const url = buildApiUrl(API_BASE, `/users/${userId}/reshares`);
+      const response = await fetch(url, {
+        headers: token
+          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          : { 'Content-Type': 'application/json' }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        
+
+        const rawItems: any[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.reshares)
+            ? data.reshares
+            : Array.isArray(data?.results)
+              ? data.results
+              : [];
+
+        const mapped: ResharedRecommendation[] = rawItems.map((item: any) => {
+          const recRaw = item.recommendation || item.recommendation_data || item;
+          const rec = normalizeRecommendation({
+            id: recRaw?.id || item?.recommendation_id || 'unknown',
+            title: recRaw?.title || recRaw?.restaurantName || '[No Title]',
+            body: recRaw?.body ?? recRaw?.content ?? recRaw?.description ?? '',
+            category: recRaw?.category || 'General',
+            location: recRaw?.location || undefined,
+            trust_score: recRaw?.trust_score,
+            trustScore: recRaw?.trustScore,
+            upvotes_count: recRaw?.upvotes_count,
+            upvotes: recRaw?.upvotes,
+            saves_count: recRaw?.saves_count,
+            saves: recRaw?.saves,
+            created_at: recRaw?.created_at || item?.created_at,
+            updated_at: recRaw?.updated_at || item?.created_at
+          });
+
+          return {
+            reshare: {
+              id: item?.id || item?.reshare_id || `${rec.id}-reshare`,
+              user_id: item?.user_id || item?.userId || userId,
+              comment: item?.comment ?? null,
+              created_at: item?.created_at || item?.createdAt || rec.createdAt || new Date().toISOString()
+            },
+            recommendation: rec
+          };
+        });
+
+        setResharesData(mapped);
+      } else {
+        setContentError(`${t('profile.errors.loadingReshares')} (${response.status})`);
+        setResharesData([]);
+      }
+    } catch (e) {
+      console.error('Error loading reshares:', e);
+      setContentError(`${t('profile.errors.network')} - ${t('profile.errors.loadingReshares')}`);
+      setResharesData([]);
+    } finally {
+      setContentLoading(false);
+    }
+  }, [API_BASE, normalizeRecommendation, t, token, userId]);
+
+  const loadUserLists = useCallback(async () => {
+    try {
+      setContentLoading(true);
+      setContentError(null);
+
+      const url = buildApiUrl(API_BASE, `/lists?author=${encodeURIComponent(userId)}`);
+      const response = await fetch(url, {
+        headers: token
+          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          : { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
         let lists: UserList[] = [];
-        if (data.lists && Array.isArray(data.lists)) {
-          lists = data.lists;
-        } else if (Array.isArray(data)) {
-          lists = data;
-        }
+        if (Array.isArray(data)) lists = data;
+        else if (Array.isArray(data?.lists)) lists = data.lists;
+        else if (Array.isArray(data?.results)) lists = data.results;
 
         setListsData(lists);
-        console.log(`✅ Loaded ${lists.length} lists`);
       } else {
-        setContentError(`Failed to load lists (${response.status})`);
+        setContentError(`${t('profile.errors.loadingLists')} (${response.status})`);
         setListsData([]);
       }
-    } catch (error) {
-      console.error('Error loading lists:', error);
-      setContentError('Network error loading lists');
+    } catch (e) {
+      console.error('Error loading lists:', e);
+      setContentError(`${t('profile.errors.network')} - ${t('profile.errors.loadingLists')}`);
       setListsData([]);
     } finally {
       setContentLoading(false);
+      setListsLoaded(true);
     }
-  };
+  }, [API_BASE, t, token, userId]);
 
-  const loadUserLikes = async () => {
+  const loadUserLikes = useCallback(async () => {
     try {
       setContentLoading(true);
       setContentError(null);
-      
-      console.log(`Loading likes for user: ${userId}`);
-      const endpoint = `/api/users/${userId}/likes`;
-      
-      const response = await fetch(endpoint, {
-        headers: token ? { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        } : {
-          'Content-Type': 'application/json'
-        }
+
+      const url = buildApiUrl(API_BASE, `/users/${userId}/likes`);
+      const response = await fetch(url, {
+        headers: token
+          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          : { 'Content-Type': 'application/json' }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        
-        let likes: LikedRecommendation[] = [];
-        if (data.likes && Array.isArray(data.likes)) {
-          likes = data.likes;
-        } else if (Array.isArray(data)) {
-          likes = data;
-        }
 
-        setLikesData(likes);
-        console.log(`✅ Loaded ${likes.length} likes`);
+        const rawLikes: any[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.recommendations)
+            ? data.recommendations
+            : Array.isArray(data?.likes)
+              ? data.likes
+              : Array.isArray(data?.results)
+                ? data.results
+                : [];
+
+        const normalized = rawLikes.map((r: any) => ({
+          ...(normalizeRecommendation(r) as any),
+          liked_at: r.liked_at || r.created_at || new Date().toISOString()
+        }));
+
+        setLikesData(normalized);
       } else {
-        setContentError(`Failed to load likes (${response.status})`);
+        setContentError(`${t('profile.errors.loadingLikes')} (${response.status})`);
         setLikesData([]);
       }
-    } catch (error) {
-      console.error('Error loading likes:', error);
-      setContentError('Network error loading likes');
+    } catch (e) {
+      console.error('Error loading likes:', e);
+      setContentError(`${t('profile.errors.network')} - ${t('profile.errors.loadingLikes')}`);
       setLikesData([]);
     } finally {
       setContentLoading(false);
+      setLikesLoaded(true);
     }
-  };
+  }, [API_BASE, normalizeRecommendation, t, token, userId]);
 
-  // UPDATED: New function to load saved lists instead of bookmarks
-  const loadUserSavedLists = async () => {
+  const loadUserSavedLists = useCallback(async () => {
     try {
       setContentLoading(true);
       setContentError(null);
-      
-      console.log(`Loading saved lists for user: ${userId}`);
-      
-      const endpoint = `/api/saved-lists`;
-      
-      const response = await fetch(endpoint, {
-        headers: token ? { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        } : {
-          'Content-Type': 'application/json'
-        }
+
+      const url = buildApiUrl(API_BASE, `/saved-lists`);
+      const response = await fetch(url, {
+        headers: token
+          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          : { 'Content-Type': 'application/json' }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        console.log('Saved Lists API Response:', data);
-        
+
         let lists: SavedListData[] = [];
-        if (Array.isArray(data)) {
-          lists = data;
-        } else if (data.lists && Array.isArray(data.lists)) {
-          lists = data.lists;
-        }
+        if (Array.isArray(data)) lists = data;
+        else if (Array.isArray(data?.lists)) lists = data.lists;
+        else if (Array.isArray(data?.results)) lists = data.results;
 
         setSavedListsData(lists);
-        console.log(`✅ Loaded ${lists.length} saved lists for user ${userId}`);
       } else {
-        console.error('Saved Lists API Error:', response.status, response.statusText);
-        setContentError(`Failed to load saved lists (${response.status})`);
+        setContentError(`${t('profile.errors.loadingSavedLists')} (${response.status})`);
         setSavedListsData([]);
       }
-    } catch (error) {
-      console.error('Error loading saved lists:', error);
-      setContentError('Network error loading saved lists');
+    } catch (e) {
+      console.error('Error loading saved lists:', e);
+      setContentError(`${t('profile.errors.network')} - ${t('profile.errors.loadingSavedLists')}`);
       setSavedListsData([]);
     } finally {
       setContentLoading(false);
+      setSavedListsLoaded(true);
     }
-  };
+  }, [API_BASE, t, token, userId]);
 
-  const loadFollowers = async () => {
+  const loadFollowers = useCallback(async () => {
     try {
       setSocialLoading(true);
       setSocialError(null);
-      
-      console.log(`Loading followers for user: ${userId}`);
-      const response = await fetch(`${BACKEND_URL}/api/social/users/${userId}/followers`);
-      
+
+      // Preserve original social endpoint used in long file
+      const url = buildApiUrl(API_BASE, `/social/users/${userId}/followers`);
+      const response = await fetch(url);
+
       if (response.ok) {
         const data = await response.json();
-        
+
         let users: SocialUser[] = [];
-        if (data.followers && Array.isArray(data.followers)) {
-          users = data.followers;
-        } else if (data.users && Array.isArray(data.users)) {
-          users = data.users;
-        } else if (Array.isArray(data)) {
-          users = data;
-        }
+        if (Array.isArray(data)) users = data;
+        else if (Array.isArray(data?.followers)) users = data.followers;
+        else if (Array.isArray(data?.users)) users = data.users;
+        else if (Array.isArray(data?.results)) users = data.results;
 
         setFollowersData(users);
-        console.log(`Loaded ${users.length} followers`);
       } else {
-        setSocialError(`Failed to load followers (${response.status})`);
+        setSocialError(`${t('profile.errors.loadingFollowers')} (${response.status})`);
         setFollowersData([]);
       }
-    } catch (error) {
-      console.error('Error loading followers:', error);
-      setSocialError('Network error loading followers');
+    } catch (e) {
+      console.error('Error loading followers:', e);
+      setSocialError(`${t('profile.errors.network')} - ${t('profile.errors.loadingFollowers')}`);
       setFollowersData([]);
     } finally {
       setSocialLoading(false);
     }
-  };
+  }, [API_BASE, t, userId]);
 
-  const loadFollowing = async () => {
+  const loadFollowing = useCallback(async () => {
     try {
       setSocialLoading(true);
       setSocialError(null);
-      
-      console.log(`Loading following for user: ${userId}`);
-      const response = await fetch(`${BACKEND_URL}/api/social/users/${userId}/following`);
-      
+
+      const url = buildApiUrl(API_BASE, `/social/users/${userId}/following`);
+      const response = await fetch(url);
+
       if (response.ok) {
         const data = await response.json();
-        
+
         let users: SocialUser[] = [];
-        if (data.following && Array.isArray(data.following)) {
-          users = data.following;
-        } else if (data.users && Array.isArray(data.users)) {
-          users = data.users;
-        } else if (Array.isArray(data)) {
-          users = data;
-        }
+        if (Array.isArray(data)) users = data;
+        else if (Array.isArray(data?.following)) users = data.following;
+        else if (Array.isArray(data?.users)) users = data.users;
+        else if (Array.isArray(data?.results)) users = data.results;
 
         setFollowingData(users);
-        console.log(`Loaded ${users.length} following users`);
       } else {
-        setSocialError(`Failed to load following (${response.status})`);
+        setSocialError(`${t('profile.errors.loadingFollowing')} (${response.status})`);
         setFollowingData([]);
       }
-    } catch (error) {
-      console.error('Error loading following:', error);
-      setSocialError('Network error loading following');
+    } catch (e) {
+      console.error('Error loading following:', e);
+      setSocialError(`${t('profile.errors.network')} - ${t('profile.errors.loadingFollowing')}`);
       setFollowingData([]);
     } finally {
       setSocialLoading(false);
     }
-  };
+  }, [API_BASE, t, userId]);
 
-  const checkFollowStatus = async () => {
-    if (!token || !currentUserId) return;
-    
+  const loadTokenBalance = useCallback(async () => {
     try {
-      setIsFollowing(false);
-    } catch (error) {
-      console.error('Error checking follow status:', error);
+      setTokenBalanceLoading(true);
+      const result = await tokenBalanceService.getRealTokenBalance(userId);
+      setTokenBalance(result.balance);
+    } catch (e) {
+      console.error('❌ Failed to load token balance:', e);
+    } finally {
+      setTokenBalanceLoading(false);
     }
-  };
+  }, [userId]);
 
-  const handleFollow = async () => {
-    if (!currentUserId || !token || followLoading) return;
+  const loadOnboardingProgress = useCallback(async () => {
+    try {
+      setOnboardingLoading(true);
+      const progress = await onboardingService.getOnboardingProgress(userId);
+      setOnboardingProgress(progress);
+    } catch (e) {
+      console.error('❌ Failed to load onboarding progress:', e);
+    } finally {
+      setOnboardingLoading(false);
+    }
+  }, [userId]);
+
+  const loadAttributionRewards = useCallback(async () => {
+    try {
+      setAttributionLoading(true);
+      const rewards = await recommendationApi.getAttributionRewards(userId);
+      setAttributionRewards(rewards);
+    } catch (e) {
+      console.error('❌ Failed to load attribution rewards:', e);
+    } finally {
+      setAttributionLoading(false);
+    }
+  }, [userId]);
+
+  // -------------------------------
+  // Follow status + follow/unfollow (preserved)
+  // -------------------------------
+  const checkFollowStatus = useCallback(async () => {
+    if (!token || isOwnProfile) return;
+
+    // Try a couple of plausible endpoints; fail silently to false.
+    try {
+      // Attempt: /api/social/following/:userId/check
+      const url1 = buildApiUrl(API_BASE, `/social/following/${userId}/check`);
+      const res1 = await fetch(url1, { headers: { Authorization: `Bearer ${token}` } });
+      if (res1.ok) {
+        const data = await res1.json();
+        setIsFollowing(Boolean(data?.isFollowing));
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      // Fallback: no check endpoint known -> default false
+      setIsFollowing(false);
+    } catch (e) {
+      console.error('Error checking follow status:', e);
+      setIsFollowing(false);
+    }
+  }, [API_BASE, isOwnProfile, token, userId]);
+
+  const handleFollow = useCallback(async () => {
+    if (!token || followLoading || isOwnProfile) return;
 
     try {
       setFollowLoading(true);
-      
-      let requestUrl: string;
-      let requestBody: any = null;
-      let method: string;
 
+      // Primary behavior preserved from long version:
+      // POST /api/social/follow  { following_id }
+      // DELETE /api/social/follow/:userId
       if (isFollowing) {
-        requestUrl = `${BACKEND_URL}/api/social/follow/${userId}`;
-        method = 'DELETE';
+        const url = buildApiUrl(API_BASE, `/social/follow/${userId}`);
+        const res = await fetch(url, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        });
+
+        if (res.ok) {
+          setIsFollowing(false);
+          setUser((prev) => (prev ? { ...prev, followers: Math.max(0, prev.followers - 1) } : prev));
+          return;
+        }
       } else {
-        requestUrl = `${BACKEND_URL}/api/social/follow`;
-        method = 'POST';
-        requestBody = { following_id: userId };
-      }
-      
-      const fetchOptions: RequestInit = {
-        method: method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      };
+        const url = buildApiUrl(API_BASE, `/social/follow`);
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ following_id: userId })
+        });
 
-      if (requestBody) {
-        fetchOptions.body = JSON.stringify(requestBody);
-      }
-
-      const response = await fetch(requestUrl, fetchOptions);
-
-      if (response.ok) {
-        setIsFollowing(!isFollowing);
-        
-        if (user) {
-          setUser({
-            ...user,
-            followers: isFollowing ? user.followers - 1 : user.followers + 1
-          });
+        if (res.ok) {
+          setIsFollowing(true);
+          setUser((prev) => (prev ? { ...prev, followers: prev.followers + 1 } : prev));
+          return;
         }
       }
-    } catch (error) {
-      console.error('Network error during follow operation:', error);
+
+      // Optional fallback (short-version style): POST /social/follow or /social/unfollow with {userId}
+      const fallbackUrl = buildApiUrl(API_BASE, `/social/${isFollowing ? 'unfollow' : 'follow'}`);
+      const fallbackRes = await fetch(fallbackUrl, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+
+      if (fallbackRes.ok) {
+        setIsFollowing((v) => !v);
+        setUser((prev) =>
+          prev
+            ? { ...prev, followers: prev.followers + (isFollowing ? -1 : 1) }
+            : prev
+        );
+      }
+    } catch (e) {
+      console.error('Network error during follow operation:', e);
     } finally {
       setFollowLoading(false);
     }
-  };
+  }, [API_BASE, followLoading, isFollowing, isOwnProfile, token, userId]);
 
-  const handleProfileSave = async (profileData: any) => {
-    try {
-      if (user) {
-        const updatedUser = {
-          ...user,
-          username: profileData.username || user.username,
-          displayName: profileData.display_name || user.displayName,
-          bio: profileData.bio || user.bio,
-          avatarUrl: profileData.avatar_url || user.avatarUrl,
-          locationCity: profileData.location_city || user.locationCity,
-          locationCountry: profileData.location_country || user.locationCountry
-        };
-        
-        setUser(updatedUser);
-        
-        if (currentUser && currentUser.id === userId) {
-          updateUser({
-            username: profileData.username,
-            display_name: profileData.display_name,
-            bio: profileData.bio,
-            location_city: profileData.location_city,
-            location_country: profileData.location_country,
-            avatar: profileData.avatar_url
-          });
+  // -------------------------------
+  // Save profile (preserved)
+  // -------------------------------
+  const handleProfileSave = useCallback(
+    async (profileData: any) => {
+      try {
+        if (user) {
+          const updatedUser = {
+            ...user,
+            username: profileData.username || user.username,
+            displayName: profileData.display_name || profileData.displayName || user.displayName,
+            bio: profileData.bio || user.bio,
+            avatarUrl: profileData.avatar_url || profileData.avatarUrl || user.avatarUrl,
+            locationCity: profileData.location_city || profileData.locationCity || user.locationCity,
+            locationCountry: profileData.location_country || profileData.locationCountry || user.locationCountry
+          };
+
+          setUser(updatedUser);
+
+          if (currentUser && (currentUser.id === userId || currentUserId === userId)) {
+            updateUser({
+              username: profileData.username,
+              display_name: profileData.display_name,
+              bio: profileData.bio,
+              location_city: profileData.location_city,
+              location_country: profileData.location_country,
+              avatar: profileData.avatar_url
+            });
+          }
         }
-      }
-      
-      await loadUserProfile();
-      await checkForStageAdvancement();
-    } catch (error) {
-      console.error('Error updating profile:', error);
-    }
-  };
 
-  const getAuthenticationDisplay = (user: UserProfileData) => {
-    if (user.walletAddress && user.walletAddress.trim() !== '' && user.walletAddress !== '0x') {
+        await loadUserProfile();
+      } catch (e) {
+        console.error('Error updating profile:', e);
+      }
+    },
+    [currentUser, currentUserId, loadUserProfile, updateUser, user, userId]
+  );
+
+  // -------------------------------
+  // Helpers (preserved + share)
+  // -------------------------------
+  const getAuthenticationDisplay = (u: UserProfileData) => {
+    if (u.walletAddress && u.walletAddress.trim() !== '' && u.walletAddress !== '0x') {
       return {
         type: 'wallet' as const,
-        icon: <Wallet className="w-4 h-4" />,
-        display: `${user.walletAddress.substring(0, 6)}...${user.walletAddress.substring(user.walletAddress.length - 4)}`
+        icon: <Wallet className="w-4 h-4 text-green-600" />,
+        display: `${u.walletAddress.substring(0, 6)}...${u.walletAddress.substring(u.walletAddress.length - 4)}`
       };
     }
     return {
       type: 'email' as const,
-      icon: <Mail className="w-4 h-4" />,
-      display: user.email || 'Email Account'
+      icon: <Mail className="w-4 h-4 text-blue-600" />,
+      display: u.email || t('header.emailAccount')
     };
   };
 
   const getVerificationIcon = (status: string) => {
     switch (status) {
       case 'verified':
-        return <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
-          <Star className="w-3 h-3 text-white" />
-        </div>;
+        return (
+          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+            <Star className="w-3 h-3 text-white" />
+          </div>
+        );
       case 'expert':
-        return <div className="w-5 h-5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg">
-          <Star className="w-3 h-3 text-white" />
-        </div>;
+        return (
+          <div className="w-5 h-5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg">
+            <Star className="w-3 h-3 text-white" />
+          </div>
+        );
       default:
         return null;
     }
@@ -960,7 +846,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     try {
-      return new Date(dateString).toLocaleDateString('en-US', {
+      return new Date(dateString).toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
@@ -970,253 +856,127 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     }
   };
 
-  // NEW: Enhanced Rewards tab with real database integration
-  const renderRewardsTab = () => {
-    const isOwn = currentUserId === userId;
-    
-    if (!isOwn) {
-      return (
-        <div className="text-center py-12">
-          <Gift className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Rewards & Achievements</h3>
-          <p className="text-gray-500 mb-4">
-            View this user's platform achievements and recognition
-          </p>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-sm text-gray-600">
-              User reward information is private
-            </p>
-          </div>
-        </div>
-      );
-    }
+  const handleShare = useCallback(async () => {
+    const shareUrl =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/users/${user?.userId || userId}`
+        : '';
 
-    if (virtualAssets.length === 0) {
-      return (
-        <div className="text-center py-12">
-          <Gift className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Your Rewards & Achievements</h3>
-          <p className="text-gray-500 mb-4">
-            Complete your profile and engage with the platform to earn rewards
-          </p>
-          {profileCompletion < 100 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
-              <p className="text-sm text-blue-800">
-                <strong>Tip:</strong> Complete your profile ({profileCompletion}% done) to earn your first rewards!
-              </p>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    const groupedAssets = virtualAssets.reduce((groups, asset) => {
-      if (!groups[asset.asset_type]) {
-        groups[asset.asset_type] = [];
+    try {
+      if (typeof navigator !== 'undefined' && (navigator as any).share) {
+        await (navigator as any).share({
+          title: `${user?.displayName || user?.username || 'User'} on BocaBoca`,
+          url: shareUrl
+        });
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        // If you have a toast system, hook it up here.
       }
-      groups[asset.asset_type].push(asset);
-      return groups;
-    }, {} as Record<string, VirtualAsset[]>);
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Rewards & Achievements ({virtualAssets.length})
-          </h3>
-          <button
-            onClick={loadVirtualAssets}
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            Refresh
-          </button>
-        </div>
-
-        {groupedAssets.achievement_badge && (
-          <div className="space-y-3">
-            <h4 className="font-medium text-gray-900 flex items-center gap-2">
-              <Award className="w-4 h-4" />
-              Achievement Badges
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {groupedAssets.achievement_badge.map((asset) => (
-                <div key={asset.id} className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      asset.rarity_tier === 'rare' ? 'bg-purple-500' : 
-                      asset.rarity_tier === 'uncommon' ? 'bg-blue-500' : 'bg-gray-500'
-                    }`}>
-                      <Award className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h5 className="font-medium text-gray-900">{asset.display_name}</h5>
-                      <p className="text-sm text-gray-600">{asset.user_description}</p>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        asset.rarity_tier === 'rare' ? 'bg-purple-100 text-purple-800' :
-                        asset.rarity_tier === 'uncommon' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {asset.rarity_tier}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {groupedAssets.reward_points && (
-          <div className="space-y-3">
-            <h4 className="font-medium text-gray-900 flex items-center gap-2">
-              <Star className="w-4 h-4" />
-              Reward Points
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {groupedAssets.reward_points.map((asset) => (
-                <div key={asset.id} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h5 className="font-medium text-gray-900">{asset.display_name}</h5>
-                      <p className="text-sm text-gray-600">{asset.user_description}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">{asset.token_balance}</div>
-                      <div className="text-xs text-gray-500">points</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {profileCompletion < 100 && (
-          <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-2">Next Milestone</h4>
-            <p className="text-sm text-gray-600 mb-3">
-              Complete your profile to unlock more rewards
-            </p>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full transition-all duration-300" 
-                style={{ width: `${profileCompletion}%` }}
-              ></div>
-            </div>
-            <div className="text-sm text-gray-600 mt-2">
-              {profileCompletion}% complete
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // NEW: Enhanced Security/Activity tab with wallet progression info
-  const renderActivityTab = () => {
-    const isOwn = currentUserId === userId;
-    
-    if (!isOwn) {
-      return (
-        <div className="text-center py-12">
-          <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">User Activity</h3>
-          <p className="text-gray-500 mb-4">
-            View this user's recent platform activity and interactions
-          </p>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-sm text-gray-600">
-              Activity tracking features coming soon
-            </p>
-          </div>
-        </div>
-      );
+    } catch {
+      // user cancelled or share failed; no-op
     }
+  }, [user?.displayName, user?.userId, user?.username, userId]);
 
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Account Security & Settings</h3>
-        </div>
+  // -------------------------------
+  // Effects
+  // -------------------------------
+  useEffect(() => {
+    loadUserProfile();
+  }, [loadUserProfile]);
 
-        {walletProgression && (
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-3">
-                <Shield className="w-4 h-4" />
-                Account Security Status
-              </h4>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">Profile Completion</span>
-                  <span className="text-sm font-medium text-green-600">{profileCompletion}%</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">Account Stage</span>
-                  <span className="text-sm font-medium text-blue-600 capitalize">
-                    {walletProgression.onboarding_stage.replace('_', ' ')}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">Security Features</span>
-                  <span className="text-sm font-medium text-gray-600">
-                    {walletProgression.wallet_education_completed ? 'Completed' : 'Basic'}
-                  </span>
-                </div>
-              </div>
-            </div>
+  useEffect(() => {
+    if (!user) return;
+    setProfileCompletion(calculateProfileCompletion(user));
+  }, [user]);
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-3">
-                <Wallet className="w-4 h-4" />
-                Account Backup & Recovery
-              </h4>
-              
-              <p className="text-sm text-gray-600 mb-3">
-                Secure your account with backup options and recovery settings
-              </p>
-              
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span className="text-gray-700">Email verification active</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-4 h-4 border-2 border-gray-300 rounded"></div>
-                  <span className="text-gray-500">Account backup (coming soon)</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-4 h-4 border-2 border-gray-300 rounded"></div>
-                  <span className="text-gray-500">Two-factor authentication (coming soon)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+  useEffect(() => {
+    if (!userId) return;
+    // Preserved: load token + onboarding for the profile user (used in rewards/settings)
+    // You can restrict to isOwnProfile if you prefer, but this preserves old behavior.
+    loadTokenBalance();
+    loadOnboardingProgress();
+  }, [loadOnboardingProgress, loadTokenBalance, userId]);
 
-        {!walletProgression && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600">
-              Loading account security information...
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  };
+  useEffect(() => {
+    if (!userId) return;
+    if (!isOwnProfile) {
+      checkFollowStatus();
+    }
+  }, [checkFollowStatus, isOwnProfile, userId]);
 
-  const SocialUserCard = ({ user }: { user: SocialUser }) => (
+  // Lazy load content on tab/sub-tab activation (per refactor spec)
+  useEffect(() => {
+    if (!userId || !user) return;
+
+    if (activeTab === 'activity') {
+      if (activitySubTab === 'recommendations' && recommendationsData.length === 0 && !recommendationsLoading) {
+        loadRecommendations();
+      } else if (activitySubTab === 'reshares' && resharesData.length === 0 && !contentLoading) {
+        loadUserReshares();
+      } else if (activitySubTab === 'lists' && !listsLoaded && !contentLoading) {
+        loadUserLists();
+      } else if (activitySubTab === 'likes' && !likesLoaded && !contentLoading) {
+        loadUserLikes();
+      } else if (activitySubTab === 'bookmarks' && !savedListsLoaded && !contentLoading) {
+        loadUserSavedLists();
+      }
+    } else if (activeTab === 'network') {
+      if (networkSubTab === 'followers' && followersData.length === 0 && !socialLoading) {
+        loadFollowers();
+      } else if (networkSubTab === 'following' && followingData.length === 0 && !socialLoading) {
+        loadFollowing();
+      }
+    } else if (activeTab === 'settings' && isOwnProfile) {
+      // Ensure rewards content is up to date when opening settings
+      if (!attributionRewards && !attributionLoading) loadAttributionRewards();
+    }
+  }, [
+    activeTab,
+    activitySubTab,
+    attributionLoading,
+    attributionRewards,
+    followersData.length,
+    followingData.length,
+    isOwnProfile,
+    likesLoaded,
+    listsLoaded,
+    loadAttributionRewards,
+    loadFollowers,
+    loadFollowing,
+    loadRecommendations,
+    loadUserLikes,
+    loadUserLists,
+    loadUserReshares,
+    loadUserSavedLists,
+    recommendationsData.length,
+    recommendationsLoading,
+    resharesData.length,
+    savedListsLoaded,
+    socialLoading,
+    contentLoading,
+    user,
+    userId
+  ]);
+
+  useEffect(() => {
+    if (isOwnProfile) {
+      loadAttributionRewards();
+    }
+  }, [isOwnProfile, loadAttributionRewards]);
+
+  // -------------------------------
+  // Cards (preserved)
+  // -------------------------------
+  const SocialUserCard = ({ user: socialUser }: { user: SocialUser }) => (
     <div className="flex items-center gap-4 p-4 bg-white rounded-lg border hover:shadow-sm transition-shadow">
       <div className="relative">
         <img
-          src={user.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${user.username || user.id}`}
-          alt={user.display_name}
+          src={socialUser.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${socialUser.username || socialUser.id}`}
+          alt={socialUser.display_name}
           className="w-12 h-12 rounded-full object-cover cursor-pointer"
-          onClick={() => window.location.href = `/users/${user.id}`}
+          onClick={() => router.push(`/users/${socialUser.id}`)}
         />
-        {user.verification_status && user.verification_status !== 'basic' && (
+        {socialUser.verification_status && socialUser.verification_status !== 'basic' && (
           <div className="absolute -bottom-0.5 -right-0.5">
             <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
               <span className="text-white text-xs">✓</span>
@@ -1226,33 +986,29 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       </div>
 
       <div className="flex-1">
-        <h3 
+        <h3
           className="font-medium text-gray-900 cursor-pointer hover:text-blue-600"
-          onClick={() => window.location.href = `/users/${user.id}`}
+          onClick={() => router.push(`/users/${socialUser.id}`)}
         >
-          {user.display_name || user.username || 'Unknown User'}
+          {socialUser.display_name || socialUser.username || 'Unknown User'}
         </h3>
-        <p className="text-sm text-gray-600 mb-1">
-          @{user.username || user.id}
-        </p>
-        
-        {user.bio && (
-          <p className="text-sm text-gray-500 mb-1 line-clamp-2">{user.bio}</p>
-        )}
-        
+        <p className="text-sm text-gray-600 mb-1">@{socialUser.username || socialUser.id}</p>
+
+        {socialUser.bio && <p className="text-sm text-gray-500 mb-1 line-clamp-2">{socialUser.bio}</p>}
+
         <div className="flex items-center gap-4 text-xs text-gray-500">
-          <span>{user.followers_count || 0} followers</span>
-          <span>{user.recommendations_count || 0} recommendations</span>
-          {user.avg_trust_score > 0 && (
+          <span>{socialUser.followers_count || 0} {t('profile.stats.followers').toLowerCase()}</span>
+          <span>{socialUser.recommendations_count || 0} {t('profile.stats.recommendations').toLowerCase()}</span>
+          {socialUser.avg_trust_score > 0 && (
             <span className="flex items-center gap-1">
               <Star className="w-3 h-3" />
-              {user.avg_trust_score.toFixed(1)}
+              {socialUser.avg_trust_score.toFixed(1)}
             </span>
           )}
-          {user.location_city && (
+          {socialUser.location_city && (
             <span className="flex items-center gap-1">
               <MapPin className="w-3 h-3" />
-              {user.location_city}
+              {socialUser.location_city}
             </span>
           )}
         </div>
@@ -1260,10 +1016,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
       <div className="flex gap-2">
         <button
-          onClick={() => window.location.href = `/users/${user.id}`}
+          onClick={() => router.push(`/users/${socialUser.id}`)}
           className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
         >
-          View Profile
+          {t('profile.cards.viewProfile')}
         </button>
       </div>
     </div>
@@ -1282,13 +1038,11 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         </div>
         <div className="flex items-center gap-1 text-sm">
           <Star className="w-4 h-4 text-yellow-500" />
-          <span className="text-gray-700">{recommendation.trustScore.toFixed(1)}</span>
+          <span className="text-gray-700">{Number(recommendation.trustScore || 0).toFixed(1)}</span>
         </div>
       </div>
 
-      {recommendation.body && (
-        <p className="text-gray-700 mb-3 line-clamp-3">{recommendation.body}</p>
-      )}
+      {recommendation.body && <p className="text-gray-700 mb-3 line-clamp-3">{recommendation.body}</p>}
 
       {recommendation.location && (
         <div className="flex items-center gap-1 text-sm text-gray-500 mb-3">
@@ -1309,12 +1063,12 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           </span>
           <span>{formatDate(recommendation.createdAt)}</span>
         </div>
-        
+
         <button
-          onClick={() => window.location.href = `/recommendations/${recommendation.id}`}
+          onClick={() => router.push(`/recommendations/${recommendation.id}`)}
           className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50"
         >
-          View Details
+          {t('profile.cards.viewDetails')}
         </button>
       </div>
     </div>
@@ -1325,14 +1079,14 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <h3 className="font-medium text-gray-900 mb-1">{list.title}</h3>
-          {list.description && (
-            <p className="text-sm text-gray-600 line-clamp-2 mb-2">{list.description}</p>
-          )}
+          {list.description && <p className="text-sm text-gray-600 line-clamp-2 mb-2">{list.description}</p>}
           <div className="flex items-center gap-2">
-            <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-              list.is_public ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-            }`}>
-              {list.is_public ? 'Public' : 'Private'}
+            <span
+              className={`inline-block px-2 py-1 text-xs rounded-full ${
+                list.is_public ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              }`}
+            >
+              {list.is_public ? t('profile.cards.public') : t('profile.cards.private')}
             </span>
           </div>
         </div>
@@ -1342,7 +1096,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         <div className="flex items-center gap-4 text-sm text-gray-500">
           <span className="flex items-center gap-1">
             <List className="w-4 h-4" />
-            {list.item_count} items
+            {t('profile.cards.items', { count: list.item_count })}
           </span>
           <span className="flex items-center gap-1">
             <Heart className="w-4 h-4" />
@@ -1350,18 +1104,17 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           </span>
           <span>{formatDate(list.created_at)}</span>
         </div>
-        
+
         <button
-          onClick={() => window.location.href = `/lists/${list.id}`}
+          onClick={() => router.push(`/lists/${list.id}`)}
           className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50"
         >
-          View List
+          {t('profile.cards.viewList')}
         </button>
       </div>
     </div>
   );
 
-  // UPDATED: New SavedListCard component
   const SavedListCard = ({ list }: { list: SavedListData }) => (
     <div className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
       <div className="flex items-start justify-between mb-3">
@@ -1369,22 +1122,29 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           <div className="text-2xl">{list.icon || '📚'}</div>
           <div className="flex-1">
             <h3 className="font-medium text-gray-900 mb-1">{list.name}</h3>
-            {list.description && (
-              <p className="text-sm text-gray-600 line-clamp-2 mb-2">{list.description}</p>
-            )}
+            {list.description && <p className="text-sm text-gray-600 line-clamp-2 mb-2">{list.description}</p>}
             <div className="flex items-center gap-2">
-              <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                list.listType === 'places' ? 'bg-blue-100 text-blue-800' :
-                list.listType === 'bookmarks' ? 'bg-green-100 text-green-800' :
-                'bg-purple-100 text-purple-800'
-              }`}>
-                {list.listType === 'places' ? 'Places to Try' :
-                 list.listType === 'bookmarks' ? 'Bookmarks' : 'Mixed'}
+              <span
+                className={`inline-block px-2 py-1 text-xs rounded-full ${
+                  list.listType === 'places'
+                    ? 'bg-blue-100 text-blue-800'
+                    : list.listType === 'bookmarks'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-purple-100 text-purple-800'
+                }`}
+              >
+                {list.listType === 'places'
+                  ? t('profile.cards.placesToTry')
+                  : list.listType === 'bookmarks'
+                    ? t('profile.cards.bookmarks')
+                    : t('profile.cards.mixed')}
               </span>
-              <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                list.isPublic ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-              }`}>
-                {list.isPublic ? 'Public' : 'Private'}
+              <span
+                className={`inline-block px-2 py-1 text-xs rounded-full ${
+                  list.isPublic ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}
+              >
+                {list.isPublic ? t('profile.cards.public') : t('profile.cards.private')}
               </span>
             </div>
           </div>
@@ -1395,109 +1155,50 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         <div className="flex items-center gap-4 text-sm text-gray-500">
           <span className="flex items-center gap-1">
             <List className="w-4 h-4" />
-            {list.itemCount} items
+            {t('profile.cards.items', { count: list.itemCount })}
           </span>
           <span>{formatDate(list.createdAt)}</span>
         </div>
-        
+
         <button
-          onClick={() => window.location.href = `/saved-lists/${list.id}`}
+          onClick={() => router.push(`/saved-lists/${list.id}`)}
           className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50"
         >
-          View List
+          {t('profile.cards.viewList')}
         </button>
       </div>
     </div>
   );
 
-  const renderSocialTab = (type: 'followers' | 'following') => {
-    const data = type === 'followers' ? followersData : followingData;
-    const isOwn = currentUserId === userId;
-    
-    if (socialLoading) {
-      return (
-        <div className="text-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-          <p className="text-gray-600">Loading {type}...</p>
-        </div>
-      );
-    }
-
-    if (socialError) {
-      return (
-        <div className="text-center py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-red-800 mb-2">{socialError}</p>
-            <button 
-              onClick={() => type === 'followers' ? loadFollowers() : loadFollowing()}
-              className="text-sm text-red-600 hover:text-red-800 underline"
-            >
-              Try again
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (data.length === 0) {
-      return (
-        <div className="text-center py-12">
-          <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {type === 'followers' 
-              ? (isOwn ? "You don't have any followers yet" : "No followers")
-              : (isOwn ? "You're not following anyone yet" : "Not following anyone")
-            }
-          </h3>
-          <p className="text-gray-500 mb-4">
-            {type === 'followers'
-              ? (isOwn ? "Share great recommendations to attract followers" : "This user hasn't gained any followers yet")
-              : (isOwn ? "Start following food experts to see their recommendations" : "This user hasn't followed anyone yet")
-            }
+  const ResharedRecommendationCard = ({ item }: { item: ResharedRecommendation }) => (
+    <div className="space-y-0">
+      {item.reshare.comment && (
+        <div className="bg-stone-50 border border-stone-200 rounded-t-lg px-4 py-3">
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold mb-1">
+            {isOwnProfile ? t('profile.cards.yourCommentary') : t('profile.cards.theirCommentary')}
           </p>
-          {isOwn && type === 'following' && (
-            <button
-              onClick={() => window.location.href = '/community'}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              Discover People
-            </button>
-          )}
+          <p className="text-stone-900 text-sm leading-relaxed">{item.reshare.comment}</p>
+          <p className="text-xs text-stone-400 mt-2">
+            {t('profile.cards.resharedOn', { date: formatDate(item.reshare.created_at) })}
+          </p>
         </div>
-      );
-    }
+      )}
 
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {type === 'followers' ? 'Followers' : 'Following'} ({data.length})
-          </h3>
-          <button
-            onClick={() => type === 'followers' ? loadFollowers() : loadFollowing()}
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            Refresh
-          </button>
-        </div>
-        
-        <div className="space-y-3">
-          {data.map((socialUser) => (
-            <SocialUserCard key={socialUser.id} user={socialUser} />
-          ))}
-        </div>
+      <div className={item.reshare.comment ? '' : 'mt-0'}>
+        <RecommendationCard recommendation={item.recommendation} />
       </div>
-    );
-  };
+    </div>
+  );
 
+  // -------------------------------
+  // Render: Tabs content
+  // -------------------------------
   const renderRecommendationsTab = () => {
-    const isOwn = currentUserId === userId;
-    
     if (recommendationsLoading) {
       return (
         <div className="text-center py-8">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-          <p className="text-gray-600">Loading recommendations...</p>
+          <p className="text-gray-600">{t('common.loading')}</p>
         </div>
       );
     }
@@ -1507,11 +1208,8 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         <div className="text-center py-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
             <p className="text-red-800 mb-2">{recommendationsError}</p>
-            <button 
-              onClick={loadRecommendations}
-              className="text-sm text-red-600 hover:text-red-800 underline"
-            >
-              Try again
+            <button onClick={loadRecommendations} className="text-sm text-red-600 hover:text-red-800 underline">
+              {t('profile.actions.tryAgain')}
             </button>
           </div>
         </div>
@@ -1523,20 +1221,17 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         <div className="text-center py-12">
           <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {isOwn ? "You haven't created any recommendations yet" : "No recommendations yet"}
+            {isOwnProfile ? t('profile.empty.recommendations.own') : t('profile.empty.recommendations.other')}
           </h3>
           <p className="text-gray-500 mb-4">
-            {isOwn 
-              ? "Share your favorite places and experiences to build your reputation"
-              : "This user hasn't shared any recommendations yet"
-            }
+            {isOwnProfile ? t('profile.empty.recommendations.ownDescription') : t('profile.empty.recommendations.otherDescription')}
           </p>
-          {isOwn && (
+          {isOwnProfile && (
             <button
-              onClick={() => window.location.href = '/create'}
+              onClick={() => router.push('/create')}
               className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
             >
-              Create Your First Recommendation
+              {t('profile.empty.recommendations.cta')}
             </button>
           )}
         </div>
@@ -1547,34 +1242,28 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">
-            Recommendations ({recommendationsData.length})
+            {t('profile.tabs.recommendationsFull')} ({recommendationsData.length})
           </h3>
-          <button
-            onClick={loadRecommendations}
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            Refresh
+          <button onClick={loadRecommendations} className="text-sm text-blue-600 hover:text-blue-800">
+            {t('profile.actions.refresh')}
           </button>
         </div>
-        
+
         <div className="space-y-4">
-          {recommendationsData.map((recommendation) => (
-            <RecommendationCard key={recommendation.id} recommendation={recommendation} />
+          {recommendationsData.map((rec) => (
+            <RecommendationCard key={rec.id} recommendation={rec} />
           ))}
         </div>
       </div>
     );
   };
 
-  // UPDATED: renderContentTab now handles saved lists properly
-  const renderContentTab = (type: 'lists' | 'likes' | 'bookmarks') => {
-    const isOwn = currentUserId === userId;
-    
+  const renderResharesTab = () => {
     if (contentLoading) {
       return (
         <div className="text-center py-8">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-          <p className="text-gray-600">Loading {type}...</p>
+          <p className="text-gray-600">{t('common.loading')}</p>
         </div>
       );
     }
@@ -1584,53 +1273,30 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         <div className="text-center py-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
             <p className="text-red-800 mb-2">{contentError}</p>
-            <button 
-              onClick={() => {
-                if (type === 'lists') loadUserLists();
-                else if (type === 'likes') loadUserLikes();
-                else if (type === 'bookmarks') loadUserSavedLists(); // UPDATED
-              }}
-              className="text-sm text-red-600 hover:text-red-800 underline"
-            >
-              Try again
+            <button onClick={loadUserReshares} className="text-sm text-red-600 hover:text-red-800 underline">
+              {t('profile.actions.tryAgain')}
             </button>
           </div>
         </div>
       );
     }
 
-    const data = type === 'lists' ? listsData : type === 'likes' ? likesData : savedListsData; // UPDATED
-    const emptyIcon = type === 'lists' ? List : type === 'likes' ? Heart : Bookmark;
-    
-    if (data.length === 0) {
+    if (resharesData.length === 0) {
       return (
         <div className="text-center py-12">
-          {React.createElement(emptyIcon, { className: "w-16 h-16 text-gray-400 mx-auto mb-4" })}
+          <Share2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {type === 'lists' 
-              ? (isOwn ? "You haven't created any guides yet" : "No guides yet")
-              : type === 'likes'
-              ? (isOwn ? "You haven't liked any recommendations yet" : "No likes yet")
-              : (isOwn ? "You haven't created any lists yet" : "No lists yet") // UPDATED
-            }
+            {isOwnProfile ? t('profile.empty.reshares.own') : t('profile.empty.reshares.other')}
           </h3>
           <p className="text-gray-500 mb-4">
-            {type === 'lists'
-              ? (isOwn ? "Create curated guides to share with others" : "This user hasn't created any guides yet")
-              : type === 'likes'
-              ? (isOwn ? "Like recommendations you find helpful" : "This user hasn't liked any recommendations yet")
-              : (isOwn ? "Save recommendations to organized lists" : "This user hasn't created any lists yet") // UPDATED
-            }
+            {isOwnProfile ? t('profile.empty.reshares.ownDescription') : t('profile.empty.reshares.otherDescription')}
           </p>
-          {isOwn && (
+          {isOwnProfile && (
             <button
-              onClick={() => {
-                if (type === 'bookmarks') window.location.href = '/discover';
-                else window.location.href = '/discover';
-              }}
+              onClick={() => router.push('/feed')}
               className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
             >
-              {type === 'lists' ? 'Create a Guide' : type === 'bookmarks' ? 'Start Saving' : 'Discover Content'}
+              {t('profile.empty.reshares.cta')}
             </button>
           )}
         </div>
@@ -1640,51 +1306,551 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 capitalize">
-            {type === 'lists' ? 'Guides' : type === 'likes' ? 'Likes' : 'Saved Lists'} ({data.length}) 
+          <h3 className="text-lg font-semibold text-gray-900">
+            {t('profile.tabs.reshares')} ({resharesData.length})
           </h3>
-          <button
-            onClick={() => {
-              if (type === 'lists') loadUserLists();
-              else if (type === 'likes') loadUserLikes();
-              else if (type === 'bookmarks') loadUserSavedLists(); // UPDATED
-            }}
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            Refresh
+          <button onClick={loadUserReshares} className="text-sm text-blue-600 hover:text-blue-800">
+            {t('profile.actions.refresh')}
           </button>
         </div>
-        
-        <div className="space-y-4">
-          {type === 'lists' && listsData.map((list) => (
-            <ListCard key={list.id} list={list} />
-          ))}
-          {type === 'likes' && likesData.map((recommendation) => (
-            <RecommendationCard key={recommendation.id} recommendation={recommendation} />
-          ))}
-          {type === 'bookmarks' && savedListsData.map((list) => ( // UPDATED
-            <SavedListCard key={list.id} list={list} />
+
+        <div className="space-y-6">
+          {resharesData.map((item) => (
+            <ResharedRecommendationCard key={item.reshare.id} item={item} />
           ))}
         </div>
       </div>
     );
   };
 
+  const renderContentTab = (type: 'lists' | 'likes' | 'bookmarks') => {
+    if (contentLoading) {
+      return (
+        <div className="text-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+          <p className="text-gray-600">{t('common.loading')}</p>
+        </div>
+      );
+    }
+
+    if (contentError) {
+      return (
+        <div className="text-center py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-red-800 mb-2">{contentError}</p>
+            <button
+              onClick={() => {
+                if (type === 'lists') loadUserLists();
+                else if (type === 'likes') loadUserLikes();
+                else loadUserSavedLists();
+              }}
+              className="text-sm text-red-600 hover:text-red-800 underline"
+            >
+              {t('profile.actions.tryAgain')}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const data = type === 'lists' ? listsData : type === 'likes' ? likesData : savedListsData;
+    const emptyIcon = type === 'lists' ? List : type === 'likes' ? Heart : Bookmark;
+
+    if (data.length === 0) {
+      return (
+        <div className="text-center py-12">
+          {React.createElement(emptyIcon, { className: 'w-16 h-16 text-gray-400 mx-auto mb-4' })}
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {type === 'lists'
+              ? isOwnProfile
+                ? t('profile.empty.lists.own')
+                : t('profile.empty.lists.other')
+              : type === 'likes'
+                ? isOwnProfile
+                  ? t('profile.empty.likes.own')
+                  : t('profile.empty.likes.other')
+                : isOwnProfile
+                  ? t('profile.empty.bookmarks.own')
+                  : t('profile.empty.bookmarks.other')}
+          </h3>
+          <p className="text-gray-500 mb-4">
+            {type === 'lists'
+              ? isOwnProfile
+                ? t('profile.empty.lists.ownDescription')
+                : t('profile.empty.lists.otherDescription')
+              : type === 'likes'
+                ? isOwnProfile
+                  ? t('profile.empty.likes.ownDescription')
+                  : t('profile.empty.likes.otherDescription')
+                : isOwnProfile
+                  ? t('profile.empty.bookmarks.ownDescription')
+                  : t('profile.empty.bookmarks.otherDescription')}
+          </p>
+          {isOwnProfile && (
+            <button
+              onClick={() => router.push('/discover')}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              {type === 'lists'
+                ? t('profile.empty.lists.cta')
+                : type === 'bookmarks'
+                  ? t('profile.empty.bookmarks.cta')
+                  : t('profile.empty.likes.cta')}
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {type === 'lists'
+              ? t('profile.tabs.guides')
+              : type === 'likes'
+                ? t('profile.tabs.likes')
+                : t('profile.tabs.myLists')}{' '}
+            ({data.length})
+          </h3>
+          <button
+            onClick={() => {
+              if (type === 'lists') loadUserLists();
+              else if (type === 'likes') loadUserLikes();
+              else loadUserSavedLists();
+            }}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            {t('profile.actions.refresh')}
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {type === 'lists' && listsData.map((list) => <ListCard key={list.id} list={list} />)}
+          {type === 'likes' && likesData.map((rec) => <RecommendationCard key={rec.id} recommendation={rec} />)}
+          {type === 'bookmarks' && savedListsData.map((list) => <SavedListCard key={list.id} list={list} />)}
+        </div>
+      </div>
+    );
+  };
+
+  const renderNetworkTab = (type: 'followers' | 'following') => {
+    const data = type === 'followers' ? followersData : followingData;
+
+    if (socialLoading) {
+      return (
+        <div className="text-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+          <p className="text-gray-600">{t('common.loading')}</p>
+        </div>
+      );
+    }
+
+    if (socialError) {
+      return (
+        <div className="text-center py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-red-800 mb-2">{socialError}</p>
+            <button
+              onClick={() => (type === 'followers' ? loadFollowers() : loadFollowing())}
+              className="text-sm text-red-600 hover:text-red-800 underline"
+            >
+              {t('profile.actions.tryAgain')}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (data.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {type === 'followers'
+              ? isOwnProfile
+                ? t('profile.empty.followers.own')
+                : t('profile.empty.followers.other')
+              : isOwnProfile
+                ? t('profile.empty.following.own')
+                : t('profile.empty.following.other')}
+          </h3>
+          <p className="text-gray-500 mb-4">
+            {type === 'followers'
+              ? isOwnProfile
+                ? t('profile.empty.followers.ownDescription')
+                : t('profile.empty.followers.otherDescription')
+              : isOwnProfile
+                ? t('profile.empty.following.ownDescription')
+                : t('profile.empty.following.otherDescription')}
+          </p>
+          {isOwnProfile && type === 'following' && (
+            <button
+              onClick={() => router.push('/community')}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              {t('profile.empty.following.cta')}
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {type === 'followers' ? t('profile.tabs.followers') : t('profile.tabs.following')} ({data.length})
+          </h3>
+          <button
+            onClick={() => (type === 'followers' ? loadFollowers() : loadFollowing())}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            {t('profile.actions.refresh')}
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {data.map((su) => (
+            <SocialUserCard key={su.id} user={su} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderRewardsPanel = () => {
+    if (!isOwnProfile) {
+      return (
+        <div className="text-center py-12">
+          <Gift className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('profile.rewardsTab.title')}</h3>
+          <p className="text-gray-500">{t('profile.rewardsTab.private')}</p>
+        </div>
+      );
+    }
+
+    if (onboardingLoading || tokenBalanceLoading) {
+      return (
+        <div className="text-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
+          <p className="text-gray-600">{t('profile.rewardsTab.loading')}</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Token Balance Card */}
+        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Gift className="w-5 h-5 text-orange-600" />
+              {t('profile.rewardsTab.balance.title')}
+            </h3>
+            <button
+              onClick={() => {
+                loadTokenBalance();
+                loadOnboardingProgress();
+                loadAttributionRewards();
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              {t('profile.actions.refresh')}
+            </button>
+          </div>
+          <div className="text-4xl font-bold text-orange-600 mb-2">{tokenBalance.toFixed(2)} BOCA</div>
+          <p className="text-sm text-gray-600">{t('profile.rewardsTab.balance.description')}</p>
+        </div>
+
+        {/* Attribution Rewards Card */}
+        {attributionLoading ? (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+            <div className="flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-green-600 mr-2" />
+              <span className="text-gray-600">{t('common.loading')}</span>
+            </div>
+          </div>
+        ) : attributionRewards && attributionRewards.total_count > 0 ? (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-green-600" />
+                {t('profile.rewardsTab.attribution.title')}
+              </h3>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-green-600">
+                  {attributionRewards.total_earned_boca.toFixed(2)} BOCA
+                </div>
+                <p className="text-xs text-gray-500">
+                  {attributionRewards.total_count === 1
+                    ? t('profile.rewardsTab.attribution.fromReshares', { count: attributionRewards.total_count })
+                    : t('profile.rewardsTab.attribution.fromResharesPlural', { count: attributionRewards.total_count })}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">{t('profile.rewardsTab.attribution.description')}</p>
+
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {attributionRewards.attributions.map((attr) => (
+                <div
+                  key={attr.id}
+                  className="bg-white rounded-lg p-3 border border-green-100 hover:border-green-200 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-gray-900">
+                          {attr.resharer.display_name || attr.resharer.username}
+                        </span>
+                        <span className="text-xs text-gray-500">{t('profile.rewardsTab.attribution.reshared')}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-1">"{attr.recommendation_title}"</p>
+                      <p className="text-xs text-gray-500">{formatDate(attr.created_at)}</p>
+                    </div>
+                    <div className="text-right ml-3">
+                      <div className="text-sm font-semibold text-green-600">+{attr.bonus_boca.toFixed(2)} BOCA</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {attributionRewards.pagination?.has_more && (
+              <button
+                onClick={() => {
+                  // pagination intentionally preserved as "load more" placeholder
+                  console.log('Load more attributions');
+                }}
+                className="w-full mt-4 px-4 py-2 text-sm text-green-600 hover:text-green-800 border border-green-300 rounded-lg hover:bg-green-50"
+              >
+                {t('profile.rewardsTab.attribution.loadMore')}
+              </button>
+            )}
+          </div>
+        ) : null}
+
+        {/* Onboarding Progress Card */}
+        {onboardingProgress && !onboardingProgress.isComplete && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">{t('profile.rewardsTab.onboarding.title')}</h3>
+              <span className="text-sm font-medium text-blue-600">
+                {onboardingProgress.completionPercentage}% {t('profile.rewardsTab.onboarding.complete')}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {/* Follow Milestone */}
+              <div className="flex items-start gap-3">
+                <div
+                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    onboardingProgress.milestones.followUsers.isComplete ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
+                  {onboardingProgress.milestones.followUsers.isComplete ? '✓' : '👥'}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="font-medium text-gray-900">{onboardingProgress.milestones.followUsers.name}</h4>
+                    <span className="text-sm text-gray-600">{onboardingProgress.milestones.followUsers.displayReward}</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{onboardingProgress.milestones.followUsers.description}</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full transition-all"
+                        style={{
+                          width: `${(onboardingProgress.milestones.followUsers.current / onboardingProgress.milestones.followUsers.requirement) * 100}%`
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {onboardingProgress.milestones.followUsers.current}/{onboardingProgress.milestones.followUsers.requirement}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recommendations Milestone */}
+              <div className="flex items-start gap-3">
+                <div
+                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    onboardingProgress.milestones.createRecommendations.isComplete ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
+                  {onboardingProgress.milestones.createRecommendations.isComplete ? '✓' : '📝'}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="font-medium text-gray-900">{onboardingProgress.milestones.createRecommendations.name}</h4>
+                    <span className="text-sm text-gray-600">
+                      {onboardingProgress.milestones.createRecommendations.displayReward}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{onboardingProgress.milestones.createRecommendations.description}</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full transition-all"
+                        style={{
+                          width: `${(onboardingProgress.milestones.createRecommendations.current / onboardingProgress.milestones.createRecommendations.requirement) * 100}%`
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {onboardingProgress.milestones.createRecommendations.current}/{onboardingProgress.milestones.createRecommendations.requirement}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Engagement Milestone */}
+              <div className="flex items-start gap-3">
+                <div
+                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    onboardingProgress.milestones.engageWithPosts.isComplete ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
+                  {onboardingProgress.milestones.engageWithPosts.isComplete ? '✓' : '💬'}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="font-medium text-gray-900">{onboardingProgress.milestones.engageWithPosts.name}</h4>
+                    <span className="text-sm text-gray-600">{onboardingProgress.milestones.engageWithPosts.displayReward}</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{onboardingProgress.milestones.engageWithPosts.description}</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full transition-all"
+                        style={{
+                          width: `${(onboardingProgress.milestones.engageWithPosts.current / onboardingProgress.milestones.engageWithPosts.requirement) * 100}%`
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {onboardingProgress.milestones.engageWithPosts.current}/{onboardingProgress.milestones.engageWithPosts.requirement}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {onboardingProgress.nextStep && (
+              <div className="mt-4 p-3 bg-white rounded-lg border border-blue-200">
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">{t('profile.rewardsTab.onboarding.nextStep')}</span> {onboardingProgress.nextStep}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {onboardingProgress && onboardingProgress.isComplete && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+            <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('profile.rewardsTab.onboarding.completeTitle')}</h3>
+            <p className="text-gray-600 mb-2">
+              {t('profile.rewardsTab.onboarding.completeDescription', { amount: onboardingProgress.displayTotalEarned })}
+            </p>
+            <p className="text-sm text-gray-500">{t('profile.rewardsTab.onboarding.keepEngaging')}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderSecurityPanel = () => {
+    if (!isOwnProfile) {
+      return (
+        <div className="text-center py-12">
+          <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('profile.activity.title')}</h3>
+          <p className="text-gray-500 mb-4">{t('profile.activity.description')}</p>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-sm text-gray-600">{t('profile.activity.comingSoon')}</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">{t('profile.activity.security.title')}</h3>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-3">
+            <Shield className="w-4 h-4" />
+            {t('profile.activity.security.status')}
+          </h4>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">{t('profile.activity.security.profileCompletion')}</span>
+              <span className="text-sm font-medium text-green-600">{profileCompletion}%</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">{t('profile.activity.security.accountStatus')}</span>
+              <span className="text-sm font-medium text-blue-600">{t('profile.activity.security.active')}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">{t('profile.activity.security.securityFeatures')}</span>
+              <span className="text-sm font-medium text-gray-600">{t('profile.activity.security.basic')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-3">
+            <Wallet className="w-4 h-4" />
+            {t('profile.activity.security.backup.title')}
+          </h4>
+
+          <p className="text-sm text-gray-600 mb-3">{t('profile.activity.security.backup.description')}</p>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              <span className="text-gray-700">{t('profile.activity.security.backup.emailVerification')}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-4 h-4 border-2 border-gray-300 rounded" />
+              <span className="text-gray-500">{t('profile.activity.security.backup.accountBackup')}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-4 h-4 border-2 border-gray-300 rounded" />
+              <span className="text-gray-500">{t('profile.activity.security.backup.twoFactor')}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // -------------------------------
+  // Loading / not found (preserved)
+  // -------------------------------
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="animate-pulse">
           <div className="flex items-start gap-6 mb-8">
-            <div className="w-24 h-24 bg-gray-200 rounded-full"></div>
+            <div className="w-24 h-24 bg-gray-200 rounded-full" />
             <div className="flex-1">
-              <div className="h-8 bg-gray-200 rounded w-48 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
-              <div className="h-10 bg-gray-200 rounded w-24"></div>
+              <div className="h-8 bg-gray-200 rounded w-48 mb-2" />
+              <div className="h-4 bg-gray-200 rounded w-32 mb-4" />
+              <div className="h-10 bg-gray-200 rounded w-24" />
             </div>
           </div>
           <div className="grid grid-cols-4 gap-4 mb-8">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-200 rounded"></div>
+              <div key={i} className="h-20 bg-gray-200 rounded" />
             ))}
           </div>
         </div>
@@ -1697,182 +1863,330 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center">
           <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">User not found</h3>
-          <p className="text-gray-500">The user you're looking for doesn't exist or has been deactivated.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('profile.header.userNotFound')}</h3>
+          <p className="text-gray-500">{t('profile.header.userNotFoundDescription')}</p>
         </div>
       </div>
     );
   }
 
-  const isOwnProfile = currentUserId === userId;
+  // -------------------------------
+  // Header + Tabs (4-tab)
+  // -------------------------------
   const userLocation = formatLocation(user.locationCity, user.locationCountry);
   const authInfo = getAuthenticationDisplay(user);
 
+  const mainTabs: { key: MainTab; label: string; icon: React.ReactNode; visible: boolean }[] = [
+    { key: 'tastemap', label: t('profile.tabs.tasteMap') ?? 'Taste Map', icon: <MapIcon className="w-4 h-4" />, visible: true },
+    { key: 'activity', label: t('profile.tabs.activity') ?? 'Activity', icon: <FileText className="w-4 h-4" />, visible: true },
+    { key: 'network', label: t('profile.tabs.network') ?? 'Network', icon: <Users className="w-4 h-4" />, visible: true },
+    { key: 'settings', label: t('profile.tabs.settings') ?? 'Settings', icon: <Settings className="w-4 h-4" />, visible: isOwnProfile }
+  ];
+
   return (
     <div className="max-w-4xl mx-auto p-6">
-      {/* Profile Header */}
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-6">
-            {/* Avatar */}
-            <div className="relative">
-              <img
-                src={user.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${user.username}`}
-                alt={user.displayName}
-                className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
-              />
-              {user.verificationLevel !== 'basic' && (
-                <div className="absolute -bottom-1 -right-1">
-                  {getVerificationIcon(user.verificationLevel)}
-                </div>
-              )}
-            </div>
-
-            {/* User Info */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-2xl font-bold text-gray-900">{user.displayName}</h1>
+      {/* Compact Profile Header (refactor style, preserving data) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
+        <div className="flex items-start gap-4">
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            <img
+              src={user.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${user.username || user.userId}`}
+              alt={user.displayName}
+              className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border border-gray-200"
+            />
+            {user.verificationLevel !== 'basic' && (
+              <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
+                {getVerificationIcon(user.verificationLevel) || <CheckCircle className="w-5 h-5 text-green-500" />}
               </div>
-              <p className="text-gray-600 mb-2">@{user.username}</p>
-              
-              {/* Authentication display */}
-              <div className="flex items-center gap-2 mb-2">
-                {authInfo.icon}
-                <span className="text-sm text-gray-500">{authInfo.display}</span>
-              </div>
-              
-              {user.bio && (
-                <p className="text-gray-700 mb-3">{user.bio}</p>
-              )}
-
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                {userLocation && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    <span>{userLocation}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  <span>Joined {new Date(user.createdAt).toLocaleDateString()}</span>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            {isOwnProfile ? (
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setShowProfileEditor(true)}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          {/* Info & Actions */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h1 className="text-lg md:text-xl font-bold text-gray-900 truncate">
+                  {user.displayName || user.username}
+                </h1>
+                <p className="text-sm text-gray-500 truncate">@{user.username}</p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {isOwnProfile ? (
+                  <button
+                    onClick={() => setShowProfileEditor(true)}
+                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    title={t('profile.header.editProfile')}
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+                ) : currentUserId || currentUser?.id ? (
+                  <button
+                    onClick={handleFollow}
+                    disabled={followLoading}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                      isFollowing ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-blue-500 text-white hover:bg-blue-600'
+                    } ${followLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Users className="w-4 h-4" />
+                    {followLoading ? t('common.loading') : isFollowing ? t('profile.header.following') : t('profile.header.follow')}
+                  </button>
+                ) : null}
+
+                <button
+                  onClick={handleShare}
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title={t('profile.actions.share')}
                 >
-                  <Settings className="w-4 h-4" />
-                  <span>Edit Profile</span>
+                  <Share2 className="w-5 h-5" />
                 </button>
               </div>
-            ) : currentUserId ? (
-              <button
-                onClick={handleFollow}
-                disabled={followLoading}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isFollowing
-                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                } ${followLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <Users className="w-4 h-4" />
-                <span>{followLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow'}</span>
-              </button>
-            ) : null}
-            
-            <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              <Share2 className="w-4 h-4" />
-            </button>
+            </div>
+
+            {/* Bio */}
+            {user.bio && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{user.bio}</p>}
+
+            {/* Meta */}
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                {authInfo.icon}
+                {authInfo.display}
+              </span>
+
+              {userLocation && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5" />
+                  {userLocation}
+                </span>
+              )}
+
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5" />
+                {t('profile.header.joined', { date: new Date(user.createdAt).toLocaleDateString() })}
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* Compact Stats Row (clickable -> tab routing) */}
+        <div className="flex items-center justify-around mt-4 pt-4 border-t border-gray-100">
+          <button
+            onClick={() => {
+              setActiveTab('activity');
+              setActivitySubTab('recommendations');
+            }}
+            className="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+          >
+            <div className="text-lg font-bold text-gray-900">{user.totalRecommendations}</div>
+            <div className="text-xs text-gray-500">{t('profile.stats.recommendations')}</div>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('network');
+              setNetworkSubTab('followers');
+            }}
+            className="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+          >
+            <div className="text-lg font-bold text-gray-900">{user.followers}</div>
+            <div className="text-xs text-gray-500">{t('profile.stats.followers')}</div>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('network');
+              setNetworkSubTab('following');
+            }}
+            className="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+          >
+            <div className="text-lg font-bold text-gray-900">{user.following}</div>
+            <div className="text-xs text-gray-500">{t('profile.stats.following')}</div>
+          </button>
+
+          {isOwnProfile && (
+            <button
+              onClick={() => {
+                setActiveTab('settings');
+                setSettingsSubTab('rewards');
+              }}
+              className="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+            >
+              <div className="text-lg font-bold text-orange-600">
+                {tokenBalanceLoading ? '...' : tokenBalance.toFixed(1)}
+              </div>
+              <div className="text-xs text-gray-500">{t('profile.stats.tokensEarned')}</div>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Stats Grid with enhanced color accents */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div 
-          className="bg-white rounded-lg shadow-sm border p-4 text-center cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-all"
-          onClick={() => setActiveTab('recommendations')}
-        >
-          <div className="text-2xl font-bold text-blue-600">{user.totalRecommendations}</div>
-          <div className="text-sm text-gray-600">Recommendations</div>
-        </div>
-        
-        <div 
-          className="bg-white rounded-lg shadow-sm border p-4 text-center cursor-pointer hover:bg-green-50 hover:border-green-200 transition-all"
-          onClick={() => setActiveTab('followers')}
-        >
-          <div className="text-2xl font-bold text-green-600">{user.followers}</div>
-          <div className="text-sm text-gray-600">Followers</div>
-        </div>
-        
-        <div 
-          className="bg-white rounded-lg shadow-sm border p-4 text-center cursor-pointer hover:bg-purple-50 hover:border-purple-200 transition-all"
-          onClick={() => setActiveTab('following')}
-        >
-          <div className="text-2xl font-bold text-purple-600">{user.following}</div>
-          <div className="text-sm text-gray-600">Following</div>
-        </div>
-        
-        <div 
-          className="bg-white rounded-lg shadow-sm border p-4 text-center cursor-pointer hover:bg-orange-50 hover:border-orange-200 transition-all"
-          onClick={() => setActiveTab('rewards')}
-        >
-          <div className="text-2xl font-bold text-orange-600">{user.tokensEarned || 0}</div>
-          <div className="text-sm text-gray-600">Tokens Earned</div>
-        </div>
-      </div>
-
-      {/* Enhanced Tabs - UPDATED with new labels */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="border-b">
-          <nav className="flex overflow-x-auto scrollbar-hide pb-0">
-            {[
-              { key: 'recommendations', label: 'Recs', fullLabel: 'Recommendations', icon: MessageCircle, color: 'blue' },
-              { key: 'lists', label: 'Guides', fullLabel: 'Guides', icon: List, color: 'indigo' },
-              { key: 'likes', label: 'Likes', fullLabel: 'Likes', icon: Heart, color: 'pink' },
-              { key: 'bookmarks', label: 'My Lists', fullLabel: 'My Lists', icon: Bookmark, color: 'green' },
-              { key: 'followers', label: 'Followers', fullLabel: 'Followers', icon: Users, color: 'purple' },
-              { key: 'following', label: 'Following', fullLabel: 'Following', icon: Users, color: 'teal' },
-              { key: 'rewards', label: 'Rewards', fullLabel: 'Rewards', icon: Award, color: 'orange' },
-              { key: 'activity', label: 'Security', fullLabel: 'Security', icon: Shield, color: 'gray' }
-            ].map((tab) => (
+      {/* Main Tabs Container */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {/* Main Tab Nav */}
+        <div className="flex border-b border-gray-200">
+          {mainTabs
+            .filter((x) => x.visible)
+            .map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as ContentTab)}
-                className={`flex items-center gap-1 px-2 py-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
-                  activeTab === tab.key
-                    ? `border-${tab.color}-500 text-${tab.color}-600 bg-${tab.color}-50`
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors relative ${
+                  activeTab === tab.key ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
-                title={tab.fullLabel}
               >
-                <tab.icon className="w-4 h-4 flex-shrink-0" />
-                <span>{tab.label}</span>
+                {tab.icon}
+                <span className="hidden sm:inline">{tab.label}</span>
+                {activeTab === tab.key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
               </button>
             ))}
-          </nav>
         </div>
 
-        <div className="p-6">
-          {activeTab === 'recommendations' && renderRecommendationsTab()}
-          {activeTab === 'lists' && renderContentTab('lists')}
-          {activeTab === 'likes' && renderContentTab('likes')}
-          {activeTab === 'bookmarks' && renderContentTab('bookmarks')}
-          {activeTab === 'followers' && renderSocialTab('followers')}
-          {activeTab === 'following' && renderSocialTab('following')}
-          {activeTab === 'rewards' && renderRewardsTab()}
-          {activeTab === 'activity' && renderActivityTab()}
+        {/* Tab Content */}
+        <div className="min-h-[420px]">
+          {/* Taste Map */}
+          {activeTab === 'tastemap' && (
+            <ProfileMapView
+              userId={userId}
+              username={user.username}
+              isOwnProfile={isOwnProfile}
+              onReviewClick={(id: string) => router.push(`/recommendations/${id}`)}
+              onRestaurantClick={(restaurantId: number) => router.push(`/restaurants/${restaurantId}`)}
+            />
+          )}
+
+          {/* Activity */}
+          {activeTab === 'activity' && (
+            <div>
+              <div className="flex flex-wrap items-center gap-1 p-2 bg-gray-50 border-b border-gray-100">
+                <button
+                  onClick={() => setActivitySubTab('recommendations')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    activitySubTab === 'recommendations' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  {t('profile.tabs.recommendations')}
+                </button>
+
+                <button
+                  onClick={() => setActivitySubTab('reshares')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    activitySubTab === 'reshares' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Repeat2 className="w-4 h-4" />
+                  {t('profile.tabs.reshares')}
+                </button>
+
+                <button
+                  onClick={() => setActivitySubTab('lists')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    activitySubTab === 'lists' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                  {t('profile.tabs.guides')}
+                </button>
+
+                <div className="flex-1" />
+
+                <button
+                  onClick={() => setActivitySubTab('likes')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    activitySubTab === 'likes' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Heart className="w-4 h-4" />
+                  {t('profile.tabs.likes')}
+                </button>
+
+                <button
+                  onClick={() => setActivitySubTab('bookmarks')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    activitySubTab === 'bookmarks' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Bookmark className="w-4 h-4" />
+                  {t('profile.tabs.myLists')}
+                </button>
+              </div>
+
+              <div className="p-6">
+                {activitySubTab === 'recommendations' && renderRecommendationsTab()}
+                {activitySubTab === 'reshares' && renderResharesTab()}
+                {activitySubTab === 'lists' && renderContentTab('lists')}
+                {activitySubTab === 'likes' && renderContentTab('likes')}
+                {activitySubTab === 'bookmarks' && renderContentTab('bookmarks')}
+              </div>
+            </div>
+          )}
+
+          {/* Network */}
+          {activeTab === 'network' && (
+            <div>
+              <div className="flex items-center gap-1 p-2 bg-gray-50 border-b border-gray-100">
+                <button
+                  onClick={() => setNetworkSubTab('followers')}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    networkSubTab === 'followers' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {t('profile.tabs.followers')}
+                  <span className="text-xs text-gray-400">({user.followers})</span>
+                </button>
+                <button
+                  onClick={() => setNetworkSubTab('following')}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    networkSubTab === 'following' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {t('profile.tabs.following')}
+                  <span className="text-xs text-gray-400">({user.following})</span>
+                </button>
+              </div>
+
+              <div className="p-6">
+                {networkSubTab === 'followers' && renderNetworkTab('followers')}
+                {networkSubTab === 'following' && renderNetworkTab('following')}
+              </div>
+            </div>
+          )}
+
+          {/* Settings (own only) */}
+          {activeTab === 'settings' && isOwnProfile && (
+            <div>
+              <div className="flex items-center gap-1 p-2 bg-gray-50 border-b border-gray-100">
+                <button
+                  onClick={() => setSettingsSubTab('rewards')}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    settingsSubTab === 'rewards' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Award className="w-4 h-4" />
+                  {t('profile.tabs.rewards')}
+                </button>
+                <button
+                  onClick={() => setSettingsSubTab('security')}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    settingsSubTab === 'security' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Shield className="w-4 h-4" />
+                  {t('profile.tabs.security')}
+                </button>
+              </div>
+
+              <div className="p-6">
+                {settingsSubTab === 'rewards' && renderRewardsPanel()}
+                {settingsSubTab === 'security' && renderSecurityPanel()}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Profile Editor Modal */}
+      {/* Profile Editor Modal (preserved) */}
       <ProfileEditor
         isOpen={showProfileEditor}
         onClose={() => setShowProfileEditor(false)}
@@ -1881,3 +2195,5 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     </div>
   );
 }
+
+export default UserProfile;

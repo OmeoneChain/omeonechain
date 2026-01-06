@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { 
   GiftIcon, 
   MapPinIcon, 
@@ -64,6 +65,7 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
   category,
   className = ''
 }) => {
+  const t = useTranslations('common');
   const [discoveryScore, setDiscoveryScore] = useState<DiscoveryScore | null>(null);
   const [claimableBonuses, setClaimableBonuses] = useState<ClaimableBonus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +117,7 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}` // Adjust based on your auth
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify({
           campaignId,
@@ -136,7 +138,6 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
           setDiscoveryScore(refreshData);
         }
 
-        // You might want to show a success toast here
         console.log('Bonus claimed successfully:', result);
       }
     } catch (error) {
@@ -159,13 +160,13 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
     const expires = new Date(expiresAt);
     const diff = expires.getTime() - now.getTime();
     
-    if (diff <= 0) return 'Expired';
+    if (diff <= 0) return t('reputation.discovery.time.expired');
     
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     
-    if (days > 0) return `${days}d ${hours}h remaining`;
-    return `${hours}h remaining`;
+    if (days > 0) return t('reputation.discovery.time.daysHoursRemaining', { days, hours });
+    return t('reputation.discovery.time.hoursRemaining', { hours });
   };
 
   if (loading) {
@@ -189,18 +190,18 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <SparklesIcon className="w-5 h-5 text-purple-600" />
-            <h3 className="font-medium text-gray-900">Discovery Incentives</h3>
+            <h3 className="font-medium text-gray-900">{t('reputation.discovery.title')}</h3>
           </div>
           
           {discoveryScore && (
             <div className="flex items-center space-x-4 text-sm">
               <div className="text-center">
                 <div className="font-bold text-purple-600">{discoveryScore.potentialBonus}</div>
-                <div className="text-gray-500">TOK Available</div>
+                <div className="text-gray-500">{t('reputation.discovery.tokAvailable')}</div>
               </div>
               <div className="text-center">
                 <div className="font-bold text-gray-900">{discoveryScore.eligibilityScore.toFixed(1)}</div>
-                <div className="text-gray-500">Eligibility Score</div>
+                <div className="text-gray-500">{t('reputation.discovery.eligibilityScore')}</div>
               </div>
             </div>
           )}
@@ -213,21 +214,26 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
           <div className="flex items-center space-x-2 mb-2">
             <GiftIcon className="w-5 h-5 text-green-600" />
             <span className="font-medium text-green-900">
-              {claimableBonuses.length} Bonus{claimableBonuses.length !== 1 ? 'es' : ''} Ready to Claim!
+              {t('reputation.discovery.bonusesReadyToClaim', { count: claimableBonuses.length })}
             </span>
           </div>
           <div className="space-y-2">
             {claimableBonuses.map((bonus) => (
               <div key={bonus.campaignId} className="flex items-center justify-between">
                 <span className="text-sm text-green-700">
-                  Campaign {bonus.campaignId.slice(-6)}: {bonus.bonusAmount} TOK
+                  {t('reputation.discovery.campaignBonus', { 
+                    id: bonus.campaignId.slice(-6), 
+                    amount: bonus.bonusAmount 
+                  })}
                 </span>
                 <button
                   onClick={() => handleClaimBonus(bonus.campaignId, bonus.recommendationIds)}
                   disabled={claimLoading === bonus.campaignId}
                   className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50"
                 >
-                  {claimLoading === bonus.campaignId ? 'Claiming...' : 'Claim'}
+                  {claimLoading === bonus.campaignId 
+                    ? t('reputation.discovery.claiming') 
+                    : t('reputation.discovery.claim')}
                 </button>
               </div>
             ))}
@@ -246,7 +252,7 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            Active Campaigns
+            {t('reputation.discovery.tabs.activeCampaigns')}
           </button>
           <button
             onClick={() => setActiveTab('eligible')}
@@ -256,7 +262,7 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            Eligibility
+            {t('reputation.discovery.tabs.eligibility')}
           </button>
         </nav>
       </div>
@@ -268,8 +274,8 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
             {discoveryScore.activeIncentives.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <SparklesIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>No active campaigns in your area</p>
-                <p className="text-sm">Check back soon for new opportunities!</p>
+                <p>{t('reputation.discovery.empty.noCampaigns')}</p>
+                <p className="text-sm">{t('reputation.discovery.empty.checkBackSoon')}</p>
               </div>
             ) : (
               discoveryScore.activeIncentives.map((incentive) => (
@@ -283,7 +289,7 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
                       <div className="text-lg font-bold text-purple-600">
                         {incentive.bonusMultiplier}x
                       </div>
-                      <div className="text-xs text-gray-500">Multiplier</div>
+                      <div className="text-xs text-gray-500">{t('reputation.discovery.multiplier')}</div>
                     </div>
                   </div>
 
@@ -305,7 +311,7 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
                   {/* Progress Bar */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Progress</span>
+                      <span className="text-gray-600">{t('reputation.discovery.progress')}</span>
                       <span className="font-medium">
                         {incentive.currentProgress} / {incentive.targetRecommendations}
                       </span>
@@ -329,13 +335,13 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
                   {/* Campaign Stats */}
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
                     <div>
-                      Pool: {incentive.bonusPool.toLocaleString()} TOK
+                      {t('reputation.discovery.stats.pool', { amount: incentive.bonusPool.toLocaleString() })}
                     </div>
                     <div>
-                      {incentive.participantCount} participants
+                      {t('reputation.discovery.stats.participants', { count: incentive.participantCount })}
                     </div>
                     <div>
-                      Min Trust: {(incentive.minTrustScore / 100).toFixed(2)}
+                      {t('reputation.discovery.stats.minTrust', { score: (incentive.minTrustScore / 100).toFixed(2) })}
                     </div>
                   </div>
                 </div>
@@ -347,34 +353,34 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
         {activeTab === 'eligible' && discoveryScore && (
           <div className="space-y-4">
             <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 mb-3">Your Eligibility Status</h4>
+              <h4 className="font-medium text-gray-900 mb-3">{t('reputation.discovery.eligibility.title')}</h4>
               
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <div className="text-2xl font-bold text-gray-900">
                     {discoveryScore.eligibilityScore.toFixed(1)}
                   </div>
-                  <div className="text-sm text-gray-500">Overall Score</div>
+                  <div className="text-sm text-gray-500">{t('reputation.discovery.eligibility.overallScore')}</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-purple-600">
                     {discoveryScore.potentialBonus}
                   </div>
-                  <div className="text-sm text-gray-500">TOK Available</div>
+                  <div className="text-sm text-gray-500">{t('reputation.discovery.tokAvailable')}</div>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Region Coverage</span>
+                  <span className="text-sm text-gray-600">{t('reputation.discovery.eligibility.regionCoverage')}</span>
                   <span className="font-medium">{(discoveryScore.regionCoverage * 100).toFixed(0)}%</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Category Expertise</span>
+                  <span className="text-sm text-gray-600">{t('reputation.discovery.eligibility.categoryExpertise')}</span>
                   <span className="font-medium">{(discoveryScore.categoryExpertise * 100).toFixed(0)}%</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Eligible Recommendations</span>
+                  <span className="text-sm text-gray-600">{t('reputation.discovery.eligibility.eligibleRecommendations')}</span>
                   <span className="font-medium">{discoveryScore.recommendations.eligible}</span>
                 </div>
               </div>
@@ -383,20 +389,20 @@ export const DiscoveryIncentives: React.FC<DiscoveryIncentivesProps> = ({
             <div className="border border-gray-200 rounded-lg p-4">
               <h4 className="font-medium text-gray-900 mb-2 flex items-center">
                 <TrophyIcon className="w-4 h-4 mr-1 text-yellow-500" />
-                Improve Your Score
+                {t('reputation.discovery.improve.title')}
               </h4>
               <div className="space-y-2 text-sm text-gray-600">
                 <div className="flex items-center space-x-2">
                   <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                  <span>Create {discoveryScore.recommendations.needed} more recommendations</span>
+                  <span>{t('reputation.discovery.improve.createMore', { count: discoveryScore.recommendations.needed })}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                  <span>Focus on underserved geographic areas</span>
+                  <span>{t('reputation.discovery.improve.focusAreas')}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                  <span>Build expertise in trending categories</span>
+                  <span>{t('reputation.discovery.improve.buildExpertise')}</span>
                 </div>
               </div>
             </div>

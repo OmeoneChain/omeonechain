@@ -1,0 +1,63 @@
+{
+  "page": {
+    "title": "Comunidade",
+    "subtitle": "Conecte-se com amantes da gastronomia que compartilham seu gosto"
+  },
+  "search": {
+    "placeholder": "Buscar por nome ou usuário...",
+    "searching": "Buscando...",
+    "noResults": "Nenhum usuário encontrado para \"{query}\"",
+    "clear": "Limpar busca"
+  },
+  "tabs": {
+    "discover": "Descobrir",
+    "following": "Seguindo ({count})"
+  },
+  "discover": {
+    "title": "Descobrir Pessoas",
+    "seeAll": "Ver Todos →",
+    "backToOverview": "← Voltar",
+    "loading": "Carregando...",
+    "empty": {
+      "title": "Nenhum usuário para descobrir no momento",
+      "subtitle": "Volte em breve!"
+    }
+  },
+  "following": {
+    "title": "Seguindo",
+    "loading": "Carregando...",
+    "signInRequired": {
+      "message": "Entre para ver quem você está seguindo"
+    },
+    "empty": {
+      "title": "Você ainda não está seguindo ninguém",
+      "cta": "Descobrir Pessoas"
+    }
+  },
+  "user": {
+    "followers": "seguidores",
+    "followerCount": "{count} seguidores",
+    "recommendations": "recs",
+    "recommendationCount": "{count} recs",
+    "anonymous": "Anônimo",
+    "verified": "Verificado"
+  },
+  "actions": {
+    "follow": "Seguir",
+    "following": "Seguindo",
+    "processing": "...",
+    "signIn": "Entrar"
+  },
+  "comingSoon": {
+    "title": "Mais Formas de Conectar",
+    "badge": "Em Breve",
+    "tasteCircles": {
+      "title": "Rodas de Gosto",
+      "description": "Participe de comunidades de amantes da gastronomia que compartilham seus gostos específicos — de entusiastas de ramen a aficionados por vinhos naturais."
+    },
+    "collaborativeLists": {
+      "title": "Listas Colaborativas",
+      "description": "Crie e compartilhe listas de restaurantes com amigos. Perfeito para planejar viagens ou montar o guia definitivo do seu bairro juntos."
+    }
+  }
+}

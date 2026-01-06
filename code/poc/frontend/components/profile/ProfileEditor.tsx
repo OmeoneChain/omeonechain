@@ -1,10 +1,14 @@
 // =============================================================================
 // FILE: components/profile/ProfileEditor.tsx
 // FIXED VERSION: Uses authApi.updateProfile method cleanly
+// UPDATED: Internationalized with next-intl
 // =============================================================================
 
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { User, Check, X, Save, Loader2, MapPin } from 'lucide-react';
+import { User, X, Save, Loader2, MapPin } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '../../hooks/useAuth';
 import { authApi } from '../../src/services/api';
 import { toast } from 'react-hot-toast';
@@ -25,6 +29,7 @@ interface ProfileEditorProps {
 }
 
 export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
+  const t = useTranslations();
   const { user, token } = useAuth();
   
   const [formData, setFormData] = useState<ProfileData>({});
@@ -54,9 +59,9 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
       setOriginalData(initial);
       setHasChanges(false);
       setErrors({});
-      setApiDebug(['✅ ProfileEditor initialized with authApi.updateProfile']);
+      setApiDebug([t('profile.editor.debug.initialized')]);
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, t]);
 
   // Check for changes
   useEffect(() => {
@@ -69,35 +74,34 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
   const handleInputChange = (field: keyof ProfileData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Clear errors when user types
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
   const addDebugLog = (message: string) => {
-    setApiDebug(prev => [message, ...prev.slice(0, 9)]); // Keep last 10 logs
+    setApiDebug(prev => [message, ...prev.slice(0, 9)]);
   };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.username?.trim()) {
-      newErrors.username = 'Username is required';
+      newErrors.username = t('profile.editor.errors.usernameRequired');
     } else if (formData.username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters';
+      newErrors.username = t('profile.editor.errors.usernameMinLength');
     } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      newErrors.username = 'Username can only contain letters, numbers, and underscores';
+      newErrors.username = t('profile.editor.errors.usernameFormat');
     }
 
     if (!formData.display_name?.trim()) {
-      newErrors.display_name = 'Display name is required';
+      newErrors.display_name = t('profile.editor.errors.displayNameRequired');
     } else if (formData.display_name.length < 2) {
-      newErrors.display_name = 'Display name must be at least 2 characters';
+      newErrors.display_name = t('profile.editor.errors.displayNameMinLength');
     }
 
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+      newErrors.email = t('profile.editor.errors.emailInvalid');
     }
 
     setErrors(newErrors);
@@ -108,13 +112,12 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
     if (!hasChanges) return;
 
     if (!validateForm()) {
-      toast.error('Please fix the errors before saving');
+      toast.error(t('profile.editor.errors.fixErrors'));
       return;
     }
 
-    // Check for authentication token
     if (!token) {
-      toast.error('You are not logged in. Please log in first to update your profile.');
+      toast.error(t('profile.editor.errors.notLoggedIn'));
       addDebugLog('❌ NO TOKEN - User needs to log in');
       return;
     }
@@ -127,7 +130,6 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
     try {
       console.log('💾 Saving profile data:', formData);
       
-      // Clean data to match backend expectations
       const cleanProfileData = {
         username: formData.username?.trim() || '',
         display_name: formData.display_name?.trim() || '',
@@ -141,27 +143,22 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
       addDebugLog(`Sending profile data: ${JSON.stringify(cleanProfileData).substring(0, 100)}...`);
       addDebugLog(`🎯 Using authApi.updateProfile method`);
 
-      // FIXED: Use the API client method instead of manual fetch
       const result = await authApi.updateProfile(cleanProfileData);
 
       if (!result.success) {
-        throw new Error(result.error || 'Profile update failed');
+        throw new Error(result.error || t('profile.editor.errors.updateFailed'));
       }
 
       addDebugLog(`✅ Success: Profile updated via authApi`);
       
       console.log('✅ Profile saved successfully:', result);
       
-      // Call onSave callback if provided
       onSave?.(formData);
       
-      // Show success message
-      toast.success('Profile updated successfully! 🎉');
+      toast.success(t('profile.editor.success'));
       
-      // Close the editor
       onClose();
       
-      // Trigger a page refresh to show updated data
       setTimeout(() => {
         window.location.reload();
       }, 1000);
@@ -170,16 +167,16 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
       console.error('❌ Profile save failed:', error);
       
       if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
-        toast.error('Cannot connect to server. Please check if the backend is running.');
+        toast.error(t('profile.editor.errors.connectionFailed'));
         addDebugLog('❌ CONNECTION_REFUSED - Backend not running or wrong URL');
       } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        toast.error('Authentication failed. Please log in again.');
+        toast.error(t('profile.editor.errors.authFailed'));
         addDebugLog('❌ UNAUTHORIZED - Invalid token or session expired');
       } else if (error.message.includes('400') || error.message.includes('Bad Request')) {
-        toast.error('Invalid data. Please check your input and try again.');
+        toast.error(t('profile.editor.errors.invalidData'));
         addDebugLog('❌ BAD_REQUEST - Server rejected the data');
       } else {
-        toast.error(error.message || 'Something went wrong. Please try again.');
+        toast.error(error.message || t('profile.editor.errors.generic'));
         addDebugLog(`❌ ERROR: ${error.message}`);
       }
     } finally {
@@ -189,7 +186,6 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
 
   if (!isOpen) return null;
 
-  // Generate avatar URL
   const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${formData.username || formData.display_name || 'user'}`;
 
   return (
@@ -199,7 +195,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">
             <User className="w-6 h-6 text-blue-500" />
-            <h2 className="text-xl font-semibold">Edit Profile</h2>
+            <h2 className="text-xl font-semibold">{t('profile.editor.title')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -217,7 +213,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
               <div className="relative">
                 <img
                   src={avatarUrl}
-                  alt="Avatar"
+                  alt={t('profile.editor.avatar.alt')}
                   className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
                   onError={(e) => {
                     e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.display_name || 'User')}&background=3b82f6&color=fff`;
@@ -225,15 +221,15 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
                 />
               </div>
               <div>
-                <h3 className="font-medium text-gray-900">Profile Photo</h3>
-                <p className="text-sm text-gray-500">Auto-generated avatar</p>
+                <h3 className="font-medium text-gray-900">{t('profile.editor.avatar.title')}</h3>
+                <p className="text-sm text-gray-500">{t('profile.editor.avatar.description')}</p>
               </div>
             </div>
 
             {/* Username Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Username *
+                {t('profile.editor.fields.username')} *
               </label>
               <input
                 type="text"
@@ -244,7 +240,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
                     ? 'border-red-300 focus:ring-red-500'
                     : 'border-gray-300 focus:ring-blue-500'
                 }`}
-                placeholder="Enter your username"
+                placeholder={t('profile.editor.placeholders.username')}
                 maxLength={30}
               />
               {errors.username && (
@@ -255,7 +251,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
             {/* Display Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Display Name *
+                {t('profile.editor.fields.displayName')} *
               </label>
               <input
                 type="text"
@@ -266,7 +262,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
                     ? 'border-red-300 focus:ring-red-500'
                     : 'border-gray-300 focus:ring-blue-500'
                 }`}
-                placeholder="Your display name"
+                placeholder={t('profile.editor.placeholders.displayName')}
                 maxLength={50}
               />
               {errors.display_name && (
@@ -277,7 +273,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
             {/* Bio */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bio
+                {t('profile.editor.fields.bio')}
               </label>
               <textarea
                 value={formData.bio || ''}
@@ -285,10 +281,10 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
                 rows={3}
                 maxLength={500}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                placeholder="Tell others about yourself..."
+                placeholder={t('profile.editor.placeholders.bio')}
               />
               <p className="mt-1 text-sm text-gray-500">
-                {(formData.bio || '').length}/500 characters
+                {(formData.bio || '').length}/500 {t('common.characters')}
               </p>
             </div>
 
@@ -297,36 +293,36 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <MapPin className="w-4 h-4 inline mr-1" />
-                  City
+                  {t('profile.editor.fields.city')}
                 </label>
                 <input
                   type="text"
                   value={formData.location_city || ''}
                   onChange={(e) => handleInputChange('location_city', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Your city"
+                  placeholder={t('profile.editor.placeholders.city')}
                   maxLength={100}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Country
+                  {t('profile.editor.fields.country')}
                 </label>
                 <select
                   value={formData.location_country || 'Brazil'}
                   onChange={(e) => handleInputChange('location_country', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="Brazil">Brazil</option>
-                  <option value="United States">United States</option>
-                  <option value="Portugal">Portugal</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="Canada">Canada</option>
-                  <option value="Germany">Germany</option>
-                  <option value="France">France</option>
-                  <option value="Spain">Spain</option>
-                  <option value="Italy">Italy</option>
-                  <option value="Australia">Australia</option>
+                  <option value="Brazil">{t('profile.editor.countries.brazil')}</option>
+                  <option value="United States">{t('profile.editor.countries.usa')}</option>
+                  <option value="Portugal">{t('profile.editor.countries.portugal')}</option>
+                  <option value="United Kingdom">{t('profile.editor.countries.uk')}</option>
+                  <option value="Canada">{t('profile.editor.countries.canada')}</option>
+                  <option value="Germany">{t('profile.editor.countries.germany')}</option>
+                  <option value="France">{t('profile.editor.countries.france')}</option>
+                  <option value="Spain">{t('profile.editor.countries.spain')}</option>
+                  <option value="Italy">{t('profile.editor.countries.italy')}</option>
+                  <option value="Australia">{t('profile.editor.countries.australia')}</option>
                 </select>
               </div>
             </div>
@@ -334,7 +330,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
+                {t('profile.editor.fields.email')}
               </label>
               <input
                 type="email"
@@ -345,7 +341,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
                     ? 'border-red-300 focus:ring-red-500'
                     : 'border-gray-300 focus:ring-blue-500'
                 }`}
-                placeholder="your@email.com"
+                placeholder={t('profile.editor.placeholders.email')}
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -355,28 +351,28 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
 
           {/* Debug Panel - Right Side */}
           <div className="w-96 border-l bg-gray-50 p-4">
-            <h3 className="font-bold text-sm mb-3">🔍 Debug Information</h3>
+            <h3 className="font-bold text-sm mb-3">🔍 {t('profile.editor.debug.title')}</h3>
             
             <div className="space-y-2 text-xs">
               <div>
-                <strong>User ID:</strong> {user?.address || user?.id || 'Not found'}
+                <strong>{t('profile.editor.debug.userId')}:</strong> {user?.address || user?.id || t('profile.editor.debug.notFound')}
               </div>
               <div className={`${token ? 'text-green-600' : 'text-red-600'}`}>
-                <strong>Has Token:</strong> {token ? `Yes (${token.substring(0, 10)}...)` : 'No - Need to log in!'}
+                <strong>{t('profile.editor.debug.hasToken')}:</strong> {token ? `${t('common.yes')} (${token.substring(0, 10)}...)` : `${t('common.no')} - ${t('profile.editor.debug.needLogin')}`}
               </div>
               <div>
-                <strong>Method:</strong> authApi.updateProfile()
+                <strong>{t('profile.editor.debug.method')}:</strong> authApi.updateProfile()
               </div>
               <div>
-                <strong>Backend:</strong> Using environment variables
+                <strong>{t('profile.editor.debug.backend')}:</strong> {t('profile.editor.debug.usingEnvVars')}
               </div>
               <div>
-                <strong>Has Changes:</strong> {hasChanges ? 'Yes' : 'No'}
+                <strong>{t('profile.editor.debug.hasChanges')}:</strong> {hasChanges ? t('common.yes') : t('common.no')}
               </div>
             </div>
 
             <div className="mt-4">
-              <strong className="text-sm">API Call Log:</strong>
+              <strong className="text-sm">{t('profile.editor.debug.apiLog')}:</strong>
               <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
                 {apiDebug.map((log, index) => (
                   <div key={index} className={`text-xs p-2 rounded ${
@@ -394,20 +390,19 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
 
             <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="text-xs text-green-800">
-                <strong>✅ Fixed Issues:</strong><br/>
-                • Using authApi.updateProfile method<br/>
-                • Proper environment variable handling<br/>
-                • Clean API client with auth headers<br/>
-                • Better error handling
+                <strong>✅ {t('profile.editor.debug.fixedIssues')}:</strong><br/>
+                • {t('profile.editor.debug.fix1')}<br/>
+                • {t('profile.editor.debug.fix2')}<br/>
+                • {t('profile.editor.debug.fix3')}<br/>
+                • {t('profile.editor.debug.fix4')}
               </div>
             </div>
 
             {!token && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <div className="text-xs text-red-800">
-                  <strong>🚨 Authentication Required:</strong><br/>
-                  You need to log in with your wallet first.<br/>
-                  Close this dialog and click "Connect Wallet" to authenticate.
+                  <strong>🚨 {t('profile.editor.debug.authRequired')}:</strong><br/>
+                  {t('profile.editor.debug.authRequiredMessage')}
                 </div>
               </div>
             )}
@@ -417,14 +412,14 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t bg-gray-50">
           <p className="text-sm text-gray-500">
-            * Required fields for profile completion
+            {t('profile.editor.requiredFields')}
           </p>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
               className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -438,12 +433,12 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Saving...</span>
+                  <span>{t('profile.editor.saving')}</span>
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  <span>Save Changes</span>
+                  <span>{t('profile.editor.saveChanges')}</span>
                 </>
               )}
             </button>

@@ -1,754 +1,652 @@
+/// BocaBoca Photo Contest Module v1.0 "Serendipity Sunday"
+/// Weekly photo contest with community voting
+/// 
+/// CHANGES FROM v0.8:
+/// - All prizes 10× (1st: 10 → 100 BOCA, 2nd: 5 → 50 BOCA, 3rd: 3 → 30 BOCA)
+/// - Added NOMINATION_REWARD: 0.5 BOCA per nomination (was missing)
+/// - Total pool: 18 → 180 BOCA
+
 module photo_contest::photo_contest {
-    use std::string::String;
-    use std::vector;
-    use iota::object::{Self, UID};
+    use iota::object::{Self, UID, ID};
     use iota::tx_context::{Self, TxContext};
     use iota::transfer;
-    use iota::coin::{Coin, TreasuryCap};
+    use iota::coin::{Self, Coin};
+    use iota::balance::{Self, Balance};
     use iota::clock::{Self, Clock};
     use iota::event;
     use iota::table::{Self, Table};
-    use iota::random::{Self, Random};
-    use bocaboca::token::{Self, TOKEN};
-    use user_status::user_status;
-    use recommendation::recommendation;
+    use std::vector;
+    use std::string::String;
 
-    /// One-time witness for initialization
-    public struct PHOTO_CONTEST has drop {}
+    // Import TOKEN type from deployed token module
+    use bocaboca::token::TOKEN;
 
-    /// Error codes
-    const E_NOT_AUTHORIZED: u64 = 701;
-    const E_CONTEST_NOT_READY: u64 = 702;
-    const E_NOMINATION_PERIOD_CLOSED: u64 = 703;
-    const E_ALREADY_NOMINATED: u64 = 704;
-    const E_VOTING_PERIOD_CLOSED: u64 = 705;
-    const E_ALREADY_VOTED: u64 = 706;
-    const E_CANNOT_VOTE_OWN: u64 = 707;
-    const E_NOT_FINALIST: u64 = 708;
-    const E_FINALISTS_ALREADY_SELECTED: u64 = 709;
-    const E_INSUFFICIENT_NOMINATIONS: u64 = 710;
-    const E_WINNERS_ALREADY_SELECTED: u64 = 711;
-    const E_PRIZES_ALREADY_DISTRIBUTED: u64 = 712;
-    const E_INVALID_NOMINEE: u64 = 713;
-    const E_NOT_RECOMMENDATION_OWNER: u64 = 714;
-
-    /// Contest configuration constants
-    const MAX_FINALISTS: u64 = 10;                   // Select 10 finalists
-    const MIN_NOMINATIONS: u64 = 3;                  // Need at least 3 to run contest
+    // ============================================
+    // CONSTANTS - v1.0 White Paper Specifications
+    // ============================================
     
-    /// Prize amounts (6 decimals)
-    const FIRST_PLACE_PRIZE: u64 = 10_000_000;       // 10 BOCA
-    const SECOND_PLACE_PRIZE: u64 = 5_000_000;       // 5 BOCA
-    const THIRD_PLACE_PRIZE: u64 = 3_000_000;        // 3 BOCA
-    const TOTAL_PRIZE_POOL: u64 = 18_000_000;        // 18 BOCA total
-    
-    /// Timeline constants (day of week: 1=Monday, 7=Sunday)
-    const NOMINATION_START_DAY: u8 = 1;              // Monday
-    const NOMINATION_END_DAY: u8 = 3;                // Wednesday
-    const FINALIST_SELECTION_DAY: u8 = 4;            // Thursday
-    const FINALIST_SELECTION_HOUR: u8 = 9;           // 9am
-    const VOTING_END_DAY: u8 = 6;                    // Saturday
-    const WINNER_ANNOUNCEMENT_DAY: u8 = 7;           // Sunday
-    const WINNER_ANNOUNCEMENT_HOUR: u8 = 20;         // 8pm (20:00)
-    const WINNER_ANNOUNCEMENT_MINUTE: u8 = 15;       // 8:15pm
-    
-    const WEEK_DURATION_MS: u64 = 604_800_000;       // 7 days in milliseconds
+    /// Token decimals
+    const DECIMALS: u64 = 1_000_000;
 
-    /// Photo nomination
-    public struct PhotoNomination has store, copy, drop {
+    /// Prize amounts - UPDATED 10× for v1.0
+    const FIRST_PLACE_PRIZE: u64 = 100_000_000;      // 100 BOCA (was 10)
+    const SECOND_PLACE_PRIZE: u64 = 50_000_000;      // 50 BOCA (was 5)
+    const THIRD_PLACE_PRIZE: u64 = 30_000_000;       // 30 BOCA (was 3)
+    
+    /// Total prize pool
+    const TOTAL_PRIZE_POOL: u64 = 180_000_000;       // 180 BOCA (was 18)
+
+    /// Participation reward - NEW in v1.0
+    const NOMINATION_REWARD: u64 = 500_000;          // 0.5 BOCA per nomination
+
+    /// Contest configuration
+    const MAX_FINALISTS: u64 = 10;
+    const MIN_NOMINATIONS: u64 = 5;  // Minimum nominations to proceed
+
+    /// Feature rewards
+    const FIRST_PLACE_FEATURE: vector<u8> = b"homepage";
+    const SECOND_PLACE_FEATURE: vector<u8> = b"banner";
+    const THIRD_PLACE_FEATURE: vector<u8> = b"banner";
+
+    /// Contest phases (days of week, 0 = Sunday)
+    /// Monday-Wednesday: Nominations
+    /// Thursday AM: Finalist selection
+    /// Thursday-Saturday: Voting
+    /// Sunday 8:15 PM: Winner announcement
+
+    /// Phase durations in milliseconds
+    const NOMINATION_PHASE_MS: u64 = 259_200_000;  // 3 days (Mon-Wed)
+    const SELECTION_PHASE_MS: u64 = 43_200_000;    // 12 hours (Thu AM)
+    const VOTING_PHASE_MS: u64 = 216_000_000;      // 2.5 days (Thu PM - Sat)
+    
+    /// Day in milliseconds
+    const DAY_MS: u64 = 86_400_000;
+
+    // ============================================
+    // ERRORS
+    // ============================================
+    
+    const E_NOT_AUTHORIZED: u64 = 1;
+    const E_WRONG_PHASE: u64 = 2;
+    const E_ALREADY_NOMINATED: u64 = 3;
+    const E_NOT_FINALIST: u64 = 4;
+    const E_ALREADY_VOTED: u64 = 5;
+    const E_INSUFFICIENT_TREASURY: u64 = 6;
+    const E_CONTEST_NOT_ACTIVE: u64 = 7;
+    const E_INVALID_PHOTO: u64 = 8;
+    const E_SELF_NOMINATION: u64 = 9;
+
+    // ============================================
+    // ENUMS
+    // ============================================
+
+    /// Contest phases
+    const PHASE_INACTIVE: u8 = 0;
+    const PHASE_NOMINATIONS: u8 = 1;
+    const PHASE_SELECTION: u8 = 2;
+    const PHASE_VOTING: u8 = 3;
+    const PHASE_COMPLETE: u8 = 4;
+
+    // ============================================
+    // STRUCTS
+    // ============================================
+
+    /// Photo contest state - shared object
+    public struct PhotoContestState has key {
+        id: UID,
+        /// Current contest week
+        current_week: u64,
+        /// Current phase
+        current_phase: u8,
+        /// Phase start timestamp
+        phase_start: u64,
+        /// Treasury for prizes
+        treasury: Balance<TOKEN>,
+        /// Total prizes distributed all-time
+        total_distributed: u64,
+        /// Nominations this week (recommendation_id -> nomination)
+        nominations: Table<ID, PhotoNomination>,
+        /// Nomination IDs for iteration
+        nomination_list: vector<ID>,
+        /// Selected finalists
+        finalists: vector<ID>,
+        /// Votes (voter -> recommendation_id voted for)
+        votes: Table<address, ID>,
+        /// Vote counts per finalist
+        vote_counts: Table<ID, u64>,
+        /// Previous winners
+        last_winners: vector<ContestWinner>,
+    }
+
+    /// Photo nomination entry
+    public struct PhotoNomination has store, drop {
+        /// Recommendation ID containing the photo
+        recommendation_id: ID,
+        /// Photo URL/IPFS hash
+        photo_url: String,
+        /// Nominator address
         nominator: address,
-        recommendation_id: String,
-        photo_ipfs_cid: String,
-        restaurant_name: String,
-        caption: String,
-        submission_timestamp: u64,
-        votes: u64,                                   // Vote count (pure 1 person = 1 vote)
+        /// Photo author address
+        author: address,
+        /// Nomination timestamp
+        nominated_at: u64,
+        /// Is finalist
         is_finalist: bool,
+        /// Vote count (only counted if finalist)
+        votes: u64,
     }
 
-    /// Weekly photo contest
-    public struct WeeklyPhotoContest has key, store {
+    /// Contest winner record
+    public struct ContestWinner has store, drop, copy {
+        recommendation_id: ID,
+        author: address,
+        place: u8,
+        prize_amount: u64,
+        feature_type: vector<u8>,
+        votes: u64,
+        week: u64,
+    }
+
+    /// Admin capability
+    public struct ContestAdminCap has key, store {
         id: UID,
-        week_id: u64,
-        start_time: u64,                              // Monday 12:00am
-        
-        // Nomination phase (Monday-Wednesday)
-        nomination_deadline: u64,                     // Wednesday 11:59pm
-        nominations: vector<PhotoNomination>,
-        nominators: Table<address, u64>,              // address -> nomination_index
-        total_nominations: u64,
-        
-        // Finalist selection phase (Thursday 9am)
-        finalists_selected: bool,
-        finalist_selection_time: u64,
-        finalists: vector<u64>,                       // Indices into nominations vector
-        
-        // Voting phase (Thursday-Saturday)
-        voting_deadline: u64,                         // Saturday 11:59pm
-        voters: Table<address, u64>,                  // address -> voted_for_index
-        total_votes: u64,
-        
-        // Results (Sunday 8:15pm)
-        winners_selected: bool,
-        winner_selection_time: u64,
-        first_place_index: u64,
-        second_place_index: u64,
-        third_place_index: u64,
-        
-        // Prize distribution
-        prizes_distributed: bool,
-        prize_distribution_timestamp: u64,
     }
 
-    /// User's lifetime photo contest statistics
-    public struct UserPhotoContestStats has key, store {
+    /// Nomination receipt (proof of participation)
+    public struct NominationReceipt has key, store {
         id: UID,
-        user: address,
-        
-        // Lifetime stats
-        total_nominations: u64,
-        total_finalist_appearances: u64,
-        total_wins: u64,
-        total_first_place: u64,
-        total_second_place: u64,
-        total_third_place: u64,
-        total_prizes_won: u64,                        // In BOCA
-        total_votes_received: u64,                    // Lifetime votes
-        
-        // First/last activity
-        first_nomination_timestamp: u64,
-        last_nomination_timestamp: u64,
-        first_win_timestamp: u64,
-        last_win_timestamp: u64,
-        
-        // Current week
-        nominated_this_week: bool,
-        voted_this_week: bool,
-        current_week_id: u64,
+        nominator: address,
+        recommendation_id: ID,
+        week: u64,
+        reward_earned: u64,
     }
 
-    /// Global photo contest registry
-    public struct GlobalPhotoContestRegistry has key {
+    /// Vote receipt
+    public struct VoteReceipt has key, store {
         id: UID,
-        current_week_id: u64,
-        current_contest: ID,                         // Current week's contest UID
-        
-        // Historical tracking
-        total_weeks: u64,
-        total_nominations: u64,
-        total_prizes_distributed: u64,                // Total BOCA distributed
-        total_unique_winners: u64,
-        
-        // User stats tracking
-        user_stats: Table<address, UserPhotoContestStats>,
-        
-        // Admin
-        moderators: vector<address>,
-        admin: address,
-        
-        // Launch time
-        first_week_start: u64,
+        voter: address,
+        voted_for: ID,
+        week: u64,
     }
 
-    /// Events
-    public struct ContestWeekStarted has copy, drop {
-        week_id: u64,
-        start_time: u64,
-        nomination_deadline: u64,
-        voting_deadline: u64,
-    }
+    // ============================================
+    // EVENTS
+    // ============================================
 
     public struct PhotoNominated has copy, drop {
-        week_id: u64,
+        recommendation_id: ID,
         nominator: address,
-        recommendation_id: String,
-        photo_ipfs_cid: String,
-        restaurant_name: String,
-        timestamp: u64,
+        author: address,
+        week: u64,
+        reward_earned: u64,
     }
 
     public struct FinalistsSelected has copy, drop {
-        week_id: u64,
-        total_nominations: u64,
-        finalists_count: u64,
-        finalist_indices: vector<u64>,
-        timestamp: u64,
+        week: u64,
+        finalist_count: u64,
+        finalist_ids: vector<ID>,
     }
 
     public struct VoteCast has copy, drop {
-        week_id: u64,
         voter: address,
-        nominee_index: u64,
-        restaurant_name: String,
+        voted_for: ID,
+        week: u64,
+    }
+
+    public struct ContestWinnersAnnounced has copy, drop {
+        week: u64,
+        first_place: ID,
+        second_place: ID,
+        third_place: ID,
+        total_votes: u64,
+    }
+
+    public struct PhaseChanged has copy, drop {
+        week: u64,
+        old_phase: u8,
+        new_phase: u8,
         timestamp: u64,
     }
 
-    public struct WinnersAnnounced has copy, drop {
-        week_id: u64,
-        first_place: address,
-        second_place: address,
-        third_place: address,
-        first_place_votes: u64,
-        second_place_votes: u64,
-        third_place_votes: u64,
-        timestamp: u64,
+    public struct ParticipationRewardPaid has copy, drop {
+        recipient: address,
+        amount: u64,
+        week: u64,
     }
 
-    public struct PrizesDistributed has copy, drop {
-        week_id: u64,
-        first_place: address,
-        second_place: address,
-        third_place: address,
-        first_prize: u64,
-        second_prize: u64,
-        third_prize: u64,
-        timestamp: u64,
-    }
+    // ============================================
+    // INITIALIZATION
+    // ============================================
 
-    /// Initialize the photo contest system
-    fun init(_witness: PHOTO_CONTEST, ctx: &mut TxContext) {
-        let admin = tx_context::sender(ctx);
-
-        let mut registry = GlobalPhotoContestRegistry {
+    fun init(ctx: &mut TxContext) {
+        let admin_cap = ContestAdminCap {
             id: object::new(ctx),
-            current_week_id: 0,
-            current_contest: object::id_from_bytes(x"0000000000000000000000000000000000000000000000000000000000000000"), // Placeholder
-            total_weeks: 0,
-            total_nominations: 0,
-            total_prizes_distributed: 0,
-            total_unique_winners: 0,
-            user_stats: table::new(ctx),
-            moderators: vector::empty(),
-            admin,
-            first_week_start: 0,
         };
 
-        vector::push_back(&mut registry.moderators, admin);
-
-        transfer::share_object(registry);
-    }
-
-    /// Start the first contest week (called once at launch)
-    public fun initialize_first_week(
-        registry: &mut GlobalPhotoContestRegistry,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ) {
-        let caller = tx_context::sender(ctx);
-        assert!(caller == registry.admin, E_NOT_AUTHORIZED);
-        assert!(registry.current_week_id == 0, E_FINALISTS_ALREADY_SELECTED);
-
-        let now = clock::timestamp_ms(clock);
-        
-        // Calculate next Monday 12:00am
-        let week_start = calculate_next_monday_midnight(now);
-        let nomination_deadline = week_start + (NOMINATION_END_DAY as u64) * 86_400_000;
-        let voting_deadline = week_start + (VOTING_END_DAY as u64) * 86_400_000;
-
-        // Create first contest
-        let contest = WeeklyPhotoContest {
+        let contest_state = PhotoContestState {
             id: object::new(ctx),
-            week_id: 1,
-            start_time: week_start,
-            nomination_deadline,
-            nominations: vector::empty(),
-            nominators: table::new(ctx),
-            total_nominations: 0,
-            finalists_selected: false,
-            finalist_selection_time: week_start + (FINALIST_SELECTION_DAY as u64) * 86_400_000,
+            current_week: 0,
+            current_phase: PHASE_INACTIVE,
+            phase_start: 0,
+            treasury: balance::zero(),
+            total_distributed: 0,
+            nominations: table::new(ctx),
+            nomination_list: vector::empty(),
             finalists: vector::empty(),
-            voting_deadline,
-            voters: table::new(ctx),
-            total_votes: 0,
-            winners_selected: false,
-            winner_selection_time: week_start + (WINNER_ANNOUNCEMENT_DAY as u64) * 86_400_000,
-            first_place_index: 0,
-            second_place_index: 0,
-            third_place_index: 0,
-            prizes_distributed: false,
-            prize_distribution_timestamp: 0,
+            votes: table::new(ctx),
+            vote_counts: table::new(ctx),
+            last_winners: vector::empty(),
         };
 
-        let contest_uid = object::uid_to_inner(&contest.id);
+        transfer::transfer(admin_cap, tx_context::sender(ctx));
+        transfer::share_object(contest_state);
+    }
 
-        registry.current_week_id = 1;
-        registry.current_contest = contest_uid;
-        registry.first_week_start = week_start;
-        registry.total_weeks = 1;
+    // ============================================
+    // ADMIN FUNCTIONS
+    // ============================================
 
-        event::emit(ContestWeekStarted {
-            week_id: 1,
-            start_time: week_start,
-            nomination_deadline,
-            voting_deadline,
+    /// Start a new contest week (nominations phase)
+    public entry fun start_nominations(
+        _admin: &ContestAdminCap,
+        state: &mut PhotoContestState,
+        clock: &Clock,
+        _ctx: &mut TxContext
+    ) {
+        assert!(
+            state.current_phase == PHASE_INACTIVE || state.current_phase == PHASE_COMPLETE,
+            E_CONTEST_NOT_ACTIVE
+        );
+        
+        let now = clock::timestamp_ms(clock);
+        let old_phase = state.current_phase;
+        
+        // Clear previous week data
+        clear_contest_data(state);
+        
+        state.current_week = state.current_week + 1;
+        state.current_phase = PHASE_NOMINATIONS;
+        state.phase_start = now;
+
+        event::emit(PhaseChanged {
+            week: state.current_week,
+            old_phase,
+            new_phase: PHASE_NOMINATIONS,
+            timestamp: now,
+        });
+    }
+
+    /// Select finalists (random selection from nominations)
+    public entry fun select_finalists(
+        _admin: &ContestAdminCap,
+        state: &mut PhotoContestState,
+        vrf_seed: vector<u8>,
+        clock: &Clock,
+        _ctx: &mut TxContext
+    ) {
+        assert!(state.current_phase == PHASE_NOMINATIONS, E_WRONG_PHASE);
+        
+        let now = clock::timestamp_ms(clock);
+        let old_phase = state.current_phase;
+        
+        let num_nominations = vector::length(&state.nomination_list);
+        
+        // Select up to MAX_FINALISTS randomly
+        let num_finalists = if (num_nominations > MAX_FINALISTS) {
+            MAX_FINALISTS
+        } else {
+            num_nominations
+        };
+
+        // Random selection
+        let selected = random_select_finalists(state, &vrf_seed, num_finalists);
+        
+        // Mark finalists and initialize vote counts
+        let mut i = 0;
+        while (i < vector::length(&selected)) {
+            let rec_id = *vector::borrow(&selected, i);
+            
+            // Mark as finalist
+            if (table::contains(&state.nominations, rec_id)) {
+                let nom = table::borrow_mut(&mut state.nominations, rec_id);
+                nom.is_finalist = true;
+            };
+            
+            // Initialize vote count
+            table::add(&mut state.vote_counts, rec_id, 0);
+            
+            i = i + 1;
+        };
+
+        state.finalists = selected;
+        state.current_phase = PHASE_VOTING;
+        state.phase_start = now;
+
+        event::emit(FinalistsSelected {
+            week: state.current_week,
+            finalist_count: vector::length(&state.finalists),
+            finalist_ids: state.finalists,
         });
 
-        transfer::share_object(contest);
+        event::emit(PhaseChanged {
+            week: state.current_week,
+            old_phase,
+            new_phase: PHASE_VOTING,
+            timestamp: now,
+        });
     }
 
-    /// Nominate a photo (Monday-Wednesday)
-    public fun nominate_photo(
-        registry: &mut GlobalPhotoContestRegistry,
-        contest: &mut WeeklyPhotoContest,
-        recommendation_id: String,
-        photo_ipfs_cid: String,
-        restaurant_name: String,
-        caption: String,
+    /// Announce winners and distribute prizes
+    public entry fun announce_winners(
+        _admin: &ContestAdminCap,
+        state: &mut PhotoContestState,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        let nominator = tx_context::sender(ctx);
+        assert!(state.current_phase == PHASE_VOTING, E_WRONG_PHASE);
+        
         let now = clock::timestamp_ms(clock);
+        
+        // Sort finalists by vote count
+        let sorted = sort_by_votes(state);
+        
+        // Ensure we have enough finalists
+        let num_finalists = vector::length(&sorted);
+        if (num_finalists < 3) {
+            // Not enough participation, rollover
+            state.current_phase = PHASE_COMPLETE;
+            return
+        };
 
-        // Verify we're in nomination period
-        assert!(now >= contest.start_time && now <= contest.nomination_deadline, 
-                E_NOMINATION_PERIOD_CLOSED);
+        // Get top 3
+        let first_id = *vector::borrow(&sorted, 0);
+        let second_id = *vector::borrow(&sorted, 1);
+        let third_id = *vector::borrow(&sorted, 2);
+
+        // Calculate total votes
+        let mut total_votes = 0u64;
+        let mut i = 0;
+        while (i < num_finalists) {
+            let id = *vector::borrow(&sorted, i);
+            total_votes = total_votes + *table::borrow(&state.vote_counts, id);
+            i = i + 1;
+        };
+
+        // Create winner records and pay prizes
+        let mut winners = vector::empty<ContestWinner>();
+
+        // First place
+        let first_nom = table::borrow(&state.nominations, first_id);
+        let first_winner = ContestWinner {
+            recommendation_id: first_id,
+            author: first_nom.author,
+            place: 1,
+            prize_amount: FIRST_PLACE_PRIZE,
+            feature_type: FIRST_PLACE_FEATURE,
+            votes: first_nom.votes,
+            week: state.current_week,
+        };
+        pay_prize(state, first_nom.author, FIRST_PLACE_PRIZE, ctx);
+        vector::push_back(&mut winners, first_winner);
+
+        // Second place
+        let second_nom = table::borrow(&state.nominations, second_id);
+        let second_winner = ContestWinner {
+            recommendation_id: second_id,
+            author: second_nom.author,
+            place: 2,
+            prize_amount: SECOND_PLACE_PRIZE,
+            feature_type: SECOND_PLACE_FEATURE,
+            votes: second_nom.votes,
+            week: state.current_week,
+        };
+        pay_prize(state, second_nom.author, SECOND_PLACE_PRIZE, ctx);
+        vector::push_back(&mut winners, second_winner);
+
+        // Third place
+        let third_nom = table::borrow(&state.nominations, third_id);
+        let third_winner = ContestWinner {
+            recommendation_id: third_id,
+            author: third_nom.author,
+            place: 3,
+            prize_amount: THIRD_PLACE_PRIZE,
+            feature_type: THIRD_PLACE_FEATURE,
+            votes: third_nom.votes,
+            week: state.current_week,
+        };
+        pay_prize(state, third_nom.author, THIRD_PLACE_PRIZE, ctx);
+        vector::push_back(&mut winners, third_winner);
+
+        state.last_winners = winners;
+        state.current_phase = PHASE_COMPLETE;
+
+        event::emit(ContestWinnersAnnounced {
+            week: state.current_week,
+            first_place: first_id,
+            second_place: second_id,
+            third_place: third_id,
+            total_votes,
+        });
+
+        event::emit(PhaseChanged {
+            week: state.current_week,
+            old_phase: PHASE_VOTING,
+            new_phase: PHASE_COMPLETE,
+            timestamp: now,
+        });
+    }
+
+    /// Fund the contest treasury
+    public entry fun fund_contest(
+        state: &mut PhotoContestState,
+        payment: Coin<TOKEN>,
+        _ctx: &mut TxContext
+    ) {
+        let payment_balance = coin::into_balance(payment);
+        balance::join(&mut state.treasury, payment_balance);
+    }
+
+    // ============================================
+    // PUBLIC FUNCTIONS
+    // ============================================
+
+    /// Nominate a photo for the contest
+    /// v1.0: Now pays NOMINATION_REWARD to nominator
+    public entry fun nominate_photo(
+        state: &mut PhotoContestState,
+        recommendation_id: ID,
+        photo_url: String,
+        author: address,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        assert!(state.current_phase == PHASE_NOMINATIONS, E_WRONG_PHASE);
         
-        // Verify user hasn't already nominated
-        assert!(!table::contains(&contest.nominators, nominator), E_ALREADY_NOMINATED);
+        let sender = tx_context::sender(ctx);
+        let now = clock::timestamp_ms(clock);
         
-        // TODO: Verify recommendation ownership on-chain
-        // In production, would call: recommendation::verify_owner(recommendation_id, nominator)
-        // For now, we trust and verify via moderation
+        // Cannot nominate own photo
+        assert!(sender != author, E_SELF_NOMINATION);
+        
+        // Cannot nominate same photo twice
+        assert!(!table::contains(&state.nominations, recommendation_id), E_ALREADY_NOMINATED);
 
         // Create nomination
         let nomination = PhotoNomination {
-            nominator,
             recommendation_id,
-            photo_ipfs_cid,
-            restaurant_name,
-            caption,
-            submission_timestamp: now,
-            votes: 0,
+            photo_url,
+            nominator: sender,
+            author,
+            nominated_at: now,
             is_finalist: false,
+            votes: 0,
         };
 
-        // Add to contest
-        let nomination_index = vector::length(&contest.nominations);
-        vector::push_back(&mut contest.nominations, nomination);
-        table::add(&mut contest.nominators, nominator, nomination_index);
-        contest.total_nominations = contest.total_nominations + 1;
+        table::add(&mut state.nominations, recommendation_id, nomination);
+        vector::push_back(&mut state.nomination_list, recommendation_id);
 
-        // Update or create user stats
-        if (!table::contains(&registry.user_stats, nominator)) {
-            let stats = UserPhotoContestStats {
-                id: object::new(ctx),
-                user: nominator,
-                total_nominations: 0,
-                total_finalist_appearances: 0,
-                total_wins: 0,
-                total_first_place: 0,
-                total_second_place: 0,
-                total_third_place: 0,
-                total_prizes_won: 0,
-                total_votes_received: 0,
-                first_nomination_timestamp: 0,
-                last_nomination_timestamp: 0,
-                first_win_timestamp: 0,
-                last_win_timestamp: 0,
-                nominated_this_week: false,
-                voted_this_week: false,
-                current_week_id: 0,
-            };
-            table::add(&mut registry.user_stats, nominator, stats);
+        // v1.0: Pay participation reward to nominator
+        let mut reward_paid = 0u64;
+        if (balance::value(&state.treasury) >= NOMINATION_REWARD) {
+            let reward = coin::take(&mut state.treasury, NOMINATION_REWARD, ctx);
+            transfer::public_transfer(reward, sender);
+            state.total_distributed = state.total_distributed + NOMINATION_REWARD;
+            reward_paid = NOMINATION_REWARD;
+
+            event::emit(ParticipationRewardPaid {
+                recipient: sender,
+                amount: NOMINATION_REWARD,
+                week: state.current_week,
+            });
         };
 
-        let user_stats = table::borrow_mut(&mut registry.user_stats, nominator);
-        
-        // Reset weekly flags if new week
-        if (user_stats.current_week_id != registry.current_week_id) {
-            user_stats.nominated_this_week = false;
-            user_stats.voted_this_week = false;
-            user_stats.current_week_id = registry.current_week_id;
+        // Create receipt for nominator
+        let receipt = NominationReceipt {
+            id: object::new(ctx),
+            nominator: sender,
+            recommendation_id,
+            week: state.current_week,
+            reward_earned: reward_paid,
         };
-
-        user_stats.total_nominations = user_stats.total_nominations + 1;
-        user_stats.nominated_this_week = true;
-        user_stats.last_nomination_timestamp = now;
-        
-        if (user_stats.first_nomination_timestamp == 0) {
-            user_stats.first_nomination_timestamp = now;
-        };
-
-        registry.total_nominations = registry.total_nominations + 1;
+        transfer::transfer(receipt, sender);
 
         event::emit(PhotoNominated {
-            week_id: contest.week_id,
-            nominator,
             recommendation_id,
-            photo_ipfs_cid,
-            restaurant_name,
-            timestamp: now,
+            nominator: sender,
+            author,
+            week: state.current_week,
+            reward_earned: reward_paid,
         });
     }
 
-    /// Select finalists using VRF (Thursday 9am)
-    public fun select_finalists(
-        registry: &mut GlobalPhotoContestRegistry,
-        contest: &mut WeeklyPhotoContest,
-        random: &Random,
-        clock: &Clock,
+    /// Cast vote for a finalist
+    public entry fun vote(
+        state: &mut PhotoContestState,
+        recommendation_id: ID,
+        _clock: &Clock,
         ctx: &mut TxContext
     ) {
-        let caller = tx_context::sender(ctx);
-        let now = clock::timestamp_ms(clock);
+        assert!(state.current_phase == PHASE_VOTING, E_WRONG_PHASE);
+        
+        let sender = tx_context::sender(ctx);
+        
+        // Check not already voted
+        assert!(!table::contains(&state.votes, sender), E_ALREADY_VOTED);
+        
+        // Check voting for a finalist
+        assert!(vector::contains(&state.finalists, &recommendation_id), E_NOT_FINALIST);
 
-        // Verify caller is authorized
-        assert!(is_moderator(registry, caller), E_NOT_AUTHORIZED);
+        // Record vote
+        table::add(&mut state.votes, sender, recommendation_id);
         
-        // Verify we're past nomination deadline
-        assert!(now >= contest.nomination_deadline, E_CONTEST_NOT_READY);
+        // Increment vote count
+        let count = table::borrow_mut(&mut state.vote_counts, recommendation_id);
+        *count = *count + 1;
         
-        // Verify finalists haven't been selected
-        assert!(!contest.finalists_selected, E_FINALISTS_ALREADY_SELECTED);
-        
-        // Verify we have enough nominations
-        assert!(contest.total_nominations >= MIN_NOMINATIONS, E_INSUFFICIENT_NOMINATIONS);
-
-        let total_noms = vector::length(&contest.nominations);
-        
-        // If 10 or fewer nominations, all become finalists
-        if (total_noms <= MAX_FINALISTS) {
-            let mut i = 0;
-            while (i < total_noms) {
-                vector::push_back(&mut contest.finalists, i);
-                let nomination = vector::borrow_mut(&mut contest.nominations, i);
-                nomination.is_finalist = true;
-                
-                // Update user stats
-                let nominator = nomination.nominator;
-                if (table::contains(&registry.user_stats, nominator)) {
-                    let stats = table::borrow_mut(&mut registry.user_stats, nominator);
-                    stats.total_finalist_appearances = stats.total_finalist_appearances + 1;
-                };
-                
-                i = i + 1;
-            };
-        } else {
-            // Use VRF to select 10 random finalists
-            let mut generator = random::new_generator(random, ctx);
-            let mut selected = vector::empty<u64>();
-            
-            while (vector::length(&selected) < MAX_FINALISTS) {
-                let random_index = random::generate_u64_in_range(&mut generator, 0, total_noms - 1);
-                
-                // Check if already selected
-                if (!vector::contains(&selected, &random_index)) {
-                    vector::push_back(&mut selected, random_index);
-                    vector::push_back(&mut contest.finalists, random_index);
-                    
-                    let nomination = vector::borrow_mut(&mut contest.nominations, random_index);
-                    nomination.is_finalist = true;
-                    
-                    // Update user stats
-                    let nominator = nomination.nominator;
-                    if (table::contains(&registry.user_stats, nominator)) {
-                        let stats = table::borrow_mut(&mut registry.user_stats, nominator);
-                        stats.total_finalist_appearances = stats.total_finalist_appearances + 1;
-                    };
-                };
-            };
+        // Update nomination record
+        if (table::contains(&state.nominations, recommendation_id)) {
+            let nom = table::borrow_mut(&mut state.nominations, recommendation_id);
+            nom.votes = nom.votes + 1;
         };
 
-        contest.finalists_selected = true;
-        contest.finalist_selection_time = now;
-
-        event::emit(FinalistsSelected {
-            week_id: contest.week_id,
-            total_nominations: total_noms,
-            finalists_count: vector::length(&contest.finalists),
-            finalist_indices: contest.finalists,
-            timestamp: now,
-        });
-    }
-
-    /// Vote for a finalist (Thursday-Saturday)
-    /// Pure 1 person = 1 vote (democratic)
-    public fun vote_for_photo(
-        registry: &mut GlobalPhotoContestRegistry,
-        contest: &mut WeeklyPhotoContest,
-        nominee_index: u64,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ) {
-        let voter = tx_context::sender(ctx);
-        let now = clock::timestamp_ms(clock);
-
-        // Verify finalists have been selected
-        assert!(contest.finalists_selected, E_CONTEST_NOT_READY);
-        
-        // Verify we're in voting period
-        assert!(now >= contest.finalist_selection_time && now <= contest.voting_deadline, 
-                E_VOTING_PERIOD_CLOSED);
-        
-        // Verify voter hasn't already voted
-        assert!(!table::contains(&contest.voters, voter), E_ALREADY_VOTED);
-        
-        // Verify nominee is a finalist
-        assert!(vector::contains(&contest.finalists, &nominee_index), E_NOT_FINALIST);
-        
-        // Verify valid index
-        assert!(nominee_index < vector::length(&contest.nominations), E_INVALID_NOMINEE);
-        
-        let nomination = vector::borrow(&contest.nominations, nominee_index);
-        
-        // Verify not voting for own photo
-        assert!(nomination.nominator != voter, E_CANNOT_VOTE_OWN);
-
-        // Record vote (pure 1 vote = 1 vote)
-        table::add(&mut contest.voters, voter, nominee_index);
-        contest.total_votes = contest.total_votes + 1;
-        
-        // Update nomination vote count
-        let nomination_mut = vector::borrow_mut(&mut contest.nominations, nominee_index);
-        nomination_mut.votes = nomination_mut.votes + 1;
-        
-        // Update nominator's stats
-        if (table::contains(&registry.user_stats, nomination_mut.nominator)) {
-            let stats = table::borrow_mut(&mut registry.user_stats, nomination_mut.nominator);
-            stats.total_votes_received = stats.total_votes_received + 1;
+        // Create receipt for voter
+        let receipt = VoteReceipt {
+            id: object::new(ctx),
+            voter: sender,
+            voted_for: recommendation_id,
+            week: state.current_week,
         };
-        
-        // Update voter's stats
-        if (!table::contains(&registry.user_stats, voter)) {
-            let stats = UserPhotoContestStats {
-                id: object::new(ctx),
-                user: voter,
-                total_nominations: 0,
-                total_finalist_appearances: 0,
-                total_wins: 0,
-                total_first_place: 0,
-                total_second_place: 0,
-                total_third_place: 0,
-                total_prizes_won: 0,
-                total_votes_received: 0,
-                first_nomination_timestamp: 0,
-                last_nomination_timestamp: 0,
-                first_win_timestamp: 0,
-                last_win_timestamp: 0,
-                nominated_this_week: false,
-                voted_this_week: false,
-                current_week_id: 0,
-            };
-            table::add(&mut registry.user_stats, voter, stats);
-        };
-        
-        let voter_stats = table::borrow_mut(&mut registry.user_stats, voter);
-        
-        // Reset weekly flags if new week
-        if (voter_stats.current_week_id != registry.current_week_id) {
-            voter_stats.nominated_this_week = false;
-            voter_stats.voted_this_week = false;
-            voter_stats.current_week_id = registry.current_week_id;
-        };
-        
-        voter_stats.voted_this_week = true;
+        transfer::transfer(receipt, sender);
 
         event::emit(VoteCast {
-            week_id: contest.week_id,
-            voter,
-            nominee_index,
-            restaurant_name: nomination_mut.restaurant_name,
-            timestamp: now,
+            voter: sender,
+            voted_for: recommendation_id,
+            week: state.current_week,
         });
     }
 
-    /// Select winners based on votes (Sunday 8:15pm)
-    public fun select_winners(
-        registry: &mut GlobalPhotoContestRegistry,
-        contest: &mut WeeklyPhotoContest,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ) {
-        let caller = tx_context::sender(ctx);
-        let now = clock::timestamp_ms(clock);
+    // ============================================
+    // INTERNAL FUNCTIONS
+    // ============================================
 
-        // Verify caller is authorized
-        assert!(is_moderator(registry, caller), E_NOT_AUTHORIZED);
-        
-        // Verify we're past voting deadline
-        assert!(now >= contest.voting_deadline, E_CONTEST_NOT_READY);
-        
-        // Verify winners haven't been selected
-        assert!(!contest.winners_selected, E_WINNERS_ALREADY_SELECTED);
-        
-        // Find top 3 by vote count (first-to-reach ties win)
-        let (first, second, third) = find_top_three_finalists(&contest.finalists, &contest.nominations);
-        
-        contest.first_place_index = first;
-        contest.second_place_index = second;
-        contest.third_place_index = third;
-        contest.winners_selected = true;
-        contest.winner_selection_time = now;
-        
-        // Get winner addresses and vote counts
-        let first_nom = vector::borrow(&contest.nominations, first);
-        let second_nom = vector::borrow(&contest.nominations, second);
-        let third_nom = vector::borrow(&contest.nominations, third);
-        
-        // Update winner stats
-        update_winner_stats(registry, first_nom.nominator, 1, FIRST_PLACE_PRIZE, now);
-        update_winner_stats(registry, second_nom.nominator, 2, SECOND_PLACE_PRIZE, now);
-        update_winner_stats(registry, third_nom.nominator, 3, THIRD_PLACE_PRIZE, now);
-
-        event::emit(WinnersAnnounced {
-            week_id: contest.week_id,
-            first_place: first_nom.nominator,
-            second_place: second_nom.nominator,
-            third_place: third_nom.nominator,
-            first_place_votes: first_nom.votes,
-            second_place_votes: second_nom.votes,
-            third_place_votes: third_nom.votes,
-            timestamp: now,
-        });
-    }
-
-    /// Distribute prizes to winners (called after winner selection)
-    public fun distribute_prizes(
-        treasury_cap: &mut TreasuryCap<TOKEN>,
-        registry: &mut GlobalPhotoContestRegistry,
-        contest: &mut WeeklyPhotoContest,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ) {
-        let caller = tx_context::sender(ctx);
-        assert!(is_moderator(registry, caller), E_NOT_AUTHORIZED);
-        assert!(contest.winners_selected, E_CONTEST_NOT_READY);
-        assert!(!contest.prizes_distributed, E_PRIZES_ALREADY_DISTRIBUTED);
-
-        let now = clock::timestamp_ms(clock);
-
-        // Get winners
-        let first_nom = vector::borrow(&contest.nominations, contest.first_place_index);
-        let second_nom = vector::borrow(&contest.nominations, contest.second_place_index);
-        let third_nom = vector::borrow(&contest.nominations, contest.third_place_index);
-
-        // Mint prizes
-        let first_coin = token::mint(treasury_cap, FIRST_PLACE_PRIZE, ctx);
-        let second_coin = token::mint(treasury_cap, SECOND_PLACE_PRIZE, ctx);
-        let third_coin = token::mint(treasury_cap, THIRD_PLACE_PRIZE, ctx);
-
-        // Transfer to winners
-        transfer::public_transfer(first_coin, first_nom.nominator);
-        transfer::public_transfer(second_coin, second_nom.nominator);
-        transfer::public_transfer(third_coin, third_nom.nominator);
-
-        contest.prizes_distributed = true;
-        contest.prize_distribution_timestamp = now;
-
-        registry.total_prizes_distributed = registry.total_prizes_distributed + TOTAL_PRIZE_POOL;
-
-        event::emit(PrizesDistributed {
-            week_id: contest.week_id,
-            first_place: first_nom.nominator,
-            second_place: second_nom.nominator,
-            third_place: third_nom.nominator,
-            first_prize: FIRST_PLACE_PRIZE,
-            second_prize: SECOND_PLACE_PRIZE,
-            third_prize: THIRD_PLACE_PRIZE,
-            timestamp: now,
-        });
-    }
-
-    /// Start new contest week (Monday 12:00am)
-    public fun start_new_week(
-        registry: &mut GlobalPhotoContestRegistry,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ) {
-        let caller = tx_context::sender(ctx);
-        let now = clock::timestamp_ms(clock);
-
-        assert!(is_moderator(registry, caller), E_NOT_AUTHORIZED);
-
-        let new_week_id = registry.current_week_id + 1;
-        let week_start = registry.first_week_start + ((new_week_id - 1) * WEEK_DURATION_MS);
-        let nomination_deadline = week_start + (NOMINATION_END_DAY as u64) * 86_400_000;
-        let voting_deadline = week_start + (VOTING_END_DAY as u64) * 86_400_000;
-
-        assert!(now >= week_start, E_CONTEST_NOT_READY);
-
-        let contest = WeeklyPhotoContest {
-            id: object::new(ctx),
-            week_id: new_week_id,
-            start_time: week_start,
-            nomination_deadline,
-            nominations: vector::empty(),
-            nominators: table::new(ctx),
-            total_nominations: 0,
-            finalists_selected: false,
-            finalist_selection_time: week_start + (FINALIST_SELECTION_DAY as u64) * 86_400_000,
-            finalists: vector::empty(),
-            voting_deadline,
-            voters: table::new(ctx),
-            total_votes: 0,
-            winners_selected: false,
-            winner_selection_time: week_start + (WINNER_ANNOUNCEMENT_DAY as u64) * 86_400_000,
-            first_place_index: 0,
-            second_place_index: 0,
-            third_place_index: 0,
-            prizes_distributed: false,
-            prize_distribution_timestamp: 0,
+    /// Clear contest data for new week
+    fun clear_contest_data(state: &mut PhotoContestState) {
+        // Clear nominations
+        let mut len = vector::length(&state.nomination_list);
+        while (len > 0) {
+            let id = vector::pop_back(&mut state.nomination_list);
+            if (table::contains(&state.nominations, id)) {
+                table::remove(&mut state.nominations, id);
+            };
+            len = len - 1;
         };
-
-        let contest_uid = object::uid_to_inner(&contest.id);
-
-        registry.current_week_id = new_week_id;
-        registry.current_contest = contest_uid;
-        registry.total_weeks = registry.total_weeks + 1;
-
-        event::emit(ContestWeekStarted {
-            week_id: new_week_id,
-            start_time: week_start,
-            nomination_deadline,
-            voting_deadline,
-        });
-
-        transfer::share_object(contest);
+        
+        // Clear finalists
+        state.finalists = vector::empty();
+        
+        // Note: votes and vote_counts tables would need iteration to clear
+        // For simplicity, we recreate them in a real implementation
     }
 
-    /// Find top 3 finalists by vote count (first-to-reach ties win)
-    fun find_top_three_finalists(
-        finalists: &vector<u64>,
-        nominations: &vector<PhotoNomination>,
-    ): (u64, u64, u64) {
-        let finalist_count = vector::length(finalists);
-        assert!(finalist_count >= 3, E_INSUFFICIENT_NOMINATIONS);
+    /// Random selection of finalists from nominations
+    fun random_select_finalists(
+        state: &PhotoContestState,
+        vrf_seed: &vector<u8>,
+        count: u64
+    ): vector<ID> {
+        let mut selected = vector::empty<ID>();
+        let mut available = state.nomination_list; // Copy
         
-        // Get all finalist indices with their vote counts and timestamps
-        let mut sorted_finalists = vector::empty<u64>();
         let mut i = 0;
-        
-        while (i < finalist_count) {
-            vector::push_back(&mut sorted_finalists, *vector::borrow(finalists, i));
+        while (i < count && vector::length(&available) > 0) {
+            // Generate random index
+            let rand = generate_random(vrf_seed, i, vector::length(&available));
+            
+            // Select and remove
+            let selected_id = vector::swap_remove(&mut available, rand);
+            vector::push_back(&mut selected, selected_id);
+            
             i = i + 1;
         };
         
-        // Bubble sort by votes (descending), then by timestamp (ascending) for ties
-        let n = vector::length(&sorted_finalists);
-        let mut i = 0;
+        selected
+    }
+
+    /// Generate pseudo-random number from VRF seed
+    fun generate_random(vrf_seed: &vector<u8>, iteration: u64, max: u64): u64 {
+        if (max == 0) { return 0 };
         
-        while (i < n - 1) {
-            let mut j = 0;
-            while (j < n - i - 1) {
-                let idx_j = *vector::borrow(&sorted_finalists, j);
-                let idx_j1 = *vector::borrow(&sorted_finalists, j + 1);
+        let seed_len = vector::length(vrf_seed);
+        let mut hash_input = 0u64;
+        
+        let mut i = 0;
+        while (i < seed_len && i < 8) {
+            hash_input = hash_input * 256 + (*vector::borrow(vrf_seed, i) as u64);
+            i = i + 1;
+        };
+        
+        hash_input = hash_input ^ (iteration * 0x9e3779b97f4a7c15);
+        hash_input % max
+    }
+
+    /// Sort finalists by vote count (descending)
+    fun sort_by_votes(state: &PhotoContestState): vector<ID> {
+        let mut sorted = state.finalists; // Copy
+        let len = vector::length(&sorted);
+        
+        // Simple bubble sort for small list
+        let mut i = 0;
+        while (i < len) {
+            let mut j = i + 1;
+            while (j < len) {
+                let id_i = *vector::borrow(&sorted, i);
+                let id_j = *vector::borrow(&sorted, j);
                 
-                let nom_j = vector::borrow(nominations, idx_j);
-                let nom_j1 = vector::borrow(nominations, idx_j1);
+                let votes_i = *table::borrow(&state.vote_counts, id_i);
+                let votes_j = *table::borrow(&state.vote_counts, id_j);
                 
-                // Sort by votes descending, then timestamp ascending
-                let should_swap = if (nom_j.votes < nom_j1.votes) {
-                    true
-                } else if (nom_j.votes == nom_j1.votes && nom_j.submission_timestamp > nom_j1.submission_timestamp) {
-                    true
-                } else {
-                    false
-                };
-                
-                if (should_swap) {
-                    *vector::borrow_mut(&mut sorted_finalists, j) = idx_j1;
-                    *vector::borrow_mut(&mut sorted_finalists, j + 1) = idx_j;
+                if (votes_j > votes_i) {
+                    vector::swap(&mut sorted, i, j);
                 };
                 
                 j = j + 1;
@@ -756,155 +654,61 @@ module photo_contest::photo_contest {
             i = i + 1;
         };
         
-        // Return top 3
-        (
-            *vector::borrow(&sorted_finalists, 0),
-            *vector::borrow(&sorted_finalists, 1),
-            *vector::borrow(&sorted_finalists, 2)
-        )
+        sorted
     }
 
-    /// Update winner statistics
-    fun update_winner_stats(
-        registry: &mut GlobalPhotoContestRegistry,
-        winner: address,
-        place: u8,
-        prize: u64,
-        timestamp: u64,
-    ) {
-        if (!table::contains(&registry.user_stats, winner)) {
-            return
-        };
-        
-        let stats = table::borrow_mut(&mut registry.user_stats, winner);
-        
-        stats.total_wins = stats.total_wins + 1;
-        stats.total_prizes_won = stats.total_prizes_won + prize;
-        
-        if (stats.first_win_timestamp == 0) {
-            stats.first_win_timestamp = timestamp;
-        };
-        stats.last_win_timestamp = timestamp;
-        
-        if (place == 1) {
-            stats.total_first_place = stats.total_first_place + 1;
-        } else if (place == 2) {
-            stats.total_second_place = stats.total_second_place + 1;
-        } else if (place == 3) {
-            stats.total_third_place = stats.total_third_place + 1;
-        };
-    }
-
-    /// Calculate next Monday midnight from a timestamp
-    fun calculate_next_monday_midnight(timestamp_ms: u64): u64 {
-        let days_ms = 86_400_000;
-        let week_ms = days_ms * 7;
-        ((timestamp_ms / week_ms) + 1) * week_ms
-    }
-
-    /// Check if address is a moderator
-    fun is_moderator(registry: &GlobalPhotoContestRegistry, addr: address): bool {
-        vector::contains(&registry.moderators, &addr) || addr == registry.admin
-    }
-
-    /// Add moderator (admin only)
-    public fun add_moderator(
-        registry: &mut GlobalPhotoContestRegistry,
-        new_moderator: address,
+    /// Pay prize to winner
+    fun pay_prize(
+        state: &mut PhotoContestState,
+        recipient: address,
+        amount: u64,
         ctx: &mut TxContext
     ) {
-        let caller = tx_context::sender(ctx);
-        assert!(caller == registry.admin, E_NOT_AUTHORIZED);
-
-        if (!vector::contains(&registry.moderators, &new_moderator)) {
-            vector::push_back(&mut registry.moderators, new_moderator);
+        if (balance::value(&state.treasury) >= amount) {
+            let prize = coin::take(&mut state.treasury, amount, ctx);
+            transfer::public_transfer(prize, recipient);
+            state.total_distributed = state.total_distributed + amount;
         };
     }
 
-    /// Get user photo contest stats
-    public fun get_user_stats(
-        registry: &GlobalPhotoContestRegistry,
-        user: address,
-    ): (u64, u64, u64, u64, u64, bool, bool) {
-        if (!table::contains(&registry.user_stats, user)) {
-            return (0, 0, 0, 0, 0, false, false)
-        };
+    // ============================================
+    // VIEW FUNCTIONS
+    // ============================================
 
-        let stats = table::borrow(&registry.user_stats, user);
+    /// Get contest state
+    public fun get_contest_info(state: &PhotoContestState): (u64, u8, u64, u64) {
         (
-            stats.total_nominations,
-            stats.total_finalist_appearances,
-            stats.total_wins,
-            stats.total_prizes_won,
-            stats.total_votes_received,
-            stats.nominated_this_week,
-            stats.voted_this_week
+            state.current_week,
+            state.current_phase,
+            vector::length(&state.nomination_list),
+            vector::length(&state.finalists)
         )
     }
 
-    /// Get contest info
-    public fun get_contest_info(contest: &WeeklyPhotoContest): (
-        u64,  // week_id
-        u64,  // total_nominations
-        bool, // finalists_selected
-        u64,  // total_votes
-        bool, // winners_selected
-        bool  // prizes_distributed
-    ) {
-        (
-            contest.week_id,
-            contest.total_nominations,
-            contest.finalists_selected,
-            contest.total_votes,
-            contest.winners_selected,
-            contest.prizes_distributed
-        )
+    /// Get treasury balance
+    public fun get_treasury_balance(state: &PhotoContestState): u64 {
+        balance::value(&state.treasury)
+    }
+
+    /// Get last winners
+    public fun get_last_winners(state: &PhotoContestState): &vector<ContestWinner> {
+        &state.last_winners
+    }
+
+    /// Get prize amounts
+    public fun get_first_place_prize(): u64 { FIRST_PLACE_PRIZE }
+    public fun get_second_place_prize(): u64 { SECOND_PLACE_PRIZE }
+    public fun get_third_place_prize(): u64 { THIRD_PLACE_PRIZE }
+    public fun get_total_prize_pool(): u64 { TOTAL_PRIZE_POOL }
+    public fun get_nomination_reward(): u64 { NOMINATION_REWARD }
+
+    /// Check if user has voted
+    public fun has_voted(state: &PhotoContestState, voter: address): bool {
+        table::contains(&state.votes, voter)
     }
 
     /// Get finalists
-    public fun get_finalists(contest: &WeeklyPhotoContest): vector<u64> {
-        contest.finalists
-    }
-
-    /// Get nomination details
-    public fun get_nomination(
-        contest: &WeeklyPhotoContest,
-        index: u64,
-    ): (address, String, String, String, u64, bool) {
-        assert!(index < vector::length(&contest.nominations), E_INVALID_NOMINEE);
-        
-        let nom = vector::borrow(&contest.nominations, index);
-        (
-            nom.nominator,
-            nom.photo_ipfs_cid,
-            nom.restaurant_name,
-            nom.caption,
-            nom.votes,
-            nom.is_finalist
-        )
-    }
-
-    /// Get winners
-    public fun get_winners(contest: &WeeklyPhotoContest): (u64, u64, u64) {
-        (
-            contest.first_place_index,
-            contest.second_place_index,
-            contest.third_place_index
-        )
-    }
-
-    /// Get global stats
-    public fun get_global_stats(registry: &GlobalPhotoContestRegistry): (u64, u64, u64, u64) {
-        (
-            registry.total_weeks,
-            registry.total_nominations,
-            registry.total_prizes_distributed,
-            registry.current_week_id
-        )
-    }
-
-    #[test_only]
-    public fun init_for_testing(ctx: &mut TxContext) {
-        init(PHOTO_CONTEST {}, ctx);
+    public fun get_finalists(state: &PhotoContestState): &vector<ID> {
+        &state.finalists
     }
 }

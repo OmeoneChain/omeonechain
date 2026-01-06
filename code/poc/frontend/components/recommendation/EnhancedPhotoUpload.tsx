@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, Upload, X, MapPin, Loader, FileImage } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface PhotoData {
   file: File;
@@ -35,6 +36,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
   maxSizeBytes = 5 * 1024 * 1024, // 5MB
   allowLocation = true
 }) => {
+  const t = useTranslations('recommendations');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [geolocation, setGeolocation] = useState<GeolocationState>({
@@ -78,7 +80,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
             latitude,
             longitude,
             loading: false,
-            error: 'Could not get address'
+            error: t('photoUpload.errors.couldNotGetAddress')
           }));
         }
       },
@@ -99,11 +101,8 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 
   // Mock reverse geocoding - replace with actual service
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
-    // In a real app, you'd use Google Maps API or similar
-    // For demo purposes, we'll simulate this
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Mock addresses based on coordinates
     if (lat > 38.7 && lat < 38.8 && lng > -9.2 && lng < -9.1) {
       return "Chiado, Lisbon, Portugal";
     } else if (lat > -23.6 && lat < -23.5 && lng > -46.7 && lng < -46.6) {
@@ -120,7 +119,6 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
       const img = new Image();
       
       img.onload = () => {
-        // Calculate new dimensions (max 1200px width/height)
         let { width, height } = img;
         const maxDimension = 1200;
         
@@ -135,7 +133,6 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         canvas.width = width;
         canvas.height = height;
         
-        // Draw and compress
         ctx.drawImage(img, 0, 0, width, height);
         
         canvas.toBlob(
@@ -151,7 +148,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
             }
           },
           'image/jpeg',
-          0.85 // 85% quality
+          0.85
         );
       };
       
@@ -160,17 +157,14 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
   };
 
   const processFile = async (file: File): Promise<PhotoData> => {
-    // Compress the image
     const compressedFile = await compressImage(file);
     
-    // Create photo data object
     const photoData: PhotoData = {
       file: compressedFile,
       preview: URL.createObjectURL(compressedFile),
       timestamp: new Date()
     };
 
-    // Add location if available
     if (geolocation.latitude && geolocation.longitude) {
       photoData.location = {
         latitude: geolocation.latitude,
@@ -184,7 +178,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 
   const handleFileSelect = useCallback(async (files: FileList) => {
     if (photos.length >= maxPhotos) {
-      alert(`Maximum ${maxPhotos} photos allowed`);
+      alert(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
       return;
     }
 
@@ -193,11 +187,11 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
     const newPhotos: PhotoData[] = [];
     const validFiles = Array.from(files).filter(file => {
       if (!file.type.startsWith('image/')) {
-        alert(`${file.name} is not an image file`);
+        alert(t('photoUpload.errors.notImage', { name: file.name }));
         return false;
       }
       if (file.size > maxSizeBytes) {
-        alert(`${file.name} is too large (max ${Math.round(maxSizeBytes / 1024 / 1024)}MB)`);
+        alert(t('photoUpload.errors.tooLarge', { name: file.name, max: Math.round(maxSizeBytes / 1024 / 1024) }));
         return false;
       }
       return true;
@@ -209,13 +203,13 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         newPhotos.push(photoData);
       } catch (error) {
         console.error('Error processing file:', error);
-        alert(`Error processing ${file.name}`);
+        alert(t('photoUpload.errors.processingFailed', { name: file.name }));
       }
     }
 
     onPhotosChange([...photos, ...newPhotos]);
     setIsProcessing(false);
-  }, [photos, maxPhotos, maxSizeBytes, onPhotosChange, geolocation]);
+  }, [photos, maxPhotos, maxSizeBytes, onPhotosChange, geolocation, t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -230,7 +224,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 
   const removePhoto = (index: number) => {
     const newPhotos = [...photos];
-    URL.revokeObjectURL(newPhotos[index].preview); // Clean up memory
+    URL.revokeObjectURL(newPhotos[index].preview);
     newPhotos.splice(index, 1);
     onPhotosChange(newPhotos);
   };
@@ -248,10 +242,10 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
             <div className="flex items-center">
               <MapPin className="h-4 w-4 text-blue-600 mr-2" />
               <span className="text-sm font-medium text-blue-800">
-                {geolocation.loading ? 'Getting location...' : 
-                 geolocation.address ? `Location: ${geolocation.address}` :
-                 geolocation.error ? 'Location unavailable' :
-                 'Location services ready'}
+                {geolocation.loading ? t('photoUpload.location.getting') : 
+                 geolocation.address ? t('photoUpload.location.found', { address: geolocation.address }) :
+                 geolocation.error ? t('photoUpload.location.unavailable') :
+                 t('photoUpload.location.ready')}
               </span>
             </div>
             {geolocation.loading && <Loader className="h-4 w-4 animate-spin text-blue-600" />}
@@ -261,7 +255,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
               onClick={getCurrentLocation}
               className="text-xs text-blue-600 hover:text-blue-800 mt-1"
             >
-              Retry location
+              {t('photoUpload.location.retry')}
             </button>
           )}
         </div>
@@ -273,7 +267,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
           <div key={index} className="relative group">
             <img
               src={photo.preview}
-              alt={`Photo ${index + 1}`}
+              alt={t('photoUpload.photoAlt', { number: index + 1 })}
               className="w-full h-32 object-cover rounded-lg border border-gray-200"
             />
             
@@ -317,7 +311,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
             {isProcessing ? (
               <>
                 <Loader className="h-6 w-6 text-gray-400 animate-spin mb-2" />
-                <span className="text-xs text-gray-500">Processing...</span>
+                <span className="text-xs text-gray-500">{t('photoUpload.processing')}</span>
               </>
             ) : (
               <>
@@ -325,9 +319,9 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
                   <Camera className="h-5 w-5 text-gray-400" />
                   <Upload className="h-5 w-5 text-gray-400" />
                 </div>
-                <span className="text-sm text-gray-500">Add Photo</span>
+                <span className="text-sm text-gray-500">{t('photoUpload.addPhoto')}</span>
                 <span className="text-xs text-gray-400 mt-1">
-                  Tap or drag to upload
+                  {t('photoUpload.tapOrDrag')}
                 </span>
               </>
             )}
@@ -341,7 +335,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         type="file"
         accept="image/*"
         multiple
-        capture="environment" // Prefer rear camera on mobile
+        capture="environment"
         onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
         className="hidden"
       />
@@ -349,11 +343,11 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
       {/* Photo Info */}
       {photos.length > 0 && (
         <div className="text-xs text-gray-500 space-y-1">
-          <p>📸 {photos.length}/{maxPhotos} photos</p>
+          <p>📸 {t('photoUpload.info.photoCount', { count: photos.length, max: maxPhotos })}</p>
           {photos.some(p => p.location) && (
-            <p>📍 {photos.filter(p => p.location).length} photos with location</p>
+            <p>📍 {t('photoUpload.info.photosWithLocation', { count: photos.filter(p => p.location).length })}</p>
           )}
-          <p>💾 Total size: {(photos.reduce((sum, p) => sum + p.file.size, 0) / 1024 / 1024).toFixed(1)}MB</p>
+          <p>💾 {t('photoUpload.info.totalSize', { size: (photos.reduce((sum, p) => sum + p.file.size, 0) / 1024 / 1024).toFixed(1) })}</p>
         </div>
       )}
 
@@ -364,11 +358,10 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
           className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
         >
           <Camera className="h-5 w-5 mr-2" />
-          Take Photo
+          {t('photoUpload.takePhoto')}
         </button>
         <button
           onClick={() => {
-            // Create a new input for gallery selection
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
@@ -382,7 +375,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
           className="flex-1 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center"
         >
           <FileImage className="h-5 w-5 mr-2" />
-          From Gallery
+          {t('photoUpload.fromGallery')}
         </button>
       </div>
     </div>

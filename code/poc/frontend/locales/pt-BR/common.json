@@ -1,0 +1,1646 @@
+{
+  "navigation": {
+    "discover": "Descobrir",
+    "community": "Comunidade",
+    "rewards": "Recompensas",
+    "create": "Compartilhar",
+    "dashboard": "Painel",
+    "profile": "Perfil",
+    "savedLists": "Listas Salvas",
+    "settings": "Configurações",
+    "signOut": "Sair"
+  },
+  "header": {
+    "searchPlaceholder": "Buscar recomendações, usuários ou restaurantes...",
+    "signUp": "Cadastrar",
+    "connectWallet": "Conectar Carteira",
+    "emailSignUp": "Cadastro por Email",
+    "upgradeToWallet": "Atualizar para Carteira",
+    "upgradeBadge": "Atualizar",
+    "walletAccount": "Conta com Carteira",
+    "emailAccount": "Conta por Email",
+    "bocaBalance": "Saldo BOCA"
+  },
+  "auth": {
+    "authRequired": "Autenticação Necessária",
+    "authRequiredMessage": "Você precisa conectar sua carteira para criar recomendações e ganhar tokens.",
+    "connectWalletPrompt": "Por favor, conecte sua carteira antes de criar recomendações",
+    "upgradeTitle": "Atualizar para Conta com Carteira",
+    "upgradeMessage": "Conecte uma carteira para resgatar seus tokens ganhos e acessar todos os recursos.",
+    "maybeLater": "Talvez Depois"
+  },
+  "common": {
+    "loading": "Carregando...",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "delete": "Excluir",
+    "add": "Adicionar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "submit": "Enviar",
+    "search": "Buscar",
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "yes": "Sim",
+    "no": "Não",
+    "optional": "opcional",
+    "required": "obrigatório",
+    "people": "pessoas",
+    "minutes": "min",
+    "characters": "caracteres",
+    "trustMode": {
+      "title": "Modo de Recomendação",
+      "new": "Novo!",
+      "aria": {
+        "toggleDetails": "Alternar detalhes do modo"
+      },
+      "modes": {
+        "trust": "Modo Confiança",
+        "global": "Modo Global"
+      },
+      "descriptions": {
+        "trust": "Veja recomendações de pessoas que você segue e amigos de amigos, ordenadas por confiança social",
+        "global": "Veja todas as recomendações públicas ordenadas por popularidade global (pode conter avaliações não verificadas)"
+      },
+      "stats": {
+        "available": "Disponíveis",
+        "avgTrust": "Média Confiança",
+        "notApplicable": "N/A"
+      },
+      "explanation": {
+        "trust": {
+          "title": "Modo Confiança (Recomendado)",
+          "socialNetwork": "Mostra recomendações da sua rede social",
+          "verifiesAuthenticity": "Verifica autenticidade através de conexões sociais",
+          "filtersFake": "Filtra avaliações falsas e conteúdo gerado por IA",
+          "personalized": "Personalizado com base em pessoas que você confia"
+        },
+        "global": {
+          "title": "Modo Global",
+          "warning": "⚠️ Pode conter ruído",
+          "allPublic": "Mostra todas as recomendações públicas",
+          "unverified": "Inclui avaliações não verificadas e anônimas",
+          "mayIncludeFake": "Pode incluir conteúdo falso ou gerado por IA",
+          "traditional": "Similar às plataformas tradicionais de avaliação"
+        }
+      },
+      "socialNetwork": {
+        "title": "Sua Rede Social",
+        "connections": "Conexões",
+        "trustRecommendations": "Recomendações de Confiança",
+        "followMoreTip": "💡 Siga mais usuários para obter melhores recomendações no Modo Confiança!"
+      },
+      "privacy": "Privacidade: Suas preferências de recomendação são armazenadas localmente. Conexões sociais são criptografadas e você controla quem vê sua rede."
+    }
+  },
+  "location": {
+    "location": "Localização",
+    "nearYou": "Perto de você",
+    "city": "Cidade",
+    "address": "Endereço"
+  },
+  "connection": {
+    "testing": "Testando conexão IOTA Rebased...",
+    "connected": "IOTA Rebased conectado!",
+    "contractsActive": "contratos ativos",
+    "fallback": "Modo IOTA limitado - funcionalidade básica disponível",
+    "connectedAs": "Conectado como"
+  },
+  "rewards": {
+    "tokensEarned": "Tokens ganhos",
+    "expectedRewards": "Recompensas Esperadas",
+    "baseReward": "Recompensa base",
+    "photoBonus": "Bônus de foto",
+    "dishBonus": "Bônus de prato",
+    "aspectsBonus": "Bônus de aspectos",
+    "contextBonus": "Bônus de contexto",
+    "tagsBonus": "Bônus de tags",
+    "totalEstimated": "Total estimado"
+  },
+  "time": {
+    "justNow": "Agora mesmo",
+    "minutesAgo": "há {count} min",
+    "hoursAgo": "há {count}h",
+    "daysAgo": "há {count}d",
+    "weeksAgo": "há {count}sem"
+  },
+  "currency": {
+    "symbol": "R$",
+    "code": "BRL"
+  },
+  "comments": {
+    "count": "{count} comentário",
+    "count_other": "{count} comentários",
+    "count_zero": "Nenhum comentário ainda",
+    "placeholder": "Adicionar um comentário...",
+    "replyPlaceholder": "Escrever uma resposta...",
+    "deleted": "[excluído]",
+    "sort": {
+      "label": "Ordenar por:",
+      "newest": "Mais recentes",
+      "oldest": "Mais antigos",
+      "mostLiked": "Mais curtidos"
+    },
+    "toast": {
+      "commentCreated": "💬 Comentário postado! Você ganhou {amount} BOCA",
+      "replyCreated": "↩️ Resposta postada! Você ganhou {amount} BOCA",
+      "commentEdited": "Comentário editado!",
+      "commentDeleted": "Comentário excluído",
+      "reportSent": "Denúncia enviada. Obrigado pelo seu feedback!"
+    },
+    "errors": {
+      "loadFailed": "Erro ao carregar comentários",
+      "createFailed": "Erro ao postar comentário",
+      "replyFailed": "Erro ao postar resposta",
+      "editFailed": "Erro ao editar comentário",
+      "deleteFailed": "Erro ao excluir comentário"
+    },
+    "actions": {
+      "reply": "Responder",
+      "edit": "Editar",
+      "delete": "Excluir",
+      "like": "Curtir",
+      "report": "Denunciar",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "submit": "Enviar",
+      "comment": "Comentar",
+      "posting": "Postando...",
+      "markHelpful": "Marcar como útil",
+      "showReplies": "Mostrar {count} resposta",
+      "showReplies_other": "Mostrar {count} respostas",
+      "hideReplies": "Ocultar respostas"
+    },
+    "hint": {
+      "submitShortcut": "Ctrl+Enter para enviar"
+    },
+    "labels": {
+      "repliesCount": "{count} resposta",
+      "repliesCount_other": "{count} respostas",
+      "likesCount": "{count} curtida",
+      "likesCount_other": "{count} curtidas",
+      "edited": "editado",
+      "helpful": "Útil",
+      "authorBadge": "Autor",
+      "justNow": "agora",
+      "minutesAgo": "{count}m",
+      "hoursAgo": "{count}h",
+      "daysAgo": "{count}d",
+      "weeksAgo": "{count}sem",
+      "replyingTo": "Respondendo a {name}"
+    },
+    "fallback": {
+      "anonymous": "Anônimo"
+    },
+    "empty": {
+      "title": "Nenhum comentário ainda",
+      "description": "Seja o primeiro a compartilhar suas opiniões!"
+    },
+    "confirm": {
+      "deleteTitle": "Excluir comentário?",
+      "deleteMessage": "Esta ação não pode ser desfeita."
+    }
+  },
+  "notifications": {
+    "bell": {
+      "ariaLabel": "Notificações"
+    },
+    "header": {
+      "title": "Notificações",
+      "unreadCount": "{count} não lidas"
+    },
+    "actions": {
+      "markAllRead": "Marcar todas como lidas",
+      "viewAll": "Ver todas as notificações"
+    },
+    "status": {
+      "loading": "Carregando notificações..."
+    },
+    "empty": {
+      "title": "Nenhuma notificação ainda",
+      "description": "Vamos notificá-lo quando algo acontecer!"
+    },
+    "time": {
+      "justNow": "Agora mesmo",
+      "minutesAgo": "há {count}m",
+      "hoursAgo": "há {count}h",
+      "daysAgo": "há {count}d",
+      "weeksAgo": "há {count}sem",
+      "monthsAgo": "há {count}m",
+      "yearsAgo": "há {count}a"
+    },
+    "messages": {
+      "comment": "comentou na sua recomendação",
+      "reply": "respondeu ao seu comentário",
+      "like": "curtiu sua recomendação",
+      "commentLike": "curtiu seu comentário",
+      "reshare": "compartilhou sua recomendação",
+      "follow": "começou a seguir você",
+      "mention": "mencionou você",
+      "default": "interagiu com seu conteúdo"
+    },
+    "fallback": {
+      "someone": "Alguém"
+    },
+    "groupedActors": {
+      "singular": "e {count} outro",
+      "plural": "e {count} outros"
+    },
+    "content": {
+      "onRecommendation": "em {title}"
+    },
+    "toast": {
+      "markAllReadSuccess": "Todas as notificações marcadas como lidas",
+      "deletedSuccess": "Notificação excluída",
+      "clearedSuccess": "Notificações lidas removidas",
+      "markReadError": "Falha ao marcar notificação como lida",
+      "markAllReadError": "Falha ao marcar todas como lidas",
+      "deleteError": "Falha ao excluir notificação",
+      "clearError": "Falha ao limpar notificações"
+    }
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Bem-vindo ao BocaBoca!",
+      "subtitle": "Vamos configurar seu perfil para que você possa começar a descobrir e compartilhar experiências gastronômicas incríveis.",
+      "continue": "Continuar",
+      "saving": "Salvando...",
+      "username": {
+        "label": "Escolha seu nome de usuário",
+        "placeholder": "seunome",
+        "hint": "Apenas letras, números e underscores. Mínimo 3 caracteres.",
+        "checking": "Verificando disponibilidade...",
+        "available": "Disponível!",
+        "invalidFormat": "Nome de usuário pode conter apenas letras, números e underscores",
+        "taken": "Este nome de usuário já está em uso",
+        "tooShort": "Nome de usuário deve ter pelo menos 3 caracteres",
+        "chooseAvailable": "Por favor, escolha um nome de usuário disponível"
+      },
+      "info": {
+        "title": "Por que preciso de um nome de usuário?",
+        "description": "Seu nome de usuário é como outros amantes da gastronomia vão encontrar e seguir você no BocaBoca. É parte da sua identidade única em nossa comunidade de exploradores de sabores!"
+      },
+      "toast": {
+        "saved": "Nome de usuário salvo! Vamos continuar...",
+        "saveFailed": "Falha ao salvar nome de usuário. Por favor, tente novamente."
+      }
+    },
+    "location": {
+      "title": "Onde você está?",
+      "subtitle": "Isso nos ajuda a mostrar restaurantes e recomendações perto de você",
+      "selectPopular": "Selecione sua cidade",
+      "cityNotListed": "Minha cidade não está listada",
+      "backToPopular": "← Voltar para cidades populares",
+      "skip": "Pular por enquanto",
+      "continue": "Continuar",
+      "saving": "Salvando...",
+      "custom": {
+        "cityLabel": "Sua Cidade",
+        "cityPlaceholder": "Digite sua cidade",
+        "countryLabel": "País",
+        "countryPlaceholder": "Digite seu país"
+      },
+      "info": {
+        "title": "Por que precisamos da sua localização?",
+        "description": "Saber sua cidade nos ajuda a mostrar restaurantes relevantes e conectar você com entusiastas locais da gastronomia. Você pode alterar isso depois nas configurações."
+      },
+      "toast": {
+        "selectLocation": "Por favor, selecione ou digite uma localização",
+        "saved": "Localização salva!",
+        "saveFailed": "Falha ao salvar localização. Por favor, tente novamente."
+      }
+    },
+    "taste": {
+      "title": "Avalie 3 lugares que você ama",
+      "subtitle": "Nos ajude a entender suas preferências de paladar para darmos melhores recomendações",
+      "progress": "{current} / {required} avaliados",
+      "skip": "Pular por enquanto",
+      "continue": "Continuar",
+      "rating": {
+        "yourRating": "Sua avaliação:",
+        "rateThis": "Avalie este lugar:"
+      },
+      "search": {
+        "show": "Buscar seus lugares favoritos",
+        "hide": "Ocultar busca",
+        "placeholder": "Buscar restaurantes..."
+      },
+      "popular": {
+        "nearYou": "Lugares populares perto de você",
+        "orPick": "Ou escolha entre lugares populares"
+      },
+      "info": {
+        "title": "Por que avaliar restaurantes?",
+        "description": "Suas avaliações nos ajudam a entender suas preferências de paladar e recomendar lugares que você realmente vai amar. Quanto mais você avalia, mais inteligentes ficam nossas recomendações!"
+      },
+      "toast": {
+        "canContinue": "Ótimo! Você já pode continuar",
+        "rateMinimum": "Por favor, avalie pelo menos {count} restaurantes",
+        "saved": "Preferências de paladar salvas!"
+      }
+    },
+    "follow": {
+      "title": "Conecte-se com entusiastas da gastronomia",
+      "subtitle": "Siga pessoas cujo paladar você confia para receber recomendações personalizadas",
+      "progress": "{current} / {required} seguindo",
+      "loading": "Encontrando entusiastas da gastronomia...",
+      "noUsers": "Nenhum usuário sugerido encontrado ainda.",
+      "skipLink": "Pular esta etapa →",
+      "skip": "Pular por enquanto",
+      "continue": "Continuar",
+      "button": {
+        "follow": "Seguir",
+        "following": "Seguindo"
+      },
+      "stats": {
+        "followers": "{count} seguidores",
+        "recommendations": "{count} recomendações"
+      },
+      "info": {
+        "title": "Por que seguir pessoas?",
+        "description": "Seguir entusiastas da gastronomia com gosto similar ajuda você a descobrir ótimos lugares através de recomendações confiáveis. Você verá as publicações deles no seu feed e pode encontrar facilmente os lugares que eles amam!"
+      },
+      "toast": {
+        "following": "Seguindo {name}!",
+        "canContinue": "Ótimo! Você já pode continuar",
+        "followMinimum": "Por favor, siga pelo menos {count} pessoas",
+        "followFailed": "Falha ao seguir: {error}"
+      }
+    },
+    "firstRec": {
+      "title": "Compartilhe sua primeira recomendação!",
+      "subtitle": "Conte para a comunidade sobre um lugar que você ama e ajude outros a descobrir ótima comida",
+      "createButton": "Criar Minha Primeira Recomendação",
+      "skipButton": "Farei isso depois",
+      "guide": {
+        "title": "O que faz uma ótima recomendação?",
+        "place": {
+          "title": "O lugar",
+          "description": "Nome e localização do restaurante para que outros possam encontrá-lo"
+        },
+        "loved": {
+          "title": "O que você amou",
+          "description": "Pratos específicos, ambiente, atendimento - o que tornou especial?"
+        },
+        "photos": {
+          "title": "Fotos (opcional)",
+          "description": "Fotos ajudam outros a ver o que esperar"
+        }
+      },
+      "example": {
+        "label": "Exemplo de recomendação",
+        "title": "Massa Incrível na Trattoria Moderna! 🍝",
+        "content": "O Cacio e Pepe aqui é perfeição - cremoso, apimentado, com massa perfeitamente al dente. Ambiente aconchegante e atendimento atencioso. Ótimo para encontros românticos!"
+      },
+      "encouragement": {
+        "title": "Você está quase lá!",
+        "description": "Sua primeira recomendação nos ajuda a entender seu gosto e permite que você comece a ganhar tokens BOCA por contribuições valiosas. A comunidade está ansiosa para ouvir suas opiniões!"
+      },
+      "stats": {
+        "earned": "BOCA ganhos",
+        "complete": "Perfil completo",
+        "ready": "Pronto para explorar"
+      },
+      "toast": {
+        "opening": "Abrindo formulário de recomendação...",
+        "skipped": "Você pode criar sua primeira recomendação a qualquer momento!"
+      }
+    }
+  },
+  "profile": {
+    "header": {
+      "editProfile": "Editar Perfil",
+      "follow": "Seguir",
+      "following": "Seguindo",
+      "joined": "Entrou em {date}",
+      "userNotFound": "Usuário não encontrado",
+      "userNotFoundDescription": "O usuário que você está procurando não existe ou foi desativado."
+    },
+    "stats": {
+      "recommendations": "Recomendações",
+      "followers": "Seguidores",
+      "following": "Seguindo",
+      "tokensEarned": "Tokens Ganhos"
+    },
+    "tabs": {
+      "recommendations": "Recs",
+      "recommendationsFull": "Recomendações",
+      "reshares": "Compartilhamentos",
+      "guides": "Guias",
+      "likes": "Curtidas",
+      "myLists": "Minhas Listas",
+      "followers": "Seguidores",
+      "following": "Seguindo",
+      "rewards": "Recompensas",
+      "security": "Segurança"
+    },
+    "empty": {
+      "recommendations": {
+        "own": "Você ainda não criou nenhuma recomendação",
+        "other": "Nenhuma recomendação ainda",
+        "ownDescription": "Compartilhe seus lugares e experiências favoritas para construir sua reputação",
+        "otherDescription": "Este usuário ainda não compartilhou nenhuma recomendação",
+        "cta": "Criar Sua Primeira Recomendação"
+      },
+      "reshares": {
+        "own": "Você ainda não compartilhou nada",
+        "other": "Nenhum compartilhamento ainda",
+        "ownDescription": "Compartilhe recomendações para divulgá-las aos seus seguidores",
+        "otherDescription": "Este usuário ainda não compartilhou nenhuma recomendação",
+        "cta": "Descobrir Recomendações"
+      },
+      "lists": {
+        "own": "Você ainda não criou nenhum guia",
+        "other": "Nenhum guia ainda",
+        "ownDescription": "Crie guias selecionados para compartilhar com outros",
+        "otherDescription": "Este usuário ainda não criou nenhum guia",
+        "cta": "Criar um Guia"
+      },
+      "likes": {
+        "own": "Você ainda não curtiu nenhuma recomendação",
+        "other": "Nenhuma curtida ainda",
+        "ownDescription": "Curta recomendações que você achar úteis",
+        "otherDescription": "Este usuário ainda não curtiu nenhuma recomendação",
+        "cta": "Descobrir Conteúdo"
+      },
+      "bookmarks": {
+        "own": "Você ainda não criou nenhuma lista",
+        "other": "Nenhuma lista ainda",
+        "ownDescription": "Salve recomendações em listas organizadas",
+        "otherDescription": "Este usuário ainda não criou nenhuma lista",
+        "cta": "Começar a Salvar"
+      },
+      "followers": {
+        "own": "Você ainda não tem nenhum seguidor",
+        "other": "Nenhum seguidor",
+        "ownDescription": "Compartilhe ótimas recomendações para atrair seguidores",
+        "otherDescription": "Este usuário ainda não ganhou nenhum seguidor"
+      },
+      "following": {
+        "own": "Você ainda não está seguindo ninguém",
+        "other": "Não está seguindo ninguém",
+        "ownDescription": "Comece a seguir especialistas em gastronomia para ver suas recomendações",
+        "otherDescription": "Este usuário ainda não seguiu ninguém",
+        "cta": "Descobrir Pessoas"
+      }
+    },
+    "completion": {
+      "title": "Completude do Perfil",
+      "quickWins": "Vitórias rápidas:",
+      "points": "+{count} pts",
+      "countOf": "{completed} de {total}",
+      "completeProfile": "Completar Perfil",
+      "finishProfile": "Finalizar Perfil",
+      "profileComplete": "Perfil Completo!",
+      "progress": {
+        "excellent": "Perfil excelente! 🌟",
+        "great": "Ótimo progresso! 👍",
+        "good": "Bom começo! 📈",
+        "start": "Vamos completar seu perfil! 🚀"
+      },
+      "items": {
+        "username": {
+          "label": "Nome de Usuário",
+          "description": "Escolha um nome de usuário único"
+        },
+        "displayName": {
+          "label": "Nome de Exibição",
+          "description": "Adicione um nome de exibição amigável"
+        },
+        "bio": {
+          "label": "Bio",
+          "description": "Conte aos outros sobre você"
+        },
+        "avatar": {
+          "label": "Foto de Perfil",
+          "description": "Carregue uma foto de perfil"
+        },
+        "city": {
+          "label": "Cidade",
+          "description": "Adicione sua cidade"
+        },
+        "country": {
+          "label": "País",
+          "description": "Adicione seu país"
+        },
+        "firstRecommendation": {
+          "label": "Primeira Recomendação",
+          "description": "Crie sua primeira recomendação"
+        },
+        "followSomeone": {
+          "label": "Seguir Alguém",
+          "description": "Siga outros especialistas em gastronomia"
+        },
+        "gainFollowers": {
+          "label": "Ganhar Seguidores",
+          "description": "Construa sua rede"
+        },
+        "verifyAccount": {
+          "label": "Verificar Conta",
+          "description": "Conecte sua carteira para verificação"
+        }
+      }
+    },
+    "intro": {
+      "welcome": "Bem-vindo ao BocaBoca! 👋",
+      "description": "Complete seu perfil para começar a ganhar tokens e construir confiança na comunidade."
+    },
+    "rewardsTab": {
+      "title": "Recompensas e Conquistas",
+      "private": "Informações de recompensa do usuário são privadas",
+      "loading": "Carregando recompensas...",
+      "balance": {
+        "title": "Seu Saldo BOCA",
+        "description": "Ganho através de engajamento e contribuições na plataforma"
+      },
+      "attribution": {
+        "title": "Recompensas de Atribuição",
+        "description": "Você ganha 0.1 BOCA cada vez que alguém compartilha suas recomendações",
+        "reshared": "compartilhado",
+        "fromReshares": "de {count} compartilhamento",
+        "fromReshares_other": "de {count} compartilhamentos",
+        "loadMore": "Carregar Mais"
+      },
+      "onboardingProgress": {
+        "title": "Progresso de Integração",
+        "complete": "Completo",
+        "nextStep": "Próximo passo:",
+        "completeTitle": "🎉 Integração Completa!",
+        "completeDescription": "Você ganhou {amount} da integração",
+        "keepEngaging": "Continue engajando com a plataforma para ganhar mais recompensas"
+      }
+    },
+    "activity": {
+      "title": "Atividade do Usuário",
+      "description": "Veja a atividade recente e interações deste usuário na plataforma",
+      "comingSoon": "Recursos de rastreamento de atividade em breve",
+      "security": {
+        "title": "Segurança e Configurações da Conta",
+        "status": "Status de Segurança da Conta",
+        "profileCompletion": "Completude do Perfil",
+        "accountStatus": "Status da Conta",
+        "active": "Ativa",
+        "securityFeatures": "Recursos de Segurança",
+        "basic": "Básico",
+        "backup": {
+          "title": "Backup e Recuperação da Conta",
+          "description": "Proteja sua conta com opções de backup e configurações de recuperação",
+          "emailVerification": "Verificação de email ativa",
+          "accountBackup": "Backup da conta (em breve)",
+          "twoFactor": "Autenticação de dois fatores (em breve)"
+        }
+      }
+    },
+    "cards": {
+      "viewProfile": "Ver Perfil",
+      "viewDetails": "Ver Detalhes",
+      "viewList": "Ver Lista",
+      "public": "Público",
+      "private": "Privado",
+      "items": "{count} itens",
+      "placesToTry": "Lugares para Experimentar",
+      "bookmarks": "Favoritos",
+      "mixed": "Misto",
+      "yourCommentary": "Seu comentário:",
+      "theirCommentary": "Comentário deles:",
+      "resharedOn": "Compartilhado em {date}"
+    },
+    "actions": {
+      "refresh": "Atualizar",
+      "tryAgain": "Tentar novamente"
+    },
+    "errors": {
+      "loadingFollowers": "Falha ao carregar seguidores",
+      "loadingFollowing": "Falha ao carregar seguindo",
+      "loadingRecommendations": "Falha ao carregar recomendações",
+      "loadingReshares": "Falha ao carregar compartilhamentos",
+      "loadingLists": "Falha ao carregar listas",
+      "loadingLikes": "Falha ao carregar curtidas",
+      "loadingSavedLists": "Falha ao carregar listas salvas",
+      "network": "Erro de rede"
+    }
+  },
+  "discovery": {
+    "createRequest": {
+      "modal": {
+        "title": "Pedir Recomendações",
+        "subtitle": "Obtenha ajuda para encontrar o lugar perfeito"
+      },
+      "fields": {
+        "title": {
+          "label": "O que você está procurando?",
+          "placeholder": "ex: Melhor italiano para jantar de aniversário?",
+          "charCount": "{count}/200 caracteres (mínimo 10)"
+        },
+        "description": {
+          "label": "Detalhes Adicionais",
+          "placeholder": "Conte-nos mais sobre o que você está procurando... necessidades alimentares, tamanho do grupo, requisitos especiais, etc.",
+          "charCount": "{count}/1000 caracteres (opcional)"
+        },
+        "location": {
+          "label": "Localização",
+          "placeholder": "ex: Asa Sul, Centro, Perto do Shopping"
+        },
+        "cuisineType": {
+          "label": "Tipo de Cozinha",
+          "placeholder": "ex: Italiana, Japonesa, Brasileira, Vegetariana"
+        },
+        "occasion": {
+          "label": "Ocasião",
+          "placeholder": "Selecione uma ocasião (opcional)"
+        },
+        "budgetRange": {
+          "label": "Faixa de Preço"
+        },
+        "dietary": {
+          "label": "Restrições Alimentares (opcional)"
+        }
+      },
+      "occasions": {
+        "date_night": "Encontro Romântico",
+        "family": "Jantar em Família",
+        "business": "Refeição de Negócios",
+        "casual": "Jantar Casual",
+        "celebration": "Celebração",
+        "group": "Passeio em Grupo",
+        "solo": "Jantar Solo"
+      },
+      "budget": {
+        "low": "$ - Econômico",
+        "moderate": "$$ - Moderado",
+        "upscale": "$$$ - Sofisticado",
+        "fine": "$$$$ - Alta Gastronomia"
+      },
+      "dietary": {
+        "vegetarian": "Vegetariano",
+        "vegan": "Vegano",
+        "glutenFree": "Sem Glúten",
+        "dairyFree": "Sem Laticínios",
+        "nutFree": "Sem Nozes",
+        "halal": "Halal",
+        "kosher": "Kosher"
+      },
+      "tip": "💡 Dica: Quanto mais detalhes você fornecer, melhores recomendações receberá da comunidade!",
+      "actions": {
+        "cancel": "Cancelar",
+        "submit": "Publicar Pedido",
+        "creating": "Criando..."
+      },
+      "validation": {
+        "titleRequired": "Por favor, insira um título para seu pedido",
+        "titleTooShort": "O título deve ter pelo menos 10 caracteres",
+        "loginRequired": "Por favor, faça login para criar um pedido"
+      },
+      "success": "Pedido criado com sucesso!",
+      "error": "Falha ao criar pedido"
+    },
+    "filters": {
+      "title": "Filtros de Busca",
+      "clearAll": "Limpar Filtros",
+      "cuisineType": "Tipo de Cozinha",
+      "allCuisines": "Todas as cozinhas",
+      "priceRange": "Faixa de Preço",
+      "anyPrice": "Qualquer preço",
+      "minTrustScore": "Pontuação de Confiança Mínima",
+      "location": "Localização",
+      "allLocations": "Todo Brasília",
+      "cuisines": {
+        "northeastern": "Nordestino",
+        "seafood": "Frutos do Mar",
+        "spanish": "Espanhol",
+        "steakhouse": "Churrascaria",
+        "contemporary": "Contemporâneo",
+        "contemporaryBrazilian": "Brasileiro Contemporâneo",
+        "brazilian": "Brasileiro",
+        "italian": "Italiano",
+        "japanese": "Japonês",
+        "middleEastern": "Árabe",
+        "french": "Francês",
+        "vegetarian": "Vegetariano",
+        "fastFood": "Fast Food",
+        "cafe": "Café",
+        "bakery": "Padaria"
+      },
+      "locations": {
+        "asaSul": "Asa Sul",
+        "asaNorte": "Asa Norte",
+        "lagoSul": "Lago Sul",
+        "lagoNorte": "Lago Norte",
+        "sudoeste": "Sudoeste",
+        "noroeste": "Noroeste",
+        "aguasClaras": "Águas Claras",
+        "taguatinga": "Taguatinga",
+        "ceilandia": "Ceilândia",
+        "samambaia": "Samambaia",
+        "planaltina": "Planaltina",
+        "sobradinho": "Sobradinho",
+        "gama": "Gama"
+      },
+      "priceRanges": {
+        "low": "€ - Econômico (até R$ 30)",
+        "moderate": "€€ - Moderado (R$ 30-60)",
+        "expensive": "€€€ - Caro (R$ 60-120)",
+        "veryExpensive": "€€€€ - Muito Caro (R$ 120+)"
+      },
+      "trustScore": {
+        "any": "Qualquer Pontuação",
+        "good": "5+ - Bom ou melhor",
+        "veryGood": "7+ - Muito Bom ou melhor",
+        "great": "8+ - Ótimo ou melhor",
+        "excellent": "9+ - Excelente"
+      },
+      "advanced": {
+        "title": "Filtros Avançados",
+        "trustScoreLabel": "Pontuação de Confiança: {score}",
+        "quickFilters": "Filtros Rápidos",
+        "bestOnly": "Apenas os Melhores (8+)",
+        "budgetFriendly": "Econômico",
+        "activeFilters": "Filtros Ativos",
+        "noFilters": "Nenhum filtro ativo",
+        "scorePrefix": "Pontuação"
+      },
+      "tip": {
+        "title": "Dica de Filtro:",
+        "description": "Use filtros para encontrar exatamente o que você está procurando. A Pontuação de Confiança mostra recomendações baseadas na sua rede social - quanto maior a pontuação, mais pessoas que você confia recomendaram o lugar!"
+      }
+    },
+    "lists": {
+      "title": "Listas Selecionadas",
+      "subtitle": "Descobertas organizadas por especialistas locais",
+      "tabs": {
+        "trending": "Em Alta",
+        "new": "Novos"
+      },
+      "cta": {
+        "title": "Crie sua própria lista",
+        "description": "Ganhe tokens compartilhando suas descobertas gastronômicas favoritas",
+        "button": "Criar Lista"
+      }
+    },
+    "listCard": {
+      "badge": "Lista Selecionada",
+      "more": "mais",
+      "restaurantCount": "{count} restaurante",
+      "restaurantCount_other": "{count} restaurantes",
+      "moreRestaurants": "+ {count} restaurante a mais",
+      "moreRestaurants_other": "+ {count} restaurantes a mais",
+      "social": {
+        "friend": "Seu amigo",
+        "friendOfFriend": "Amigo de amigo"
+      },
+      "time": {
+        "recent": "Recente"
+      },
+      "actions": {
+        "viewFullList": "Ver Lista Completa",
+        "report": "Denunciar"
+      }
+    },
+    "trustScore": {
+      "label": "Confiança",
+      "levels": {
+        "highlyTrusted": "Altamente Confiável",
+        "trusted": "Confiável",
+        "someTrust": "Alguma Confiança",
+        "limitedData": "Dados Limitados"
+      },
+      "breakdown": {
+        "title": "Detalhamento de Confiança",
+        "directFriends": "Amigos diretos",
+        "friendsOfFriends": "Amigos de amigos",
+        "totalEndorsements": "Total de endossos",
+        "weightExplanation": "Amigos diretos contam como peso 0.75x, amigos de amigos como peso 0.25x no cálculo da Pontuação de Confiança."
+      },
+      "provenance": {
+        "summary": "{saves} salvos • {direct} amigos diretos • {network} rede"
+      }
+    }
+  },
+  "map": {
+    "context": {
+      "breakfast": "🌅 Cafés da Manhã",
+      "lunch": "☀️ Opções de Almoço",
+      "dinner": "🌙 Restaurantes para Jantar",
+      "all": "🍽️ Todos os Restaurantes"
+    },
+    "search": {
+      "placeholder": "Buscar restaurantes por nome, cozinha ou localização..."
+    },
+    "header": {
+      "restaurantCount": "{count} Restaurantes",
+      "filteredFrom": "Filtrado de {total} total",
+      "showingAll": "Mostrando todos os restaurantes"
+    },
+    "actions": {
+      "nearMe": "Perto de Mim",
+      "filters": "Filtros",
+      "clearAll": "Limpar Tudo",
+      "showAll": "Mostrar Todos",
+      "viewDetails": "Ver Detalhes",
+      "directions": "Direções",
+      "reloadPage": "Recarregar Página"
+    },
+    "filters": {
+      "title": "Filtros",
+      "cuisineType": "Tipo de Cozinha",
+      "priceRange": "Faixa de Preço",
+      "minTrustScore": "Pontuação de Confiança Mínima: {score}",
+      "trustScoreAny": "0 (Qualquer)",
+      "trustScoreBest": "10 (Melhor)"
+    },
+    "legend": {
+      "highTrust": "Alta Confiança (8+)",
+      "mediumTrust": "Média (6-8)",
+      "lowTrust": "Baixa (<6)"
+    },
+    "status": {
+      "loading": "Carregando restaurantes..."
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar restaurantes. Por favor, tente novamente.",
+      "locationFailed": "Não foi possível obter sua localização. Por favor, ative os serviços de localização.",
+      "geolocationNotSupported": "Geolocalização não é suportada pelo seu navegador.",
+      "mapLoadError": "Erro ao Carregar Mapa",
+      "checkApiKey": "Falha ao carregar Google Maps. Por favor, verifique sua chave de API."
+    },
+    "infoWindow": {
+      "restaurant": "Restaurante",
+      "trustScore": "Pontuação de Confiança: {score}",
+      "recommendationsFromNetwork": "{count} recomendações da sua rede"
+    },
+    "footer": {
+      "hint": "Arraste e amplie para explorar • Marcadores mostram Pontuações de Confiança da sua rede, não avaliações externas"
+    }
+  },
+  "requestCard": {
+    "header": {
+      "title": "Pedido de Descoberta"
+    },
+    "status": {
+      "open": "🟢 Aberto",
+      "answered": "✅ Respondido",
+      "closed": "🔒 Fechado"
+    },
+    "stats": {
+      "responses": "{count} respostas",
+      "views": "{count} visualizações"
+    },
+    "tags": {
+      "dietaryCount": "+{count} dietético"
+    },
+    "creator": {
+      "reputation": "{score} rep"
+    },
+    "actions": {
+      "report": "Denunciar",
+      "viewResponses": "Ver {count} Resposta(s)",
+      "beFirstToRespond": "Seja o Primeiro a Responder"
+    }
+  },
+  "restaurantCard": {
+    "trustScore": {
+      "label": "Pontuação de Confiança",
+      "excellent": "Excelente",
+      "veryGood": "Muito Bom",
+      "good": "Bom",
+      "average": "Regular",
+      "tooltipFull": "Baseado em {count} recomendações de pessoas na sua rede social, ponderado por proximidade social e reputação.",
+      "tooltipShort": "Baseado em {count} recomendações de pessoas na sua rede social."
+    },
+    "badges": {
+      "verified": "Verificado"
+    },
+    "stats": {
+      "recommendations": "{count} recomendações"
+    },
+    "topRecommendation": {
+      "by": "por {author}"
+    },
+    "actions": {
+      "viewRecommendations": "Ver Recomendações"
+    }
+  },
+  "walletOnboarding": {
+    "header": {
+      "titleUpgrade": "Resgate Seus Tokens",
+      "titleFirstTime": "Conecte Sua Carteira"
+    },
+    "progress": {
+      "stepOf": "Passo {current} de {total}"
+    },
+    "steps": {
+      "intro": {
+        "titleUpgrade": "Pronto para Resgatar Seus Tokens?",
+        "titleFirstTime": "Bem-vindo às Recomendações Web3",
+        "contentUpgrade": "Você ganhou {tokens} TOK! Conecte sua carteira para resgatá-los e começar a ganhar mais.",
+        "contentFirstTime": "Conecte sua carteira para ganhar tokens por recomendações úteis e participar da rede de confiança."
+      },
+      "benefits": {
+        "title": "Por que Conectar uma Carteira?",
+        "content": "Uma carteira Web3 dá a você propriedade e controle enquanto habilita recompensas em tokens."
+      },
+      "security": {
+        "title": "Seguro e Protegido",
+        "content": "Priorizamos sua segurança e nunca acessamos seus fundos."
+      }
+    },
+    "benefits": {
+      "claimTokens": "Resgate {tokens} TOK que você ganhou",
+      "startEarning": "Comece a ganhar tokens por futuras recomendações",
+      "fullParticipation": "Participação completa na rede de confiança",
+      "earnTokens": "Ganhe tokens por recomendações úteis",
+      "dataControl": "Seus dados permanecem sob seu controle",
+      "buildReputation": "Construa sua reputação na rede de confiança",
+      "earnPerRecommendation": "Ganhe 1-3 TOK por recomendação útil",
+      "portableReputation": "Construa reputação que te acompanha em qualquer lugar",
+      "governance": "Participe da governança da plataforma"
+    },
+    "security": {
+      "noPrivateKeys": "Nunca armazenamos suas chaves privadas",
+      "noTransactions": "Nenhuma transação necessária - apenas autenticação",
+      "industryStandard": "Práticas de segurança padrão da indústria",
+      "trustedByThousands": "Confiado por milhares de usuários"
+    },
+    "actions": {
+      "back": "Voltar",
+      "continue": "Continuar",
+      "connectWallet": "Conectar Carteira",
+      "claimTokens": "Resgatar {tokens} TOK",
+      "skipIntro": "Pular introdução e conectar carteira"
+    },
+    "connection": {
+      "readyToClaim": "Pronto para resgatar {tokens} TOK!",
+      "connectToUnlock": "Conecte sua carteira para desbloquear seus tokens ganhos"
+    },
+    "securityReminder": {
+      "title": "Sua Segurança é Nossa Prioridade",
+      "description": "Usamos protocolos de conexão de carteira padrão da indústria. Suas chaves privadas permanecem na sua carteira, e nunca iniciamos transações sem sua aprovação explícita."
+    },
+    "help": {
+      "newToWallets": "Novo em carteiras? Saiba mais"
+    }
+  },
+  "badges": {
+    "firstReviewer": {
+      "label": "Primeiro Avaliador",
+      "tooltipTitle": "🎉 Primeiro a Avaliar!",
+      "tooltipContent": "Ganhou +1.0 BOCA de bônus"
+    }
+  },
+  "cuisineTypes": {
+    "brazilian": "Brasileiro",
+    "northeastern": "Nordestino",
+    "mineira": "Mineiro",
+    "italian": "Italiano",
+    "japanese": "Japonês",
+    "chinese": "Chinês",
+    "french": "Francês",
+    "mediterranean": "Mediterrâneo",
+    "seafood": "Frutos do Mar",
+    "steakhouse": "Churrascaria",
+    "fastFood": "Fast Food",
+    "cafe": "Café",
+    "vegetarian": "Vegetariano",
+    "vegan": "Vegano",
+    "international": "Internacional",
+    "arabic": "Árabe",
+    "indian": "Indiano",
+    "thai": "Tailandês",
+    "other": "Outro"
+  },
+  "restaurants": {
+    "addition": {
+      "success": {
+        "title": "Restaurante adicionado!",
+        "message": "O restaurante foi adicionado ao banco de dados e está sendo verificado."
+      },
+      "modeToggle": {
+        "searchExisting": "Buscar Existente",
+        "addNew": "Adicionar Novo"
+      },
+      "search": {
+        "placeholder": "Buscar restaurantes em {city}...",
+        "searching": "Buscando restaurantes...",
+        "error": "Erro ao buscar restaurantes. Por favor, tente novamente.",
+        "recentSearches": "Buscas recentes:",
+        "didYouMean": "Você quis dizer...?",
+        "similarity": "Similaridade: {percent}%",
+        "id": "ID: {id}",
+        "recommendations": "{count} recomendações",
+        "trust": "Confiança {score}",
+        "verified": "Verificado",
+        "noResults": "Nenhum restaurante encontrado para \"{query}\"",
+        "addAsNew": "Adicionar como novo restaurante"
+      },
+      "addMode": {
+        "title": "Adicionar Novo Restaurante",
+        "description": "Ajude a construir o banco de dados da comunidade adicionando restaurantes que você quer recomendar.",
+        "form": {
+          "nameLabel": "Nome do Restaurante *",
+          "namePlaceholder": "Digite o nome do restaurante",
+          "addressLabel": "Endereço Completo *",
+          "addressPlaceholder": "Rua, número, bairro, cidade",
+          "locationLabel": "Localização GPS *",
+          "useGps": "Usar GPS",
+          "gettingLocation": "Obtendo...",
+          "locationSet": "Localização Definida",
+          "coordinates": "({lat}, {lng})",
+          "cityLabel": "Cidade *",
+          "countryLabel": "País",
+          "cuisineTypeLabel": "Tipo de Cozinha",
+          "cuisineTypePlaceholder": "Selecione o tipo de cozinha",
+          "priceRangeLabel": "Faixa de Preço",
+          "phoneLabel": "Telefone (Opcional)",
+          "phonePlaceholder": "+55 61 1234-5678",
+          "websiteLabel": "Site (Opcional)",
+          "websitePlaceholder": "https://site-do-restaurante.com",
+          "submitButton": "Adicionar Restaurante e Continuar",
+          "submitting": "Adicionando...",
+          "cancelButton": "Cancelar"
+        },
+        "priceRange": {
+          "1": "💰 - Até R$30 por pessoa",
+          "2": "💰💰 - R$30-60 por pessoa",
+          "3": "💰💰💰 - R$60-120 por pessoa",
+          "4": "💰💰💰💰 - R$120+ por pessoa"
+        }
+      },
+      "validation": {
+        "nameRequired": "Nome do restaurante é obrigatório",
+        "nameTooShort": "Nome deve ter pelo menos 2 caracteres",
+        "addressRequired": "Endereço é obrigatório",
+        "addressTooShort": "Por favor, forneça um endereço mais detalhado",
+        "locationRequired": "Localização é obrigatória - use GPS ou digite manualmente",
+        "websiteInvalid": "URL do site inválida",
+        "phoneInvalid": "Formato de telefone inválido"
+      },
+      "geolocation": {
+        "notSupported": "Geolocalização não é suportada pelo seu navegador",
+        "failed": "Não foi possível obter sua localização",
+        "permissionDenied": "Permissão de localização negada",
+        "unavailable": "Localização indisponível",
+        "timeout": "Tempo limite da solicitação de localização excedido"
+      },
+      "apiError": "Erro ao adicionar restaurante: {message}"
+    }
+  },
+  "autocomplete": {
+    "placeholder": "Buscar um restaurante...",
+    "ariaLabel": "Busca de restaurante",
+    "minCharsHint": "Digite pelo menos 2 caracteres para buscar",
+    "adding": "Adicionando restaurante...",
+    "errors": {
+      "searchFailed": "Falha ao buscar restaurantes. Por favor, tente novamente.",
+      "addFailed": "Falha ao adicionar restaurante. Por favor, tente novamente."
+    }
+  },
+  "detail": {
+    "loading": "Carregando detalhes do restaurante...",
+    "notFound": "Restaurante não encontrado",
+    "returnToDiscover": "Voltar para Descobrir",
+    "back": "← Voltar",
+    "googleRating": "Avaliação Google:",
+    "reviewCount": "({count} avaliações)",
+    "recommendationsTitle": "Recomendações ({count})",
+    "userLabel": "Usuário {id}",
+    "ratingLabel": "Avaliação: {rating}/10",
+    "noRecommendations": "Nenhuma recomendação ainda. Seja o primeiro a recomendar este lugar!",
+    "addRecommendation": "Adicionar Sua Recomendação",
+    "trustScore": {
+      "moreInfo": "Mais informações",
+      "outOf10": "/10",
+      "confidence": "{percent}% de confiança"
+    }
+  },
+  "detailPage": {
+    "loading": "Carregando restaurante...",
+    "back": "Voltar",
+    "backToDiscover": "Voltar para Descobrir",
+    "verified": "Verificado",
+    "website": "Site",
+    "totalRecommendations": "Total de recomendações:",
+    "errors": {
+      "invalidId": "ID de restaurante inválido",
+      "invalidIdTitle": "ID de Restaurante Inválido",
+      "invalidIdDescription": "O ID de restaurante \"{id}\" não é um número válido.",
+      "notFound": "Restaurante não encontrado",
+      "notFoundDescription": "O restaurante com ID {id} não existe ou foi removido.",
+      "loadFailed": "Erro ao carregar restaurante",
+      "loadFailedDescription": "Ocorreu um erro ao carregar os dados do restaurante."
+    },
+    "share": {
+      "text": "Confira este restaurante: {name}"
+    },
+    "actions": {
+      "save": "Salvar",
+      "saved": "Salvo",
+      "share": "Compartilhar"
+    },
+    "tabs": {
+      "all": "Todos ({count})",
+      "friends": "Amigos ({count})",
+      "recent": "Recentes"
+    },
+    "sort": {
+      "label": "Ordenar por",
+      "trustScore": "Pontuação de Confiança",
+      "recent": "Mais Recentes",
+      "socialProximity": "Proximidade Social"
+    },
+    "recommendation": {
+      "trustScore": "Pontuação de Confiança: {score}",
+      "rating": "{rating}/10",
+      "likes": "{count} curtidas",
+      "photos": "📷 {count} fotos"
+    },
+    "emptyState": {
+      "title": "Nenhuma recomendação encontrada",
+      "description": "Seja o primeiro a recomendar este restaurante!"
+    }
+  },
+  "lists": {
+    "createFlow": {
+      "title": "Criar Nova Lista",
+      "aria": {
+        "close": "Fechar diálogo"
+      },
+      "steps": {
+        "stepNumber": "Passo {step}",
+        "details": "Detalhes da Lista",
+        "selectRestaurants": "Selecionar Restaurantes",
+        "review": "Revisar e Criar"
+      },
+      "form": {
+        "titleLabel": "Título da Lista *",
+        "titlePlaceholder": "ex: Melhores Pizzarias de Brasília",
+        "descriptionLabel": "Descrição",
+        "descriptionPlaceholder": "Conte aos outros o que torna esta lista especial...",
+        "visibilityLabel": "Visibilidade",
+        "characterCount": "{current}/{max} caracteres",
+        "visibility": {
+          "public": "Pública - Qualquer pessoa pode ver esta lista",
+          "followersOnly": "Apenas Seguidores - Só seus seguidores podem ver",
+          "followersOnlyShort": "Apenas seguidores",
+          "private": "Privada - Só você pode ver esta lista"
+        }
+      },
+      "search": {
+        "label": "Buscar Restaurantes",
+        "placeholder": "Buscar restaurantes para adicionar...",
+        "searching": "Buscando restaurantes...",
+        "noResults": "Nenhum restaurante encontrado para \"{query}\"",
+        "add": "Adicionar",
+        "added": "Adicionado"
+      },
+      "selected": {
+        "title": "Restaurantes Selecionados ({count})",
+        "remove": "Remover"
+      },
+      "review": {
+        "detailsTitle": "Detalhes da Lista",
+        "visibility": "Visibilidade",
+        "restaurantsTitle": "Restaurantes ({count})"
+      },
+      "buttons": {
+        "cancel": "Cancelar",
+        "back": "Voltar",
+        "next": "Próximo",
+        "create": "Criar Lista",
+        "creating": "Criando..."
+      },
+      "toast": {
+        "added": "{name} adicionado à lista",
+        "created": "Lista criada com sucesso!"
+      },
+      "errors": {
+        "loginRequired": "Por favor, faça login para criar uma lista",
+        "titleRequired": "Por favor, insira um título para a lista",
+        "restaurantRequired": "Por favor, selecione pelo menos um restaurante",
+        "searchFailed": "Falha ao buscar restaurantes. Por favor, tente novamente.",
+        "createFailed": "Falha ao criar lista",
+        "invalidResponse": "Resposta inválida do servidor"
+      }
+    }
+  },
+  "savedLists": {
+    "button": {
+      "labels": {
+        "restaurant": "Salvar para Experimentar",
+        "recommendation": "Favoritar",
+        "guide": "Salvar Guia"
+      },
+      "loading": "Carregando...",
+      "aria": {
+        "save": "Salvar item",
+        "saved": "Item salvo"
+      }
+    },
+    "card": {
+      "confirmDelete": "Tem certeza que deseja excluir \"{name}\"? Isso removerá todos os itens desta lista.",
+      "listType": {
+        "places": "Lugares para Experimentar",
+        "bookmarks": "Favoritos",
+        "mixed": "Misto"
+      },
+      "privacy": {
+        "public": "Público",
+        "private": "Privado"
+      },
+      "menu": {
+        "ariaLabel": "Opções da lista",
+        "view": "Ver Lista",
+        "edit": "Editar Detalhes",
+        "publish": "Publicar como Guia",
+        "delete": "Excluir Lista",
+        "deleting": "Excluindo..."
+      },
+      "item": {
+        "restaurant": "Restaurante",
+        "more": "mais"
+      },
+      "empty": {
+        "message": "Nenhum item ainda. Comece a adicionar restaurantes!"
+      },
+      "stats": {
+        "itemCount": "{count} itens",
+        "itemCount_one": "{count} item",
+        "updated": "Atualizado em {date}"
+      },
+      "actions": {
+        "viewFull": "Ver Lista Completa"
+      },
+      "toast": {
+        "deleted": "Lista excluída com sucesso",
+        "deleteFailed": "Falha ao excluir lista",
+        "publishComingSoon": "Recurso de publicação em breve!"
+      }
+    },
+    "modal": {
+      "title": {
+        "restaurant": "Adicionar à Lista de Experimentar",
+        "recommendation": "Favoritar em Lista",
+        "guide": "Salvar Guia em Lista"
+      },
+      "loading": "Carregando suas listas...",
+      "empty": {
+        "title": "Você ainda não tem nenhuma lista.",
+        "description": "Crie sua primeira lista para começar!"
+      },
+      "listMeta": {
+        "itemCount": "{count} itens",
+        "itemCount_one": "{count} item"
+      },
+      "status": {
+        "saved": "Salvo"
+      },
+      "actions": {
+        "createNew": "Criar Nova Lista",
+        "saving": "Salvando..."
+      },
+      "toast": {
+        "loadFailed": "Falha ao carregar listas",
+        "saved": "Salvo com sucesso!",
+        "saveFailed": "Falha ao salvar",
+        "createdAndSaved": "Lista \"{name}\" criada e item salvo!",
+        "saveToNewFailed": "Falha ao salvar na nova lista"
+      }
+    },
+    "form": {
+      "title": "Criar Nova Lista",
+      "listTypes": {
+        "places": "Lugares para Experimentar",
+        "bookmarks": "Favoritos",
+        "mixed": "Coleção Mista"
+      },
+      "fields": {
+        "name": {
+          "label": "Nome da Lista",
+          "placeholder": "ex: Viagem a Buenos Aires, Ler Depois, Ideias para Encontros"
+        },
+        "description": {
+          "label": "Descrição",
+          "placeholder": "Para que é esta lista?"
+        },
+        "listType": {
+          "label": "Tipo de Lista"
+        },
+        "icon": {
+          "label": "Escolha um Ícone",
+          "select": "Selecionar ícone {icon}"
+        }
+      },
+      "validation": {
+        "nameRequired": "Por favor, insira um nome para a lista"
+      },
+      "errors": {
+        "createFailed": "Falha ao criar lista. Por favor, tente novamente."
+      },
+      "actions": {
+        "create": "Criar Lista",
+        "creating": "Criando..."
+      }
+    },
+    "edit": {
+      "title": "Editar Lista",
+      "fields": {
+        "icon": {
+          "label": "Ícone da Lista",
+          "hint": "Clique para alterar"
+        },
+        "name": {
+          "label": "Nome da Lista",
+          "placeholder": "ex: Melhores Lugares para Encontros"
+        },
+        "description": {
+          "label": "Descrição",
+          "placeholder": "Sobre o que é esta lista?"
+        },
+        "notes": {
+          "label": "Notas / Rascunho do Guia",
+          "placeholder": "Adicione notas para si mesmo, ou elabore o conteúdo para quando publicar isso como guia...",
+          "hint": "Estas notas são privadas. Elas serão usadas como conteúdo inicial quando você publicar esta lista como guia."
+        }
+      },
+      "restaurants": {
+        "title": "Restaurantes ({count})",
+        "addButton": "Adicionar Restaurante",
+        "removeButton": "Remover da lista",
+        "empty": "Nenhum restaurante ainda. Clique em \"Adicionar Restaurante\" para começar!",
+        "search": {
+          "title": "Buscar um restaurante",
+          "placeholder": "Digite o nome do restaurante (ex: Dom Francisco)",
+          "hint": "Comece a digitar para buscar. Selecione das sugestões para adicionar à sua lista."
+        }
+      },
+      "actions": {
+        "publishAsGuide": "Publicar como Guia",
+        "save": "Salvar Alterações",
+        "saving": "Salvando..."
+      },
+      "validation": {
+        "nameRequired": "Nome da lista é obrigatório"
+      },
+      "errors": {
+        "updateFailed": "Falha ao atualizar lista. Por favor, tente novamente.",
+        "removeFailed": "Falha ao remover restaurante. Por favor, tente novamente.",
+        "addFailed": "Falha ao adicionar restaurante. Por favor, tente novamente."
+      }
+    },
+    "publish": {
+      "title": "Publicar como Guia",
+      "infoBanner": {
+        "title": "Transforme sua lista privada em um guia público",
+        "description": "Sua lista se tornará descobrível por outros. Você pode editar ou despublicar a qualquer momento."
+      },
+      "fields": {
+        "title": {
+          "label": "Título do Guia",
+          "placeholder": "ex: Melhores Restaurantes para Encontros em Brasília"
+        },
+        "description": {
+          "label": "Descrição",
+          "placeholder": "Descreva seu guia... (Este será o conteúdo principal que os leitores verão)",
+          "hintPrefilled": "Pré-preenchido a partir das suas notas. Edite conforme necessário.",
+          "hintEmpty": "Adicione uma descrição para ajudar os leitores a entender o que torna este guia especial."
+        },
+        "category": {
+          "label": "Categoria",
+          "options": {
+            "restaurants": "Restaurantes",
+            "cafes": "Cafés",
+            "bars": "Bares e Vida Noturna",
+            "quickBites": "Lanches Rápidos",
+            "fineDining": "Alta Gastronomia",
+            "localFavorites": "Favoritos Locais"
+          }
+        },
+        "city": {
+          "label": "Cidade"
+        },
+        "bestFor": {
+          "label": "Melhor Para (Opcional)",
+          "placeholder": "ex: Encontros românticos, Jantares em família, Jantar solo"
+        },
+        "tags": {
+          "label": "Tags (Opcional)",
+          "placeholder": "italiano, romântico, aconchegante (separados por vírgula)",
+          "hint": "Separe as tags com vírgulas. Elas ajudam as pessoas a descobrir seu guia."
+        }
+      },
+      "preview": {
+        "title": "Prévia do Guia",
+        "restaurantsIncluded": "Restaurantes incluídos:",
+        "restaurantCount": "{count} restaurantes",
+        "restaurantCount_one": "{count} restaurante",
+        "moreRestaurants": "+ {count} restaurantes a mais"
+      },
+      "footerNote": "Sua lista original permanecerá privada",
+      "actions": {
+        "publish": "Publicar Guia",
+        "publishing": "Publicando..."
+      },
+      "validation": {
+        "titleRequired": "Título do guia é obrigatório",
+        "emptyList": "Não é possível publicar um guia vazio. Adicione pelo menos um restaurante."
+      },
+      "errors": {
+        "notLoggedIn": "Você precisa estar logado para publicar um guia. Por favor, faça login e tente novamente.",
+        "publishFailed": "Falha ao publicar guia. Por favor, tente novamente."
+      },
+      "success": "Guia \"{title}\" publicado com sucesso! Veja na página Descobrir."
+    }
+  },
+  "social": {
+    "follow": {
+      "follow": "Seguir",
+      "following": "Seguindo",
+      "followingAction": "Seguindo...",
+      "unfollowing": "Deixando de seguir...",
+      "aria": {
+        "follow": "Seguir este usuário",
+        "unfollow": "Deixar de seguir este usuário"
+      }
+    },
+    "reshare": {
+      "someone": "Alguém",
+      "reshared": "compartilhou",
+      "timeAgo": {
+        "now": "agora",
+        "minutes": "{count}min",
+        "hours": "{count}h",
+        "days": "{count}d",
+        "weeks": "{count}sem"
+      }
+    },
+    "userList": {
+      "titles": {
+        "followers": "Seguidores",
+        "following": "Seguindo",
+        "suggestions": "Usuários Sugeridos",
+        "searchResults": "Resultados da Busca",
+        "users": "Usuários"
+      },
+      "listTypes": {
+        "followers": "seguidores",
+        "following": "seguindo",
+        "suggestions": "sugestões",
+        "search": "usuários"
+      },
+      "suggestedForYou": "Sugeridos para você",
+      "search": {
+        "placeholder": "Buscar usuários...",
+        "button": "Buscar"
+      },
+      "filters": {
+        "button": "Filtros",
+        "minReputation": "Reputação Mínima",
+        "verification": "Verificação",
+        "sortBy": "Ordenar Por",
+        "hasRecommendations": "Tem recomendações",
+        "options": {
+          "all": "Todos",
+          "verified": "Verificado",
+          "expert": "Especialista"
+        },
+        "sortOptions": {
+          "reputation": "Reputação",
+          "followers": "Seguidores",
+          "recommendations": "Recomendações"
+        }
+      },
+      "stats": {
+        "followers": "{count} seguidores",
+        "followers_one": "{count} seguidor",
+        "recommendations": "{count} recomendações",
+        "recommendations_one": "{count} recomendação",
+        "trust": "★ {score} confiança"
+      },
+      "empty": {
+        "noUsersFound": "Nenhum usuário encontrado",
+        "noListTypeYet": "Nenhum {listType} ainda",
+        "adjustCriteria": "Tente ajustar seus critérios de busca",
+        "userHasNoListType": "Este usuário ainda não tem {listType}."
+      },
+      "loading": "Carregando...",
+      "loadMore": "Carregar Mais"
+    }
+  },
+  "reputation": {
+    "discovery": {
+      "title": "Incentivos de Descoberta",
+      "tokAvailable": "TOK Disponíveis",
+      "eligibilityScore": "Pontuação de Elegibilidade",
+      "bonusesReadyToClaim": "{count} Bônus Pronto para Resgatar!",
+      "bonusesReadyToClaim_other": "{count} Bônus Prontos para Resgatar!",
+      "campaignBonus": "Campanha {id}: {amount} TOK",
+      "claiming": "Resgatando...",
+      "claim": "Resgatar",
+      "multiplier": "Multiplicador",
+      "progress": "Progresso",
+      "tabs": {
+        "activeCampaigns": "Campanhas Ativas",
+        "eligibility": "Elegibilidade"
+      },
+      "time": {
+        "expired": "Expirado",
+        "daysHoursRemaining": "{days}d {hours}h restantes",
+        "hoursRemaining": "{hours}h restantes"
+      },
+      "empty": {
+        "noCampaigns": "Nenhuma campanha ativa na sua região",
+        "checkBackSoon": "Volte em breve para novas oportunidades!"
+      },
+      "stats": {
+        "pool": "Pool: {amount} TOK",
+        "participants": "{count} participantes",
+        "participants_one": "{count} participante",
+        "minTrust": "Confiança Mín: {score}"
+      },
+      "eligibility": {
+        "title": "Seu Status de Elegibilidade",
+        "overallScore": "Pontuação Geral",
+        "regionCoverage": "Cobertura Regional",
+        "categoryExpertise": "Expertise em Categoria",
+        "eligibleRecommendations": "Recomendações Elegíveis"
+      },
+      "improve": {
+        "title": "Melhore Sua Pontuação",
+        "createMore": "Crie mais {count} recomendações",
+        "createMore_one": "Crie mais {count} recomendação",
+        "focusAreas": "Foque em áreas geográficas menos atendidas",
+        "buildExpertise": "Construa expertise em categorias em tendência"
+      }
+    },
+    "socialGraph": {
+      "title": "Rede Social",
+      "follow": "Seguir",
+      "unfollow": "Deixar de Seguir",
+      "aria": {
+        "follow": "Seguir este usuário",
+        "unfollow": "Deixar de seguir este usuário"
+      },
+      "stats": {
+        "followers": "Seguidores",
+        "following": "Seguindo"
+      },
+      "tabs": {
+        "following": "Seguindo",
+        "followers": "Seguidores",
+        "analytics": "Analytics"
+      },
+      "user": "Usuário {id}",
+      "trustWeight": "Peso de Confiança: {weight}%",
+      "viewAllFollowing": "Ver todos os {count} seguindo",
+      "viewAllFollowers": "Ver todos os {count} seguidores",
+      "analytics": {
+        "networkOverview": "Visão Geral da Rede",
+        "networkSize": "Tamanho da Rede:",
+        "density": "Densidade:",
+        "influenceScore": "Pontuação de Influência:",
+        "geographicDistribution": "Distribuição Geográfica",
+        "interestClusters": "Clusters de Interesse",
+        "connections": "{count} conexões",
+        "connections_one": "{count} conexão"
+      }
+    },
+    "trustScore": {
+      "trust": "Confiança",
+      "trustOutOf": "Confiança {score} / 10",
+      "directConnection": "Conexão Direta",
+      "error": {
+        "loadFailed": "Falha ao carregar dados de confiança"
+      },
+      "levels": {
+        "high": "Alta Confiança",
+        "medium": "Confiança Média",
+        "low": "Baixa Confiança",
+        "none": "Sem Confiança"
+      },
+      "hops": "±{count} saltos",
+      "hops_one": "±{count} salto",
+      "verificationLevels": {
+        "basic": "Básico",
+        "verified": "Verificado",
+        "expert": "Especialista"
+      },
+      "aria": {
+        "toggleBreakdown": "Alternar detalhamento da pontuação de confiança"
+      },
+      "pathAnalysis": {
+        "title": "Análise do Caminho de Confiança",
+        "connectionType": "Tipo de Conexão:",
+        "direct": "Direto",
+        "friendOfFriend": "Amigo de Amigo",
+        "trustMultiplier": "Multiplicador de Confiança:"
+      },
+      "socialMetrics": {
+        "title": "Métricas Sociais",
+        "followers": "Seguidores:",
+        "following": "Seguindo:",
+        "networkQuality": "Qualidade da Rede:",
+        "avgTrustWeight": "Peso Médio de Confiança:"
+      }
+    }
+  }
+}

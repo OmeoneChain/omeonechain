@@ -1,7 +1,11 @@
 // File: code/poc/frontend/src/components/auth/AuthModal.tsx
 // Simplified modal with email/social signup only (no wallet tab)
+// UPDATED: Internationalized with next-intl
+
+'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { EmailAuth } from './EmailAuth';
 
 interface AuthModalProps {
@@ -13,6 +17,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSuccess, 
   onClose
 }) => {
+  const t = useTranslations('auth');
 
   const handleAuthSuccess = (token: string, user: any) => {
     console.log('✅ Authentication successful:', user);
@@ -43,10 +48,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <h4 className="font-semibold text-blue-900 mb-1">Need wallet features?</h4>
+              <h4 className="font-semibold text-blue-900 mb-1">{t('walletUpgradeInfo.title')}</h4>
               <p className="text-sm text-blue-800">
-                Start with email signup now. You can connect a wallet anytime using the 
-                <strong> "Connect Wallet"</strong> button in the header to claim tokens and access NFT features.
+                {t('walletUpgradeInfo.description')}
               </p>
             </div>
           </div>

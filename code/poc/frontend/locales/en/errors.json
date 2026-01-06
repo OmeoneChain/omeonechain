@@ -1,0 +1,71 @@
+{
+  "generic": {
+    "somethingWentWrong": "Something went wrong",
+    "tryAgain": "Please try again",
+    "networkError": "Network error. Check your connection.",
+    "serverError": "Server error. Please try again later.",
+    "notFound": "Not found",
+    "unauthorized": "You need to be logged in",
+    "forbidden": "You don't have permission to do this",
+    "timeout": "Request timed out. Please try again."
+  },
+  
+  "validation": {
+    "required": "This field is required",
+    "invalidEmail": "Please enter a valid email address",
+    "passwordTooShort": "Password must be at least {min} characters",
+    "passwordMismatch": "Passwords don't match",
+    "usernameTaken": "This username is already taken",
+    "emailTaken": "This email is already registered",
+    "invalidFormat": "Invalid format",
+    "tooLong": "Maximum {max} characters allowed",
+    "tooShort": "Minimum {min} characters required"
+  },
+  
+  "auth": {
+    "invalidCredentials": "Invalid email or password",
+    "accountLocked": "Account temporarily locked. Try again later.",
+    "sessionExpired": "Your session has expired. Please sign in again.",
+    "walletNotConnected": "Please connect your wallet first",
+    "signatureRejected": "Signature was rejected",
+    "walletNotFound": "No wallet detected. Please install a wallet."
+  },
+  
+  "recommendations": {
+    "createFailed": "Failed to create recommendation",
+    "updateFailed": "Failed to update recommendation",
+    "deleteFailed": "Failed to delete recommendation",
+    "notFound": "Recommendation not found",
+    "alreadyExists": "You've already recommended this restaurant"
+  },
+  
+  "restaurants": {
+    "createFailed": "Failed to add restaurant",
+    "notFound": "Restaurant not found",
+    "searchFailed": "Search failed. Please try again."
+  },
+  
+  "rewards": {
+    "claimFailed": "Failed to claim tokens",
+    "insufficientBalance": "Insufficient token balance",
+    "walletRequired": "Wallet connection required for this action",
+    "alreadyParticipated": "You've already participated this week",
+    "contestClosed": "This contest is closed",
+    "bountyExpired": "This bounty has expired"
+  },
+  
+  "upload": {
+    "fileTooLarge": "File is too large. Maximum {max}MB allowed.",
+    "invalidFileType": "Invalid file type. Allowed: {types}",
+    "uploadFailed": "Upload failed. Please try again.",
+    "maxFilesReached": "Maximum {max} files allowed"
+  },
+  
+  "social": {
+    "followFailed": "Failed to follow user",
+    "unfollowFailed": "Failed to unfollow user",
+    "commentFailed": "Failed to post comment",
+    "likeFailed": "Failed to like",
+    "saveFailed": "Failed to save"
+  }
+}

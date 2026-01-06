@@ -129,9 +129,10 @@ module escrow::escrow {
     }
 
     /// Create escrow hold for a New tier user
+    /// Takes user's UserStatus object to verify they require escrow
     public fun create_escrow_hold(
         registry: &mut GlobalEscrowRegistry,
-        user_status_registry: &user_status::UserStatusRegistry,
+        user_status: &user_status::UserStatus,
         user: address,
         reward_coin: Coin<TOKEN>,
         recommendation_id: String,
@@ -145,9 +146,8 @@ module escrow::escrow {
         let now = clock::timestamp_ms(clock);
         let release_time = now + ESCROW_DURATION_MS;
 
-        // Verify user is New tier (only New tier gets escrowed)
-        let user_tier = user_status::get_user_tier(user_status_registry, user);
-        assert!(user_tier == 1, E_NOT_NEW_TIER); // 1 = New tier
+        // Verify user requires escrow (New tier)
+        assert!(user_status::requires_escrow(user_status), E_NOT_NEW_TIER);
 
         // Create escrow hold
         let escrow_hold = EscrowHold {
@@ -204,10 +204,10 @@ module escrow::escrow {
         escrow_uid
     }
 
-    /// Release escrow hold after 7 days (if clean)
+    /// Release escrow hold after 7 days
+    /// Note: Spam check removed - rely on moderator forfeit mechanism instead
     public fun release_escrow(
         registry: &mut GlobalEscrowRegistry,
-        user_status_registry: &user_status::UserStatusRegistry,
         escrow_hold: &mut EscrowHold,
         clock: &Clock,
         ctx: &mut TxContext
@@ -223,13 +223,6 @@ module escrow::escrow {
 
         // Check if 7 days have passed
         assert!(now >= escrow_hold.release_time, E_ESCROW_STILL_LOCKED);
-
-        // Check if user is still clean (no active spam flag)
-        let (_, _, _, _, _, is_spam_flagged, _) = user_status::get_user_status(
-            user_status_registry,
-            escrow_hold.user
-        );
-        assert!(!is_spam_flagged, E_NOT_AUTHORIZED);
 
         // Get amount
         let amount = balance::value(&escrow_hold.amount);
@@ -333,37 +326,8 @@ module escrow::escrow {
         (reporter_coin, burn_coin)
     }
 
-    /// Batch release multiple escrows
-    public fun batch_release_escrows(
-        registry: &mut GlobalEscrowRegistry,
-        user_status_registry: &user_status::UserStatusRegistry,
-        escrow_holds: &mut vector<EscrowHold>,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ): vector<Coin<TOKEN>> {
-        let mut released_coins = vector::empty<Coin<TOKEN>>();
-        let mut i = 0;
-        let len = vector::length(escrow_holds);
-
-        while (i < len) {
-            let escrow = vector::borrow_mut(escrow_holds, i);
-            let released_coin = release_escrow(
-                registry,
-                user_status_registry,
-                escrow,
-                clock,
-                ctx
-            );
-            vector::push_back(&mut released_coins, released_coin);
-            i = i + 1;
-        };
-
-        released_coins
-    }
-
-    /// Check if escrow can be released
+    /// Check if escrow can be released (time-based only)
     public fun can_release_escrow(
-        user_status_registry: &user_status::UserStatusRegistry,
         escrow_hold: &EscrowHold,
         clock: &Clock,
     ): bool {
@@ -374,17 +338,7 @@ module escrow::escrow {
             return false
         };
 
-        if (now < escrow_hold.release_time) {
-            return false
-        };
-
-        // Check if user is clean
-        let (_, _, _, _, _, is_spam_flagged, _) = user_status::get_user_status(
-            user_status_registry,
-            escrow_hold.user
-        );
-
-        !is_spam_flagged
+        now >= escrow_hold.release_time
     }
 
     /// Get user's active escrow amount

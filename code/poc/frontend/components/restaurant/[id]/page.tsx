@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Star, MapPin, DollarSign, Users, Info } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -55,6 +56,7 @@ interface TrustScoreCardProps {
 
 function TrustScoreCard({ trustScoreDisplay }: TrustScoreCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const t = useTranslations('common.restaurants.detail');
 
   // Determine color scheme based on state and score
   const getColorScheme = () => {
@@ -108,7 +110,7 @@ function TrustScoreCard({ trustScoreDisplay }: TrustScoreCardProps) {
               onMouseEnter={() => setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
               className="p-1 rounded-full hover:bg-black hover:bg-opacity-10 transition-colors"
-              aria-label="More information"
+              aria-label={t('trustScore.moreInfo')}
             >
               <Info className="w-5 h-5" />
             </button>
@@ -129,12 +131,12 @@ function TrustScoreCard({ trustScoreDisplay }: TrustScoreCardProps) {
         <span className={`text-5xl font-bold ${getScoreColor()}`}>
           {trustScoreDisplay.score.toFixed(1)}
         </span>
-        <span className="text-2xl text-gray-500">/10</span>
+        <span className="text-2xl text-gray-500">{t('trustScore.outOf10')}</span>
         
         {/* Confidence indicator for personalized scores */}
         {trustScoreDisplay.state === 'personalized' && trustScoreDisplay.confidence && (
           <span className="ml-2 text-xs bg-white bg-opacity-50 px-2 py-1 rounded">
-            {Math.round(trustScoreDisplay.confidence * 100)}% confidence
+            {t('trustScore.confidence', { percent: Math.round(trustScoreDisplay.confidence * 100) })}
           </span>
         )}
       </div>
@@ -158,6 +160,7 @@ export default function RestaurantPage() {
   const params = useParams();
   const router = useRouter();
   const restaurantId = params.id as string;
+  const t = useTranslations('common.restaurants.detail');
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -198,7 +201,7 @@ export default function RestaurantPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading restaurant details...</p>
+          <p className="text-gray-600">{t('loading')}</p>
         </div>
       </div>
     );
@@ -209,12 +212,12 @@ export default function RestaurantPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Restaurant not found'}</p>
+          <p className="text-red-600 mb-4">{error || t('notFound')}</p>
           <button
             onClick={() => router.push('/discover')}
             className="text-blue-600 hover:underline"
           >
-            Return to Discover
+            {t('returnToDiscover')}
           </button>
         </div>
       </div>
@@ -262,7 +265,7 @@ export default function RestaurantPage() {
           onClick={() => router.back()}
           className="mb-6 text-blue-600 hover:text-blue-700 flex items-center gap-2"
         >
-          ← Back
+          {t('back')}
         </button>
 
         {/* Restaurant Header */}
@@ -296,7 +299,7 @@ export default function RestaurantPage() {
           {/* Google Rating */}
           {restaurant.googleRating && (
             <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
-              <span className="text-sm font-medium text-gray-700">Google Rating:</span>
+              <span className="text-sm font-medium text-gray-700">{t('googleRating')}</span>
               <div className="flex items-center gap-2">
                 <div className="flex gap-0.5">
                   {renderGoogleStars(restaurant.googleRating)}
@@ -304,7 +307,9 @@ export default function RestaurantPage() {
                 <span className="text-sm text-gray-600">
                   {restaurant.googleRating.toFixed(1)}
                   {restaurant.googleReviewCount && (
-                    <span className="ml-1">({restaurant.googleReviewCount.toLocaleString()} reviews)</span>
+                    <span className="ml-1">
+                      ({t('reviewCount', { count: restaurant.googleReviewCount.toLocaleString() })})
+                    </span>
                   )}
                 </span>
               </div>
@@ -318,7 +323,7 @@ export default function RestaurantPage() {
         {/* Recommendations Section */}
         <div className="mt-6 bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Recommendations ({restaurant.totalRecommendations})
+            {t('recommendationsTitle', { count: restaurant.totalRecommendations })}
           </h2>
 
           {restaurant.recommendations.length > 0 ? (
@@ -327,10 +332,10 @@ export default function RestaurantPage() {
                 <div key={rec.id} className="border-b border-gray-200 pb-4 last:border-b-0">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-gray-900">
-                      User {rec.userId}
+                      {t('userLabel', { id: rec.userId })}
                     </span>
                     <span className="text-sm text-gray-600">
-                      Rating: {rec.rating}/10
+                      {t('ratingLabel', { rating: rec.rating })}
                     </span>
                   </div>
                   {rec.comment && (
@@ -340,7 +345,7 @@ export default function RestaurantPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-600">No recommendations yet. Be the first to recommend this place!</p>
+            <p className="text-gray-600">{t('noRecommendations')}</p>
           )}
         </div>
 
@@ -350,7 +355,7 @@ export default function RestaurantPage() {
             onClick={() => router.push(`/create?restaurant=${restaurantId}`)}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
-            Add Your Recommendation
+            {t('addRecommendation')}
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Info, TrendingUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
 interface TrustBreakdown {
@@ -13,7 +14,7 @@ interface TrustBreakdown {
 }
 
 interface TrustScoreProps {
-  score: number; // 0-10 trust score
+  score: number;
   breakdown: TrustBreakdown;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
@@ -29,13 +30,6 @@ const getTrustColor = (score: number) => {
   return 'text-network-600 bg-network-50 border-network-200';
 };
 
-const getTrustLevel = (score: number) => {
-  if (score >= 8) return 'Highly Trusted';
-  if (score >= 6) return 'Trusted';
-  if (score >= 4) return 'Some Trust';
-  return 'Limited Data';
-};
-
 const TrustScoreBadge: React.FC<TrustScoreProps> = ({
   score,
   breakdown,
@@ -45,9 +39,18 @@ const TrustScoreBadge: React.FC<TrustScoreProps> = ({
   showProvenance = false,
   animated = true
 }) => {
+  const t = useTranslations('trustScore');
   const [showDetails, setShowDetails] = useState(false);
   
   const colorClasses = getTrustColor(score);
+  
+  const getTrustLevel = (score: number) => {
+    if (score >= 8) return t('levels.highlyTrusted');
+    if (score >= 6) return t('levels.trusted');
+    if (score >= 4) return t('levels.someTrust');
+    return t('levels.limitedData');
+  };
+  
   const trustLevel = getTrustLevel(score);
   
   const sizeClasses = {
@@ -72,7 +75,7 @@ const TrustScoreBadge: React.FC<TrustScoreProps> = ({
       {/* Trust Score */}
       <div className="flex items-center gap-1">
         <span className="font-bold">
-          Trust {score.toFixed(1)}
+          {t('label')} {score.toFixed(1)}
         </span>
         <span className="opacity-75">/10</span>
       </div>
@@ -114,7 +117,7 @@ const TrustScoreBadge: React.FC<TrustScoreProps> = ({
           <div className="space-y-3">
             {/* Header */}
             <div className="flex items-center justify-between">
-              <h4 className="font-semibold text-network-900">Trust Breakdown</h4>
+              <h4 className="font-semibold text-network-900">{t('breakdown.title')}</h4>
               <span className="text-xs text-network-500 font-medium">{trustLevel}</span>
             </div>
 
@@ -123,7 +126,7 @@ const TrustScoreBadge: React.FC<TrustScoreProps> = ({
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-social-500"></div>
-                  <span>Direct friends</span>
+                  <span>{t('breakdown.directFriends')}</span>
                 </div>
                 <span className="font-medium">{breakdown.directFriends}</span>
               </div>
@@ -131,7 +134,7 @@ const TrustScoreBadge: React.FC<TrustScoreProps> = ({
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-network-400"></div>
-                  <span>Friends-of-friends</span>
+                  <span>{t('breakdown.friendsOfFriends')}</span>
                 </div>
                 <span className="font-medium">{breakdown.friendsOfFriends}</span>
               </div>
@@ -142,7 +145,7 @@ const TrustScoreBadge: React.FC<TrustScoreProps> = ({
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <TrendingUp size={14} className="text-trust-500" />
-                  <span className="font-medium">Total endorsements</span>
+                  <span className="font-medium">{t('breakdown.totalEndorsements')}</span>
                 </div>
                 <span className="font-bold text-trust-600">{breakdown.totalEndorsements}</span>
               </div>
@@ -150,7 +153,7 @@ const TrustScoreBadge: React.FC<TrustScoreProps> = ({
 
             {/* Weight Explanation */}
             <div className="text-xs text-network-500 bg-network-50 rounded-lg p-2">
-              <p>Direct friends count as 0.75x weight, friends-of-friends as 0.25x weight in Trust Score calculation.</p>
+              <p>{t('breakdown.weightExplanation')}</p>
             </div>
           </div>
         </motion.div>
@@ -172,14 +175,18 @@ const TrustScoreBadge: React.FC<TrustScoreProps> = ({
       {/* Simple provenance text for compact variant */}
       {variant === 'compact' && showProvenance && (
         <div className="mt-1 text-xs text-network-500">
-          {breakdown.totalEndorsements} saves • {breakdown.directFriends} direct friends • {breakdown.friendsOfFriends} network
+          {t('provenance.summary', { 
+            saves: breakdown.totalEndorsements, 
+            direct: breakdown.directFriends, 
+            network: breakdown.friendsOfFriends 
+          })}
         </div>
       )}
     </div>
   );
 };
 
-// Example usage component for testing
+// Example usage component for testing (kept in English - dev tool)
 export const TrustScoreExample: React.FC = () => {
   const sampleBreakdown: TrustBreakdown = {
     directFriends: 11,
@@ -198,7 +205,6 @@ export const TrustScoreExample: React.FC = () => {
           </p>
         </div>
 
-        {/* Size Variations */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-network-800">Sizes</h3>
           <div className="flex items-center gap-4 flex-wrap">
@@ -208,7 +214,6 @@ export const TrustScoreExample: React.FC = () => {
           </div>
         </div>
 
-        {/* Variant Styles */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-network-800">Variants</h3>
           <div className="flex items-center gap-4 flex-wrap">
@@ -218,7 +223,6 @@ export const TrustScoreExample: React.FC = () => {
           </div>
         </div>
 
-        {/* Score Ranges */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-network-800">Trust Score Ranges</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

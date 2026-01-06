@@ -10,6 +10,12 @@ import { RestaurantSearchProvider, RestaurantSearchResult } from './restaurant-p
  * "verified social trust beats anonymous crowds" philosophy.
  */
 
+interface GoogleAddressComponent {
+  longText: string;
+  shortText: string;
+  types: string[];
+}
+
 interface GooglePlaceResult {
   id: string;
   displayName: { text: string; languageCode: string };
@@ -20,6 +26,7 @@ interface GooglePlaceResult {
   businessStatus?: string;
   websiteUri?: string;
   internationalPhoneNumber?: string;
+  addressComponents?: GoogleAddressComponent[];
 }
 
 interface GoogleAutocompleteResult {
@@ -141,6 +148,7 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
 
   /**
    * Get detailed information about a specific place
+   * Now includes addressComponents to extract city, state, country
    */
   async getDetails(placeId: string): Promise<RestaurantSearchResult | null> {
     try {
@@ -148,7 +156,8 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
         method: 'GET',
         headers: {
           'X-Goog-Api-Key': this.apiKey,
-          'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,types,priceLevel,businessStatus,websiteUri,internationalPhoneNumber'
+          // Added addressComponents to field mask for city/state/country extraction
+          'X-Goog-FieldMask': 'id,displayName,formattedAddress,addressComponents,location,types,priceLevel,businessStatus,websiteUri,internationalPhoneNumber'
         }
       });
 
@@ -215,24 +224,58 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
   }
 
   /**
+   * Extract a specific address component by type
+   * Google Places API (New) uses types like 'locality', 'administrative_area_level_1', 'country'
+   */
+  private getAddressComponent(
+    components: GoogleAddressComponent[] | undefined,
+    type: string,
+    useShortText: boolean = false
+  ): string | undefined {
+    if (!components) return undefined;
+    
+    const component = components.find(c => c.types.includes(type));
+    return component ? (useShortText ? component.shortText : component.longText) : undefined;
+  }
+
+  /**
    * Map Google Places response to our standard interface
    * CRITICAL: No rating data is included
    */
   private mapGoogleResults(places: GooglePlaceResult[]): RestaurantSearchResult[] {
-    return places.map(place => ({
-      id: place.id,
-      name: place.displayName?.text || 'Unknown Restaurant',
-      address: place.formattedAddress || '',
-      latitude: place.location?.latitude || 0,
-      longitude: place.location?.longitude || 0,
-      categories: this.mapGoogleTypes(place.types || []),
-      priceLevel: this.mapPriceLevel(place.priceLevel),
-      phone: place.internationalPhoneNumber,
-      website: place.websiteUri,
-      // NEVER include rating data - core Zesto principle
-      // rating: OMITTED
-      // userRatingsTotal: OMITTED
-    }));
+    return places.map(place => {
+      // Extract city, state, country from addressComponents
+      const city = this.getAddressComponent(place.addressComponents, 'locality') 
+                || this.getAddressComponent(place.addressComponents, 'administrative_area_level_2')
+                || this.getAddressComponent(place.addressComponents, 'sublocality_level_1');
+      
+      const state = this.getAddressComponent(place.addressComponents, 'administrative_area_level_1');
+      const stateShort = this.getAddressComponent(place.addressComponents, 'administrative_area_level_1', true);
+      
+      const country = this.getAddressComponent(place.addressComponents, 'country');
+      const countryShort = this.getAddressComponent(place.addressComponents, 'country', true);
+
+      return {
+        external_id: place.id,
+        name: place.displayName?.text || 'Unknown Restaurant',
+        address: place.formattedAddress || '',
+        latitude: place.location?.latitude || 0,
+        longitude: place.location?.longitude || 0,
+        categories: this.mapGoogleTypes(place.types || []),
+        priceLevel: this.mapPriceLevel(place.priceLevel),
+        phone: place.internationalPhoneNumber,
+        website: place.websiteUri,
+        // Location details extracted from addressComponents
+        city,
+        state,
+        stateShort,
+        country,
+        countryShort,
+        // NEVER include rating data - core Zesto principle
+        // rating: OMITTED
+        // userRatingsTotal: OMITTED
+      };
+    });
   }
 
   /**

@@ -1,10 +1,8 @@
-// FILE PATH: components/discover/DiscoverFilters.tsx
-// Filtering component for the discover page
-
 "use client"
 
 import React from 'react';
 import { X, MapPin, DollarSign, Star, Filter } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface FilterState {
   cuisine: string;
@@ -20,60 +18,32 @@ interface DiscoverFiltersProps {
   onClearFilters: () => void;
 }
 
-const cuisineTypes = [
-  'Nordestina',
-  'Frutos do Mar', 
-  'Espanhola',
-  'Steakhouse',
-  'Contemporânea',
-  'Brasileira Contemporânea',
-  'Brasileira',
-  'Italiana',
-  'Japonesa',
-  'Árabe',
-  'Francesa',
-  'Vegetariana',
-  'Fast Food',
-  'Café',
-  'Padaria'
-];
-
-const priceRanges = [
-  { value: '€', label: '€ - Econômico (até R$ 30)' },
-  { value: '€€', label: '€€ - Moderado (R$ 30-60)' },
-  { value: '€€€', label: '€€€ - Caro (R$ 60-120)' },
-  { value: '€€€€', label: '€€€€ - Muito Caro (R$ 120+)' }
-];
-
-const brasiliaLocations = [
-  'Asa Sul',
-  'Asa Norte', 
-  'Lago Sul',
-  'Lago Norte',
-  'Sudoeste',
-  'Noroeste',
-  'Águas Claras',
-  'Taguatinga',
-  'Ceilândia',
-  'Samambaia',
-  'Planaltina',
-  'Sobradinho',
-  'Gama'
-];
-
-const trustScoreRanges = [
-  { value: 0, label: 'Qualquer Score' },
-  { value: 5, label: '5+ - Bom ou melhor' },
-  { value: 7, label: '7+ - Muito Bom ou melhor' },
-  { value: 8, label: '8+ - Ótimo ou melhor' },
-  { value: 9, label: '9+ - Excelente' }
-];
-
 const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
   filters,
   onFilterChange,
   onClearFilters
 }) => {
+  const t = useTranslations();
+
+  // Get translated arrays
+  const cuisineTypes = t('discovery.filters.cuisines', { returnObjects: true }) as string[];
+  const brasiliaLocations = t('discovery.filters.locations', { returnObjects: true }) as string[];
+  
+  const priceRanges = [
+    { value: '€', label: t('discovery.filters.priceRanges.low') },
+    { value: '€€', label: t('discovery.filters.priceRanges.moderate') },
+    { value: '€€€', label: t('discovery.filters.priceRanges.expensive') },
+    { value: '€€€€', label: t('discovery.filters.priceRanges.veryExpensive') }
+  ];
+
+  const trustScoreRanges = [
+    { value: 0, label: t('discovery.filters.trustScore.any') },
+    { value: 5, label: t('discovery.filters.trustScore.good') },
+    { value: 7, label: t('discovery.filters.trustScore.veryGood') },
+    { value: 8, label: t('discovery.filters.trustScore.great') },
+    { value: 9, label: t('discovery.filters.trustScore.excellent') }
+  ];
+
   const hasActiveFilters = 
     filters.cuisine || 
     filters.priceRange || 
@@ -86,7 +56,7 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
           <Filter className="h-5 w-5 mr-2" />
-          Filtros de Busca
+          {t('discovery.filters.title')}
         </h3>
         {hasActiveFilters && (
           <button
@@ -94,7 +64,7 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
             className="text-sm text-trust-600 hover:text-trust-700 flex items-center"
           >
             <X className="h-4 w-4 mr-1" />
-            Limpar Filtros
+            {t('discovery.filters.clearAll')}
           </button>
         )}
       </div>
@@ -103,14 +73,14 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
         {/* Cuisine Filter */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Tipo de Culinária
+            {t('discovery.filters.cuisineType')}
           </label>
           <select
             value={filters.cuisine}
             onChange={(e) => onFilterChange({ cuisine: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trust-500 focus:border-transparent"
           >
-            <option value="">Todas as culinárias</option>
+            <option value="">{t('discovery.filters.allCuisines')}</option>
             {cuisineTypes.map(cuisine => (
               <option key={cuisine} value={cuisine}>{cuisine}</option>
             ))}
@@ -121,14 +91,14 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
             <DollarSign className="h-4 w-4 mr-1" />
-            Faixa de Preço
+            {t('discovery.filters.priceRange')}
           </label>
           <select
             value={filters.priceRange}
             onChange={(e) => onFilterChange({ priceRange: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trust-500 focus:border-transparent"
           >
-            <option value="">Qualquer preço</option>
+            <option value="">{t('discovery.filters.anyPrice')}</option>
             {priceRanges.map(range => (
               <option key={range.value} value={range.value}>{range.label}</option>
             ))}
@@ -139,7 +109,7 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
             <Star className="h-4 w-4 mr-1" />
-            Trust Score Mínimo
+            {t('discovery.filters.minTrustScore')}
           </label>
           <select
             value={filters.trustScore}
@@ -156,14 +126,14 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
             <MapPin className="h-4 w-4 mr-1" />
-            Localização
+            {t('discovery.filters.location')}
           </label>
           <select
             value={filters.location}
             onChange={(e) => onFilterChange({ location: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-trust-500 focus:border-transparent"
           >
-            <option value="">Toda Brasília</option>
+            <option value="">{t('discovery.filters.allLocations')}</option>
             {brasiliaLocations.map(location => (
               <option key={location} value={location}>{location}</option>
             ))}
@@ -173,13 +143,15 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
 
       {/* Advanced Filters Section */}
       <div className="border-t border-gray-200 pt-6">
-        <h4 className="text-md font-medium text-gray-900 mb-4">Filtros Avançados</h4>
+        <h4 className="text-md font-medium text-gray-900 mb-4">{t('discovery.filters.advanced.title')}</h4>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Trust Score Slider */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Trust Score: {filters.trustScore > 0 ? `${filters.trustScore}+` : 'Qualquer'}
+              {t('discovery.filters.advanced.trustScoreLabel', { 
+                score: filters.trustScore > 0 ? `${filters.trustScore}+` : t('discovery.filters.trustScore.any')
+              })}
             </label>
             <div className="space-y-2">
               <input
@@ -202,7 +174,7 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
           {/* Quick Filter Buttons */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filtros Rápidos
+              {t('discovery.filters.advanced.quickFilters')}
             </label>
             <div className="flex flex-wrap gap-2">
               <button
@@ -213,7 +185,7 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Só os Melhores (8+)
+                {t('discovery.filters.advanced.bestOnly')}
               </button>
               <button
                 onClick={() => onFilterChange({ priceRange: '€' })}
@@ -223,7 +195,7 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Econômico
+                {t('discovery.filters.advanced.budgetFriendly')}
               </button>
               <button
                 onClick={() => onFilterChange({ location: 'Asa Sul' })}
@@ -241,7 +213,7 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
           {/* Active Filters Display */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filtros Ativos
+              {t('discovery.filters.advanced.activeFilters')}
             </label>
             <div className="flex flex-wrap gap-2">
               {filters.cuisine && (
@@ -268,7 +240,7 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
               )}
               {filters.trustScore > 0 && (
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs flex items-center">
-                  Score {filters.trustScore}+
+                  {t('discovery.filters.advanced.scorePrefix')} {filters.trustScore}+
                   <button
                     onClick={() => onFilterChange({ trustScore: 0 })}
                     className="ml-1 hover:text-green-900"
@@ -290,7 +262,7 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
               )}
               {!hasActiveFilters && (
                 <span className="text-xs text-gray-500 italic">
-                  Nenhum filtro ativo
+                  {t('discovery.filters.advanced.noFilters')}
                 </span>
               )}
             </div>
@@ -301,12 +273,8 @@ const DiscoverFilters: React.FC<DiscoverFiltersProps> = ({
       {/* Filter Results Preview */}
       <div className="bg-trust-50 border border-trust-200 rounded-lg p-4">
         <div className="text-sm text-trust-700">
-          <div className="font-medium mb-1">Dica de Filtros:</div>
-          <div>
-            Use os filtros para encontrar exatamente o que procura. O Trust Score mostra 
-            recomendações baseadas na sua rede social - quanto maior, mais pessoas que você 
-            confia recomendaram o lugar!
-          </div>
+          <div className="font-medium mb-1">{t('discovery.filters.tip.title')}</div>
+          <div>{t('discovery.filters.tip.description')}</div>
         </div>
       </div>
     </div>

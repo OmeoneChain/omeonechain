@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import SaveToListModal from './SaveToListModal';
 import savedListsService from '@/lib/services/saved-lists-service';
 
@@ -17,6 +18,7 @@ export default function SaveButton({
   compact = false,
   className = ''
 }: SaveButtonProps) {
+  const t = useTranslations();
   const [showModal, setShowModal] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,9 +44,9 @@ export default function SaveButton({
   // Context-aware label
   const getLabel = () => {
     switch(itemType) {
-      case 'restaurant': return 'Save to Try';
-      case 'recommendation': return 'Bookmark';
-      case 'guide': return 'Save Guide';
+      case 'restaurant': return t('savedLists.button.labels.restaurant');
+      case 'recommendation': return t('savedLists.button.labels.recommendation');
+      case 'guide': return t('savedLists.button.labels.guide');
     }
   };
 
@@ -64,6 +66,7 @@ export default function SaveButton({
       <button 
         className={`save-button loading ${className}`}
         disabled
+        aria-label={t('savedLists.button.loading')}
       >
         <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
       </button>
@@ -76,6 +79,7 @@ export default function SaveButton({
         onClick={handleClick}
         className={`save-button ${isSaved ? 'saved' : 'unsaved'} ${compact ? 'compact' : ''} ${className}`}
         title={getLabel()}
+        aria-label={isSaved ? t('savedLists.button.aria.saved') : t('savedLists.button.aria.save')}
       >
         {isSaved ? (
           <BookmarkCheck className="w-5 h-5" />

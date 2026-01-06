@@ -1,5 +1,6 @@
 // code/poc/frontend/src/services/auth.ts
 // COMPREHENSIVE: Wallet auth + OAuth social login support
+// FIXED: Updated localStorage keys to match useAuth hook
 
 // Environment configuration
 const getApiBaseUrl = (): string => {
@@ -61,8 +62,9 @@ export interface User {
 
 export class AuthService {
   private baseUrl: string;
-  private static readonly TOKEN_KEY = 'auth_token';
-  private static readonly USER_KEY = 'user_data';
+  // FIXED: Updated to match useAuth hook's localStorage keys
+  private static readonly TOKEN_KEY = 'omeone_auth_token';
+  private static readonly USER_KEY = 'omeone_user';
 
   constructor() {
     this.baseUrl = API_BASE_URL;
@@ -201,6 +203,10 @@ export class AuthService {
   static handleOAuthCallback(): { success: boolean; error?: string } {
     if (typeof window === 'undefined') return { success: false };
 
+    console.log('🔍 OAuth callback handler started');
+    console.log('🔍 Current URL:', window.location.href);
+    console.log('🔍 Hash:', window.location.hash);
+
     // Check hash instead of query params
     const hash = window.location.hash.substring(1); // Remove the #
     const params = new URLSearchParams(hash);
@@ -208,6 +214,13 @@ export class AuthService {
     const authToken = params.get('auth_token');
     const authSuccess = params.get('auth_success');
     const authError = params.get('auth_error');
+
+    console.log('🔍 Parsed OAuth params:', {
+      hasToken: !!authToken,
+      authSuccess,
+      authError,
+      tokenPreview: authToken?.substring(0, 20) + '...'
+    });
 
     // Handle error
     if (authError) {
@@ -223,15 +236,21 @@ export class AuthService {
       try {
         // Store token
         this.setToken(authToken);
+        console.log('💾 Token stored successfully');
         
         // Decode and store user info
         const user = this.decodeToken(authToken);
         this.setUser(user);
+        console.log('👤 User info stored:', user);
+        
+        // Verify storage
+        const storedToken = this.getToken();
+        console.log('🔍 Verification - token retrieved:', storedToken?.substring(0, 20) + '...');
         
         // Clean URL
         this.cleanupURL();
         
-        console.log('👤 User authenticated:', user);
+        console.log('✅ OAuth callback processing complete');
         return { success: true };
         
       } catch (error) {
@@ -240,6 +259,7 @@ export class AuthService {
       }
     }
 
+    console.log('⚠️ No valid OAuth data found in URL');
     return { success: false };
   }
 
@@ -289,14 +309,17 @@ export class AuthService {
 
   /**
    * Store auth token
+   * FIXED: Now uses 'omeone_auth_token' to match useAuth hook
    */
   static setToken(token: string): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(this.TOKEN_KEY, token);
+    console.log('💾 Token stored with key:', this.TOKEN_KEY);
   }
 
   /**
    * Get stored auth token
+   * FIXED: Now uses 'omeone_auth_token' to match useAuth hook
    */
   static getToken(): string | null {
     if (typeof window === 'undefined') return null;
@@ -313,10 +336,12 @@ export class AuthService {
 
   /**
    * Store user data
+   * FIXED: Now uses 'omeone_user' to match useAuth hook
    */
   static setUser(user: User): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+    console.log('💾 User stored with key:', this.USER_KEY);
   }
 
   /**
@@ -403,6 +428,7 @@ export class AuthService {
    */
   private static cleanupURL(): void {
     if (typeof window === 'undefined') return;
+    console.log('🧹 Cleaning up URL hash');
     window.history.replaceState({}, '', window.location.pathname);
   }
 

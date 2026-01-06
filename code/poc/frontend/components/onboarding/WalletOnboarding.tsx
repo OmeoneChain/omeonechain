@@ -15,6 +15,7 @@ import {
   Lock,
   Gift
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import WalletConnect from '@/components/auth/WalletConnect';
 
 interface WalletOnboardingProps {
@@ -28,6 +29,7 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
   onClose,
   variant = 'first-time' 
 }) => {
+  const t = useTranslations('walletOnboarding');
   const [currentStep, setCurrentStep] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -37,45 +39,47 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
   const onboardingSteps = [
     {
       id: 'intro',
-      title: variant === 'upgrade' ? 'Ready to Claim Your Tokens?' : 'Welcome to Web3 Recommendations',
+      title: variant === 'upgrade' 
+        ? t('steps.intro.titleUpgrade') 
+        : t('steps.intro.titleFirstTime'),
       content: variant === 'upgrade' 
-        ? `You've earned ${pendingTokens.toFixed(2)} TOK! Connect your wallet to claim them and start earning more.`
-        : 'Connect your wallet to earn tokens for helpful recommendations and participate in the trust network.',
+        ? t('steps.intro.contentUpgrade', { tokens: pendingTokens.toFixed(2) })
+        : t('steps.intro.contentFirstTime'),
       icon: variant === 'upgrade' ? Gift : Wallet,
       benefits: variant === 'upgrade' 
         ? [
-            { icon: Coins, text: `Claim ${pendingTokens.toFixed(2)} TOK you've earned` },
-            { icon: TrendingUp, text: 'Start earning tokens for future recommendations' },
-            { icon: Users, text: 'Full trust network participation' }
+            { icon: Coins, text: t('benefits.claimTokens', { tokens: pendingTokens.toFixed(2) }) },
+            { icon: TrendingUp, text: t('benefits.startEarning') },
+            { icon: Users, text: t('benefits.fullParticipation') }
           ]
         : [
-            { icon: Coins, text: 'Earn tokens for helpful recommendations' },
-            { icon: Shield, text: 'Your data stays under your control' },
-            { icon: Users, text: 'Build your reputation in the trust network' }
+            { icon: Coins, text: t('benefits.earnTokens') },
+            { icon: Shield, text: t('benefits.dataControl') },
+            { icon: Users, text: t('benefits.buildReputation') }
           ]
     },
     {
       id: 'benefits',
-      title: 'Why Connect a Wallet?',
-      content: 'A Web3 wallet gives you ownership and control while enabling token rewards.',
+      title: t('steps.benefits.title'),
+      content: t('steps.benefits.content'),
       icon: Shield,
       benefits: [
-        { icon: Lock, text: 'Your data and identity remain under your control' },
-        { icon: Coins, text: 'Earn 1-3 TOK per helpful recommendation' },
-        { icon: TrendingUp, text: 'Build reputation that follows you everywhere' },
-        { icon: Users, text: 'Participate in platform governance' }
+        { icon: Lock, text: t('benefits.dataControl') },
+        { icon: Coins, text: t('benefits.earnPerRecommendation') },
+        { icon: TrendingUp, text: t('benefits.portableReputation') },
+        { icon: Users, text: t('benefits.governance') }
       ]
     },
     {
       id: 'security',
-      title: 'Safe & Secure',
-      content: 'We prioritize your security and never access your funds.',
+      title: t('steps.security.title'),
+      content: t('steps.security.content'),
       icon: Shield,
       benefits: [
-        { icon: Lock, text: 'We never store your private keys' },
-        { icon: Shield, text: 'No transactions required - just authentication' },
-        { icon: Check, text: 'Industry standard security practices' },
-        { icon: Users, text: 'Trusted by thousands of users' }
+        { icon: Lock, text: t('security.noPrivateKeys') },
+        { icon: Shield, text: t('security.noTransactions') },
+        { icon: Check, text: t('security.industryStandard') },
+        { icon: Users, text: t('security.trustedByThousands') }
       ]
     }
   ];
@@ -130,7 +134,7 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
               <Wallet className="w-5 h-5 text-blue-600" />
             </div>
             <h2 className="text-lg font-semibold text-gray-900">
-              {variant === 'upgrade' ? 'Claim Your Tokens' : 'Connect Your Wallet'}
+              {variant === 'upgrade' ? t('header.titleUpgrade') : t('header.titleFirstTime')}
             </h2>
           </div>
           
@@ -156,7 +160,7 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
               ))}
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              Step {currentStep + 1} of {onboardingSteps.length}
+              {t('progress.stepOf', { current: currentStep + 1, total: onboardingSteps.length })}
             </p>
           </div>
         )}
@@ -219,7 +223,7 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
                       className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
                     >
                       <ArrowLeft className="w-4 h-4" />
-                      Back
+                      {t('actions.back')}
                     </button>
                   )}
                   
@@ -231,7 +235,7 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
                       className="flex items-center gap-2 px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
                     >
                       <Coins className="w-4 h-4" />
-                      Claim {pendingTokens.toFixed(2)} TOK
+                      {t('actions.claimTokens', { tokens: pendingTokens.toFixed(2) })}
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : currentStep === onboardingSteps.length - 1 ? (
@@ -239,7 +243,7 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
                       onClick={skipToConnection}
                       className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
                     >
-                      Connect Wallet
+                      {t('actions.connectWallet')}
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : (
@@ -247,7 +251,7 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
                       onClick={nextStep}
                       className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
                     >
-                      Continue
+                      {t('actions.continue')}
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   )}
@@ -260,7 +264,7 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
                       onClick={skipToConnection}
                       className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
                     >
-                      Skip intro and connect wallet
+                      {t('actions.skipIntro')}
                     </button>
                   </div>
                 )}
@@ -277,11 +281,11 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
                     <div className="flex items-center justify-center gap-2 text-green-800">
                       <Coins className="w-5 h-5" />
                       <span className="font-medium">
-                        Ready to claim {pendingTokens.toFixed(2)} TOK!
+                        {t('connection.readyToClaim', { tokens: pendingTokens.toFixed(2) })}
                       </span>
                     </div>
                     <p className="text-sm text-green-700 mt-1">
-                      Connect your wallet to unlock your earned tokens
+                      {t('connection.connectToUnlock')}
                     </p>
                   </div>
                 )}
@@ -298,11 +302,10 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
                     <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <h4 className="text-sm font-medium text-blue-900 mb-1">
-                        Your Security is Our Priority
+                        {t('securityReminder.title')}
                       </h4>
                       <p className="text-xs text-blue-800 leading-relaxed">
-                        We use industry-standard wallet connection protocols. Your private keys stay 
-                        in your wallet, and we never initiate transactions without your explicit approval.
+                        {t('securityReminder.description')}
                       </p>
                     </div>
                   </div>
@@ -310,13 +313,13 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
 
                 {/* Help Link */}
                 <div className="text-center">
-                  <a
+                  
                     href="https://metamask.io/faqs/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                   >
-                    New to wallets? Learn more
+                    {t('help.newToWallets')}
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>

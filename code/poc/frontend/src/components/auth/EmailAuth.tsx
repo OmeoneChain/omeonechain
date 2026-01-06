@@ -1,7 +1,13 @@
 // File: frontend/src/components/auth/EmailAuth.tsx
 // Email authentication with sign-up, login, and social login options
+// UPDATED: Now redirects to onboarding for new users
+// UPDATED: Internationalized with next-intl
+
+'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { SocialLoginButtons } from './SocialLoginButtons';
 import { AuthAPI } from '@/lib/auth';
 
@@ -11,6 +17,9 @@ interface EmailAuthProps {
 }
 
 export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
+  const router = useRouter();
+  const t = useTranslations();
+  
   const [mode, setMode] = useState<'signup' | 'login'>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,15 +36,15 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
     try {
       // Validation
       if (!email || !password) {
-        throw new Error('Email and password are required');
+        throw new Error(t('auth.errors.emailAndPasswordRequired'));
       }
 
       if (password.length < 8) {
-        throw new Error('Password must be at least 8 characters');
+        throw new Error(t('auth.errors.passwordTooShort'));
       }
 
       if (mode === 'signup' && password !== confirmPassword) {
-        throw new Error('Passwords do not match');
+        throw new Error(t('auth.errors.passwordMismatch'));
       }
 
       // Call API
@@ -63,6 +72,23 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
         onSuccess(result.token, result.user);
       }
 
+      // Check onboarding status and redirect accordingly
+      const shouldOnboard = result.isNewUser || !result.user?.onboarding_completed;
+      
+      console.log('🔀 Redirect decision:', {
+        isNewUser: result.isNewUser,
+        onboardingCompleted: result.user?.onboarding_completed,
+        willRedirectTo: shouldOnboard ? '/onboarding' : '/feed'
+      });
+
+      if (shouldOnboard) {
+        console.log('➡️  Redirecting to onboarding...');
+        router.push('/onboarding');
+      } else {
+        console.log('➡️  Redirecting to feed...');
+        router.push('/feed');
+      }
+
       // Reset form
       setEmail('');
       setPassword('');
@@ -70,7 +96,7 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
       setDisplayName('');
 
     } catch (err: any) {
-      const errorMessage = err.message || 'Authentication failed';
+      const errorMessage = err.message || t('auth.errors.authFailed');
       console.error('❌ Email auth error:', errorMessage);
       setError(errorMessage);
       
@@ -88,12 +114,12 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
         {/* Header */}
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900">
-            {mode === 'signup' ? 'Create Account' : 'Welcome Back'}
+            {mode === 'signup' ? t('auth.register.title') : t('auth.login.title')}
           </h2>
           <p className="text-gray-600 mt-2">
             {mode === 'signup' 
-              ? 'Sign up to start sharing food recommendations' 
-              : 'Log in to continue to Zesto'}
+              ? t('auth.register.subtitle')
+              : t('auth.login.subtitle')}
           </p>
         </div>
 
@@ -106,7 +132,7 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
             <div className="w-full border-t border-gray-300"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+            <span className="px-2 bg-white text-gray-500">{t('auth.form.orContinueWith')}</span>
           </div>
         </div>
 
@@ -123,14 +149,14 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
           {mode === 'signup' && (
             <div>
               <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">
-                Display Name (optional)
+                {t('auth.register.displayNameOptional')}
               </label>
               <input
                 id="displayName"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="How you'll appear to others"
+                placeholder={t('auth.form.displayNamePlaceholder')}
                 disabled={loading}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               />
@@ -140,14 +166,14 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
           {/* Email */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              {t('auth.login.email')}
             </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder={t('auth.form.emailPlaceholder')}
               required
               disabled={loading}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
@@ -157,20 +183,20 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
           {/* Password */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+              {t('auth.login.password')}
             </label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
+              placeholder={t('auth.form.passwordPlaceholder')}
               required
               disabled={loading}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
             />
             {mode === 'signup' && (
-              <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
+              <p className="mt-1 text-xs text-gray-500">{t('auth.form.passwordHint')}</p>
             )}
           </div>
 
@@ -178,14 +204,14 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
           {mode === 'signup' && (
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password
+                {t('auth.register.confirmPassword')}
               </label>
               <input
                 id="confirmPassword"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter your password"
+                placeholder={t('auth.form.confirmPasswordPlaceholder')}
                 required
                 disabled={loading}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
@@ -205,10 +231,10 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Processing...
+                {t('auth.form.processing')}
               </span>
             ) : (
-              mode === 'signup' ? 'Create Account' : 'Log In'
+              mode === 'signup' ? t('auth.register.signUp') : t('auth.login.signIn')
             )}
           </button>
         </form>
@@ -226,8 +252,8 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
             className="text-sm text-orange-500 hover:text-orange-600 font-medium disabled:opacity-50"
           >
             {mode === 'signup' 
-              ? 'Already have an account? Log in' 
-              : "Don't have an account? Sign up"}
+              ? t('auth.register.hasAccount')
+              : t('auth.login.noAccount')}
           </button>
         </div>
 
@@ -235,8 +261,7 @@ export const EmailAuth: React.FC<EmailAuthProps> = ({ onSuccess, onError }) => {
         {mode === 'signup' && (
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-xs text-blue-800">
-              <strong>Email Sign-up:</strong> Start creating recommendations and earning rewards. 
-              Tokens will be held until you connect a wallet to claim them.
+              <strong>{t('auth.emailTierInfo.title')}</strong> {t('auth.emailTierInfo.description')}
             </p>
           </div>
         )}

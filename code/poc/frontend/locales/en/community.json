@@ -1,0 +1,63 @@
+{
+  "page": {
+    "title": "Community",
+    "subtitle": "Connect with food lovers who share your taste"
+  },
+  "search": {
+    "placeholder": "Search by name or username...",
+    "searching": "Searching...",
+    "noResults": "No users found for \"{query}\"",
+    "clear": "Clear search"
+  },
+  "tabs": {
+    "discover": "Discover",
+    "following": "Following ({count})"
+  },
+  "discover": {
+    "title": "Discover People",
+    "seeAll": "See All →",
+    "backToOverview": "← Back to Overview",
+    "loading": "Loading...",
+    "empty": {
+      "title": "No users to discover right now",
+      "subtitle": "Check back soon!"
+    }
+  },
+  "following": {
+    "title": "Following",
+    "loading": "Loading...",
+    "signInRequired": {
+      "message": "Sign in to see who you're following"
+    },
+    "empty": {
+      "title": "You're not following anyone yet",
+      "cta": "Discover People"
+    }
+  },
+  "user": {
+    "followers": "followers",
+    "followerCount": "{count} followers",
+    "recommendations": "recs",
+    "recommendationCount": "{count} recs",
+    "anonymous": "Anonymous",
+    "verified": "Verified"
+  },
+  "actions": {
+    "follow": "Follow",
+    "following": "Following",
+    "processing": "...",
+    "signIn": "Sign In"
+  },
+  "comingSoon": {
+    "title": "More Ways to Connect",
+    "badge": "Coming Soon",
+    "tasteCircles": {
+      "title": "Taste Circles",
+      "description": "Join communities of food lovers who share your specific tastes — from ramen enthusiasts to natural wine aficionados."
+    },
+    "collaborativeLists": {
+      "title": "Collaborative Lists",
+      "description": "Create and share restaurant lists with friends. Perfect for planning trips or building the ultimate neighborhood guide together."
+    }
+  }
+}

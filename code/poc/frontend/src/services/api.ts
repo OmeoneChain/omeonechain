@@ -1,5 +1,5 @@
 // code/poc/frontend/src/services/api.ts
-// ENHANCED VERSION: Added social API functions to existing client
+// UPDATED VERSION: Added attribution endpoint, removed all /v1/ prefixes
 
 // FIXED: Use environment variables properly
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api';
@@ -57,7 +57,60 @@ interface RecommendationWithTrust {
   updatedAt: string;
 }
 
-// NEW: Social API interfaces
+// NEW: Onboarding interfaces
+export interface OnboardingProgress {
+  userId: string;
+  isComplete: boolean;
+  totalEarned: number;
+  displayTotalEarned: string;
+  completionPercentage: number;
+  milestones: {
+    followUsers: OnboardingMilestone;
+    createRecommendations: OnboardingMilestone;
+    engageWithPosts: OnboardingMilestone;
+  };
+  nextStep: string | null;
+}
+
+export interface OnboardingMilestone {
+  name: string;
+  description: string;
+  requirement: number;
+  current: number;
+  isComplete: boolean;
+  reward: number;
+  displayReward: string;
+  icon: string;
+}
+
+// NEW: Attribution Rewards interfaces
+export interface AttributionReward {
+  id: string;
+  recommendation_id: string;
+  recommendation_title: string;
+  resharer: {
+    id: string;
+    username: string;
+    display_name: string;
+  };
+  bonus_boca: number;
+  bonus_base_units: number;
+  created_at: string;
+}
+
+export interface AttributionRewardsResponse {
+  attributions: AttributionReward[];
+  total_earned_boca: number;
+  total_earned_base_units: number;
+  total_count: number;
+  pagination: {
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
+// Social API interfaces
 export interface User {
   id: string;
   username: string;
@@ -211,7 +264,8 @@ class ApiClient {
 // Initialize API client
 const apiClient = new ApiClient();
 
-// AUTH API - FIXED: Removed /v1/ prefix to match working backend routes
+// ========== AUTH API ==========
+
 export const authApi = {
   async getChallenge(walletAddress: string): Promise<ApiResponse<{ challenge: string; message: string }>> {
     console.log('🔐 Getting auth challenge for:', walletAddress);
@@ -239,8 +293,89 @@ export const authApi = {
   }
 };
 
-// NEW: Social API functions
+// ========== ONBOARDING API ==========
+
+export const onboardingApi = {
+  /**
+   * Get user's onboarding progress
+   */
+  async getProgress(userId: string): Promise<OnboardingProgress> {
+    console.log(`📊 Getting onboarding progress for user: ${userId}`);
+    const response = await apiClient.get(`/onboarding/progress/${userId}`);
+    
+    if (response.data) {
+      return response.data;
+    }
+    return response as OnboardingProgress;
+  },
+
+  /**
+   * Complete follow milestone
+   */
+  async completeFollowMilestone(userId: string): Promise<ApiResponse<any>> {
+    console.log(`👥 Completing follow milestone for user: ${userId}`);
+    return apiClient.post(`/onboarding/milestones/follow`, { userId });
+  },
+
+  /**
+   * Complete recommendation milestone
+   */
+  async completeRecommendationMilestone(userId: string): Promise<ApiResponse<any>> {
+    console.log(`📝 Completing recommendation milestone for user: ${userId}`);
+    return apiClient.post(`/onboarding/milestones/recommendations`, { userId });
+  },
+
+  /**
+   * Complete engagement milestone
+   */
+  async completeEngagementMilestone(userId: string): Promise<ApiResponse<any>> {
+    console.log(`💬 Completing engagement milestone for user: ${userId}`);
+    return apiClient.post(`/onboarding/milestones/engagement`, { userId });
+  },
+
+  /**
+   * Track onboarding action
+   */
+  async trackAction(
+    userId: string,
+    action: 'follow' | 'recommendation' | 'engagement',
+    details?: any
+  ): Promise<ApiResponse<any>> {
+    return apiClient.post(`/onboarding/track`, {
+      userId,
+      action,
+      details
+    });
+  }
+};
+
+// ========== SOCIAL API ==========
+
 export const socialApi = {
+  
+  // Search users by name/username
+  async searchUsers(
+    query: string, 
+    city?: string, 
+    limit: number = 20
+  ): Promise<DiscoverUsersResponse> {
+    console.log(`🔍 Searching users: "${query}", city: ${city}, limit: ${limit}`);
+  
+    const params = new URLSearchParams();
+    params.append('q', query);
+    params.append('limit', limit.toString());
+    if (city) {
+      params.append('city', city);
+    }
+
+    const response = await apiClient.get(`/social/users/search?${params}`);
+  
+    if (response.data) {
+      return response.data;
+    }
+    return response as DiscoverUsersResponse;
+  },
+  
   // Get user's followers
   async getFollowers(userId: string, page: number = 1, perPage: number = 20): Promise<FollowersResponse> {
     console.log(`📱 Getting followers for user: ${userId}, page: ${page}`);
@@ -302,17 +437,21 @@ export const socialApi = {
   },
 
   // Discover users
-  async discoverUsers(limit: number = 10, city?: string): Promise<DiscoverUsersResponse> {
-    console.log(`🔍 Discovering users, limit: ${limit}, city: ${city}`);
+  async discoverUsers(
+    limit: number = 10, 
+    city?: string,
+    sortBy: string = 'followers_count'
+  ): Promise<DiscoverUsersResponse> {
+    console.log(`🔍 Discovering users, limit: ${limit}, city: ${city}, sortBy: ${sortBy}`);
     const params = new URLSearchParams();
     params.append('limit', limit.toString());
+    params.append('sortBy', sortBy);
     if (city) {
       params.append('city', city);
     }
 
     const response = await apiClient.get(`/social/users/discover?${params}`);
-    
-    // Handle both direct response and ApiResponse wrapper
+  
     if (response.data) {
       return response.data;
     }
@@ -336,7 +475,8 @@ export const socialApi = {
   }
 };
 
-// Rest of your existing APIs with corrected endpoints
+// ========== RECOMMENDATION API ==========
+
 export const recommendationApi = {
   async getRecommendations(params?: {
     category?: string;
@@ -350,13 +490,13 @@ export const recommendationApi = {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.includeTrustScore) queryParams.append('includeTrustScore', 'true');
     
-    const endpoint = `/v1/recommendations${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/recommendations${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return apiClient.get(endpoint);
   },
 
   async getRecommendation(id: string, includeTrustScore: boolean = true): Promise<ApiResponse<RecommendationWithTrust>> {
     const params = includeTrustScore ? '?includeTrustScore=true' : '';
-    return apiClient.get(`/v1/recommendations/${id}${params}`);
+    return apiClient.get(`/recommendations/${id}${params}`);
   },
 
   async createRecommendation(recommendation: {
@@ -365,26 +505,76 @@ export const recommendationApi = {
     content: string;
     tags?: string[];
   }): Promise<ApiResponse<RecommendationWithTrust>> {
-    return apiClient.post('/v1/recommendations', recommendation);
+    return apiClient.post('/recommendations', recommendation);
   },
 
   async upvoteRecommendation(id: string): Promise<ApiResponse<{ success: boolean; newTrustScore?: number }>> {
-    return apiClient.post(`/v1/recommendations/${id}/upvote`, {});
+    return apiClient.post(`/recommendations/${id}/upvote`, {});
   },
 
   async saveRecommendation(id: string): Promise<ApiResponse<{ success: boolean; newTrustScore?: number }>> {
-    return apiClient.post(`/v1/recommendations/${id}/save`, {});
+    return apiClient.post(`/recommendations/${id}/save`, {});
+  },
+
+  // Mark comment as helpful
+  async markCommentHelpful(
+    commentId: string,
+    recommendationId: string
+  ): Promise<ApiResponse<{ success: boolean; bonusAwarded: number }>> {
+    console.log(`⭐ Marking comment ${commentId} as helpful`);
+    return apiClient.post(`/recommendations/${recommendationId}/comments/${commentId}/helpful`, {});
+  },
+
+  // Boost recommendation
+  async boostRecommendation(
+    recommendationId: string
+  ): Promise<ApiResponse<{ success: boolean; reward: number }>> {
+    console.log(`🚀 Boosting recommendation ${recommendationId}`);
+    return apiClient.post(`/recommendations/${recommendationId}/boost`, {});
+  },
+
+  // Reshare recommendation
+  async reshareRecommendation(
+    recommendationId: string
+  ): Promise<ApiResponse<{ 
+    success: boolean; 
+    resharerReward: number;
+    attributionBonus: number;
+  }>> {
+    console.log(`🔄 Resharing recommendation ${recommendationId}`);
+    return apiClient.post(`/recommendations/${recommendationId}/reshare`, {});
+  },
+
+  // NEW: Get attribution rewards for a user
+  async getAttributionRewards(
+    userId: string, 
+    limit: number = 20, 
+    offset: number = 0
+  ): Promise<AttributionRewardsResponse> {
+    console.log(`💰 Getting attribution rewards for user: ${userId}`);
+    const response = await apiClient.get(
+      `/recommendations/attribution/${userId}?limit=${limit}&offset=${offset}`
+    );
+    
+    // Handle both direct response and ApiResponse wrapper
+    if (response.data) {
+      return response.data as AttributionRewardsResponse;
+    }
+    
+    // Backend returns data directly (not wrapped in ApiResponse)
+    return response as AttributionRewardsResponse;
   }
 };
 
-// ENHANCED: Updated userApi with social functions
+// ========== USER API ==========
+
 export const userApi = {
   async getCurrentUser() {
     return apiClient.get('/auth/me');
   },
 
   async getTrustScore(userId: string) {
-    return apiClient.get(`/v1/users/${userId}/trust-score`);
+    return apiClient.get(`/users/${userId}/trust-score`);
   },
 
   async getSocialGraph(userId: string): Promise<ApiResponse<{
@@ -393,19 +583,17 @@ export const userApi = {
     mutualConnections: string[];
     socialDistance: Record<string, number>;
   }>> {
-    return apiClient.get(`/v1/users/${userId}/social-graph`);
+    return apiClient.get(`/users/${userId}/social-graph`);
   },
 
-  // DEPRECATED: Use socialApi.followUser instead
   async followUser(userId: string): Promise<ApiResponse<{ success: boolean }>> {
-    return apiClient.post(`/v1/follow`, {
+    return apiClient.post(`/follow`, {
       following_id: userId
     });
   },
 
-  // DEPRECATED: Use socialApi.unfollowUser instead
   async unfollowUser(userId: string): Promise<ApiResponse<{ success: boolean }>> {
-    return apiClient.delete(`/v1/follow/${userId}`);
+    return apiClient.delete(`/follow/${userId}`);
   }
 };
 

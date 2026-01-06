@@ -40,6 +40,17 @@ import savedListsRoutes from './api/routes/saved-lists';
 import discoveryRoutes from './api/routes/discovery';
 import restaurantRoutes from './api/routes/restaurants';
 import bcrypt from 'bcrypt'; // NEW: For password hashing
+import commentsRoutes from './routes/comments';
+import resharesRoutes from './routes/reshares';
+import notificationsRoutes from './routes/notifications';
+import onboardingRoutes from './routes/onboarding';
+import rewardsRoutes from './routes/rewards';
+import lotteryRoutes from './routes/lottery';
+import photoContestRoutes from './routes/photo-contest';
+import bountyRoutes from './routes/bounty';
+import mapRecommendationsRouter from './api/routes/map-recommendations';
+import { getGooglePlacesCacheService } from './services/google-places-cache';
+import uploadRouter from './api/routes/upload';
 
 // Add server identification
 console.log('🟢 REAL SERVER RUNNING - src/server.ts - TWO-TIER AUTH + USER PROFILE INTEGRATION');
@@ -93,6 +104,9 @@ class JWTUtils {
     }
   }
 }
+
+// IPFS Gateway for transforming hashes to URLs
+const IPFS_GATEWAY = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io/ipfs/';
 
 // Initialize Supabase client for database operations
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -183,7 +197,7 @@ interface DatabaseRecommendation {
   latitude?: number;
   longitude?: number;
   trust_score?: number;
-  upvotes_count?: number;  // FIXED: Schema uses upvotes_count, saves_count
+  likes_count?: number;  // FIXED: Schema uses likes_count, saves_count
   saves_count?: number;
   verification_status?: string;
   content_hash?: string;
@@ -640,7 +654,7 @@ const socialServiceObject = {
 const router = express.Router();
 
 // =============================================================================
-// TWO-TIER AUTHENTICATION ENDPOINTS
+// TWO-TIER AUTHENTICATION ENDPOINTS WITH ONBOARDING
 // =============================================================================
 
 // ===========================
@@ -700,12 +714,46 @@ router.post('/auth/email/register', async (req, res) => {
     // Hash password
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Generate clean username with collision checking
+    let finalUsername: string;
+
+    if (username) {
+      finalUsername = username;
+    } else {
+      const baseUsername = emailLower.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      let testUsername = baseUsername;
+      let attempts = 0;
+      
+      while (attempts < 10) {
+        const { data: existing } = await supabase
+          .from('users')
+          .select('id')
+          .eq('username', testUsername)
+          .maybeSingle();
+        
+        if (!existing) {
+          finalUsername = testUsername;
+          break;
+        }
+        
+        attempts++;
+        testUsername = `${baseUsername}${attempts}`;
+      }
+      
+      if (!finalUsername!) {
+        finalUsername = `user_${Date.now()}`;
+      }
+    }
+
+    const finalDisplayName = display_name || 
+                            (finalUsername.charAt(0).toUpperCase() + finalUsername.slice(1));
+
+    // Create user with onboarding fields
     const newUser: DatabaseUser = {
       email: emailLower,
       password_hash,
-      username: username || `user_${Date.now()}`,
-      display_name: display_name || username || `User ${Date.now()}`,
+      username: finalUsername,
+      display_name: finalDisplayName,
       account_tier: 'email_basic',
       auth_method: 'email',
       reputation_score: 0,
@@ -714,7 +762,10 @@ router.post('/auth/email/register', async (req, res) => {
       staking_tier: 'explorer',
       verification_level: 'basic',
       pending_token_claims: 0,
-      location_country: 'BR'
+      location_country: 'BR',
+      onboarding_completed: false,
+      onboarding_step: 'welcome',  // NEW: Start at welcome step
+      profile_completion: 25
     };
 
     const { data: createdUser, error: createError } = await supabase
@@ -725,6 +776,15 @@ router.post('/auth/email/register', async (req, res) => {
 
     if (createError) {
       console.error('❌ User creation error:', createError);
+      
+      if (createError.code === '23505' && createError.message.includes('username')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Username already taken. Please try a different one.',
+          field: 'username'
+        });
+      }
+      
       throw createError;
     }
 
@@ -736,7 +796,7 @@ router.post('/auth/email/register', async (req, res) => {
       authMethod: 'email'
     });
 
-    console.log(`✅ Email user created: ${createdUser.id}`);
+    console.log(`✅ Email user created: ${createdUser.id} with username: ${finalUsername}`);
 
     const profileCompletion = calculateProfileCompletion(createdUser);
 
@@ -753,8 +813,11 @@ router.post('/auth/email/register', async (req, res) => {
         profileCompletion,
         pendingTokenClaims: 0,
         reputationScore: 0,
-        trustScore: 0
+        trustScore: 0,
+        onboarding_completed: false,
+        onboarding_step: 'welcome'  // NEW: Include current step
       },
+      isNewUser: true,
       expiresIn: 86400
     });
 
@@ -845,8 +908,11 @@ router.post('/auth/email/login', async (req, res) => {
         trustScore: user.trust_score || 0,
         stakingBalance: user.staking_balance || 0,
         stakingTier: user.staking_tier || 'explorer',
-        verificationLevel: user.verification_level || 'basic'
+        verificationLevel: user.verification_level || 'basic',
+        onboarding_completed: user.onboarding_completed || false,
+        onboarding_step: user.onboarding_step || 'complete'
       },
+      isNewUser: false,
       expiresIn: 86400
     });
 
@@ -882,9 +948,8 @@ router.post('/auth/wallet/challenge', async (req, res) => {
     const timestamp = Date.now();
     const nonce = Math.random().toString(36).substring(7);
     const message = generateChallenge(walletAddress);
-    const expiresAt = Date.now() + (5 * 60 * 1000); // 5 minutes
+    const expiresAt = Date.now() + (5 * 60 * 1000);
 
-    // Store challenge
     challenges.set(walletAddress, { message, timestamp, nonce, expiresAt });
 
     console.log(`✅ Generated challenge for wallet: ${walletAddress}`);
@@ -958,9 +1023,10 @@ router.post('/auth/wallet/verify', async (req, res) => {
 
     let dbUser: DatabaseUser;
     let userId: string;
+    let isNewUser = false;
 
     if (existingUser && !fetchError) {
-      // Update last login
+      // Existing user
       console.log(`👤 Wallet user exists: ${existingUser.id}`);
       
       const { data: updatedUser, error: updateError } = await supabase
@@ -978,6 +1044,7 @@ router.post('/auth/wallet/verify', async (req, res) => {
       
       dbUser = updatedUser;
       userId = updatedUser.id!;
+      isNewUser = false;
       
     } else {
       // Create new wallet user
@@ -994,7 +1061,10 @@ router.post('/auth/wallet/verify', async (req, res) => {
         staking_balance: 0,
         staking_tier: 'explorer',
         verification_level: 'basic',
-        location_country: 'BR'
+        location_country: 'BR',
+        onboarding_completed: false,
+        onboarding_step: 'welcome',  // NEW: Start at welcome step
+        profile_completion: 30
       };
 
       const { data: createdUser, error: createError } = await supabase
@@ -1007,6 +1077,7 @@ router.post('/auth/wallet/verify', async (req, res) => {
       
       dbUser = createdUser;
       userId = createdUser.id!;
+      isNewUser = true;
       console.log(`✅ Wallet user created: ${createdUser.id}`);
     }
 
@@ -1044,8 +1115,11 @@ router.post('/auth/wallet/verify', async (req, res) => {
         stakingTier: dbUser.staking_tier,
         verificationLevel: dbUser.verification_level,
         profileCompletion,
+        onboarding_completed: dbUser.onboarding_completed ?? !isNewUser,
+        onboarding_step: dbUser.onboarding_step || (isNewUser ? 'welcome' : 'complete'),
         createdAt: dbUser.created_at
       },
+      isNewUser,
       expiresIn: 86400
     });
 
@@ -1054,6 +1128,234 @@ router.post('/auth/wallet/verify', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Authentication failed'
+    });
+  }
+});
+
+// ===========================
+// ONBOARDING ENDPOINTS (NEW)
+// ===========================
+
+// Get current onboarding status
+router.get('/auth/onboarding-status', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('onboarding_completed, onboarding_step, profile_completion, username, display_name, bio, avatar_url, location_city')
+      .eq('id', userId)
+      .single();
+
+    if (error || !user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      onboarding: {
+        completed: user.onboarding_completed || false,
+        current_step: user.onboarding_step || 'welcome',
+        profile_completion: user.profile_completion || 25,
+        steps_completed: {
+          welcome: user.onboarding_step !== 'welcome',
+          profile: !!(user.username && user.display_name && user.bio),
+          interests: user.onboarding_step === 'follow' || user.onboarding_step === 'complete',
+          follow: user.onboarding_completed || false
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get onboarding status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get onboarding status'
+    });
+  }
+});
+
+// Update onboarding step
+router.patch('/auth/onboarding-step', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const { step } = req.body;
+
+    const validSteps = ['welcome', 'profile', 'interests', 'follow', 'complete'];
+    if (!step || !validSteps.includes(step)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid onboarding step',
+        valid_steps: validSteps
+      });
+    }
+
+    const updateData: any = {
+      onboarding_step: step,
+      updated_at: new Date().toISOString()
+    };
+
+    // If completing onboarding, mark as complete
+    if (step === 'complete') {
+      updateData.onboarding_completed = true;
+    }
+
+    const { data: updatedUser, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Update onboarding step error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to update onboarding step'
+      });
+    }
+
+    console.log(`✅ Updated onboarding step to '${step}' for user: ${userId}`);
+
+    const profileCompletion = calculateProfileCompletion(updatedUser);
+
+    res.json({
+      success: true,
+      message: 'Onboarding step updated',
+      onboarding: {
+        current_step: updatedUser.onboarding_step,
+        completed: updatedUser.onboarding_completed || false,
+        profile_completion: profileCompletion
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Update onboarding step error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update onboarding step'
+    });
+  }
+});
+
+// Complete onboarding
+router.post('/auth/complete-onboarding', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+
+    const { data: updatedUser, error } = await supabase
+      .from('users')
+      .update({
+        onboarding_completed: true,
+        onboarding_step: 'complete',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Complete onboarding error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to complete onboarding'
+      });
+    }
+
+    console.log(`✅ Onboarding completed for user: ${userId}`);
+
+    const profileCompletion = calculateProfileCompletion(updatedUser);
+
+    res.json({
+      success: true,
+      message: 'Onboarding completed successfully',
+      user: {
+        id: updatedUser.id,
+        onboarding_completed: true,
+        profile_completion: profileCompletion
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Complete onboarding error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to complete onboarding'
+    });
+  }
+});
+
+// Bulk follow users during onboarding
+router.post('/auth/onboarding-follow', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const { user_ids } = req.body;
+
+    if (!Array.isArray(user_ids) || user_ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'user_ids must be a non-empty array'
+      });
+    }
+
+    // Limit to max 20 follows at once
+    const followIds = user_ids.slice(0, 20);
+
+    // Create follow records
+    const followRecords = followIds.map(targetId => ({
+      follower_id: userId,
+      following_id: targetId,
+      created_at: new Date().toISOString()
+    }));
+
+    const { error: followError } = await supabase
+      .from('user_follows')
+      .insert(followRecords);
+
+    if (followError) {
+      console.error('❌ Bulk follow error:', followError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to follow users',
+        details: followError.message
+      });
+    }
+
+    // Update following_count for current user
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('following_count')
+      .eq('id', userId)
+      .single();
+
+    const newFollowingCount = (currentUser?.following_count || 0) + followIds.length;
+
+    await supabase
+      .from('users')
+      .update({ following_count: newFollowingCount })
+      .eq('id', userId);
+
+    // Update followers_count for all followed users
+    for (const targetId of followIds) {
+      await supabase.rpc('increment_followers_count', { user_id: targetId });
+    }
+
+    console.log(`✅ User ${userId} followed ${followIds.length} users during onboarding`);
+
+    res.json({
+      success: true,
+      message: `Successfully followed ${followIds.length} users`,
+      following_count: newFollowingCount
+    });
+
+  } catch (error) {
+    console.error('❌ Bulk follow error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to follow users'
     });
   }
 });
@@ -1086,7 +1388,9 @@ router.post('/auth/social/twitter', async (req, res) => {
   });
 });
 
-// Simple route handlers that call your existing logic with the new route names
+// ===========================
+// LEGACY ROUTE COMPATIBILITY
+// ===========================
 
 // POST /api/auth/challenge - Frontend calls this instead of /auth/wallet/challenge
 router.post('/auth/challenge', async (req, res) => {
@@ -1103,9 +1407,8 @@ router.post('/auth/challenge', async (req, res) => {
     const timestamp = Date.now();
     const nonce = Math.random().toString(36).substring(7);
     const message = generateChallenge(walletAddress);
-    const expiresAt = Date.now() + (5 * 60 * 1000); // 5 minutes
+    const expiresAt = Date.now() + (5 * 60 * 1000);
 
-    // Store challenge (using your existing challenges Map)
     challenges.set(walletAddress, { message, timestamp, nonce, expiresAt });
 
     console.log(`✅ Generated challenge for wallet: ${walletAddress}`);
@@ -1126,9 +1429,7 @@ router.post('/auth/challenge', async (req, res) => {
   }
 });
 
-// FIXED VERSION - Remove last_login_at references
-// Replace your /auth/login route with this version
-
+// POST /api/auth/login - Legacy wallet login
 router.post('/auth/login', async (req, res) => {
   try {
     const { walletAddress, signature, challenge } = req.body;
@@ -1151,7 +1452,6 @@ router.post('/auth/login', async (req, res) => {
 
     let dbUser: DatabaseUser;
     if (existingUser) {
-      // FIXED: Removed last_login_at from update
       const { data: updated } = await supabase
         .from('users')
         .update({ 
@@ -1164,7 +1464,6 @@ router.post('/auth/login', async (req, res) => {
         .single();
       dbUser = updated!;
     } else {
-      // FIXED: Removed last_login_at from insert
       const { data: created } = await supabase
         .from('users')
         .insert({
@@ -1179,7 +1478,9 @@ router.post('/auth/login', async (req, res) => {
           staking_balance: 0,
           staking_tier: 'explorer',
           verification_level: 'basic',
-          location_country: 'BR'
+          location_country: 'BR',
+          onboarding_completed: false,
+          onboarding_step: 'welcome'
         })
         .select()
         .single();
@@ -1206,7 +1507,9 @@ router.post('/auth/login', async (req, res) => {
         display_name: dbUser.display_name,
         accountTier: 'wallet_full', 
         authMethod: 'wallet',
-        profileCompletion 
+        profileCompletion,
+        onboarding_completed: dbUser.onboarding_completed || false,
+        onboarding_step: dbUser.onboarding_step || 'complete'
       }
     });
   } catch (error) {
@@ -1215,9 +1518,7 @@ router.post('/auth/login', async (req, res) => {
   }
 });
 
-// FIXED VERSION - Remove last_login_at references
-// Replace your /auth/email-signup route with this version
-
+// POST /api/auth/email-signup - Legacy email signup
 router.post('/auth/email-signup', async (req, res) => {
   try {
     const { email, password, displayName } = req.body;
@@ -1233,7 +1534,6 @@ router.post('/auth/email-signup', async (req, res) => {
 
     const password_hash = await bcrypt.hash(password, 10);
     
-    // FIXED: Removed last_login_at from insert
     const { data: created } = await supabase
       .from('users')
       .insert({
@@ -1248,7 +1548,9 @@ router.post('/auth/email-signup', async (req, res) => {
         staking_balance: 0,
         staking_tier: 'explorer',
         verification_level: 'basic',
-        location_country: 'BR'
+        location_country: 'BR',
+        onboarding_completed: false,
+        onboarding_step: 'welcome'
       })
       .select()
       .single();
@@ -1272,7 +1574,9 @@ router.post('/auth/email-signup', async (req, res) => {
         accountTier: 'email_basic',
         authMethod: 'email',
         profileCompletion,
-        pendingTokens: 0
+        pendingTokens: 0,
+        onboarding_completed: false,
+        onboarding_step: 'welcome'
       }
     });
   } catch (error) {
@@ -1285,7 +1589,7 @@ router.post('/auth/email-signup', async (req, res) => {
 // SHARED AUTH ENDPOINTS
 // ===========================
 
-// Token verification endpoint (works for both email and wallet)
+// Token verification endpoint
 router.post('/auth/verify', async (req, res) => {
   try {
     const { token } = req.body;
@@ -1326,7 +1630,7 @@ router.post('/auth/verify', async (req, res) => {
   }
 });
 
-// ENHANCED: Get current user profile - supports both tiers
+// Get current user profile
 router.get('/auth/me', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
@@ -1335,7 +1639,6 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
     console.log(`GET /api/auth/me - user: ${userId}, tier: ${accountTier}`);
 
     try {
-      // Fetch user data from Supabase database
       const { data: dbUser, error } = await supabase
         .from('users')
         .select('*')
@@ -1371,6 +1674,8 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
             total_upvotes_received: dbUser.total_upvotes_received || 0,
             tokens_earned: dbUser.tokens_earned || 0,
             profileCompletion,
+            onboarding_completed: dbUser.onboarding_completed || false,
+            onboarding_step: dbUser.onboarding_step || 'complete',
             created_at: dbUser.created_at,
             updated_at: dbUser.updated_at
           }
@@ -1381,7 +1686,6 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
     } catch (dbError) {
       console.error('❌ Database query failed:', dbError);
       
-      // Fallback
       res.json({
         success: true,
         user: {
@@ -1393,7 +1697,9 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
           accountTier: accountTier,
           authMethod: req.user!.authMethod,
           pendingTokenClaims: 0,
-          profileCompletion: 20
+          profileCompletion: 20,
+          onboarding_completed: false,
+          onboarding_step: 'welcome'
         },
         warning: 'Using fallback data'
       });
@@ -1407,7 +1713,7 @@ router.get('/auth/me', authenticateToken, async (req, res) => {
   }
 });
 
-// Update user profile (same for both tiers)
+// Update user profile
 router.patch('/auth/profile', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
@@ -1490,6 +1796,8 @@ router.patch('/auth/profile', authenticateToken, async (req, res) => {
         staking_tier: updatedUser.staking_tier || 'explorer',
         verification_level: updatedUser.verification_level || 'basic',
         profileCompletion,
+        onboarding_completed: updatedUser.onboarding_completed || false,
+        onboarding_step: updatedUser.onboarding_step || 'complete',
         created_at: updatedUser.created_at,
         updated_at: updatedUser.updated_at
       }
@@ -1508,7 +1816,7 @@ router.patch('/auth/profile', authenticateToken, async (req, res) => {
 // USER PROFILE INTEGRATION ENDPOINTS
 // =============================================================================
 
-// GET /api/users/:userId/likes - Get user's liked recommendations
+// GET /api/users/:userId/likes
 router.get('/users/:userId/likes', optionalAuth, async (req: express.Request, res: express.Response) => {
   try {
     const { userId } = req.params;
@@ -1518,7 +1826,6 @@ router.get('/users/:userId/likes', optionalAuth, async (req: express.Request, re
 
     console.log(`GET /api/users/${userId}/likes - limit: ${limit}, offset: ${offset}`);
 
-    // Get user's likes with full recommendation details
     const { data: likes, error } = await supabase
       .from('recommendation_likes')
       .select(`
@@ -1531,7 +1838,7 @@ router.get('/users/:userId/likes', optionalAuth, async (req: express.Request, re
           author_id,
           restaurant_id,
           trust_score,
-          upvotes_count,
+          likes_count,
           saves_count,
           created_at,
           updated_at
@@ -1549,11 +1856,10 @@ router.get('/users/:userId/likes', optionalAuth, async (req: express.Request, re
       });
     }
 
-    // Transform the data to match frontend expectations
     const likedRecommendations = (likes || []).map(like => ({
       ...like.recommendations,
       liked_at: like.created_at
-    })).filter(rec => rec.id); // Filter out any null recommendations
+    })).filter(rec => rec.id);
 
     console.log(`✅ Found ${likedRecommendations.length} liked recommendations for user ${userId}`);
 
@@ -1578,7 +1884,7 @@ router.get('/users/:userId/likes', optionalAuth, async (req: express.Request, re
   }
 });
 
-// GET /api/users/:userId/bookmarks - Get user's bookmarked recommendations (private)
+// GET /api/users/:userId/bookmarks
 router.get('/users/:userId/bookmarks', authenticate, async (req: express.Request, res: express.Response) => {
   try {
     const { userId } = req.params;
@@ -1588,7 +1894,6 @@ router.get('/users/:userId/bookmarks', authenticate, async (req: express.Request
 
     console.log(`GET /api/users/${userId}/bookmarks - current user: ${currentUserId}`);
 
-    // Only allow users to see their own bookmarks
     if (userId !== currentUserId) {
       return res.status(403).json({
         success: false,
@@ -1596,7 +1901,6 @@ router.get('/users/:userId/bookmarks', authenticate, async (req: express.Request
       });
     }
 
-    // Get user's bookmarks with full recommendation details
     const { data: bookmarks, error } = await supabase
       .from('recommendation_bookmarks')
       .select(`
@@ -1609,7 +1913,7 @@ router.get('/users/:userId/bookmarks', authenticate, async (req: express.Request
           author_id,
           restaurant_id,
           trust_score,
-          upvotes_count,
+          likes_count,
           saves_count,
           created_at,
           updated_at
@@ -1627,11 +1931,10 @@ router.get('/users/:userId/bookmarks', authenticate, async (req: express.Request
       });
     }
 
-    // Transform the data to match frontend expectations
     const bookmarkedRecommendations = (bookmarks || []).map(bookmark => ({
       ...bookmark.recommendations,
       bookmarked_at: bookmark.created_at
-    })).filter(rec => rec.id); // Filter out any null recommendations
+    })).filter(rec => rec.id);
 
     console.log(`✅ Found ${bookmarkedRecommendations.length} bookmarked recommendations for user ${userId}`);
 
@@ -1657,6 +1960,16 @@ router.get('/users/:userId/bookmarks', authenticate, async (req: express.Request
 });
 
 app.use('/api/auth/social', socialAuthRoutes);
+
+app.use('/api/lottery', lotteryRoutes);
+
+app.use('/api/photo-contest', photoContestRoutes);
+
+app.use('/api/bounties', bountyRoutes);
+
+app.use('/api/recommendations', mapRecommendationsRouter);
+
+app.use('/api/upload', uploadRouter);
 
 // =============================================================================
 // 🔥 CRITICAL FIX: MOUNT ROUTER TO APP
@@ -1686,6 +1999,21 @@ app.use('/api/saved-lists', authenticate, savedListsRoutes);
 // Discovery routes
 app.use('/api/discovery', optionalAuth, discoveryRoutes);
 
+// Comments routes (Social Features)
+app.use('/api', optionalAuth, commentsRoutes);
+
+// Reshares routes (Phase 1 Social Features)
+app.use('/api', optionalAuth, resharesRoutes);
+
+// Notifications routes (Phase 1 Social Features)
+app.use('/api', authenticateToken, notificationsRoutes);
+
+// Onboarding routes (Option A - v0.8)
+app.use('/api/onboarding', authenticateToken, onboardingRoutes);
+
+// Rewards routes (Option A - v0.8)  
+app.use('/api', authenticateToken, rewardsRoutes);
+
 // =============================================================================
 // USER PROFILE INTEGRATION ENDPOINTS
 // =============================================================================
@@ -1713,7 +2041,7 @@ router.get('/users/:userId/likes', optionalAuth, async (req: express.Request, re
           author_id,
           restaurant_id,
           trust_score,
-          upvotes_count,
+          likes_count,
           saves_count,
           created_at,
           updated_at
@@ -1791,7 +2119,7 @@ router.get('/users/:userId/bookmarks', authenticate, async (req: express.Request
           author_id,
           restaurant_id,
           trust_score,
-          upvotes_count,
+          likes_count,
           saves_count,
           created_at,
           updated_at
@@ -1838,374 +2166,208 @@ router.get('/users/:userId/bookmarks', authenticate, async (req: express.Request
   }
 });
 
+// Helper: Get bidirectional social connections for a user
+async function getBidirectionalConnections(userId: string): Promise<{
+  following: Set<string>;
+  followers: Set<string>;
+  mutuals: Set<string>;
+}> {
+  // Get who user follows
+  const { data: followingData, error: followingError } = await supabase
+    .from('social_connections')
+    .select('following_id')
+    .eq('follower_id', userId)
+    .eq('is_active', true);
+  if (followingError) {
+    console.error('Error fetching following:', followingError);
+  }
+  // Get who follows user
+  const { data: followersData, error: followersError } = await supabase
+    .from('social_connections')
+    .select('follower_id')
+    .eq('following_id', userId)
+    .eq('is_active', true);
+  if (followersError) {
+    console.error('Error fetching followers:', followersError);
+  }
+  const following = new Set<string>(followingData?.map(c => c.following_id) || []);
+  const followers = new Set<string>(followersData?.map(c => c.follower_id) || []);
+  
+  // Mutuals are intersection of following and followers
+  const mutuals = new Set<string>();
+  following.forEach(id => {
+    if (followers.has(id)) {
+      mutuals.add(id);
+    }
+  });
+  return { following, followers, mutuals };
+}
+
 // =============================================================================
 // RESTAURANT ENDPOINTS
 // =============================================================================
 
-// GET /api/restaurants - Search and list restaurants
-router.get('/restaurants', async (req: express.Request, res: express.Response) => {
+// GET /api/restaurants/:id/recommendations - Get all recommendations for a restaurant
+router.get('/restaurants/:id/recommendations', optionalAuth, async (req: express.Request, res: express.Response) => {
   try {
-    console.log('🔍 GET /api/restaurants - Search request:', req.query);
-
-    // Parse query parameters
-    const search = (req.query.search as string) || '';
-    const city = req.query.city as string;
-    const cuisineType = req.query.cuisineType as string;
-    const priceRange = req.query.priceRange ? 
-      (req.query.priceRange as string).split(',').map(Number) : undefined;
-    const minTrustScore = Number(req.query.minTrustScore) || 0;
-    const sortBy = (req.query.sortBy as string) || 'trustScore';
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 20;
-    const userAddress = req.query.userAddress as string;
-    const userLat = req.query.userLat as string;
-    const userLng = req.query.userLng as string;
-
-    // Get restaurants from Supabase
-    const { data: restaurants, error } = await supabase
-      .from('restaurants')
-      .select(`
-        *,
-        recommendations:recommendations(count)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ Supabase error:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to fetch restaurants from database'
-      });
-    }
-
-    // Transform Supabase data to Restaurant interface
-    const transformedRestaurants: Restaurant[] = restaurants.map(restaurant => ({
-      id: restaurant.id,
-      name: restaurant.name,
-      address: restaurant.address,
-      city: restaurant.city,
-      country: 'Brazil', // Default for now
-      latitude: restaurant.latitude || 0,
-      longitude: restaurant.longitude || 0,
-      cuisineType: restaurant.category, // Map category to cuisineType
-      priceRange: undefined, // Add this to your schema later
-      phone: undefined, // Add this to your schema later
-      website: undefined, // Add this to your schema later
-      addedBy: restaurant.created_by || 'system',
-      verified: false, // Calculate based on recommendations
-      verificationCount: 0, // Calculate later
-      totalRecommendations: restaurant.recommendations?.[0]?.count || 0,
-      avgTrustScore: Math.random() * 3 + 7, // Mock for now, calculate from actual recommendations
-      lastRecommendationDate: restaurant.created_at ? new Date(restaurant.created_at) : undefined,
-      createdAt: new Date(restaurant.created_at),
-      updatedAt: new Date(restaurant.created_at)
-    }));
-
-    // Filter restaurants
-    let filteredRestaurants = transformedRestaurants.filter(restaurant => {
-      // Search filter
-      if (search && !restaurant.name.toLowerCase().includes(search.toLowerCase()) && 
-          !restaurant.address.toLowerCase().includes(search.toLowerCase())) {
-        return false;
-      }
-      
-      // City filter
-      if (city && city !== 'All Cities' && restaurant.city !== city) {
-        return false;
-      }
-      
-      // Cuisine filter
-      if (cuisineType && cuisineType !== 'All Cuisines' && restaurant.cuisineType !== cuisineType) {
-        return false;
-      }
-      
-      // Price range filter
-      if (priceRange && priceRange.length > 0 && 
-          restaurant.priceRange && !priceRange.includes(restaurant.priceRange)) {
-        return false;
-      }
-      
-      return true;
-    });
-
-    // Calculate distances and sort
-    const enrichedRestaurants = filteredRestaurants.map(restaurant => {
-      let distanceKm: number | undefined;
-      if (userLat && userLng) {
-        distanceKm = calculateDistance(
-          Number(userLat), Number(userLng),
-          restaurant.latitude, restaurant.longitude
-        );
-      }
-
-      return {
-        ...restaurant,
-        distanceKm,
-        trustScoreForUser: userAddress ? restaurant.avgTrustScore : undefined,
-      };
-    });
-
-    // Filter by minimum trust score
-    const trustFilteredRestaurants = enrichedRestaurants.filter(restaurant => {
-      const score = restaurant.trustScoreForUser || restaurant.avgTrustScore;
-      return score >= minTrustScore;
-    });
-
-    // Sort restaurants
-    const sortedRestaurants = trustFilteredRestaurants.sort((a, b) => {
-      switch (sortBy) {
-        case 'trustScore':
-          const scoreA = a.trustScoreForUser || a.avgTrustScore;
-          const scoreB = b.trustScoreForUser || b.avgTrustScore;
-          return scoreB - scoreA;
-        case 'distance':
-          return (a.distanceKm || 0) - (b.distanceKm || 0);
-        case 'recent':
-          const dateA = a.lastRecommendationDate?.getTime() || 0;
-          const dateB = b.lastRecommendationDate?.getTime() || 0;
-          return dateB - dateA;
-        case 'recommendations':
-          return b.totalRecommendations - a.totalRecommendations;
-        default:
-          return 0;
-      }
-    });
-
-    // Paginate results
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedRestaurants = sortedRestaurants.slice(startIndex, endIndex);
-
-    console.log(`✅ Restaurant search successful: ${paginatedRestaurants.length} results`);
-
-    res.json({
-      success: true,
-      results: paginatedRestaurants,
-      total: sortedRestaurants.length,
-      page,
-      limit,
-      hasNextPage: endIndex < sortedRestaurants.length,
-      hasPrevPage: page > 1
-    });
-
-  } catch (error) {
-    console.error('❌ Error searching restaurants:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to search restaurants'
-    });
-  }
-});
-
-// POST /api/restaurants - Create new restaurant
-router.post('/restaurants', async (req: express.Request, res: express.Response) => {
-  try {
-    console.log('🏪 POST /api/restaurants - Create restaurant request:', req.body);
-
-    const body = req.body;
+    const { id } = req.params;
+    const restaurantId = parseInt(id, 10);
     
-    // Validate required fields
-    const requiredFields = ['name', 'address', 'city', 'latitude', 'longitude'];
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return res.status(400).json({
-          success: false,
-          error: `Missing required field: ${field}`
-        });
-      }
-    }
-
-    // Get existing restaurants to check for duplicates
-    const { data: existingRestaurants, error: fetchError } = await supabase
-      .from('restaurants')
-      .select('*');
-
-    if (fetchError) {
-      console.error('❌ Error fetching existing restaurants:', fetchError);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to check for duplicates'
-      });
-    }
-
-    // Check for duplicate restaurants (within 100m radius)
-    const duplicates = existingRestaurants.filter(restaurant => {
-      const distance = calculateDistance(
-        body.latitude, body.longitude,
-        restaurant.latitude, restaurant.longitude
-      );
-      return distance < 0.1 && // 100m radius
-             restaurant.name.toLowerCase().includes(body.name.toLowerCase());
-    });
-
-    if (duplicates.length > 0) {
-      return res.status(409).json({
-        success: false,
-        error: 'A similar restaurant already exists nearby',
-        suggestions: duplicates.map(r => ({
-          id: r.id,
-          name: r.name,
-          address: r.address,
-          distanceM: Math.round(calculateDistance(
-            body.latitude, body.longitude,
-            r.latitude, r.longitude
-          ) * 1000)
-        }))
-      });
-    }
-
-    // Validate price range
-    if (body.priceRange && (body.priceRange < 1 || body.priceRange > 4)) {
+    // Validate restaurant_id is a valid integer
+    if (isNaN(restaurantId) || restaurantId <= 0) {
       return res.status(400).json({
         success: false,
-        error: 'Price range must be between 1 and 4'
+        error: 'Invalid restaurant ID',
+        message: 'Restaurant ID must be a positive integer'
       });
     }
 
-    // Validate coordinates
-    if (Math.abs(body.latitude) > 90 || Math.abs(body.longitude) > 180) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid coordinates'
-      });
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const sortBy = (req.query.sort as string) || 'trust_score'; // trust_score, recent, social
+
+    const userId = req.query.userId as string || req.user?.id;
+
+    // Fetch social connections if userId available
+    let connections = { following: new Set<string>(), followers: new Set<string>(), mutuals: new Set<string>() };
+    if (userId) {
+      connections = await getBidirectionalConnections(userId);
     }
 
-    // Insert into Supabase
-    const { data: newRestaurant, error } = await supabase
-      .from('restaurants')
-      .insert({
-        name: body.name.trim(),
-        address: body.address.trim(),
-        city: body.city.trim(),
-        latitude: Number(body.latitude),
-        longitude: Number(body.longitude),
-        category: body.category?.trim() || body.cuisineType?.trim() || 'Restaurant', // Fix field mapping
-        description: body.description?.trim(),
-        created_by: body.addedBy || null
-      })
-      .select()
-      .single();
+    console.log(`GET /api/restaurants/${restaurantId}/recommendations - limit: ${limit}, offset: ${offset}, sort: ${sortBy}`);
+
+    // Build the query
+    let query = supabase
+      .from('recommendations')
+      .select(`
+        id,
+        author_id,
+        title,
+        content,
+        category,
+        restaurant_id,
+        overall_rating,
+        trust_score,
+        likes_count,
+        saves_count,
+        verification_status,
+        created_at,
+        updated_at,
+        users:author_id (
+          id,
+          username,
+          display_name,
+          avatar_url,
+          reputation_score,
+          trust_score,
+          verification_level
+        ),
+        restaurants(id, name, latitude, longitude)
+      `)
+      .eq('restaurant_id', restaurantId);
+
+    // Apply sorting
+    if (sortBy === 'recent') {
+      query = query.order('created_at', { ascending: false });
+    } else if (sortBy === 'social') {
+      query = query.order('likes_count', { ascending: false });
+    } else {
+      // Default: trust_score
+      query = query.order('trust_score', { ascending: false, nullsFirst: false });
+    }
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: recommendations, error } = await query;
 
     if (error) {
-      console.error('❌ Supabase insert error:', error);
+      console.error('❌ Error fetching restaurant recommendations:', error);
       return res.status(500).json({
         success: false,
-        error: 'Failed to create restaurant',
+        error: 'Failed to fetch recommendations',
         details: error.message
       });
     }
 
-    // Transform back to Restaurant interface
-    const formattedRestaurant: Restaurant = {
-      id: newRestaurant.id,
-      name: newRestaurant.name,
-      address: newRestaurant.address,
-      city: newRestaurant.city,
-      country: body.country?.trim() || 'Brazil',
-      latitude: newRestaurant.latitude,
-      longitude: newRestaurant.longitude,
-      cuisineType: newRestaurant.category,
-      priceRange: body.priceRange ? Number(body.priceRange) : undefined,
-      phone: body.phone?.trim(),
-      website: body.website?.trim(),
-      addedBy: body.addedBy || 'anonymous',
-      verified: false,
-      verificationCount: 0,
-      totalRecommendations: 0,
-      avgTrustScore: 0,
-      createdAt: new Date(newRestaurant.created_at),
-      updatedAt: new Date(newRestaurant.created_at)
-    };
+    // Get total count for pagination
+    const { count: totalCount, error: countError } = await supabase
+      .from('recommendations')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId);
 
-    console.log(`✅ Restaurant created successfully with ID: ${newRestaurant.id}`);
-
-    res.status(201).json({
-      success: true,
-      restaurant: formattedRestaurant,
-      created: true,
-      message: `New restaurant created with ID: ${newRestaurant.id}`
-    });
-
-  } catch (error) {
-    console.error('❌ Error creating restaurant:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create restaurant'
-    });
-  }
-});
-
-// GET /api/restaurants/:id - Get individual restaurant details
-router.get('/restaurants/:id', async (req: express.Request, res: express.Response) => {
-  try {
-    const { id } = req.params;
-    const userAddress = req.query.userAddress as string;
-
-    console.log(`🔍 GET /api/restaurants/${id} - Fetch restaurant details`);
-
-    const { data: restaurant, error } = await supabase
-      .from('restaurants')
-      .select(`
-        *,
-        recommendations:recommendations(
-          id,
-          title,
-          description,
-          trust_score,
-          upvotes,
-          saves,
-          created_at,
-          author:users(username, wallet_address)
-        )
-      `)
-      .eq('id', id)
-      .single();
-
-    if (error || !restaurant) {
-      console.error('❌ Restaurant not found:', error);
-      return res.status(404).json({
-        success: false,
-        error: 'Restaurant not found'
-      });
+    if (countError) {
+      console.error('❌ Error counting recommendations:', countError);
     }
 
-    // Transform to Restaurant interface
-    const formattedRestaurant: Restaurant = {
-      id: restaurant.id,
-      name: restaurant.name,
-      address: restaurant.address,
-      city: restaurant.city,
-      country: 'Brazil',
-      latitude: restaurant.latitude || 0,
-      longitude: restaurant.longitude || 0,
-      cuisineType: restaurant.category,
-      addedBy: restaurant.created_by || 'system',
-      verified: false,
-      verificationCount: 0,
-      totalRecommendations: restaurant.recommendations?.length || 0,
-      avgTrustScore: Math.random() * 3 + 7,
-      createdAt: new Date(restaurant.created_at),
-      updatedAt: new Date(restaurant.created_at)
-    };
+    // Transform data to match frontend expectations
+    const transformedRecommendations = (recommendations || []).map(rec => {
+      const author = rec.users as any;
+      return {
+        id: rec.id,
+        title: rec.title,
+        content: rec.content,
+        category: rec.category,
+        restaurant_id: rec.restaurant_id,
+        rating: rec.overall_rating || 0,
+        trust_score: rec.trust_score || 0,
+        likes_count: rec.likes_count || 0,
+        saves_count: rec.saves_count || 0,
+        verification_status: rec.verification_status,
+        created_at: rec.created_at,
+        updated_at: rec.updated_at,
+        is_friend: userId ? connections.mutuals.has(rec.author_id) : false,
+        is_following: userId ? connections.following.has(rec.author_id) : false,
+        is_followed_by: userId ? connections.followers.has(rec.author_id) : false,
+        author: author ? {
+          id: author.id,
+          username: author.username,
+          display_name: author.display_name || author.username,
+          avatar_url: author.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${author.username || 'user'}`,
+          reputation_score: author.reputation_score || 0,
+          trust_score: author.trust_score || 0,
+          verified: author.verification_level !== 'basic'
+        } : {
+          id: rec.author_id,
+          username: 'Unknown',
+          display_name: 'Unknown User',
+          avatar_url: 'https://api.dicebear.com/7.x/initials/svg?seed=user',
+          reputation_score: 0,
+          trust_score: 0,
+          verified: false
+        },
+        // For frontend compatibility with slugpage.tsx interface
+        trustScore: rec.trust_score || 0,
+        socialDistance: 2 as const, // Default to 2-hop, can be calculated if user is authenticated
+        timestamp: rec.created_at,
+        likes: rec.likes_count || 0,
+        tags: rec.category ? [rec.category] : [],
+        personalRating: undefined, // TODO: Add dish-level ratings when implemented
+        photos: [] // TODO: Add photos when photo system is implemented
+      };
+    });
 
-    console.log(`✅ Restaurant details fetched successfully for ID: ${id}`);
+    console.log(`✅ Found ${transformedRecommendations.length} recommendations for restaurant ${restaurantId}`);
 
     res.json({
       success: true,
-      restaurant: formattedRestaurant,
-      recommendations: restaurant.recommendations || [],
-      trustScoreBreakdown: userAddress ? {
-        personalizedScore: formattedRestaurant.avgTrustScore,
-        globalAverage: formattedRestaurant.avgTrustScore,
-        explanation: `Trust Score based on ${formattedRestaurant.totalRecommendations} recommendations`
-      } : null
+      recommendations: transformedRecommendations,
+      count: transformedRecommendations.length,
+      total: totalCount || transformedRecommendations.length,
+      restaurant_id: restaurantId,
+      pagination: {
+        limit,
+        offset,
+        has_more: (totalCount || 0) > offset + limit
+      },
+      sort: sortBy
     });
 
   } catch (error) {
-    console.error('❌ Error fetching restaurant:', error);
+    console.error('❌ Get restaurant recommendations error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch restaurant'
+      error: 'Failed to fetch restaurant recommendations'
     });
   }
 });
@@ -2249,7 +2411,7 @@ router.get('/search', optionalAuth, async (req: express.Request, res: express.Re
     if (type === 'all' || type === 'lists') {
       try {
         const { data: lists, error: listsError } = await supabase
-          .from('curated_lists')
+          .from('food_guides')
           .select(`
             id,
             title,
@@ -2257,7 +2419,7 @@ router.get('/search', optionalAuth, async (req: express.Request, res: express.Re
             author_id,
             is_public,
             created_at,
-            curated_list_items (
+            guide_items (
               restaurant_id,
               restaurants (
                 id,
@@ -2309,8 +2471,8 @@ router.get('/search', optionalAuth, async (req: express.Request, res: express.Re
                 title: list.title,
                 description: list.description || '',
                 author: authorInfo,
-                restaurant_count: list.curated_list_items?.length || 0,
-                restaurants: (list.curated_list_items || [])
+                restaurant_count: list.guide_items?.length || 0,
+                restaurants: (list.guide_items || [])
                   .map((item: any) => item.restaurants)
                   .filter(Boolean)
                   .slice(0, 4),
@@ -2403,16 +2565,17 @@ router.get('/users/:user_id/recommendations', optionalAuth, async (req, res) => 
         content,
         category,
         restaurant_id,
-        latitude,
-        longitude,
         trust_score,
-        upvotes_count,
+        likes_count,
         saves_count,
+        comments_count,
+        overall_rating,
         verification_status,
         blockchain_tx_id,
         blockchain_status,
         created_at,
-        updated_at
+        updated_at,
+        restaurants(id, name, address, latitude, longitude)
       `)
       .eq('author_id', user_id)
       .range(offsetNum, offsetNum + limitNum - 1)
@@ -2711,8 +2874,7 @@ router.get('/users/:user_id/stats', async (req, res) => {
 });
 
 // ========== FEED ALGORITHM IMPLEMENTATION ==========
-
-// Feed Algorithm: Mixed Instagram-style feed with Trust Score 2.0
+// Feed Algorithm: Mixed Instagram-style feed with Trust Score 2.0 + Reshares
 router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.id;
@@ -2751,7 +2913,7 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
     // 3. Get feed content from multiple sources
     const feedItems = [];
 
-    // SOURCE 1: Following Feed (40% weight)
+    // SOURCE 1: Following Feed - Original Recommendations (35% weight)
     if (followingIds.length > 0) {
       const { data: followingContent, error: followingContentError } = await supabase
         .from('recommendations')
@@ -2759,14 +2921,22 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
           *,
           likes_count,
           saves_count,
+          reshares_count,
           users:author_id(id, username, display_name, avatar_url, reputation_score),
-          restaurants:restaurant_id(id, name, cuisine_type, address, category)
+          restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category)
+          restaurant_aspects(ambiance, service, value_for_money, noise_level)
         `)
         .in('author_id', followingIds)
         .order('created_at', { ascending: false })
         .limit(20);
 
-      console.log('Following query result:', { 
+      // 🔍 DEBUG: Check if restaurant_aspects is in raw query result
+      if (followingContent && followingContent.length > 0) {
+        console.log('🔍 RAW QUERY KEYS:', Object.keys(followingContent[0]));
+        console.log('🔍 restaurant_aspects value:', followingContent[0].restaurant_aspects);
+      }
+
+      console.log('Following recommendations result:', { 
         error: followingContentError, 
         count: followingContent?.length 
       });
@@ -2777,13 +2947,118 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
             ...item,
             type: 'recommendation',
             source: 'following',
-            trust_context: calculateTrustScore(item, userId, 0.8, 0.7, 0.6) // High social weight
+            trust_context: calculateTrustScore(item, userId, 0.8, 0.7, 0.6)
           });
         });
       }
     }
 
-    // SOURCE 2: Taste Similarity (30% weight)
+    // SOURCE 1B: Reshares from Following (NEW - 20% weight)
+    if (followingIds.length > 0) {
+      console.log('🔄 Fetching reshares from followed users...');
+      
+      const { data: resharesData, error: resharesError } = await supabase
+        .from('recommendation_reshares')
+        .select(`
+          id,
+          user_id,
+          recommendation_id,
+          comment,
+          created_at,
+          resharer:user_id(id, username, display_name, avatar_url, reputation_score),
+          recommendations:recommendation_id(
+            *,
+            likes_count,
+            saves_count,
+            reshares_count,
+            comments_count,
+            original_author:author_id(id, username, display_name, avatar_url, reputation_score),
+            restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category)
+            restaurant_aspects(ambiance, service, value_for_money, noise_level)
+          )
+        `)
+        .in('user_id', followingIds)
+        .order('created_at', { ascending: false })
+        .limit(15);
+
+      console.log('Reshares query result:', {
+        error: resharesError,
+        count: resharesData?.length
+      });
+
+      if (!resharesError && resharesData && resharesData.length > 0) {
+        console.log(`✅ Found ${resharesData.length} reshares from followed users`);
+        
+        resharesData.forEach(reshare => {
+          // Make sure the recommendation exists
+          if (reshare.recommendations) {
+            feedItems.push({
+              type: 'reshare',
+              source: 'following',
+              reshare_id: reshare.id,
+              reshare_user_id: reshare.user_id,
+              reshare_comment: reshare.comment,
+              reshare_created_at: reshare.created_at,
+              resharer: reshare.resharer,
+              // Include the full recommendation data
+              ...reshare.recommendations,
+              // Override author with original author
+              users: reshare.recommendations.original_author,
+              trust_context: calculateTrustScore(reshare.recommendations, userId, 0.8, 0.7, 0.6)
+            });
+            console.log(`  ✓ Added reshare by ${reshare.resharer?.username || 'unknown'}`);
+          }
+        });
+      } else {
+        console.log('ℹ️ No reshares found from followed users');
+      }
+    }
+
+    // SOURCE 1C: Discovery Requests from Following (NEW - 5% weight)
+    if (followingIds.length > 0) {
+      console.log('❓ Fetching discovery requests from followed users...');
+  
+      const { data: requestsData, error: requestsError } = await supabase
+        .from('discovery_requests')
+        .select(`
+          id,
+          title,
+          description,
+          location,
+          cuisine_type,
+          occasion,
+          budget_range,
+          dietary_restrictions,
+          bounty_amount,
+          status,
+          response_count,
+          view_count,
+          created_at,
+          expires_at,
+          creator:creator_id(id, username, display_name, avatar_url, reputation_score)
+        `)
+        .in('creator_id', followingIds)
+        .in('status', ['open', 'answered']) // Only show active requests, not closed
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!requestsError && requestsData && requestsData.length > 0) {
+        console.log(`✅ Found ${requestsData.length} requests from followed users`);
+    
+        requestsData.forEach(request => {
+          feedItems.push({
+            ...request,
+            type: 'request',
+            source: 'following',
+            trust_context: calculateTrustScore(request, userId, 0.8, 0.5, 0.6)
+          });
+        });
+      } else {
+        console.log('ℹ️ No discovery requests found from followed users');
+      }
+    }
+
+    // SOURCE 2: Taste Similarity (25% weight)
     if (userRecommendations && userRecommendations.length > 0) {
       const userCuisinePrefs = extractCuisinePreferences(userRecommendations);
       
@@ -2791,10 +3066,12 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
         .from('recommendations')
         .select(`
           id, title, description, overall_rating, created_at, context_tags,
-          likes_count, saves_count,
+          likes_count, saves_count, reshares_count,
           author_id, restaurant_id,
           users!recommendations_author_id_fkey(id, username, display_name, avatar_url, trust_score),
-          restaurants(id, name, cuisine_type, location_city, location_address, image_url)
+          restaurants(id, name, cuisine_type, location_city, location_address, image_url),
+          restaurant_aspects(ambiance, service, value_for_money, noise_level),
+          recommendation_interactions(count)
         `)
         .not('author_id', 'eq', userId)
         .not('author_id', 'in', `(${followingIds.join(',')})`) // Exclude following
@@ -2809,22 +3086,23 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
             ...item,
             type: 'recommendation',
             source: 'taste_similarity',
-            trust_context: calculateTrustScore(item, userId, 0.3, 0.9, 0.8) // High taste alignment
+            trust_context: calculateTrustScore(item, userId, 0.3, 0.9, 0.8)
           });
         });
       }
     }
 
-    // SOURCE 3: Trending Content (20% weight)
+    // SOURCE 3: Trending Content (15% weight)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: trendingContent, error: trendingError } = await supabase
       .from('recommendations')
       .select(`
         id, title, description, overall_rating, created_at, context_tags,
-        likes_count, saves_count,
+        likes_count, saves_count, reshares_count,
         author_id, restaurant_id,
         users!recommendations_author_id_fkey(id, username, display_name, avatar_url, trust_score),
         restaurants(id, name, cuisine_type, location_city, location_address, image_url),
+        restaurant_aspects(ambiance, service, value_for_money, noise_level),
         recommendation_interactions(count)
       `)
       .gte('created_at', oneDayAgo)
@@ -2838,17 +3116,17 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
           ...item,
           type: 'recommendation',
           source: 'trending',
-          trust_context: calculateTrustScore(item, userId, 0.5, 0.6, 0.9) // High contextual match
+          trust_context: calculateTrustScore(item, userId, 0.5, 0.6, 0.9)
         });
       });
     }
 
-    // SOURCE 4: Lists from followed users (10% weight)
+    // SOURCE 4: Lists from followed users (5% weight)
     console.log('🔍 Fetching lists for followed users:', followingIds);
 
     if (followingIds.length > 0) {
       const { data: listsData, error: listsError } = await supabase
-        .from('curated_lists')
+        .from('food_guides')
         .select(`
           id,
           title,
@@ -2886,7 +3164,7 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
         // Fetch restaurants for each list
         for (const list of listsData) {
           const { data: listItems, error: itemsError } = await supabase
-            .from('curated_list_items')
+            .from('guide_items')
             .select(`
               restaurant_id,
               restaurants (
@@ -2920,7 +3198,6 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
             console.log(`  ✓ Added list "${list.title}" with ${restaurants.length} restaurants`);
           } else {
             console.warn(`  ✗ Failed to fetch restaurants for list ${list.id}:`, itemsError);
-            // Add list without restaurants
             feedItems.push({
               ...list,
               type: 'list',
@@ -2939,17 +3216,38 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
       }
     }
 
-    // 4. Apply Trust Score 2.0 ranking and mix content
-    const rankedFeed = feedItems
-      .sort((a, b) => {
-        // Primary sort: Overall trust score
-        const trustDiff = b.trust_context.overall_trust_score - a.trust_context.overall_trust_score;
-        if (Math.abs(trustDiff) > 0.5) return trustDiff;
-        
-        // Secondary sort: Recency for similar trust scores
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      })
-      .slice(0, 30); // Limit feed size
+    // 4. Separate followed content from discovery content
+    // Following IS the trust signal - users have explicitly opted in to see this content
+    const followedContent = feedItems.filter(item => item.source === 'following');
+    const discoveryContent = feedItems.filter(item => item.source !== 'following');
+
+    console.log(`📊 Feed composition: ${followedContent.length} from following, ${discoveryContent.length} from discovery`);
+
+    // Sort FOLLOWED content by RECENCY (not trust score)
+    // When you follow someone, you want to see their latest content
+    followedContent.sort((a, b) => {
+      // For reshares, use the reshare time (when it was shared to your feed)
+      // For lists/recommendations, use created_at
+      const aTime = a.type === 'reshare' ? a.reshare_created_at : a.created_at;
+      const bTime = b.type === 'reshare' ? b.reshare_created_at : b.created_at;
+      return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
+
+    // Sort DISCOVERY content by TRUST SCORE (taste similarity, trending, etc.)
+    // This is content from people you don't follow - trust score helps surface the best
+    discoveryContent.sort((a, b) => {
+      const trustDiff = b.trust_context.overall_trust_score - a.trust_context.overall_trust_score;
+      if (Math.abs(trustDiff) > 0.1) return trustDiff;
+      // Tiebreaker: recency
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    // Interleave feeds: Followed content takes priority (~75%), discovery fills gaps
+    // This ensures users primarily see content from people they follow,
+    // while still discovering new content from taste-similar users
+    const rankedFeed = interleaveFeed(followedContent, discoveryContent, 0.75, 40);
+
+    console.log(`📱 Final feed: ${rankedFeed.length} items (${rankedFeed.filter(i => i.source === 'following').length} following, ${rankedFeed.filter(i => i.source !== 'following').length} discovery)`);
 
     // 5. Get user's interaction status
     const { data: statusData } = await supabase
@@ -2962,17 +3260,27 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
       .select('recommendation_id')
       .eq('user_id', userId);
 
+    // NEW: Get user's reshare status
+    const { data: reshareData } = await supabase
+      .from('recommendation_reshares')
+      .select('recommendation_id')
+      .eq('user_id', userId);
+
     const likedIds = new Set((statusData || []).map(l => l.recommendation_id));
     const bookmarkedIds = new Set((bookmarkData || []).map(b => b.recommendation_id));
+    const resharedIds = new Set((reshareData || []).map(r => r.recommendation_id));
 
-    console.log(`✅ User has ${likedIds.size} likes and ${bookmarkedIds.size} bookmarks`);
+    console.log(`✅ User has ${likedIds.size} likes, ${bookmarkedIds.size} bookmarks, and ${resharedIds.size} reshares`);
 
     // 6. Format for frontend consumption with interaction status
     const formattedFeed = rankedFeed.map(item => {
       const formatted = formatFeedItem(item);
-      if (formatted && formatted.type === 'recommendation') {
-        formatted.hasUpvoted = likedIds.has(formatted.id);
-        formatted.isBookmarked = bookmarkedIds.has(formatted.id);
+      if (formatted && (formatted.type === 'recommendation' || formatted.type === 'reshare')) {
+        // For reshares, the recommendation_id is the original recommendation
+        const recId = formatted.type === 'reshare' ? formatted.id : formatted.id;
+        formatted.hasUpvoted = likedIds.has(recId);
+        formatted.isBookmarked = bookmarkedIds.has(recId);
+        formatted.hasReshared = resharedIds.has(recId);
       }
       return formatted;
     }).filter(Boolean); // Remove any null items
@@ -2980,7 +3288,9 @@ router.get('/feed/mixed', authenticateToken, async (req: AuthenticatedRequest, r
     console.log(`📱 Generated feed with ${formattedFeed.length} items`);
     console.log('📊 Feed breakdown:', {
       recommendations: formattedFeed.filter(item => item.type === 'recommendation').length,
-      lists: formattedFeed.filter(item => item.type === 'list').length
+      reshares: formattedFeed.filter(item => item.type === 'reshare').length,
+      lists: formattedFeed.filter(item => item.type === 'list').length,
+      requests: formattedFeed.filter(item => item.type === 'request').length  // ADD THIS
     });
 
     console.log('🔍 First formatted item:', JSON.stringify(formattedFeed[0], null, 2));
@@ -3220,6 +3530,91 @@ function extractCuisinePreferences(userRecommendations: any[]): string[] {
     .slice(0, 5)
     .map(([cuisine]) => cuisine);
 }
+/**
+ * Interleave two sorted arrays with a target ratio
+ * @param primary - Primary content (followed users) - sorted by recency
+ * @param secondary - Secondary content (discovery) - sorted by trust score
+ * @param primaryRatio - Target ratio of primary content (0.75 = 75% followed)
+ * @param maxItems - Maximum items in final feed
+ */
+function interleaveFeed(
+  primary: any[], 
+  secondary: any[], 
+  primaryRatio: number = 0.75,
+  maxItems: number = 40
+): any[] {
+  const result: any[] = [];
+  let primaryIndex = 0;
+  let secondaryIndex = 0;
+  
+  // If no followed content, return discovery content
+  if (primary.length === 0) {
+    return secondary.slice(0, maxItems);
+  }
+  
+  // If no discovery content, return followed content
+  if (secondary.length === 0) {
+    return primary.slice(0, maxItems);
+  }
+
+  while (result.length < maxItems) {
+    const currentRatio = result.length === 0 
+      ? 0 
+      : result.filter(i => i.source === 'following').length / result.length;
+    
+    // Determine which source to pull from
+    const needMorePrimary = currentRatio < primaryRatio;
+    const primaryAvailable = primaryIndex < primary.length;
+    const secondaryAvailable = secondaryIndex < secondary.length;
+
+    if (!primaryAvailable && !secondaryAvailable) {
+      break; // No more content
+    }
+
+    if (needMorePrimary && primaryAvailable) {
+      result.push(primary[primaryIndex]);
+      primaryIndex++;
+    } else if (secondaryAvailable) {
+      result.push(secondary[secondaryIndex]);
+      secondaryIndex++;
+    } else if (primaryAvailable) {
+      // Fallback: add remaining primary if no secondary left
+      result.push(primary[primaryIndex]);
+      primaryIndex++;
+    }
+  }
+
+  return result;
+}
+
+// Helper to transform IPFS hashes to full URLs
+function transformPhotos(photos: any, imageUrl?: string): Array<{url: string, ipfsHash?: string}> {
+  // Handle photos array (IPFS hashes stored in database)
+  if (photos && Array.isArray(photos) && photos.length > 0) {
+    return photos.map(hash => {
+      // If it's already a full URL, use it directly
+      if (typeof hash === 'string' && hash.startsWith('http')) {
+        return { url: hash };
+      }
+      // If it's an object with url property, use that
+      if (typeof hash === 'object' && hash.url) {
+        return { url: hash.url, ipfsHash: hash.ipfsHash };
+      }
+      // Otherwise, treat it as an IPFS hash and build the gateway URL
+      return {
+        url: `${IPFS_GATEWAY}${hash}`,
+        ipfsHash: hash
+      };
+    });
+  }
+  
+  // Fallback to image_url if no photos array
+  if (imageUrl) {
+    return [{ url: imageUrl }];
+  }
+  
+  return [];
+}
 
 // Format feed items for frontend consumption
 function formatFeedItem(item: any): any {
@@ -3258,18 +3653,30 @@ function formatFeedItem(item: any): any {
       };
     }
 
-    // Handle recommendation items - these come with nested users/restaurants from SOURCE queries
-    if (item.type === 'recommendation' || !item.type) {
+    // Handle reshare items (NEW!)
+    if (item.type === 'reshare') {
       return {
-        type: 'recommendation',
+        type: 'reshare',
+        reshare_id: item.reshare_id,
+        reshare_user_id: item.reshare_user_id,
+        reshare_comment: item.reshare_comment,
+        reshare_created_at: item.reshare_created_at,
+        resharer: {
+          id: item.resharer?.id || item.reshare_user_id,
+          username: item.resharer?.username,
+          display_name: item.resharer?.display_name || item.resharer?.username,
+          avatar_url: item.resharer?.avatar_url,
+          reputation_score: item.resharer?.reputation_score
+        },
+        // The original recommendation data
         id: item.id,
         title: item.title,
-        description: item.description || item.content || '',
+        content: item.description || item.content || '',
         overall_rating: item.overall_rating || item.rating || 0,
         location: {
           restaurant_id: item.restaurant_id,
           name: item.restaurants?.name || 'Unknown Restaurant',
-          address: item.restaurants?.location_address || item.restaurants?.address || '',
+          address: item.restaurants?.formatted_address || item.restaurants?.address || '',
           city: item.restaurants?.location_city || ''
         },
         author: {
@@ -3281,16 +3688,98 @@ function formatFeedItem(item: any): any {
           socialDistance: 1
         },
         category: item.restaurants?.cuisine_type || item.category || '',
-        photos: item.image_url ? [{ url: item.image_url }] : [],
+        photos: transformPhotos(item.photos, item.image_url),
         engagement: {
           saves: item.saves_count || 0,
           upvotes: item.likes_count || 0,
-          comments: item.comment_count || 0
+          comments: item.comments_count || 0,
+          reshares: item.reshares_count || 0
         },
         createdAt: item.created_at,
         tags: item.context_tags || [],
         isBookmarked: item.is_saved || false,
-        hasUpvoted: item.is_liked || false
+        hasUpvoted: item.is_liked || false,
+        hasReshared: item.has_reshared || false,
+        aspects: item.restaurant_aspects?.[0] ? {
+          ambiance: item.restaurant_aspects[0].ambiance,
+          service: item.restaurant_aspects[0].service,
+          value_for_money: item.restaurant_aspects[0].value_for_money,
+          noise_level: item.restaurant_aspects[0].noise_level
+        } : undefined
+      };
+    }
+
+    // Inside formatFeedItem function, add this case:
+    if (item.type === 'request') {
+      return {
+        type: 'request',
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        location: item.location,
+        cuisine_type: item.cuisine_type,
+        occasion: item.occasion,
+        budget_range: item.budget_range,
+        dietary_restrictions: item.dietary_restrictions,
+        bounty_amount: item.bounty_amount || 0,
+        status: item.status || 'open',
+        response_count: item.response_count || 0,
+        view_count: item.view_count || 0,
+        created_at: item.created_at,
+        expires_at: item.expires_at,
+        creator: item.creator ? {
+          id: item.creator.id,
+          username: item.creator.username,
+          display_name: item.creator.display_name,
+          avatar_url: item.creator.avatar_url,
+          reputation_score: item.creator.reputation_score || 0
+        } : null,
+        source: item.source,
+        trust_context: item.trust_context
+      };
+    }
+
+    // Handle recommendation items - these come with nested users/restaurants from SOURCE queries
+    if (item.type === 'recommendation' || !item.type) {
+      return {
+        type: 'recommendation',
+        id: item.id,
+        title: item.title,
+        content: item.description || item.content || '',
+        overall_rating: item.overall_rating || item.rating || 0,
+        location: {
+          restaurant_id: item.restaurant_id,
+          name: item.restaurants?.name || 'Unknown Restaurant',
+          address: item.restaurants?.formatted_address || item.restaurants?.address || '',
+          city: item.restaurants?.location_city || ''
+        },
+        author: {
+          id: item.author_id || item.user_id,
+          name: item.users?.display_name || item.users?.username || 'Unknown User',
+          avatar: item.users?.avatar_url || '/default-avatar.png',
+          reputation: item.users?.reputation_score || item.users?.trust_score || 5,
+          isFollowing: false,
+          socialDistance: 1
+        },
+        category: item.restaurants?.cuisine_type || item.category || '',
+        photos: transformPhotos(item.photos, item.image_url),
+        engagement: {
+          saves: item.saves_count || 0,
+          upvotes: item.likes_count || 0,
+          comments: item.comments_count || 0,
+          reshares: item.reshares_count || 0
+        },
+        createdAt: item.created_at,
+        tags: item.context_tags || [],
+        isBookmarked: item.is_saved || false,
+        hasUpvoted: item.is_liked || false,
+        hasReshared: item.has_reshared || false,
+        aspects: item.restaurant_aspects?.[0] ? {
+          ambiance: item.restaurant_aspects[0].ambiance,
+          service: item.restaurant_aspects[0].service,
+          value_for_money: item.restaurant_aspects[0].value_for_money,
+          noise_level: item.restaurant_aspects[0].noise_level
+        } : undefined
       };
     }
 
@@ -3329,25 +3818,52 @@ app.get('/api/health', (req, res) => {
       authentication: 'Unified JWT authentication system',
       follow_functionality: 'Follow/unfollow routes available',
       recommendation_system: 'FIXED - Schema aligned with database (author_id, content, integer restaurant_id)',
+      comments_system: 'Phase 1 Social Features - Comments with nested replies and likes',
+      reshares_system: 'Phase 1 Social Features - Reshare recommendations with commentary',
+      notifications_system: 'Phase 1 Social Features - Real-time notification management',
       restaurant_system: 'Smart matching algorithm with auto-increment IDs',
       lists_system: 'ENHANCED - User Profile Integration with author filtering and privacy handling',
       search_system: 'FIXED - Route positioning corrected, universal search working',
-      user_profile_integration: 'COMPLETE - Enhanced with likes/bookmarks endpoints and privacy controls'
+      user_profile_integration: 'COMPLETE - Enhanced with likes/bookmarks endpoints and privacy controls',
+      onboarding_system: 'NEW - 3 milestone tracking with auto-rewards (Option A v0.8)',
+      rewards_system: 'NEW - Helpful comments, boost/reshare, attribution tracking (Option A v0.8)'
     }
   });
+});
+
+// Find this existing route (or similar):
+app.get('/api/restaurants/:id', async (req, res) => {
+  // ... existing code
+});
+
+// Modify it to use the cache service:
+app.get('/api/restaurants/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cache = getGooglePlacesCacheService();
+    const details = await cache.getRestaurantDetails(id);
+    
+    if (!details) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+    
+    res.json(details);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch restaurant details' });
+  }
 });
 
 app.get('/', (req, res) => {
   res.json({
     message: 'OmeoneChain Core API Server - User Profile Integration Complete',
-    version: '0.9.0',
+    version: '0.9.5',
     changes: [
+      'NEW: Onboarding system with 3-milestone tracking (Follow, Recs, Engagement)',
+      'NEW: Reward system - Helpful comments (0.2 BOCA)',
+      'NEW: Reward system - Boost/Reshare with attribution bonuses',
+      'NEW: First reviewer detection and bonus tracking',
       'COMPLETE: Enhanced User Profile Integration',
-      'NEW: GET /api/users/:userId/likes endpoint for user liked recommendations',
-      'NEW: GET /api/users/:userId/bookmarks endpoint for user bookmarked recommendations (private)',
-      'ENHANCED: GET /api/lists endpoint with ?author={userId} filtering and privacy handling',
-      'ENHANCED: Privacy controls - users see only public lists from others, all own lists when authenticated',
-      'READY: All 6 UserProfile tabs now have working backend integration'
+      'READY: All Option A features integrated'
     ],
     endpoints: {
       auth: [
@@ -3362,6 +3878,51 @@ app.get('/', (req, res) => {
         'POST /api/recommendations - Create new recommendation (schema aligned + smart restaurant matching)',
         'GET /api/users/:user_id/recommendations - Get user-specific recommendations (schema aligned)'
       ],
+
+      onboarding: [
+        'GET /api/onboarding/progress/:userId - Get milestone progress',
+        'POST /api/onboarding/milestones/follow - Award follow milestone',
+        'POST /api/onboarding/milestones/recommendations - Award rec milestone',
+        'POST /api/onboarding/milestones/engagement - Award engagement milestone',
+        'POST /api/onboarding/track - Track user action'
+      ],
+      
+      rewards: [
+        'POST /api/recommendations/:recId/comments/:commentId/helpful - Mark helpful',
+        'POST /api/recommendations/:recId/boost - Boost recommendation',
+        'DELETE /api/recommendations/:recId/boost - Remove boost',
+        'POST /api/recommendations/:recId/reshare-attribution - Track attribution',
+        'GET /api/recommendations/attribution/:userId - Get attribution rewards',
+        'GET /api/restaurants/:restaurantId/first-reviewer-check - Check first reviewer',
+        'GET /api/users/:userId/boost-stats - Get boost statistics'
+      ],
+
+      comments: [
+        'GET /api/recommendations/:id/comments - Get all comments for a recommendation',
+        'POST /api/recommendations/:id/comments - Create a comment on a recommendation',
+        'POST /api/comments/:id/reply - Reply to a comment',
+        'PATCH /api/comments/:id - Edit a comment (5 min window)',
+        'DELETE /api/comments/:id - Delete a comment (soft delete)',
+        'POST /api/comments/:id/like - Like/unlike a comment',
+        'DELETE /api/comments/:id/like - Unlike a comment'
+      ],
+
+      reshares: [
+        'POST /api/recommendations/:id/reshare - Reshare with optional commentary',
+        'DELETE /api/recommendations/:id/reshare - Remove reshare',
+        'GET /api/users/:id/reshares - Get user\'s reshares',
+        'GET /api/recommendations/:id/reshares - Get who reshared a recommendation'
+      ],
+
+      notifications: [
+        'GET /api/notifications - Get user notifications',
+        'GET /api/notifications/unread-count - Get unread count for badge',
+        'PATCH /api/notifications/:id/read - Mark notification as read',
+        'PATCH /api/notifications/read-all - Mark all as read',
+        'DELETE /api/notifications/:id - Delete notification',
+        'DELETE /api/notifications/clear-all - Clear all read notifications'
+    ],
+
       restaurants: [
         'GET /api/restaurants - Search and list restaurants',
         'POST /api/restaurants - Create new restaurant',

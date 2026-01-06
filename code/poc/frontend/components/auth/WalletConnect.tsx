@@ -1,26 +1,24 @@
 // code/poc/frontend/components/auth/WalletConnect.tsx
 // ENHANCED DEBUG VERSION with comprehensive logging and null safety
+// UPDATED: Internationalized with next-intl
 
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Wallet, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { WalletManager, AuthAPI, createAuthMessage } from '@/lib/auth';
 
 // Helper function to clear all authentication data
 const clearAllAuthData = () => {
   if (typeof window === 'undefined') return;
   
-  // Clear localStorage
   localStorage.removeItem('omeone_auth_token');
   localStorage.removeItem('omeone_user');
   localStorage.removeItem('omeone_pending_tokens');
-  
-  // Clear sessionStorage
   sessionStorage.clear();
   
-  // Clear any cookies
   document.cookie.split(";").forEach((c) => {
     document.cookie = c
       .replace(/^ +/, "")
@@ -41,6 +39,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
   onCancel, 
   className = '' 
 }) => {
+  const t = useTranslations();
   const [isConnecting, setIsConnecting] = useState(false);
   const [step, setStep] = useState<'connect' | 'signing' | 'verifying'>('connect');
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +50,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
       console.log('🔄 MetaMask account changed:', accounts);
       
       if (accounts.length === 0) {
-        setError('MetaMask disconnected. Please reconnect.');
+        setError(t('auth.walletConnect.disconnected'));
         setIsConnecting(false);
         setStep('connect');
       } else {
@@ -59,7 +58,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
         setError(null);
         setStep('connect');
         setIsConnecting(false);
-        toast.success('Account changed. Ready to connect with new account.');
+        toast.success(t('auth.walletConnect.accountChanged'));
       }
     };
 
@@ -72,7 +71,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
         }
       };
     }
-  }, []);
+  }, [t]);
 
   const handleConnect = async () => {
     try {
@@ -81,170 +80,73 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
       setStep('connect');
 
       console.log('🔗 Starting wallet connection process...');
-      console.log('🔗 window.ethereum exists:', !!window.ethereum);
 
       if (!window.ethereum) {
         throw new Error('MetaMask not found');
       }
 
-      // Step 1: Get current account with comprehensive error handling
+      // Step 1: Get current account
       let currentAccount: string | null = null;
       try {
-        console.log('📋 Requesting eth_accounts...');
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        console.log('📋 Raw accounts response:', accounts);
-        console.log('📋 Accounts type:', typeof accounts);
-        console.log('📋 Accounts is array:', Array.isArray(accounts));
-        console.log('📋 Accounts length:', accounts?.length);
-        
         currentAccount = accounts && accounts.length > 0 ? accounts[0] : null;
-        console.log('📋 Current account after extraction:', currentAccount);
         
         if (!currentAccount) {
-          console.log('📋 No current account, requesting access...');
           const requestedAccounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          console.log('📋 Requested accounts:', requestedAccounts);
           currentAccount = requestedAccounts && requestedAccounts.length > 0 ? requestedAccounts[0] : null;
-          console.log('📋 Current account after request:', currentAccount);
         }
         
         if (!currentAccount) {
-          throw new Error('No accounts found. Please unlock MetaMask and select an account.');
+          throw new Error(t('auth.walletConnect.errors.noAccounts'));
         }
-        
-        console.log('✅ Current MetaMask account confirmed:', currentAccount);
-        console.log('✅ Account type:', typeof currentAccount);
-        console.log('✅ Account length:', currentAccount.length);
         
       } catch (accountError: any) {
-        console.error('❌ Account retrieval error:', accountError);
-        console.error('❌ Error code:', accountError.code);
-        console.error('❌ Error message:', accountError.message);
-        
         if (accountError.code === 4001) {
-          throw new Error('Please unlock MetaMask and grant access to your account.');
+          throw new Error(t('auth.walletConnect.errors.accessDenied'));
         }
         throw accountError;
       }
 
       // Step 2: Connect wallet via WalletManager
-      toast.loading('Connecting to MetaMask...', { id: 'wallet-connect' });
-      console.log('🔌 Calling WalletManager.connectMetaMask()...');
+      toast.loading(t('auth.walletConnect.steps.connecting'), { id: 'wallet-connect' });
       
       const walletInfo = await WalletManager.connectMetaMask();
       
-      console.log('📦 WalletInfo received:', walletInfo);
-      console.log('📦 WalletInfo type:', typeof walletInfo);
-      console.log('📦 WalletInfo is object:', typeof walletInfo === 'object' && walletInfo !== null);
-      console.log('📦 WalletInfo.address:', walletInfo?.address);
-      console.log('📦 WalletInfo.address type:', typeof walletInfo?.address);
-      console.log('📦 WalletInfo.address length:', walletInfo?.address?.length);
-      console.log('📦 Full WalletInfo structure:', JSON.stringify(walletInfo, null, 2));
-      
-      // Validate walletInfo structure
-      if (!walletInfo || typeof walletInfo !== 'object') {
-        console.error('❌ Invalid walletInfo - not an object:', walletInfo);
-        throw new Error('Failed to connect wallet - invalid response from WalletManager');
+      if (!walletInfo || typeof walletInfo !== 'object' || !walletInfo.address) {
+        throw new Error(t('auth.walletConnect.errors.connectionFailed'));
       }
-      
-      if (!walletInfo.address || typeof walletInfo.address !== 'string') {
-        console.error('❌ Missing or invalid address in walletInfo');
-        console.error('❌ walletInfo.address value:', walletInfo.address);
-        console.error('❌ walletInfo.address type:', typeof walletInfo.address);
-        throw new Error('Failed to connect wallet - no address returned');
-      }
-      
-      // Verify account match with safe toLowerCase
-      console.log('🔍 Preparing address comparison...');
-      console.log('🔍 walletInfo.address before trim:', `"${walletInfo.address}"`);
-      console.log('🔍 currentAccount before trim:', `"${currentAccount}"`);
       
       const connectedAddress = walletInfo.address.trim().toLowerCase();
       const selectedAddress = currentAccount.trim().toLowerCase();
       
-      console.log('🔍 Address comparison:', {
-        connected: connectedAddress,
-        selected: selectedAddress,
-        connectedLength: connectedAddress.length,
-        selectedLength: selectedAddress.length,
-        match: connectedAddress === selectedAddress
-      });
-      
       if (connectedAddress !== selectedAddress) {
-        console.warn('⚠️ Account mismatch detected!');
-        console.warn('⚠️ Connected:', connectedAddress);
-        console.warn('⚠️ Selected:', selectedAddress);
-        throw new Error('Account mismatch detected. Please refresh the page and try again.');
+        throw new Error(t('auth.walletConnect.errors.mismatch'));
       }
-      
-      console.log('✅ Addresses match! Wallet connected:', connectedAddress);
       
       // Step 3: Get authentication challenge
       setStep('signing');
-      toast.loading('Preparing authentication...', { id: 'wallet-connect' });
+      toast.loading(t('auth.walletConnect.steps.preparing'), { id: 'wallet-connect' });
       
-      console.log('🔐 Getting auth challenge for wallet:', connectedAddress);
       const challengeResponse = await AuthAPI.getAuthChallenge(connectedAddress);
       
-      console.log('✅ Challenge response received:', challengeResponse);
-      console.log('✅ Challenge type:', typeof challengeResponse);
-      console.log('✅ Challenge structure:', JSON.stringify(challengeResponse, null, 2));
-      
-      // Validate challenge response
-      if (!challengeResponse || typeof challengeResponse !== 'object') {
-        console.error('❌ Invalid challenge response - not an object:', challengeResponse);
-        throw new Error('Failed to get authentication challenge - invalid response');
+      if (!challengeResponse || !challengeResponse.challenge) {
+        throw new Error(t('auth.walletConnect.errors.challengeFailed'));
       }
       
-      if (!challengeResponse.challenge || typeof challengeResponse.challenge !== 'string') {
-        console.error('❌ Missing or invalid challenge string');
-        console.error('❌ challengeResponse.challenge:', challengeResponse.challenge);
-        console.error('❌ Type:', typeof challengeResponse.challenge);
-        throw new Error('Failed to get authentication challenge - no challenge string');
-      }
-      
-      console.log('✅ Challenge validated:', {
-        challenge: challengeResponse.challenge.substring(0, 50) + '...',
-        timestamp: challengeResponse.timestamp,
-        nonce: challengeResponse.nonce
-      });
-      
-      // Create auth message
       const authMessage = createAuthMessage(challengeResponse.challenge, connectedAddress);
-      console.log('📝 Auth message created');
-      console.log('📝 Message length:', authMessage.length);
-      console.log('📝 Message preview:', authMessage.substring(0, 100) + '...');
 
       // Step 4: Sign message
-      toast.loading('Please sign the message in MetaMask...', { id: 'wallet-connect' });
-      console.log('✍️ Requesting signature from MetaMask...');
+      toast.loading(t('auth.walletConnect.steps.signing'), { id: 'wallet-connect' });
       
       const signature = await WalletManager.signMessage(authMessage, connectedAddress);
       
-      console.log('✅ Signature received');
-      console.log('✅ Signature type:', typeof signature);
-      console.log('✅ Signature length:', signature?.length);
-      console.log('✅ Signature preview:', signature?.substring(0, 20) + '...');
-      
-      // Validate signature
       if (!signature || typeof signature !== 'string') {
-        console.error('❌ Invalid signature:', signature);
-        console.error('❌ Signature type:', typeof signature);
-        throw new Error('Failed to sign message - invalid signature returned');
+        throw new Error(t('auth.walletConnect.errors.signatureFailed'));
       }
 
       // Step 5: Verify signature and get token
       setStep('verifying');
-      toast.loading('Verifying signature...', { id: 'wallet-connect' });
-      
-      console.log('🔍 Verifying signature with backend...');
-      console.log('🔍 Verification parameters:', {
-        address: connectedAddress,
-        signature: signature.substring(0, 20) + '...',
-        challenge: challengeResponse.challenge.substring(0, 50) + '...',
-        timestamp: challengeResponse.timestamp,
-        nonce: challengeResponse.nonce
-      });
+      toast.loading(t('auth.walletConnect.steps.verifying'), { id: 'wallet-connect' });
       
       const authResult = await AuthAPI.verifySignature(
         connectedAddress,
@@ -254,59 +156,32 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
         challengeResponse.nonce
       );
       
-      console.log('✅ Auth result received:', authResult);
-      console.log('✅ Auth result type:', typeof authResult);
-      console.log('✅ Auth result structure:', JSON.stringify(authResult, null, 2));
-      
-      // Validate auth result
-      if (!authResult || typeof authResult !== 'object') {
-        console.error('❌ Invalid auth result - not an object:', authResult);
-        throw new Error('Authentication failed - invalid response');
-      }
-      
-      if (!authResult.token || typeof authResult.token !== 'string') {
-        console.error('❌ Missing or invalid token');
-        console.error('❌ authResult.token:', authResult.token);
-        console.error('❌ Type:', typeof authResult.token);
-        throw new Error('Authentication failed - no token returned');
-      }
-      
-      if (!authResult.user || typeof authResult.user !== 'object') {
-        console.error('❌ Missing or invalid user data');
-        console.error('❌ authResult.user:', authResult.user);
-        console.error('❌ Type:', typeof authResult.user);
-        throw new Error('Authentication failed - no user data returned');
+      if (!authResult || !authResult.token || !authResult.user) {
+        throw new Error(t('auth.walletConnect.errors.authFailed'));
       }
 
-      console.log('✅ Authentication complete! Token and user validated.');
-      toast.success('Successfully authenticated!', { id: 'wallet-connect' });
-      
+      toast.success(t('auth.walletConnect.success'), { id: 'wallet-connect' });
       onSuccess(authResult.token, authResult.user);
 
     } catch (error: any) {
       console.error('❌ Wallet connection error:', error);
-      console.error('❌ Error name:', error.name);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Error stack:', error.stack);
-      console.error('❌ Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
       
-      let errorMessage = 'Connection failed';
+      let errorMessage = t('auth.walletConnect.errors.generic');
       
-      // Enhanced error messages
       if (error.message?.includes('MetaMask')) {
-        errorMessage = 'MetaMask connection failed. Please make sure MetaMask is unlocked.';
+        errorMessage = t('auth.walletConnect.errors.metaMaskFailed');
       } else if (error.message?.includes('rejected') || error.message?.includes('denied') || error.code === 4001) {
-        errorMessage = 'You cancelled the connection request.';
+        errorMessage = t('auth.walletConnect.errors.cancelled');
       } else if (error.message?.includes('mismatch')) {
-        errorMessage = 'Account mismatch detected. Please refresh the page.';
+        errorMessage = t('auth.walletConnect.errors.mismatch');
       } else if (error.message?.includes('challenge')) {
-        errorMessage = 'Failed to get authentication challenge from server.';
+        errorMessage = t('auth.walletConnect.errors.challengeFailed');
       } else if (error.message?.includes('signature')) {
-        errorMessage = 'Failed to verify signature. Please try again.';
+        errorMessage = t('auth.walletConnect.errors.signatureFailed');
       } else if (error.message?.includes('fetch') || error.message?.includes('network')) {
-        errorMessage = 'Network error. Please check your connection and ensure backend is running.';
-      } else if (error.message?.includes('No accounts')) {
-        errorMessage = 'No MetaMask accounts found. Please create or import an account.';
+        errorMessage = t('auth.walletConnect.errors.network');
+      } else if (error.message?.includes('No accounts') || error.message?.includes('noAccounts')) {
+        errorMessage = t('auth.walletConnect.errors.noAccounts');
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -325,7 +200,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
       setStep('connect');
       setError(null);
       toast.dismiss('wallet-connect');
-      toast('Connection cancelled', { icon: 'ℹ️' });
+      toast(t('auth.walletConnect.connectionCancelled'), { icon: 'ℹ️' });
     }
     
     if (onCancel) {
@@ -340,13 +215,13 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
   const getStepText = () => {
     switch (step) {
       case 'connect':
-        return 'Connecting to wallet...';
+        return t('auth.walletConnect.steps.connecting');
       case 'signing':
-        return 'Please sign the message in MetaMask';
+        return t('auth.walletConnect.steps.signing');
       case 'verifying':
-        return 'Verifying signature...';
+        return t('auth.walletConnect.steps.verifying');
       default:
-        return 'Connect Wallet';
+        return t('auth.wallet.title');
     }
   };
 
@@ -359,10 +234,10 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
           <Wallet className="w-8 h-8 text-blue-600" />
         </div>
         <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          Connect Your Wallet
+          {t('auth.walletConnect.title')}
         </h2>
         <p className="text-gray-600 text-sm">
-          Connect your wallet to access personalized recommendations and earn tokens
+          {t('auth.walletConnect.subtitle')}
         </p>
       </div>
 
@@ -370,16 +245,16 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm text-red-800 font-medium mb-1">Connection Failed</p>
+            <p className="text-sm text-red-800 font-medium mb-1">{t('auth.walletConnect.connectionFailed')}</p>
             <p className="text-sm text-red-700">{error}</p>
             {error.includes('server') && (
               <p className="text-xs text-red-600 mt-2">
-                Make sure the backend server is running on port 3001
+                {t('auth.walletConnect.hints.serverCheck')}
               </p>
             )}
             {error.includes('mismatch') && (
               <p className="text-xs text-red-600 mt-2">
-                Try refreshing the page and selecting the correct account in MetaMask before connecting.
+                {t('auth.walletConnect.hints.mismatchHint')}
               </p>
             )}
           </div>
@@ -390,11 +265,11 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
         <button
           onClick={() => {
             clearAllAuthData();
-            toast.success('Auth data cleared. Ready for fresh connection.');
+            toast.success(t('auth.walletConnect.debug.cleared'));
           }}
           className="w-full mb-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
         >
-          🧹 Clear All Auth Data (Debug)
+          🧹 {t('auth.walletConnect.debug.clearData')}
         </button>
       )}
 
@@ -402,10 +277,10 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
         <div className="text-center">
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800 mb-2">
-              MetaMask wallet not detected
+              {t('auth.wallet.noWallet')}
             </p>
             <p className="text-xs text-yellow-700">
-              Install MetaMask browser extension to connect your wallet
+              {t('auth.wallet.installWallet')}
             </p>
           </div>
           
@@ -414,7 +289,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
           >
             <ExternalLink className="w-5 h-5" />
-            Install MetaMask
+            {t('auth.walletConnect.installMetaMask')}
           </button>
         </div>
       ) : (
@@ -429,7 +304,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
             ) : (
               <Wallet className="w-5 h-5" />
             )}
-            {isConnecting ? getStepText() : 'Connect MetaMask'}
+            {isConnecting ? getStepText() : t('auth.walletConnect.connectMetaMask')}
           </button>
 
           {isConnecting && (
@@ -441,13 +316,13 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
               
               {step === 'signing' && (
                 <p className="text-xs text-blue-600 mt-2">
-                  Check your MetaMask extension for a signature request
+                  {t('auth.walletConnect.hints.checkExtension')}
                 </p>
               )}
               
               {step === 'verifying' && (
                 <p className="text-xs text-blue-600 mt-2">
-                  Verifying your signature with the backend server...
+                  {t('auth.walletConnect.hints.verifying')}
                 </p>
               )}
             </div>
@@ -457,7 +332,7 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
 
       <div className="mt-6 pt-4 border-t border-gray-200">
         <p className="text-xs text-gray-500 text-center mb-3">
-          More wallet options coming soon
+          {t('auth.walletConnect.moreOptions')}
         </p>
         
         <div className="grid grid-cols-2 gap-2">
@@ -465,13 +340,13 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
             disabled
             className="flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-400 border border-gray-200 rounded-lg cursor-not-allowed"
           >
-            WalletConnect
+            {t('auth.wallet.walletConnect')}
           </button>
           <button
             disabled
             className="flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-400 border border-gray-200 rounded-lg cursor-not-allowed"
           >
-            Coinbase Wallet
+            {t('auth.wallet.coinbase')}
           </button>
         </div>
       </div>
@@ -481,14 +356,13 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
           onClick={handleCancel}
           className="w-full mt-4 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
         >
-          {isConnecting ? 'Cancel Connection' : 'Cancel'}
+          {isConnecting ? t('auth.walletConnect.cancelConnection') : t('common.cancel')}
         </button>
       )}
 
       <div className="mt-4 p-3 bg-gray-50 rounded-lg">
         <p className="text-xs text-gray-600 leading-relaxed">
-          🔒 <strong>Secure Connection:</strong> We never store your private keys. 
-          The signature request is only used for authentication and won't trigger any transactions.
+          🔒 <strong>{t('auth.walletConnect.security.title')}</strong> {t('auth.walletConnect.security.description')}
         </p>
       </div>
 

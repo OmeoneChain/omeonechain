@@ -75,9 +75,11 @@ export interface AutocompleteSuggestion {
 class RestaurantService {
   private baseUrl: string;
 
-  constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  }
+    constructor() {
+      const envUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      // Normalize: remove trailing /api if present (we add it in each method)
+      this.baseUrl = envUrl.replace(/\/api\/?$/, '');
+    }
 
   // Search restaurants with filters
   async searchRestaurants(params: RestaurantSearchParams): Promise<Restaurant[]> {
@@ -317,13 +319,13 @@ class RestaurantService {
     city?: string
   ): Promise<Restaurant> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/restaurants/from-foursquare`, {
+      const response = await fetch(`${this.baseUrl}/api/restaurants/from-external`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          foursquare_id: placeId, // Backend still uses this param name
+          external_id: placeId,
           city,
         }),
       });

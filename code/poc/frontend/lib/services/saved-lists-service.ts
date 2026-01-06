@@ -1,6 +1,7 @@
 // File: code/poc/frontend/lib/services/saved-lists-service.ts
 // Frontend API Client for Saved Lists - Makes HTTP calls to backend
 // ✅ FIXED: Now uses correct token key 'omeone_auth_token'
+// ✅ FIXED: Removed /api prefix from endpoints (already in NEXT_PUBLIC_API_URL)
 
 export interface SavedList {
   id: string;
@@ -62,7 +63,7 @@ class SavedListsService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
   }
 
   // ✅ FIXED: Use correct token key 'omeone_auth_token'
@@ -125,18 +126,18 @@ class SavedListsService {
   }
 
   async getUserLists(): Promise<SavedList[]> {
-    const response = await this.request<any>('/api/saved-lists');
+    const response = await this.request<any>('/saved-lists');
     // Handle wrapped response: { success: true, lists: [...] }
     return Array.isArray(response) ? response : (response.lists || response);
   }
 
   async getListById(listId: string): Promise<SavedList> {
-    return this.request<SavedList>(`/api/saved-lists/${listId}`);
+    return this.request<SavedList>(`/saved-lists/${listId}`);
   }
 
   async createList(data: CreateListData): Promise<SavedList> {
     console.log('Creating list with data:', data);
-    const response = await this.request<SavedList>('/api/saved-lists', {
+    const response = await this.request<SavedList>('/saved-lists', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -157,25 +158,25 @@ class SavedListsService {
   }
 
   async updateList(listId: string, data: UpdateListData): Promise<SavedList> {
-    return this.request<SavedList>(`/api/saved-lists/${listId}`, {
+    return this.request<SavedList>(`/saved-lists/${listId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async deleteList(listId: string): Promise<void> {
-    await this.request<void>(`/api/saved-lists/${listId}`, {
+    await this.request<void>(`/saved-lists/${listId}`, {
       method: 'DELETE',
     });
   }
 
   async getListItems(listId: string): Promise<SavedListItem[]> {
-    return this.request<SavedListItem[]>(`/api/saved-lists/${listId}/items`);
+    return this.request<SavedListItem[]>(`/saved-lists/${listId}/items`);
   }
 
   async addItemToList(listId: string, data: AddItemData): Promise<SavedListItem> {
     console.log('Adding item to list:', listId, data);
-    const response = await this.request<SavedListItem>(`/api/saved-lists/${listId}/items`, {
+    const response = await this.request<SavedListItem>(`/saved-lists/${listId}/items`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -184,7 +185,7 @@ class SavedListsService {
   }
 
   async removeItemFromList(listId: string, itemId: string): Promise<void> {
-    await this.request<void>(`/api/saved-lists/${listId}/items/${itemId}`, {
+    await this.request<void>(`/saved-lists/${listId}/items/${itemId}`, {
       method: 'DELETE',
     });
   }
@@ -195,7 +196,7 @@ class SavedListsService {
     visited: boolean = true
   ): Promise<SavedListItem> {
     return this.request<SavedListItem>(
-      `/api/saved-lists/${listId}/items/${itemId}/visited`,
+      `/saved-lists/${listId}/items/${itemId}/visited`,
       {
         method: 'PATCH',
         body: JSON.stringify({ visited }),
@@ -205,7 +206,7 @@ class SavedListsService {
 
   async trackOpened(listId: string, itemId: string): Promise<SavedListItem> {
     return this.request<SavedListItem>(
-      `/api/saved-lists/${listId}/items/${itemId}/opened`,
+      `/saved-lists/${listId}/items/${itemId}/opened`,
       {
         method: 'PATCH',
       }
@@ -222,7 +223,7 @@ class SavedListsService {
     });
 
     return this.request<CheckSavedResponse>(
-      `/api/saved-lists/check?${params.toString()}`
+      `/saved-lists/check?${params.toString()}`
     );
   }
 
@@ -237,7 +238,7 @@ class SavedListsService {
     });
 
     const response = await this.request<{ exists: boolean }>(
-      `/api/saved-lists/${listId}/check?${params.toString()}`
+      `/saved-lists/${listId}/check?${params.toString()}`
     );
 
     return response.exists;
@@ -248,7 +249,7 @@ class SavedListsService {
     itemId: string | number,
     notes?: string
   ): Promise<SavedListItem> {
-    return this.request<SavedListItem>('/api/saved-lists/quick-save', {
+    return this.request<SavedListItem>('/saved-lists/quick-save', {
       method: 'POST',
       body: JSON.stringify({ itemType, itemId, notes }),
     });

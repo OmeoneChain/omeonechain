@@ -1,6 +1,7 @@
 // File: code/poc/core/src/api/routes/discovery.ts
 // Discovery Requests Routes: Bounty-based Q&A for restaurant recommendations
 // MVP Version: Core flow without blockchain (defer bounty/token mechanics to later)
+// Updated: Multi-select budget_range support
 
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
@@ -56,13 +57,15 @@ const getRequestsQuerySchema = z.object({
 
 const createRequestSchema = z.object({
   title: z.string().min(5).max(200),
-  description: z.string().min(10).optional(),
-  location: z.string().max(200).optional(),
+  description: z.string().max(1000).optional(),
+  location: z.string().min(1).max(200),
   cuisine_type: z.string().max(100).optional(),
   occasion: z.enum(['date_night', 'family', 'business', 'casual', 'celebration', 'group', 'solo']).optional(),
-  budget_range: z.enum(['$', '$$', '$$$', '$$$$']).optional(),
+  // UPDATED: Changed from single enum to array for multi-select support
+  budget_range: z.array(z.enum(['$', '$$', '$$$', '$$$$'])).optional(),
   dietary_restrictions: z.array(z.string()).optional(),
-  bounty_amount: z.number().min(0).default(0) // MVP: Always 0, add bounty logic later
+  bounty_amount: z.number().min(0).default(0), // MVP: Always 0, add bounty logic later
+  expires_at: z.string().datetime().optional()
 });
 
 const createResponseSchema = z.object({
@@ -169,6 +172,7 @@ router.get('/requests', optionalAuth, async (req: express.Request, res: express.
         view_count,
         created_at,
         updated_at,
+        expires_at,
         creator_id
       `)
       .order('created_at', { ascending: false })
@@ -428,18 +432,21 @@ router.post('/requests', authenticate, async (req: express.Request, res: express
     const requestData = {
       title: validatedData.title,
       description: validatedData.description || null,
-      location: validatedData.location || null,
+      location: validatedData.location,  // Now required, no fallback to null
       cuisine_type: validatedData.cuisine_type || null,
       occasion: validatedData.occasion || null,
-      budget_range: validatedData.budget_range || null,
+      budget_range: validatedData.budget_range && validatedData.budget_range.length > 0 
+        ? validatedData.budget_range 
+        : null,
       dietary_restrictions: validatedData.dietary_restrictions || [],
-      bounty_amount: 0, // MVP: Always 0, add bounty logic later
+      bounty_amount: 0,
       bounty_status: 'none',
       status: 'open',
       creator_id: currentUser.id,
       response_count: 0,
       view_count: 0,
       helpful_count: 0,
+      expires_at: validatedData.expires_at || null,  // Add this line
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };

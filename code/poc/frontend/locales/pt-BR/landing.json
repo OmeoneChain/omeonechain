@@ -1,0 +1,114 @@
+{
+  "hero": {
+    "title": "Recomendações de Quem Você Confia",
+    "subtitle": "Todo o conselho de restaurante que você recebe dos amigos. {br}Capturado, organizado e fácil de encontrar quando você precisar."
+  },
+  "quote": {
+    "main": "A recomendação de restaurante que você recebeu do seu melhor amigo na semana passada foi mais valiosa do que 10.000 avaliações do Google.",
+    "tagline": "O BocaBoca torna esse tipo de descoberta confiável escalável."
+  },
+  "comparison": {
+    "instead": "Em vez disso:",
+    "stars": "4.3 (247 avaliações)",
+    "starsNote": "Quando tudo é 4,5 estrelas, nada se destaca",
+    "youGet": "Você recebe:"
+  },
+  "problem": {
+    "title": "O Problema",
+    "subtitle": "Avaliações online estão quebradas, e a IA está piorando.",
+    "trustCollapsed": {
+      "title": "A Confiança Desmoronou",
+      "description": "A confiança do consumidor em avaliações online caiu muito nos últimos anos. Avaliações falsas geradas por IA agora são baratas de produzir em escala."
+    },
+    "lostInScroll": {
+      "title": "Perdido no Scroll",
+      "description": "Seu amigo mencionou um restaurante perfeito na semana passada—mas você não consegue encontrar a mensagem. A sabedoria valiosa do boca a boca desaparece no scroll."
+    },
+    "ratingsLostMeaning": {
+      "title": "Avaliações Perderam o Sentido",
+      "description": "Quando tudo é 4,5 estrelas, não há como diferenciar. A avaliação entusiasmada de um vegano não diz nada para quem ama churrasco. Seu contexto é ignorado."
+    }
+  },
+  "solution": {
+    "title": "A Solução",
+    "subtitle": "O BocaBoca captura e organiza recomendações autênticas de boca a boca, tornando-as persistentes e pesquisáveis.",
+    "trust": {
+      "title": "Recomendações em Que Você Pode Confiar",
+      "description": "Cada sugestão mostra quem a fez e por que o gosto dessa pessoa se alinha com o seu. Veja onde seus amigos estão comendo—sem multidões anônimas, sem algoritmos ocultos."
+    },
+    "neverLost": {
+      "title": "Encontre Quando Precisar",
+      "description": "Sua inteligência gastronômica fica organizada e pesquisável para sempre. Encontre aquele restaurante perfeito que seu amigo mencionou há seis meses."
+    },
+    "ownProfile": {
+      "title": "Seu Perfil de Gosto é Seu",
+      "description": "Suas preferências documentadas se tornam um ativo portátil que você controla. Em um mundo orientado por IA, dados verificados de gosto humano são o ingrediente que falta."
+    },
+    "example": {
+      "intro": "Obtenha precisão no nível do prato como:",
+      "quote": "O Cacio e Pepe deles é incrível <green>(9/10)</green>, mas pule o tiramisu <red>(5/10)</red>.",
+      "attribution": "— De 3 amigos com 87% de alinhamento de gosto"
+    }
+  },
+  "whyNow": {
+    "title": "Por Que Agora?",
+    "subtitle": "Três forças estão convergindo para criar urgência e oportunidade.",
+    "aiCheap": {
+      "title": "A IA Tornou Avaliações Falsas Trivialmente Baratas",
+      "description": "A geração de conteúdo acelerou a corrupção das plataformas. Restaurantes podem gerar milhares de avaliações otimizadas por quase nada."
+    },
+    "awareness": {
+      "title": "A Conscientização do Consumidor Atingiu Massa Crítica",
+      "description": "As pessoas sabem que não devem confiar no que veem. 65% dos consumidores acreditam que empresas manipulam avaliações."
+    },
+    "infrastructure": {
+      "title": "A Infraestrutura Finalmente Está Pronta",
+      "description": "A tecnologia agora permite tornar recomendações confiáveis persistentes e verificáveis em escala. A janela para construir uma infraestrutura de gosto verificada é agora."
+    }
+  },
+  "differentiators": {
+    "title": "Diferenciais Chave",
+    "trust": {
+      "title": "Recomendações em Que Você Pode Confiar",
+      "description": "Sem multidões anônimas, sem algoritmos ocultos, sem pay-to-play."
+    },
+    "neverLost": {
+      "title": "Encontre Quando Precisar",
+      "description": "Encontre aquele restaurante perfeito que seu amigo mencionou há seis meses."
+    },
+    "ownProfile": {
+      "title": "Seu Perfil de Gosto é Seu",
+      "description": "Suas preferências se tornam um ativo portátil que você controla."
+    }
+  },
+  "cta": {
+    "title": "Pronto para Confiar no Gosto da Sua Rede?",
+    "subtitle": "Comece a registrar as recomendações em que você já confia e encontre tudo quando realmente importar.",
+    "getStarted": "Começar",
+    "exploreDemo": "Explorar Demo"
+  },
+  "footer": {
+    "tagline": "Recomendações de pessoas em quem você confia. Feito para durar.",
+    "platform": "Plataforma",
+    "discover": "Descobrir",
+    "create": "Criar",
+    "community": "Comunidade",
+    "learn": "Aprenda",
+    "howItWorks": "Como Funciona",
+    "trustScores": "Pontuações de Confiança",
+    "tokenRewards": "Recompensas em Tokens",
+    "whitePaper": "White Paper",
+    "discord": "Discord",
+    "twitter": "Twitter",
+    "github": "GitHub",
+    "blog": "Blog",
+    "copyright": "© 2025 BocaBoca. Feito para durar.",
+    "privacy": "Privacidade",
+    "terms": "Termos",
+    "status": "Status"
+  },
+  "loading": {
+    "signingIn": "Entrando...",
+    "pleaseWait": "Por favor, aguarde enquanto concluímos sua autenticação"
+  }
+}

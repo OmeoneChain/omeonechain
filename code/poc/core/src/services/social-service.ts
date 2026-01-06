@@ -271,18 +271,47 @@ export class SocialService {
     }
   }
 
-  async getDiscoverUsers(currentUserId?: string): Promise<any[]> {
+  async getDiscoverUsers(
+    currentUserId?: string,
+    options?: {
+      limit?: number;
+      sortBy?: 'followers_count' | 'total_recommendations' | 'created_at';
+      city?: string;
+    }
+  ): Promise<any[]> {
     try {
-      // Get all users from database
-      const users = await this.getAllUsersFromDatabase();
-      
-      // Filter out current user if specified
-      const filteredUsers = currentUserId 
-        ? users.filter(user => user.id !== currentUserId)
-        : users;
-      
+      const { limit = 20, sortBy = 'followers_count', city } = options || {};
+    
+      console.log('getDiscoverUsers called with:', { currentUserId, limit, sortBy, city });
+    
+      // Build query with sorting
+      let query = supabase
+        .from('users')
+        .select('*')
+        .order(sortBy, { ascending: false });
+    
+      // Filter by city if provided
+      if (city) {
+        query = query.ilike('location_city', `%${city}%`);
+      }
+    
+      // Exclude current user
+      if (currentUserId) {
+        query = query.neq('id', currentUserId);
+      }
+    
+      // Apply limit
+      query = query.limit(limit);
+    
+      const { data: users, error } = await query;
+    
+      if (error) {
+        console.error('Error fetching discover users:', error);
+        return [];
+      }
+    
       // Transform to match the expected discover format
-      const discoveryUsers = filteredUsers.map(user => ({
+      const discoveryUsers = (users || []).map(user => ({
         id: user.id,
         display_name: user.display_name || user.username || 'Anonymous',
         username: user.username,
@@ -292,9 +321,12 @@ export class SocialService {
         reputation_score: user.reputation_score || 0.0,
         followers_count: user.followers_count || 0,
         following_count: user.following_count || 0,
-        location_city: user.location_city || 'Unknown',
+        recommendations_count: user.total_recommendations || 0,
+        avg_trust_score: user.avg_trust_score || 0,
+        location_city: user.location_city || null,
+        verification_status: user.verification_level || 'basic',
         verification_level: user.verification_level || 'basic',
-        is_following: false, // Will be updated if currentUserId provided
+        is_following: false,
         created_at: user.created_at
       }));
 
@@ -305,6 +337,7 @@ export class SocialService {
         }
       }
 
+      console.log(`Returning ${discoveryUsers.length} discover users`);
       return discoveryUsers;
 
     } catch (error) {
@@ -313,46 +346,83 @@ export class SocialService {
     }
   }
 
-  async getUserProfile(userId: string, currentUserId?: string): Promise<any> {
+  // ADD this new method for user search:
+  async searchUsers(
+    query: string,
+    options?: {
+      currentUserId?: string;
+      city?: string;
+      limit?: number;
+    }
+  ): Promise<any[]> {
     try {
-      // Get user data from database
-      const { data: user, error } = await supabase
+      const { currentUserId, city, limit = 20 } = options || {};
+    
+      if (!query || query.trim().length < 2) {
+        return [];
+      }
+    
+      const searchTerm = query.trim();
+    
+      console.log('searchUsers called with:', { query: searchTerm, city, limit, currentUserId });
+    
+      // Search by username OR display_name using ilike
+      let dbQuery = supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error || !user) {
-        console.log(`User ${userId} not found in database`);
-        return null;
+        .or(`username.ilike.%${searchTerm}%,display_name.ilike.%${searchTerm}%`)
+        .order('followers_count', { ascending: false })
+        .limit(limit);
+    
+      // Filter by city if provided
+      if (city) {
+        dbQuery = dbQuery.ilike('location_city', `%${city}%`);
       }
-
-      // Check if current user is following this user
-      const isFollowing = currentUserId 
-        ? await this.isFollowing(currentUserId, userId) 
-        : false;
-
-      const profile = {
+    
+      // Exclude current user
+      if (currentUserId) {
+        dbQuery = dbQuery.neq('id', currentUserId);
+      }
+    
+      const { data: users, error } = await dbQuery;
+    
+      if (error) {
+        console.error('Error searching users:', error);
+        return [];
+      }
+    
+      // Transform results
+      const searchResults = (users || []).map(user => ({
         id: user.id,
-        username: user.username,
         display_name: user.display_name || user.username || 'Anonymous',
+        username: user.username,
         bio: user.bio,
         avatar_url: user.avatar_url,
         reputation_score: user.reputation_score || 0.0,
         followers_count: user.followers_count || 0,
         following_count: user.following_count || 0,
-        total_recommendations: user.total_recommendations || 0,
-        location_city: user.location_city,
+        recommendations_count: user.total_recommendations || 0,
+        avg_trust_score: user.avg_trust_score || 0,
+        location_city: user.location_city || null,
+        verification_status: user.verification_level || 'basic',
         verification_level: user.verification_level || 'basic',
-        is_following: isFollowing,
+        is_following: false,
         created_at: user.created_at
-      };
+      }));
 
-      return profile;
+      // Update follow status if current user is provided
+      if (currentUserId) {
+        for (const user of searchResults) {
+          user.is_following = await this.isFollowing(currentUserId, user.id);
+        }
+      }
+
+      console.log(`Returning ${searchResults.length} search results`);
+      return searchResults;
 
     } catch (error) {
-      console.error('Error getting user profile:', error);
-      return null;
+      console.error('Error in searchUsers:', error);
+      return [];
     }
   }
 
