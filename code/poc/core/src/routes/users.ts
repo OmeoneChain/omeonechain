@@ -1,5 +1,7 @@
 // File: code/poc/core/src/routes/users.ts
 // User management routes with progressive Web3 support
+// MODIFIED: Removed pending-tokens endpoint and email mock data (Jan 2026)
+// Email auth disabled - phone/wallet only
 
 import express from 'express';
 import { z } from 'zod';
@@ -7,32 +9,35 @@ import { z } from 'zod';
 const router = express.Router();
 
 // Mock user data (in production, use database)
+// MODIFIED: Removed email-only user, all users now phone or wallet
 const mockUsers = [
   {
     id: 'user_123abc',
     address: '0x1234567890123456789012345678901234567890',
-    email: 'alice@example.com',
+    phone: '+5511999998888',
     username: 'alice_crypto',
     display_name: 'Alice',
     avatar_url: null,
     verification_status: 'verified',
     auth_mode: 'wallet',
+    account_tier: 'wallet',
     tokens_earned: 45.75,
+    token_balance: 45.75,
     trust_score: 8.2,
-    pending_tokens: 0,
     created_at: '2024-01-15T10:30:00Z'
   },
   {
-    id: 'email_456def',
-    email: 'bob@example.com',
-    username: 'bob_newbie',
-    display_name: 'Bob',
+    id: 'phone_789ghi',
+    phone: '+5521988887777',
+    username: 'carlos_foodie',
+    display_name: 'Carlos',
     avatar_url: null,
-    verification_status: 'basic',
-    auth_mode: 'email',
-    tokens_earned: 0,
-    trust_score: 0,
-    pending_tokens: 12.5,
+    verification_status: 'verified',
+    auth_mode: 'phone',
+    account_tier: 'verified',
+    tokens_earned: 12.5,
+    token_balance: 12.5,
+    trust_score: 5.0,
     created_at: '2024-02-20T14:15:00Z'
   }
 ];
@@ -107,14 +112,15 @@ router.get('/:id/stats', async (req, res) => {
       });
     }
     
-    // Mock stats
+    // Mock stats - updated for two-tier model (no pending tokens)
     const stats = {
       recommendations_count: 23,
       upvotes_received: 156,
       trust_score: user.trust_score,
       tokens_earned: user.tokens_earned,
-      pending_tokens: user.pending_tokens || 0,
+      token_balance: user.token_balance,
       auth_mode: user.auth_mode,
+      account_tier: user.account_tier,
       verification_status: user.verification_status,
       followers: 45,
       following: 23,
@@ -188,57 +194,63 @@ router.delete('/:id/follow', async (req, res) => {
   }
 });
 
-// POST /api/users/:id/pending-tokens - Add pending tokens (for email users)
-router.post('/:id/pending-tokens', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { amount } = req.body;
-    
-    if (!amount || amount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid token amount'
-      });
-    }
-    
-    const user = mockUsers.find(u => u.id === id);
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-    
-    if (user.auth_mode !== 'email') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only email users can have pending tokens'
-      });
-    }
-    
-    // Update pending tokens
-    user.pending_tokens = (user.pending_tokens || 0) + amount;
-    
-    console.log(`🪙 Added ${amount} pending tokens to user ${id}`);
-    
-    res.json({
-      success: true,
-      message: `Added ${amount} tokens to pending balance`,
-      user: {
-        id: user.id,
-        pending_tokens: user.pending_tokens,
-        auth_mode: user.auth_mode
-      }
-    });
-    
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to add pending tokens',
-      error: error.message
-    });
-  }
-});
+// ==========================================================================
+// DISABLED: Pending tokens endpoint removed (Jan 2026)
+// Two-tier model: all verified users (phone/wallet) get immediate token access
+// No escrow or pending tokens needed
+// ==========================================================================
+
+// // POST /api/users/:id/pending-tokens - Add pending tokens (for email users)
+// router.post('/:id/pending-tokens', async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { amount } = req.body;
+//     
+//     if (!amount || amount <= 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid token amount'
+//       });
+//     }
+//     
+//     const user = mockUsers.find(u => u.id === id);
+//     
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'User not found'
+//       });
+//     }
+//     
+//     if (user.auth_mode !== 'email') {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Only email users can have pending tokens'
+//       });
+//     }
+//     
+//     // Update pending tokens
+//     user.pending_tokens = (user.pending_tokens || 0) + amount;
+//     
+//     console.log(`🪙 Added ${amount} pending tokens to user ${id}`);
+//     
+//     res.json({
+//       success: true,
+//       message: `Added ${amount} tokens to pending balance`,
+//       user: {
+//         id: user.id,
+//         pending_tokens: user.pending_tokens,
+//         auth_mode: user.auth_mode
+//       }
+//     });
+//     
+//   } catch (error: any) {
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to add pending tokens',
+//       error: error.message
+//     });
+//   }
+// });
 
 export default router;

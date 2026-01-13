@@ -10,7 +10,6 @@ import { useTranslations } from 'next-intl';
 
 type TierType = 'my_network' | 'similar_tastes' | 'community' | 'unrated';
 
-// BocaBoca recommendation data from API
 interface BocaBocaRestaurant {
   id: string;
   restaurant_id: string;
@@ -53,7 +52,6 @@ interface BocaBocaRestaurant {
   }>;
 }
 
-// Restaurant for map display
 interface MapRestaurant {
   id: string;
   name: string;
@@ -97,29 +95,13 @@ interface Filters {
 // CONSTANTS
 // =============================================================================
 
-// Google Maps libraries to load
 const GOOGLE_MAPS_LIBRARIES: ("places")[] = ["places"];
 
-// 4-Tier color system following BocaBoca brand guidelines
 const TIER_COLORS: Record<TierType, string> = {
-  my_network: '#FF644A',    // Warm Coral - people you follow
-  similar_tastes: '#BFE2D9', // Mint Breeze - 70%+ taste alignment
-  community: '#9CA3AF',      // Stone Gray - other BocaBoca users
-  unrated: '#D1D5DB',        // Light Gray - no BocaBoca data yet
-};
-
-const TIER_LABELS: Record<TierType, string> = {
-  my_network: 'My Network',
-  similar_tastes: 'Similar Tastes',
-  community: 'Community',
-  unrated: 'Unrated',
-};
-
-const TIER_DESCRIPTIONS: Record<TierType, string> = {
-  my_network: 'Recommended by people you follow',
-  similar_tastes: 'Recommended by users with similar taste (70%+)',
-  community: 'Recommended by other BocaBoca users',
-  unrated: 'No BocaBoca recommendations yet - be the first!',
+  my_network: '#FF644A',
+  similar_tastes: '#BFE2D9',
+  community: '#9CA3AF',
+  unrated: '#D1D5DB',
 };
 
 const TIER_ICONS: Record<TierType, string> = {
@@ -129,7 +111,6 @@ const TIER_ICONS: Record<TierType, string> = {
   unrated: '➕',
 };
 
-// Marker sizes by tier priority (larger = more relevant to user)
 const TIER_MARKER_SIZES: Record<TierType, number> = {
   my_network: 14,
   similar_tastes: 12,
@@ -137,7 +118,6 @@ const TIER_MARKER_SIZES: Record<TierType, number> = {
   unrated: 8,
 };
 
-// Tier priority for sorting (lower = higher priority)
 const TIER_PRIORITY: Record<TierType, number> = {
   my_network: 1,
   similar_tastes: 2,
@@ -151,7 +131,7 @@ const mapContainerStyle = {
   borderRadius: '12px',
 };
 
-const DEFAULT_CENTER = { lat: -15.7801, lng: -47.9292 }; // Brasília
+const DEFAULT_CENTER = { lat: -15.7801, lng: -47.9292 };
 const DEFAULT_ZOOM = 13;
 
 // =============================================================================
@@ -166,14 +146,13 @@ const normalizeText = (text: string): string => {
     .trim();
 };
 
-// Calculate distance between two points in kilometers using Haversine formula
 const calculateDistance = (
   lat1: number,
   lng1: number,
   lat2: number,
   lng2: number
 ): number => {
-  const R = 6371; // Earth's radius in kilometers
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
@@ -186,7 +165,6 @@ const calculateDistance = (
   return R * c;
 };
 
-// Format distance for display
 const formatDistance = (km: number): string => {
   if (km < 1) {
     return `${Math.round(km * 1000)}m`;
@@ -209,7 +187,6 @@ export default function MapView({
 }: MapViewProps) {
   const t = useTranslations('discover');
 
-  // Google Maps loader with Places library
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
     libraries: GOOGLE_MAPS_LIBRARIES,
@@ -237,7 +214,7 @@ export default function MapView({
   const [searchInputValue, setSearchInputValue] = useState('');
   const [autocompleteBounds, setAutocompleteBounds] = useState<google.maps.LatLngBounds | null>(null);
 
-  // State - User Location (for distance calculation)
+  // State - User Location
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // State - UI
@@ -255,7 +232,6 @@ export default function MapView({
   // DATA FETCHING
   // =============================================================================
 
-  // Fetch BocaBoca restaurant data with tier classifications
   const fetchBocabocaData = useCallback(async () => {
     console.log('[BocaBoca] Fetching tier data for center:', mapCenter);
     try {
@@ -296,7 +272,6 @@ export default function MapView({
   // DATA PROCESSING
   // =============================================================================
 
-  // Convert BocaBoca data to map restaurant format
   useEffect(() => {
     const restaurants: MapRestaurant[] = bocabocaRestaurants.map((bb) => ({
       id: bb.google_place_id || bb.restaurant_id,
@@ -314,7 +289,6 @@ export default function MapView({
       recommendation_count: bb.recommendations?.length || 0,
     }));
 
-    // Add selected restaurant from search if not already in BocaBoca
     if (selectedFromSearch) {
       const exists = restaurants.some(
         r => r.google_place_id === selectedFromSearch.google_place_id ||
@@ -325,12 +299,10 @@ export default function MapView({
       }
     }
 
-    // Sort by tier priority (my_network first, unrated last)
     restaurants.sort((a, b) => TIER_PRIORITY[a.tier] - TIER_PRIORITY[b.tier]);
 
     setMapRestaurants(restaurants);
 
-    // Update tier counts
     const counts: Record<TierType, number> = {
       my_network: 0,
       similar_tastes: 0,
@@ -350,7 +322,6 @@ export default function MapView({
     setMapRef(map);
   }, []);
 
-  // Fetch BocaBoca data when map loads
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -373,13 +344,10 @@ export default function MapView({
   // AUTOCOMPLETE HANDLERS
   // =============================================================================
 
-  // Update autocomplete bounds when map center changes (soft location bias)
   useEffect(() => {
     if (!isLoaded || !mapCenter) return;
     
-    // Create bounds ~50km around current center for biasing
-    // This prioritizes nearby results but doesn't exclude distant ones
-    const radiusInDegrees = 0.5; // roughly 50km
+    const radiusInDegrees = 0.5;
     const bounds = new google.maps.LatLngBounds(
       { lat: mapCenter.lat - radiusInDegrees, lng: mapCenter.lng - radiusInDegrees },
       { lat: mapCenter.lat + radiusInDegrees, lng: mapCenter.lng + radiusInDegrees }
@@ -404,38 +372,32 @@ export default function MapView({
     const lat = place.geometry.location.lat();
     const lng = place.geometry.location.lng();
 
-    // Check if this place exists in BocaBoca
     const existingBocaBoca = bocabocaRestaurants.find(bb => {
-      // Match by google_place_id first
       if (bb.google_place_id && bb.google_place_id === place.place_id) {
         return true;
       }
-      // Fallback: match by normalized name + proximity
       const normalizedBocaName = bb.restaurant_name?.toLowerCase().trim();
       const normalizedGoogleName = place.name?.toLowerCase().trim();
       if (normalizedBocaName && normalizedGoogleName && 
           normalizedBocaName === normalizedGoogleName) {
-        // Verify they're close geographically (within ~500m)
         const lat = place.geometry?.location?.lat();
         const lng = place.geometry?.location?.lng();
         if (lat && lng && bb.latitude && bb.longitude) {
           const distance = Math.sqrt(
             Math.pow(lat - bb.latitude, 2) + Math.pow(lng - bb.longitude, 2)
           );
-          return distance < 0.005; // ~500m
+          return distance < 0.005;
         }
       }
       return false;
     });
 
     if (existingBocaBoca) {
-      // Pan to existing BocaBoca restaurant and select it
       const mapRestaurant = mapRestaurants.find(r => r.google_place_id === place.place_id);
       if (mapRestaurant) {
         setSelectedRestaurant(mapRestaurant);
       }
     } else {
-      // Create new "unrated" restaurant from Google Places
       const newRestaurant: MapRestaurant = {
         id: place.place_id || `google-${Date.now()}`,
         name: place.name || 'Unknown Restaurant',
@@ -453,12 +415,10 @@ export default function MapView({
       setSelectedRestaurant(newRestaurant);
     }
 
-    // Pan map to selected location
     setMapCenter({ lat, lng });
     mapRef?.panTo({ lat, lng });
     mapRef?.setZoom(16);
 
-    // Clear search input
     setSearchInputValue('');
   }, [autocomplete, bocabocaRestaurants, mapRestaurants, mapRef]);
 
@@ -468,22 +428,18 @@ export default function MapView({
 
   const filteredRestaurants = useMemo(() => {
     return mapRestaurants.filter((restaurant) => {
-      // Tier filter
       if (selectedTier && restaurant.tier !== selectedTier) return false;
 
-      // Cuisine filter
       if (filters.cuisines.length > 0 && restaurant.cuisine_type) {
         if (!filters.cuisines.some(c => 
           normalizeText(restaurant.cuisine_type || '').includes(normalizeText(c))
         )) return false;
       }
 
-      // Price range filter
       if (filters.priceRange.length > 0 && restaurant.price_level) {
         if (!filters.priceRange.includes(restaurant.price_level)) return false;
       }
 
-      // Trust score filter (only for rated restaurants)
       if (filters.minTrustScore > 0 && restaurant.tier !== 'unrated') {
         if (restaurant.tier_data.trust_score < filters.minTrustScore) return false;
       }
@@ -492,7 +448,6 @@ export default function MapView({
     });
   }, [mapRestaurants, selectedTier, filters]);
 
-  // Get available cuisines from data
   const availableCuisines = useMemo(() => {
     const cuisines = new Set<string>();
     mapRestaurants.forEach((r) => {
@@ -501,7 +456,6 @@ export default function MapView({
     return Array.from(cuisines).sort();
   }, [mapRestaurants]);
 
-  // Count active filters
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.cuisines.length > 0) count++;
@@ -532,7 +486,7 @@ export default function MapView({
             lng: position.coords.longitude,
           };
           setMapCenter(newCenter);
-          setUserLocation(newCenter); // Store for distance calculations
+          setUserLocation(newCenter);
           mapRef?.panTo(newCenter);
           mapRef?.setZoom(14);
         },
@@ -553,7 +507,6 @@ export default function MapView({
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
   };
 
-  // Create marker icon
   const createMarkerIcon = (tier: TierType): google.maps.Symbol => {
     const size = TIER_MARKER_SIZES[tier];
     return {
@@ -572,10 +525,10 @@ export default function MapView({
 
   if (loadError) {
     return (
-      <div className="flex items-center justify-center h-96 bg-gray-100 rounded-xl">
-        <div className="text-center text-red-500">
+      <div className="flex items-center justify-center h-96 bg-gray-100 dark:bg-[#353444] rounded-xl">
+        <div className="text-center text-red-500 dark:text-red-400">
           <p>Error loading Google Maps</p>
-          <p className="text-sm text-gray-500 mt-2">Please check your API key configuration</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Please check your API key configuration</p>
         </div>
       </div>
     );
@@ -583,7 +536,7 @@ export default function MapView({
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center h-96 bg-gray-100 rounded-xl">
+      <div className="flex items-center justify-center h-96 bg-gray-100 dark:bg-[#353444] rounded-xl">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF644A]"></div>
       </div>
     );
@@ -599,7 +552,6 @@ export default function MapView({
           options={{
             types: ['restaurant', 'food', 'cafe', 'bar'],
             fields: ['place_id', 'name', 'geometry', 'formatted_address', 'vicinity', 'opening_hours', 'photos'],
-            // Soft location bias - prioritizes nearby but allows global results
             bounds: autocompleteBounds || undefined,
             strictBounds: false,
           }}
@@ -607,13 +559,13 @@ export default function MapView({
           <div className="relative">
             <input
               type="text"
-              placeholder={t('search.placeholder') || 'Search restaurants by name, cuisine, or location...'}
+              placeholder={t('search.placeholder')}
               value={searchInputValue}
               onChange={(e) => setSearchInputValue(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+              className="w-full pl-10 pr-10 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
             />
             <svg
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -628,7 +580,7 @@ export default function MapView({
             {searchInputValue && (
               <button
                 onClick={handleClearSearch}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -639,9 +591,9 @@ export default function MapView({
         </Autocomplete>
       </div>
 
-      {/* Controls Row - UPDATED: Removed restaurant count, added legend items inline */}
+      {/* Controls Row */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        {/* Legend items (no "Legend" label, no count) */}
+        {/* Legend items */}
         <div className="flex items-center gap-1 flex-wrap">
           {(['my_network', 'similar_tastes', 'community', 'unrated'] as TierType[]).map((tier) => (
             <button
@@ -649,17 +601,19 @@ export default function MapView({
               onClick={() => handleTierClick(tier)}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm transition-all ${
                 selectedTier === tier
-                  ? 'ring-2 ring-[#FF644A] ring-offset-1 bg-white'
+                  ? 'ring-2 ring-[#FF644A] ring-offset-1 bg-white dark:bg-[#353444] dark:ring-offset-[#2D2C3A]'
                   : selectedTier && selectedTier !== tier
-                  ? 'opacity-40 bg-white'
-                  : 'bg-white hover:bg-gray-50'
+                  ? 'opacity-40 bg-white dark:bg-[#353444]'
+                  : 'bg-white dark:bg-[#353444] hover:bg-gray-50 dark:hover:bg-[#404050]'
               }`}
             >
               <span
-                className="w-2.5 h-2.5 rounded-full border border-white shadow-sm"
+                className="w-2.5 h-2.5 rounded-full border border-white dark:border-[#3D3C4A] shadow-sm"
                 style={{ backgroundColor: TIER_COLORS[tier] }}
               />
-              <span className="text-gray-700 text-xs font-medium">{TIER_LABELS[tier]}</span>
+              <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">
+                {t(`tiers.${tier === 'my_network' ? 'myNetwork' : tier === 'similar_tastes' ? 'similarTastes' : tier}`)}
+              </span>
             </button>
           ))}
         </div>
@@ -669,7 +623,7 @@ export default function MapView({
           {/* Near Me Button */}
           <button
             onClick={handleNearMe}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors bg-white"
+            className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-lg hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors bg-white dark:bg-[#2D2C3A]"
           >
             <svg className="h-4 w-4 text-[#FF644A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -685,14 +639,16 @@ export default function MapView({
                 d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
               />
             </svg>
-            <span className="text-sm">{t('nearMe') || 'Near Me'}</span>
+            <span className="text-sm text-[#1F1E2A] dark:text-white">{t('nearMe')}</span>
           </button>
 
           {/* Filters Button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
-              showFilters ? 'bg-[#FF644A] text-white border-[#FF644A]' : 'border-gray-200 hover:bg-gray-50 bg-white'
+              showFilters 
+                ? 'bg-[#FF644A] text-white border-[#FF644A]' 
+                : 'border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444] bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white'
             }`}
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -703,7 +659,7 @@ export default function MapView({
                 d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
               />
             </svg>
-            <span className="text-sm">{t('filters.title') || 'Filters'}</span>
+            <span className="text-sm">{t('filters.title')}</span>
             {activeFilterCount > 0 && (
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                 showFilters ? 'bg-white text-[#FF644A]' : 'bg-[#FF644A] text-white'
@@ -717,12 +673,12 @@ export default function MapView({
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-4">
+        <div className="bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl p-4 space-y-4">
           {/* Cuisine Filter */}
           {availableCuisines.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('filters.cuisine') || 'Cuisine'}
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('filters.cuisine')}
               </label>
               <div className="flex flex-wrap gap-2">
                 {availableCuisines.slice(0, 10).map((cuisine) => (
@@ -739,7 +695,7 @@ export default function MapView({
                     className={`px-3 py-1 rounded-full text-sm transition-colors capitalize ${
                       filters.cuisines.includes(cuisine)
                         ? 'bg-[#FF644A] text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-gray-100 dark:bg-[#353444] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#404050]'
                     }`}
                   >
                     {cuisine}
@@ -751,8 +707,8 @@ export default function MapView({
 
           {/* Price Range Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('filters.priceRange') || 'Price Range'}
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('filters.priceRange')}
             </label>
             <div className="flex gap-2">
               {[1, 2, 3, 4].map((level) => (
@@ -769,7 +725,7 @@ export default function MapView({
                   className={`px-3 py-1 rounded-lg text-sm transition-colors ${
                     filters.priceRange.includes(level)
                       ? 'bg-[#FF644A] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-gray-100 dark:bg-[#353444] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#404050]'
                   }`}
                 >
                   {'$'.repeat(level)}
@@ -787,13 +743,13 @@ export default function MapView({
               }}
               className="text-sm text-[#FF644A] hover:underline"
             >
-              {t('filters.clear') || 'Clear all filters'}
+              {t('filters.clear')}
             </button>
           )}
         </div>
       )}
 
-      {/* Map - conditionally rendered based on showMap prop */}
+      {/* Map */}
       {showMap && (
         <GoogleMap
           mapContainerStyle={mapContainerStyle}
@@ -819,11 +775,11 @@ export default function MapView({
               position={{ lat: restaurant.latitude, lng: restaurant.longitude }}
               icon={createMarkerIcon(restaurant.tier)}
               onClick={() => handleMarkerClick(restaurant)}
-              zIndex={5 - TIER_PRIORITY[restaurant.tier]} // Higher tiers on top
+              zIndex={5 - TIER_PRIORITY[restaurant.tier]}
             />
           ))}
 
-          {/* Info Window */}
+          {/* Info Window - Updated with social trust indicators instead of numerical ratings */}
           {selectedRestaurant && (
             <InfoWindow
               position={{
@@ -839,13 +795,13 @@ export default function MapView({
                     {selectedRestaurant.name}
                   </h3>
                   <span
-                    className="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full"
+                    className="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap"
                     style={{
                       backgroundColor: `${TIER_COLORS[selectedRestaurant.tier]}20`,
                       color: selectedRestaurant.tier === 'unrated' ? '#6B7280' : TIER_COLORS[selectedRestaurant.tier],
                     }}
                   >
-                    {TIER_ICONS[selectedRestaurant.tier]} {TIER_LABELS[selectedRestaurant.tier]}
+                    {TIER_ICONS[selectedRestaurant.tier]} {t(`tiers.${selectedRestaurant.tier === 'my_network' ? 'myNetwork' : selectedRestaurant.tier === 'similar_tastes' ? 'similarTastes' : selectedRestaurant.tier}`)}
                   </span>
                 </div>
 
@@ -854,15 +810,41 @@ export default function MapView({
                   <p className="text-sm text-gray-500 mb-2">{selectedRestaurant.address}</p>
                 )}
 
-                {/* BocaBoca Rating (if available) */}
-                <div className="flex items-center gap-3 mb-3 text-sm">
+                {/* Social Trust Indicator - replaces numerical rating */}
+                <div className="flex items-center gap-3 mb-3 text-sm flex-wrap">
                   {selectedRestaurant.tier !== 'unrated' && selectedRestaurant.bocaboca_data && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-[#FF644A] font-semibold">
-                        {selectedRestaurant.bocaboca_data.rating?.toFixed(1) || '—'}
-                      </span>
-                      <span className="text-gray-400">/10</span>
-                      <span className="text-xs text-gray-500">BocaBoca</span>
+                    <div className="flex items-center gap-1.5">
+                      <span 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: TIER_COLORS[selectedRestaurant.tier] }}
+                      />
+                      {(() => {
+                        const networkCount = selectedRestaurant.bocaboca_data.recommendations?.filter(
+                          r => r.tier === 'my_network'
+                        ).length || 0;
+                        const totalCount = selectedRestaurant.bocaboca_data.recommendations?.length || 0;
+                        
+                        if (networkCount > 0) {
+                          return (
+                            <span className="text-[#FF644A] font-medium">
+                              {networkCount} {t('infoWindow.fromNetwork')}
+                            </span>
+                          );
+                        } else if (selectedRestaurant.tier === 'similar_tastes') {
+                          return (
+                            <span style={{ color: '#059669' }} className="font-medium">
+                              {t('infoWindow.similarTastesRecommend')}
+                            </span>
+                          );
+                        } else if (totalCount > 0) {
+                          return (
+                            <span className="text-gray-600 font-medium">
+                              {totalCount} {t('infoWindow.communityRecs')}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   )}
                   {selectedRestaurant.price_level && (
@@ -872,20 +854,10 @@ export default function MapView({
                   )}
                   {selectedRestaurant.is_open !== undefined && (
                     <span className={`text-xs ${selectedRestaurant.is_open ? 'text-green-600' : 'text-red-500'}`}>
-                      {selectedRestaurant.is_open ? (t('open') || 'Open') : (t('closed') || 'Closed')}
+                      {selectedRestaurant.is_open ? t('infoWindow.open') : t('infoWindow.closed')}
                     </span>
                   )}
                 </div>
-
-                {/* BocaBoca Recommendations Count */}
-                {selectedRestaurant.bocaboca_data?.recommendations && 
-                 selectedRestaurant.bocaboca_data.recommendations.length > 0 && (
-                  <div className="border-t border-gray-100 pt-2 mb-2">
-                    <p className="text-xs text-gray-500">
-                      {selectedRestaurant.bocaboca_data.recommendations.length} BocaBoca {t('recommendations') || 'recommendation(s)'}
-                    </p>
-                  </div>
-                )}
 
                 {/* Action Buttons */}
                 <div className="flex gap-2 mt-3">
@@ -898,7 +870,7 @@ export default function MapView({
                       }}
                       className="flex-1 bg-[#FF644A] text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-[#E65441] transition-colors"
                     >
-                      {t('beFirstToReview') || 'Be First to Review'}
+                      {t('infoWindow.beFirst')}
                     </button>
                   ) : (
                     <button
@@ -911,14 +883,14 @@ export default function MapView({
                       }}
                       className="flex-1 bg-[#FF644A] text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-[#E65441] transition-colors"
                     >
-                      {t('viewDetails') || 'View Details'}
+                      {t('infoWindow.viewDetails')}
                     </button>
                   )}
                   <button
                     onClick={() => openDirections(selectedRestaurant.latitude, selectedRestaurant.longitude)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors text-gray-700"
                   >
-                    {t('directions') || 'Directions'}
+                    {t('infoWindow.directions')}
                   </button>
                 </div>
               </div>
@@ -927,23 +899,22 @@ export default function MapView({
         </GoogleMap>
       )}
 
-      {/* Restaurant List - conditionally rendered based on showList prop */}
+      {/* Restaurant List */}
       {showList && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="p-3 border-b border-gray-100 bg-gray-50">
-            <h3 className="font-medium text-gray-700">
-              {filteredRestaurants.length} {t('results') || 'Results'}
+        <div className="bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl overflow-hidden">
+          <div className="p-3 border-b border-gray-100 dark:border-[#3D3C4A] bg-gray-50 dark:bg-[#353444]">
+            <h3 className="font-medium text-gray-700 dark:text-gray-300">
+              {filteredRestaurants.length} {t('results')}
             </h3>
           </div>
-          <div className="max-h-80 overflow-y-auto divide-y divide-gray-100">
+          <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-[#3D3C4A]">
             {filteredRestaurants.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">
-                <p>{t('noResults.title') || 'No restaurants found'}</p>
-                <p className="text-sm mt-1">{t('noResults.description') || 'Try adjusting your search or filters'}</p>
+              <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                <p>{t('noResults.title')}</p>
+                <p className="text-sm mt-1">{t('noResults.description')}</p>
               </div>
             ) : (
               filteredRestaurants.slice(0, 20).map((restaurant) => {
-                // Calculate distance if user location is available
                 const distance = userLocation
                   ? calculateDistance(
                       userLocation.lat,
@@ -953,7 +924,6 @@ export default function MapView({
                     )
                   : null;
 
-                // Count network recommendations
                 const networkRecCount = restaurant.bocaboca_data?.recommendations?.filter(
                   r => r.tier === 'my_network'
                 ).length || 0;
@@ -964,7 +934,7 @@ export default function MapView({
                 return (
                   <div
                     key={restaurant.id}
-                    className="p-3 hover:bg-gray-50 cursor-pointer transition-colors flex items-start gap-3"
+                    className="p-3 hover:bg-gray-50 dark:hover:bg-[#353444] cursor-pointer transition-colors flex items-start gap-3"
                     onClick={() => {
                       handleMarkerClick(restaurant);
                       mapRef?.panTo({ lat: restaurant.latitude, lng: restaurant.longitude });
@@ -979,84 +949,80 @@ export default function MapView({
                           className="w-16 h-16 rounded-lg object-cover"
                         />
                       ) : (
-                        <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <span className="text-gray-400 text-xl">🍽️</span>
+                        <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-[#353444] flex items-center justify-center">
+                          <span className="text-gray-400 dark:text-gray-500 text-xl">🍽️</span>
                         </div>
                       )}
-                      {/* Tier indicator dot */}
                       <span
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-[#2D2C3A] shadow-sm"
                         style={{ backgroundColor: TIER_COLORS[restaurant.tier] }}
                       />
                     </div>
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      {/* Name and tier label */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-medium text-gray-900 truncate">{restaurant.name}</h4>
+                        <h4 className="font-medium text-gray-900 dark:text-white truncate">{restaurant.name}</h4>
                         <span 
-                          className="text-xs px-1.5 py-0.5 rounded-full"
+                          className="text-xs px-1.5 py-0.5 rounded-full whitespace-nowrap"
                           style={{ 
                             backgroundColor: `${TIER_COLORS[restaurant.tier]}20`,
                             color: restaurant.tier === 'unrated' ? '#6B7280' : TIER_COLORS[restaurant.tier]
                           }}
                         >
-                          {restaurant.tier === 'my_network' && (t('tierMyNetwork') || 'My Network')}
-                          {restaurant.tier === 'similar_tastes' && (t('tierSimilarTastes') || 'Similar Tastes')}
-                          {restaurant.tier === 'community' && (t('tierCommunity') || 'Community')}
-                          {restaurant.tier === 'unrated' && (t('tierUnrated') || 'Unrated')}
+                          {t(`tiers.${restaurant.tier === 'my_network' ? 'myNetwork' : restaurant.tier === 'similar_tastes' ? 'similarTastes' : restaurant.tier}`)}
                         </span>
                       </div>
 
-                      {/* Metadata row: Cuisine · $$ · City · Distance */}
-                      <div className="flex items-center gap-1.5 text-sm text-gray-500 mt-0.5 flex-wrap">
+                      {/* Metadata row */}
+                      <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex-wrap">
                         {restaurant.cuisine_type && (
                           <>
                             <span className="capitalize">{restaurant.cuisine_type}</span>
-                            <span className="text-gray-300">·</span>
+                            <span className="text-gray-300 dark:text-gray-600">·</span>
                           </>
                         )}
                         {restaurant.price_level && (
                           <>
                             <span>{'$'.repeat(restaurant.price_level)}</span>
-                            <span className="text-gray-300">·</span>
+                            <span className="text-gray-300 dark:text-gray-600">·</span>
                           </>
                         )}
                         {restaurant.city && (
                           <>
                             <span className="truncate max-w-[120px]">{restaurant.city}</span>
-                            {distance !== null && <span className="text-gray-300">·</span>}
+                            {distance !== null && <span className="text-gray-300 dark:text-gray-600">·</span>}
                           </>
                         )}
                         {distance !== null && (
-                          <span className="text-gray-600 font-medium">{formatDistance(distance)}</span>
+                          <span className="text-gray-600 dark:text-gray-300 font-medium">{formatDistance(distance)}</span>
                         )}
                       </div>
 
-                      {/* Recommendation count */}
-                      <div className="text-sm text-gray-500 mt-1">
+                      {/* Social trust recommendation display */}
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {totalRecCount > 0 ? (
                           <span>
-                            {totalRecCount} {totalRecCount === 1 
-                              ? (t('recommendation') || 'recommendation') 
-                              : (t('recommendations') || 'recommendations')}
-                            {networkRecCount > 0 && (
-                              <span className="text-[#FF644A] ml-1">
-                                ({networkRecCount} {t('fromNetwork') || 'from your network'})
+                            {networkRecCount > 0 ? (
+                              <span className="text-[#FF644A] font-medium">
+                                {networkRecCount} {t('list.fromYourNetwork')}
+                              </span>
+                            ) : (
+                              <span>
+                                {totalRecCount} {totalRecCount === 1 ? t('list.recommendation') : t('list.recommendations')}
                               </span>
                             )}
                           </span>
                         ) : (
-                          <span className="text-gray-400 italic">
-                            {t('beFirstToReview') || 'Be the first to review'}
+                          <span className="text-gray-400 dark:text-gray-500 italic">
+                            {t('list.beFirst')}
                           </span>
                         )}
                       </div>
                     </div>
 
                     {/* Arrow indicator */}
-                    <div className="flex-shrink-0 self-center text-gray-300">
+                    <div className="flex-shrink-0 self-center text-gray-300 dark:text-gray-600">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
@@ -1066,9 +1032,8 @@ export default function MapView({
               })
             )}
             {filteredRestaurants.length > 20 && (
-              <div className="p-3 text-center text-sm text-gray-500 bg-gray-50">
-                {t('showingOf', { shown: 20, total: filteredRestaurants.length }) || 
-                  `Showing 20 of ${filteredRestaurants.length} restaurants. Zoom in to see more.`}
+              <div className="p-3 text-center text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#353444]">
+                {t('list.showingOf', { shown: 20, total: filteredRestaurants.length })}
               </div>
             )}
           </div>
@@ -1077,14 +1042,14 @@ export default function MapView({
 
       {/* Loading Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 bg-white/50 flex items-center justify-center rounded-xl">
+        <div className="absolute inset-0 bg-white/50 dark:bg-[#1F1E2A]/50 flex items-center justify-center rounded-xl">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF644A]"></div>
         </div>
       )}
 
       {/* Error message */}
       {error && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-3 rounded-lg text-sm">
           {error}
         </div>
       )}

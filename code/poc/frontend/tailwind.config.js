@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     // Updated paths to match your Next.js App Router structure
     './pages/**/*.{js,ts,jsx,tsx,mdx}',

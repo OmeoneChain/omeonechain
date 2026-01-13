@@ -175,11 +175,20 @@
   },
 
   "singleScreen": {
-    "restaurantLabel": "Restaurante",
-    "publishHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
-    "restaurant": {
-      "change": "Trocar"
-    },
+      "title": "Criar uma Recomendação",
+      "subtitle": "Avalie, adicione detalhes e publique",
+      "restaurantLabel": "Restaurante",
+      "optional": "opcional",
+      "publishHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
+      "restaurant": {
+        "change": "Alterar"
+      },
+      "publish": {
+        "bonusHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
+        "publishing": "Publicando...",
+        "button": "Publicar e ganhar {{tokens}} tokens",
+        "bonusEarned": "Bônus disponível após validação."
+      },
     "sections": {
       "photos": "Fotos",
       "dishes": "Pratos Individuais",
@@ -288,7 +297,12 @@
       "found": "Localização: {address}",
       "unavailable": "Localização indisponível",
       "ready": "Serviços de localização prontos",
-      "retry": "Tentar novamente"
+      "retry": "Tentar novamente",
+      "addPhoto": "Adicionar Foto",
+      "tapOrDrag": "Toque ou arraste e solte",
+      "processing": "Processando...",
+      "takePhoto": "Tirar Foto",
+      "fromGallery": "Da Galeria"
     },
     "errors": {
       "couldNotGetAddress": "Não foi possível obter o endereço",

@@ -235,25 +235,25 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Location Status */}
+      {/* Location Status - Updated to BocaBoca colors */}
       {allowLocation && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div className="bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFB3AB] dark:border-[#FF644A]/30 rounded-lg p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <MapPin className="h-4 w-4 text-blue-600 mr-2" />
-              <span className="text-sm font-medium text-blue-800">
+              <MapPin className="h-4 w-4 text-[#FF644A] mr-2" />
+              <span className="text-sm font-medium text-[#1F1E2A] dark:text-white">
                 {geolocation.loading ? t('photoUpload.location.getting') : 
                  geolocation.address ? t('photoUpload.location.found', { address: geolocation.address }) :
                  geolocation.error ? t('photoUpload.location.unavailable') :
                  t('photoUpload.location.ready')}
               </span>
             </div>
-            {geolocation.loading && <Loader className="h-4 w-4 animate-spin text-blue-600" />}
+            {geolocation.loading && <Loader className="h-4 w-4 animate-spin text-[#FF644A]" />}
           </div>
           {geolocation.error && !geolocation.latitude && (
             <button
               onClick={getCurrentLocation}
-              className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+              className="text-xs text-[#FF644A] hover:text-[#E65441] mt-1"
             >
               {t('photoUpload.location.retry')}
             </button>
@@ -268,7 +268,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
             <img
               src={photo.preview}
               alt={t('photoUpload.photoAlt', { number: index + 1 })}
-              className="w-full h-32 object-cover rounded-lg border border-gray-200"
+              className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
             />
             
             {/* Photo overlay with info */}
@@ -306,21 +306,21 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
             onClick={triggerFileInput}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors h-32 flex flex-col items-center justify-center"
+            className="border-2 border-dashed border-gray-300 dark:border-[#3D3C4A] rounded-lg p-6 text-center cursor-pointer hover:border-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/10 transition-colors h-32 flex flex-col items-center justify-center"
           >
             {isProcessing ? (
               <>
-                <Loader className="h-6 w-6 text-gray-400 animate-spin mb-2" />
-                <span className="text-xs text-gray-500">{t('photoUpload.processing')}</span>
+                <Loader className="h-6 w-6 text-[#FF644A] animate-spin mb-2" />
+                <span className="text-xs text-gray-500 dark:text-gray-400">{t('photoUpload.processing')}</span>
               </>
             ) : (
               <>
                 <div className="flex space-x-2 mb-2">
-                  <Camera className="h-5 w-5 text-gray-400" />
-                  <Upload className="h-5 w-5 text-gray-400" />
+                  <Camera className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                  <Upload className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                 </div>
-                <span className="text-sm text-gray-500">{t('photoUpload.addPhoto')}</span>
-                <span className="text-xs text-gray-400 mt-1">
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('photoUpload.addPhoto')}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   {t('photoUpload.tapOrDrag')}
                 </span>
               </>
@@ -342,7 +342,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 
       {/* Photo Info */}
       {photos.length > 0 && (
-        <div className="text-xs text-gray-500 space-y-1">
+        <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
           <p>📸 {t('photoUpload.info.photoCount', { count: photos.length, max: maxPhotos })}</p>
           {photos.some(p => p.location) && (
             <p>📍 {t('photoUpload.info.photosWithLocation', { count: photos.filter(p => p.location).length })}</p>
@@ -351,11 +351,11 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         </div>
       )}
 
-      {/* Mobile Camera Button for better UX */}
+      {/* Mobile Camera Buttons - Updated to BocaBoca brand colors */}
       <div className="flex space-x-3">
         <button
           onClick={triggerFileInput}
-          className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+          className="flex-1 px-4 py-3 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441] transition-colors flex items-center justify-center font-medium"
         >
           <Camera className="h-5 w-5 mr-2" />
           {t('photoUpload.takePhoto')}
@@ -372,7 +372,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
             };
             input.click();
           }}
-          className="flex-1 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center"
+          className="flex-1 px-4 py-3 bg-[#353444] dark:bg-[#404050] text-white rounded-lg hover:bg-[#2D2C3A] dark:hover:bg-[#4D4C5A] transition-colors flex items-center justify-center font-medium"
         >
           <FileImage className="h-5 w-5 mr-2" />
           {t('photoUpload.fromGallery')}

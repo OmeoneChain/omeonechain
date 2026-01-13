@@ -1,6 +1,21 @@
 // File: code/poc/frontend/components/profile/ProfileMapView.tsx
 // "Taste Map" - Shows all restaurants a user has reviewed with ratings inside markers
 // Inspired by Beli's personal map feature
+//
+// =============================================================================
+// DARK MODE PATTERNS USED IN THIS FILE:
+// =============================================================================
+// Card/Surface:      bg-white dark:bg-[#2D2C3A]
+// Borders:           border-gray-200 dark:border-[#3D3C4A]
+// Primary text:      text-gray-900 dark:text-gray-100
+// Secondary text:    text-gray-600 dark:text-gray-400
+// Muted text:        text-gray-500 dark:text-gray-500
+// Dividers:          divide-gray-100 dark:divide-[#3D3C4A]
+// Hover states:      hover:bg-gray-50 dark:hover:bg-[#353444]
+// View toggle bg:    bg-gray-100 dark:bg-[#353444]
+// Skeleton loaders:  bg-gray-200 dark:bg-gray-700
+// Stats bar:         Light gradient → dark surface with orange border accent
+// =============================================================================
 
 'use client';
 
@@ -256,12 +271,12 @@ export default function ProfileMapView({
   // Error state for Google Maps loading
   if (loadError) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-        <div className="text-red-600 mb-2">
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-[#3D3C4A] p-8 text-center">
+        <div className="text-red-600 dark:text-red-400 mb-2">
           <MapPin className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <h3 className="text-lg font-semibold">{t('errors.mapLoadError')}</h3>
         </div>
-        <p className="text-gray-600">{t('errors.tryAgainLater')}</p>
+        <p className="text-gray-600 dark:text-gray-400">{t('errors.tryAgainLater')}</p>
       </div>
     );
   }
@@ -269,10 +284,10 @@ export default function ProfileMapView({
   // Loading state
   if (!isLoaded || isLoading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-[#3D3C4A] p-4">
         <div className="animate-pulse">
-          <div className="h-16 bg-gray-200 rounded-lg mb-4"></div>
-          <div className="h-80 bg-gray-200 rounded-lg"></div>
+          <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg mb-4"></div>
+          <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
         </div>
       </div>
     );
@@ -281,14 +296,14 @@ export default function ProfileMapView({
   // Empty state
   if (reviews.length === 0 && !isLoading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-        <div className="text-gray-400 mb-4">
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-[#3D3C4A] p-8 text-center">
+        <div className="text-gray-400 dark:text-gray-500 mb-4">
           <MapPin className="w-16 h-16 mx-auto mb-3" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
           {isOwnProfile ? t('empty.ownProfile.title') : t('empty.otherProfile.title', { username: username || t('empty.otherProfile.defaultUsername') })}
         </h3>
-        <p className="text-gray-500 mb-4">
+        <p className="text-gray-500 dark:text-gray-500 mb-4">
           {isOwnProfile ? t('empty.ownProfile.description') : t('empty.otherProfile.description')}
         </p>
         {isOwnProfile && (
@@ -304,23 +319,23 @@ export default function ProfileMapView({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-[#3D3C4A] overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-4 border-b border-gray-100 dark:border-[#3D3C4A]">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <MapPin className="w-5 h-5 text-[#FF644A]" />
             {isOwnProfile ? t('header.ownTitle') : t('header.otherTitle', { username: username || '' })}
           </h3>
           
           {/* View Toggle */}
-          <div className="bg-gray-100 rounded-lg p-1 inline-flex">
+          <div className="bg-gray-100 dark:bg-[#353444] rounded-lg p-1 inline-flex">
             <button 
               onClick={() => setViewMode('map')}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
                 viewMode === 'map' 
-                  ? 'bg-white shadow text-gray-900' 
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-white dark:bg-[#2D2C3A] shadow text-gray-900 dark:text-gray-100' 
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               <Map className="w-4 h-4" />
@@ -330,8 +345,8 @@ export default function ProfileMapView({
               onClick={() => setViewMode('list')}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
                 viewMode === 'list' 
-                  ? 'bg-white shadow text-gray-900' 
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-white dark:bg-[#2D2C3A] shadow text-gray-900 dark:text-gray-100' 
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               <List className="w-4 h-4" />
@@ -340,37 +355,37 @@ export default function ProfileMapView({
           </div>
         </div>
 
-        {/* Stats Bar */}
-        <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-3 border border-orange-200">
+        {/* Stats Bar - Light: gradient, Dark: solid surface with orange accent border */}
+        <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-[#353444] dark:to-[#353444] rounded-xl p-3 border border-orange-200 dark:border-[#FF644A]/30">
           <div className="flex justify-around text-center">
             <div>
-              <div className="text-xl font-bold text-gray-900">{stats.total}</div>
-              <div className="text-xs text-gray-500">{t('stats.reviews')}</div>
+              <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{stats.total}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-500">{t('stats.reviews')}</div>
             </div>
-            <div className="border-l border-orange-200 pl-4">
-              <div className="text-xl font-bold text-gray-900">{stats.avgRating.toFixed(1)}</div>
-              <div className="text-xs text-gray-500">{t('stats.avgRating')}</div>
+            <div className="border-l border-orange-200 dark:border-[#4D4C5A] pl-4">
+              <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{stats.avgRating.toFixed(1)}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-500">{t('stats.avgRating')}</div>
             </div>
-            <div className="border-l border-orange-200 pl-4">
+            <div className="border-l border-orange-200 dark:border-[#4D4C5A] pl-4">
               <div className="flex items-center justify-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
-                <span className="font-bold text-gray-900">{stats.loved}</span>
+                <span className="font-bold text-gray-900 dark:text-gray-100">{stats.loved}</span>
               </div>
-              <div className="text-xs text-gray-500">{t('stats.loved')}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-500">{t('stats.loved')}</div>
             </div>
-            <div className="border-l border-orange-200 pl-4">
+            <div className="border-l border-orange-200 dark:border-[#4D4C5A] pl-4">
               <div className="flex items-center justify-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                <span className="font-bold text-gray-900">{stats.liked}</span>
+                <span className="font-bold text-gray-900 dark:text-gray-100">{stats.liked}</span>
               </div>
-              <div className="text-xs text-gray-500">{t('stats.liked')}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-500">{t('stats.liked')}</div>
             </div>
-            <div className="border-l border-orange-200 pl-4">
+            <div className="border-l border-orange-200 dark:border-[#4D4C5A] pl-4">
               <div className="flex items-center justify-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                <span className="font-bold text-gray-900">{stats.meh}</span>
+                <span className="font-bold text-gray-900 dark:text-gray-100">{stats.meh}</span>
               </div>
-              <div className="text-xs text-gray-500">{t('stats.meh')}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-500">{t('stats.meh')}</div>
             </div>
           </div>
         </div>
@@ -380,20 +395,20 @@ export default function ProfileMapView({
       {viewMode === 'map' && (
         <div className="relative">
           {/* Legend */}
-          <div className="absolute top-3 right-3 z-10 bg-white/95 rounded-lg p-2.5 shadow-sm text-xs border border-gray-200">
-            <div className="font-medium text-gray-700 mb-1.5">{t('legend.title')}</div>
+          <div className="absolute top-3 right-3 z-10 bg-white/95 dark:bg-[#2D2C3A]/95 rounded-lg p-2.5 shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] text-xs border border-gray-200 dark:border-[#3D3C4A]">
+            <div className="font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('legend.title')}</div>
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center text-white" style={{fontSize: '8px', fontWeight: 'bold'}}>8+</div>
-                <span className="text-gray-600">{t('legend.loved')}</span>
+                <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center text-white text-[8px] font-bold">8+</div>
+                <span className="text-gray-600 dark:text-gray-400">{t('legend.loved')}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-white" style={{fontSize: '8px', fontWeight: 'bold'}}>6+</div>
-                <span className="text-gray-600">{t('legend.liked')}</span>
+                <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center text-white text-[8px] font-bold">6+</div>
+                <span className="text-gray-600 dark:text-gray-400">{t('legend.liked')}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center text-white" style={{fontSize: '7px', fontWeight: 'bold'}}>&lt;6</div>
-                <span className="text-gray-600">{t('legend.meh')}</span>
+                <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center text-white text-[7px] font-bold">&lt;6</div>
+                <span className="text-gray-600 dark:text-gray-400">{t('legend.meh')}</span>
               </div>
             </div>
           </div>
@@ -485,7 +500,7 @@ export default function ProfileMapView({
 
           {/* Tap hint */}
           <div className="absolute bottom-3 left-0 right-0 text-center pointer-events-none">
-            <span className="text-xs text-gray-500 bg-white/90 px-3 py-1.5 rounded-full shadow-sm">
+            <span className="text-xs text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-[#2D2C3A]/90 px-3 py-1.5 rounded-full shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]">
               {t('hints.tapMarker')}
             </span>
           </div>
@@ -495,14 +510,14 @@ export default function ProfileMapView({
       {/* List View */}
       {viewMode === 'list' && (
         <div className="max-h-[400px] overflow-y-auto">
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 dark:divide-[#3D3C4A]">
             {reviews
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
               .map((review) => (
                 <div 
                   key={review.id}
                   onClick={() => handleViewRestaurant(review.restaurantId)}
-                  className="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                  className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors cursor-pointer"
                 >
                   {/* Rating badge */}
                   <div 
@@ -514,18 +529,18 @@ export default function ProfileMapView({
                   
                   {/* Restaurant info */}
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-900 truncate">{review.restaurantName}</h4>
-                    <p className="text-sm text-gray-500">{review.cuisineType || t('list.restaurant')}</p>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">{review.restaurantName}</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-500">{review.cuisineType || t('list.restaurant')}</p>
                   </div>
                   
                   {/* Date */}
                   <div className="text-right flex-shrink-0">
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-gray-400 dark:text-gray-500">
                       {formatDate(review.createdAt)}
                     </div>
                   </div>
                   
-                  <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />
+                  <ChevronRight className="w-5 h-5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
                 </div>
               ))}
           </div>
@@ -534,7 +549,7 @@ export default function ProfileMapView({
 
       {/* Error Message */}
       {error && (
-        <div className="p-4 bg-red-50 border-t border-red-200 text-red-700 text-sm">
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400 text-sm">
           {error}
         </div>
       )}

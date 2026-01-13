@@ -37,12 +37,12 @@ const ReshareHeader: React.FC<ReshareHeaderProps> = ({ resharer, comment, create
   };
 
   return (
-    <div className="bg-stone-50 border border-stone-200 rounded-t-xl px-4 py-3 -mb-2 z-10 relative">
+    <div className="bg-stone-50 dark:bg-[#353444] border border-stone-200 dark:border-[#3D3C4A] rounded-t-xl px-4 py-3 -mb-2 z-10 relative">
       {/* Reshare Attribution */}
       <div className="flex items-center gap-2 mb-2">
         {/* User Avatar (Small) */}
         <Link href={`/users/${resharer.id}`} className="flex-shrink-0">
-          <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 relative">
+          <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 dark:bg-[#404050] relative">
             <Image
               src={avatarUrl}
               alt={displayName}
@@ -54,26 +54,26 @@ const ReshareHeader: React.FC<ReshareHeaderProps> = ({ resharer, comment, create
         </Link>
 
         {/* Reshare Icon */}
-        <Repeat2 size={14} className="text-gray-500 flex-shrink-0" aria-hidden="true" />
+        <Repeat2 size={14} className="text-gray-500 dark:text-gray-400 flex-shrink-0" aria-hidden="true" />
 
         {/* Reshare Text */}
-        <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
+        <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
           <Link 
             href={`/users/${resharer.id}`}
-            className="font-semibold hover:text-[#FF644A] transition-colors hover:underline"
+            className="font-semibold text-gray-700 dark:text-gray-200 hover:text-[#FF644A] transition-colors hover:underline"
           >
             {displayName}
           </Link>
           <span>{t('reshare.reshared')}</span>
-          <span className="text-gray-400" aria-hidden="true">•</span>
-          <time dateTime={createdAt} className="text-gray-500">{getTimeAgo(createdAt)}</time>
+          <span className="text-gray-400 dark:text-gray-500" aria-hidden="true">•</span>
+          <time dateTime={createdAt} className="text-gray-500 dark:text-gray-500">{getTimeAgo(createdAt)}</time>
         </div>
       </div>
 
       {/* User's Commentary (Quote Reshare) */}
       {comment && comment.trim() && (
         <div className="mt-2 pl-8">
-          <p className="text-gray-900 text-sm leading-relaxed">
+          <p className="text-gray-900 dark:text-gray-100 text-sm leading-relaxed">
             {comment}
           </p>
         </div>

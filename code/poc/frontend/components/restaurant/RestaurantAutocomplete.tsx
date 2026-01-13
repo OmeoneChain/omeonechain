@@ -12,7 +12,7 @@ interface RestaurantAutocompleteProps {
   placeholder?: string;
   className?: string;
   userLocation?: { latitude: number; longitude: number };
-  clearAfterSelect?: boolean; // NEW PROP
+  clearAfterSelect?: boolean;
 }
 
 // Default location outside component to prevent re-renders
@@ -24,7 +24,7 @@ export default function RestaurantAutocomplete({
   placeholder,
   className = '',
   userLocation = DEFAULT_LOCATION,
-  clearAfterSelect = true, // Default to clearing after selection
+  clearAfterSelect = true,
 }: RestaurantAutocompleteProps) {
   const t = useTranslations('create.restaurants.autocomplete');
   
@@ -55,21 +55,17 @@ export default function RestaurantAutocomplete({
   }, []);
 
   // Fetch autocomplete suggestions with debouncing
-  // FIXED: Removed 't' from dependencies to prevent infinite loop
   useEffect(() => {
-    // Clear previous timer
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
 
-    // Don't search if input is too short
     if (input.trim().length < 2) {
       setSuggestions([]);
       setIsOpen(false);
       return;
     }
 
-    // Debounce the API call
     debounceTimer.current = setTimeout(async () => {
       setIsLoading(true);
       setError(null);
@@ -98,30 +94,25 @@ export default function RestaurantAutocomplete({
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [input, userLocation.latitude, userLocation.longitude]); // FIXED: Use primitive values, removed 't'
+  }, [input, userLocation.latitude, userLocation.longitude]);
 
-  // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
 
-  // Handle suggestion selection - FIXED: Clear input after selection
   const handleSelect = useCallback(async (suggestion: AutocompleteSuggestion) => {
     setIsOpen(false);
     setIsCreating(true);
     setError(null);
 
     try {
-      // Create restaurant in our database from Google Place ID
       const restaurant = await restaurantService.createRestaurantFromExternal(
         suggestion.id,
         'Brasília'
       );
 
-      // Pass the created restaurant to parent component
       onSelect(restaurant);
       
-      // FIXED: Clear input after successful selection (if clearAfterSelect is true)
       if (clearAfterSelect) {
         setInput('');
         setSuggestions([]);
@@ -136,7 +127,6 @@ export default function RestaurantAutocomplete({
     }
   }, [onSelect, clearAfterSelect, t]);
 
-  // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isOpen || suggestions.length === 0) return;
 
@@ -181,7 +171,7 @@ export default function RestaurantAutocomplete({
           }}
           placeholder={displayPlaceholder}
           disabled={isCreating}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 border border-gray-300 dark:border-[#3D3C4A] rounded-lg bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all disabled:bg-gray-100 dark:disabled:bg-[#2D2C3A] disabled:cursor-not-allowed"
           aria-label={t('ariaLabel')}
           aria-autocomplete="list"
           aria-expanded={isOpen}
@@ -191,13 +181,13 @@ export default function RestaurantAutocomplete({
         {/* Loading Spinner */}
         {(isLoading || isCreating) && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#FF644A]"></div>
           </div>
         )}
 
         {/* Search Icon (when not loading) */}
         {!isLoading && !isCreating && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500">
             <svg
               className="w-5 h-5"
               fill="none"
@@ -217,7 +207,7 @@ export default function RestaurantAutocomplete({
 
       {/* Error Message */}
       {error && (
-        <div className="mt-2 text-sm text-red-600 flex items-center">
+        <div className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
           <svg
             className="w-4 h-4 mr-1"
             fill="currentColor"
@@ -237,23 +227,25 @@ export default function RestaurantAutocomplete({
       {isOpen && suggestions.length > 0 && (
         <div
           id="autocomplete-dropdown"
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] max-h-96 overflow-y-auto"
           role="listbox"
         >
           {suggestions.map((suggestion, index) => (
             <button
               key={suggestion.id}
               onClick={() => handleSelect(suggestion)}
-              className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                index === selectedIndex ? 'bg-blue-50' : ''
+              className={`w-full px-4 py-3 text-left transition-colors border-b border-gray-100 dark:border-[#3D3C4A] last:border-b-0 ${
+                index === selectedIndex 
+                  ? 'bg-[#FF644A]/10 dark:bg-[#FF644A]/20' 
+                  : 'hover:bg-gray-50 dark:hover:bg-[#353444]'
               }`}
               role="option"
               aria-selected={index === selectedIndex}
             >
-              <div className="font-medium text-gray-900">
+              <div className="font-medium text-gray-900 dark:text-white">
                 {suggestion.name}
               </div>
-              <div className="text-sm text-gray-500 mt-1">
+              <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {suggestion.address}
               </div>
             </button>
@@ -263,15 +255,15 @@ export default function RestaurantAutocomplete({
 
       {/* Helper Text */}
       {!error && !isLoading && input.length > 0 && input.length < 2 && (
-        <div className="mt-2 text-sm text-gray-500">
+        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           {t('minCharsHint')}
         </div>
       )}
 
       {/* Creating Status */}
       {isCreating && (
-        <div className="mt-2 text-sm text-blue-600 flex items-center">
-          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
+        <div className="mt-2 text-sm text-[#FF644A] flex items-center">
+          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-[#FF644A] mr-2"></div>
           {t('adding')}
         </div>
       )}

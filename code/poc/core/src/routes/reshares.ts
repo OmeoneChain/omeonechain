@@ -5,6 +5,9 @@
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { getRewardService, RewardResult } from '../services/reward-service';
+
+const rewardService = getRewardService();
 
 const router = Router();
 
@@ -286,43 +289,55 @@ router.post(
 
       console.log(`✅ Reshare created: ${newReshare.id}`);
 
-      // 💰 Award tokens: 0.2 BOCA to resharer + 0.1 BOCA attribution to original author
-      let tokensEarned = 0.2;
-      let attributionAwarded = 0;
-
-      // Award 0.2 BOCA to the resharer
-      const { data: resharerData } = await supabase
-        .from('users')
-        .select('tokens_earned')
-        .eq('id', userId)
-        .single();
+      // =========================================================================
+      // Award tokens via TWO-TIER REWARD SERVICE
+      // White Paper v1.02: Reshare = 2.0 BOCA, Attribution = 1.0 BOCA
+      // =========================================================================
+      let reshareRewardResult: RewardResult | null = null;
+      let attributionRewardResult: RewardResult | null = null;
       
-      const newResharerBalance = (resharerData?.tokens_earned || 0) + tokensEarned;
-      await supabase
-        .from('users')
-        .update({ tokens_earned: newResharerBalance })
-        .eq('id', userId);
-
-      console.log(`💰 Awarded ${tokensEarned} BOCA to resharer ${userId}`);
-
-      // Award 0.1 BOCA attribution bonus to original author (if different user)
-      if (recommendation.author_id !== userId) {
-        attributionAwarded = 0.1;
+      // Award 2.0 BOCA to the resharer
+      console.log(`💰 [TWO-TIER] Awarding reshare reward to ${userId}...`);
+      try {
+        reshareRewardResult = await rewardService.awardShare(userId, recommendationId);
         
-        const { data: authorData } = await supabase
-          .from('users')
-          .select('tokens_earned')
-          .eq('id', recommendation.author_id)
-          .single();
-        
-        const newAuthorBalance = (authorData?.tokens_earned || 0) + attributionAwarded;
-        await supabase
-          .from('users')
-          .update({ tokens_earned: newAuthorBalance })
-          .eq('id', recommendation.author_id);
-
-        console.log(`💰 Awarded ${attributionAwarded} BOCA attribution to author ${recommendation.author_id}`);
+        if (reshareRewardResult.success) {
+          console.log(`✅ [TWO-TIER] Reshare reward: ${reshareRewardResult.displayAmount} BOCA (${reshareRewardResult.method})`);
+          if (reshareRewardResult.txDigest) {
+            console.log(`   TX: ${reshareRewardResult.txDigest}`);
+          }
+        } else {
+          console.error(`❌ [TWO-TIER] Reshare reward failed: ${reshareRewardResult.error}`);
+        }
+      } catch (reshareError) {
+        console.error('❌ [TWO-TIER] Reshare reward exception:', reshareError);
       }
+
+      // Award 1.0 BOCA attribution bonus to original author (if different user)
+      if (recommendation.author_id !== userId) {
+        console.log(`💰 [TWO-TIER] Awarding attribution reward to author ${recommendation.author_id}...`);
+        try {
+          attributionRewardResult = await rewardService.awardReshareAttribution(
+            recommendation.author_id,
+            recommendationId,
+            userId
+          );
+          
+          if (attributionRewardResult.success) {
+            console.log(`✅ [TWO-TIER] Attribution reward: ${attributionRewardResult.displayAmount} BOCA (${attributionRewardResult.method})`);
+            if (attributionRewardResult.txDigest) {
+              console.log(`   TX: ${attributionRewardResult.txDigest}`);
+            }
+          } else {
+            console.error(`❌ [TWO-TIER] Attribution reward failed: ${attributionRewardResult.error}`);
+          }
+        } catch (attrError) {
+          console.error('❌ [TWO-TIER] Attribution reward exception:', attrError);
+        }
+      }
+      
+      const tokensEarned = reshareRewardResult?.displayAmount || 0;
+      const attributionAwarded = attributionRewardResult?.displayAmount || 0;
 
       // Format reshare with full details
       const formattedReshare = await formatReshare(newReshare);

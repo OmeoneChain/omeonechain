@@ -8,8 +8,104 @@
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { getRewardService, RewardResult } from '../services/reward-service';
+
+const rewardService = getRewardService();
 
 const router = Router();
+
+/**
+ * Update engagement points on a recommendation and check for validation bonus
+ * White Paper v1.02: +10.0 BOCA when recommendation reaches 3.0 engagement points
+ * 
+ * Point values (weighted by engager's tier):
+ * - Like/upvote: 1.0 × tier weight
+ * - Save/bookmark: 1.0 × tier weight  
+ * - Comment: 0.5 × tier weight
+ * 
+ * Tier weights: new=0.5, established=1.0, trusted=1.5
+ */
+async function updateEngagementPoints(
+  recommendationId: string, 
+  engagerId: string, 
+  actionType: 'like' | 'save' | 'comment'
+): Promise<void> {
+  try {
+    // Get engager's tier weight
+    const { data: engager } = await supabase
+      .from('users')
+      .select('reputation_tier')
+      .eq('id', engagerId)
+      .single();
+    
+    const tierWeights: Record<string, number> = {
+      'new': 0.5,
+      'established': 1.0,
+      'trusted': 1.5
+    };
+    const tierWeight = tierWeights[engager?.reputation_tier || 'established'] || 1.0;
+    
+    // Calculate points based on action type
+    const basePoints: Record<string, number> = {
+      'like': 1.0,
+      'save': 1.0,
+      'comment': 0.5
+    };
+    const pointsToAdd = basePoints[actionType] * tierWeight;
+    
+    // Get current recommendation state
+    const { data: rec } = await supabase
+      .from('recommendations')
+      .select('engagement_points, validation_bonus_awarded, author_id')
+      .eq('id', recommendationId)
+      .single();
+    
+    if (!rec) return;
+    
+    const currentPoints = rec.engagement_points || 0;
+    const newPoints = currentPoints + pointsToAdd;
+    
+    // Update engagement points
+    await supabase
+      .from('recommendations')
+      .update({ engagement_points: newPoints })
+      .eq('id', recommendationId);
+    
+    console.log(`📊 Engagement points: ${currentPoints.toFixed(2)} → ${newPoints.toFixed(2)} (+${pointsToAdd.toFixed(2)} from ${actionType})`);
+    
+    // Check if validation bonus threshold reached (3.0 points)
+    if (newPoints >= 3.0 && !rec.validation_bonus_awarded) {
+      console.log(`🎯 [VALIDATION] Recommendation reached 3.0 points! Awarding +10.0 BOCA bonus...`);
+      
+      try {
+        const validationResult = await rewardService.awardValidationBonus(
+          rec.author_id,
+          recommendationId
+        );
+        
+        if (validationResult.success) {
+          // Mark as awarded to prevent double-awarding
+          await supabase
+            .from('recommendations')
+            .update({ validation_bonus_awarded: true })
+            .eq('id', recommendationId);
+          
+          console.log(`✅ [VALIDATION] Bonus awarded: ${validationResult.displayAmount} BOCA`);
+          if (validationResult.txDigest) {
+            console.log(`   TX: ${validationResult.txDigest}`);
+          }
+        } else {
+          console.error(`❌ [VALIDATION] Bonus failed: ${validationResult.error}`);
+        }
+      } catch (validationError) {
+        console.error('❌ [VALIDATION] Exception:', validationError);
+      }
+    }
+  } catch (error) {
+    console.error('⚠️ Error updating engagement points:', error);
+    // Non-fatal - don't break the main flow
+  }
+}
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -476,18 +572,37 @@ router.post(
         .update({ comments_count: newCount })
         .eq('id', recommendationId);
 
-      // Calculate and award token reward to RECOMMENDATION AUTHOR (not commenter)
-      // White Paper v1.0: "Receive comment" = 0.50 BOCA to author, weighted by commenter's tier
-      let tokensAwarded = 0;
-      let rewardRecipient = null;
+      // =========================================================================
+      // Award token reward via TWO-TIER REWARD SERVICE
+      // White Paper v1.02: "Receive comment" = 0.50 BOCA base, tier-weighted
+      // =========================================================================
+      let commentRewardResult: RewardResult | null = null;
       
       // Don't award tokens if commenting on your own recommendation
       if (recommendation.author_id !== userId) {
-        const { reward, tier, multiplier } = await calculateCommentReward(userId);
-        await awardTokens(recommendation.author_id, reward);
-        tokensAwarded = reward;
-        rewardRecipient = recommendation.author_id;
-        console.log(`💰 Awarded ${reward} BOCA to recommendation author ${recommendation.author_id} (commenter tier: ${tier})`);
+        console.log(`💰 [TWO-TIER] Awarding comment reward to author ${recommendation.author_id}...`);
+        
+        try {
+          commentRewardResult = await rewardService.awardCommentReceived(
+            recommendation.author_id,  // Author receives reward
+            recommendationId,
+            userId                     // Commenter's tier determines weight
+          );
+          
+          if (commentRewardResult.success) {
+            console.log(`✅ [TWO-TIER] Comment reward: ${commentRewardResult.displayAmount} BOCA (${commentRewardResult.method})`);
+            if (commentRewardResult.txDigest) {
+              console.log(`   TX: ${commentRewardResult.txDigest}`);
+            }
+            
+            // Update engagement points for validation bonus tracking
+            await updateEngagementPoints(recommendationId, userId, 'comment');
+          } else {
+            console.error(`❌ [TWO-TIER] Comment reward failed: ${commentRewardResult.error}`);
+          }
+        } catch (rewardError) {
+          console.error('❌ [TWO-TIER] Comment reward exception:', rewardError);
+        }
       } else {
         console.log(`ℹ️ No reward - user commented on their own recommendation`);
       }
@@ -500,12 +615,15 @@ router.post(
       res.status(201).json({
         success: true,
         comment: formattedComment,
-        reward: {
-          tokens_awarded: tokensAwarded,
-          recipient: rewardRecipient,
+        reward: commentRewardResult ? {
+          tokens_awarded: commentRewardResult.displayAmount,
+          recipient: recommendation.author_id,
           recipient_type: 'recommendation_author',
-          reason: 'receive_comment'
-        },
+          reason: 'receive_comment',
+          method: commentRewardResult.method,
+          tx_digest: commentRewardResult.txDigest || null,
+          success: commentRewardResult.success
+        } : null,
         message: 'Comment created successfully'
       });
 

@@ -147,8 +147,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onCommentCountChange(comments.length + 1);
       }
 
-      // Get tokens earned from response (or fallback to 0.05)
-      const tokensEarned = data.tokens_earned || 0.05;
+      // Get tokens earned from response (fallback to 0.5 BOCA - 10x update)
+      const tokensEarned = data.tokens_earned || 0.5;
       console.log('💰 Tokens earned from comment:', tokensEarned);
 
       // Optimistic update: Header updates IMMEDIATELY
@@ -210,8 +210,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onCommentCountChange(comments.length + 1);
       }
 
-      // Get tokens earned from response (or fallback to 0.05)
-      const tokensEarned = data.tokens_earned || 0.05;
+      // Get tokens earned from response (fallback to 0.5 BOCA - 10x update)
+      const tokensEarned = data.tokens_earned || 0.5;
       console.log('💰 Tokens earned from reply:', tokensEarned);
 
       // Optimistic update: Header updates IMMEDIATELY
@@ -428,11 +428,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const totalComments = hasLoadedComments ? comments.length : initialCommentCount;
 
   return (
-    <div className="border-t border-gray-200 pt-4">
+    <div className="border-t border-gray-200 dark:border-[#3D3C4A] pt-4">
       {/* Toggle button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 text-gray-700 hover:text-[#FF644A] transition-colors mb-4 font-medium"
+        className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-[#FF644A] dark:hover:text-[#FF644A] transition-colors mb-4 font-medium"
       >
         <MessageCircle className="w-5 h-5" />
         <span>

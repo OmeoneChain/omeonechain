@@ -1,5 +1,6 @@
 // code/poc/frontend/lib/auth.ts
 // FIXED VERSION: Uses two-tier authentication endpoints
+// MODIFIED: Email auth disabled (Jan 2026) - phone/wallet only
 
 import { toast } from 'react-hot-toast';
 
@@ -337,98 +338,104 @@ export class AuthAPI {
     }
   }
 
-  // Email sign-up (two-tier endpoint)
-  static async emailSignup(email: string, password: string, displayName?: string): Promise<{ token: string; user: User; isNewUser: boolean }> {
-    try {
-      console.log('📧 AuthAPI: Email sign-up request:', email);
+  // ==========================================================================
+  // DISABLED: Email auth removed - phone/wallet only (Jan 2026)
+  // Email may be re-enabled later for: account recovery, 2FA, B2B restaurant portal
+  // To re-enable: uncomment these methods and corresponding backend routes in server.ts
+  // ==========================================================================
 
-      const response = await fetch(`${this.baseURL}/api/auth/email/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          display_name: displayName
-        }),
-      });
+  // // Email sign-up (two-tier endpoint)
+  // static async emailSignup(email: string, password: string, displayName?: string): Promise<{ token: string; user: User; isNewUser: boolean }> {
+  //   try {
+  //     console.log('📧 AuthAPI: Email sign-up request:', email);
 
-      console.log('📧 AuthAPI: Sign-up response status:', response.status);
+  //     const response = await fetch(`${this.baseURL}/api/auth/email/register`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({
+  //         email,
+  //         password,
+  //         display_name: displayName
+  //       }),
+  //     });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Sign-up failed: ${response.status}`);
-      }
+  //     console.log('📧 AuthAPI: Sign-up response status:', response.status);
 
-      const data = await response.json();
-      console.log('✅ AuthAPI: Email sign-up successful');
+  //     if (!response.ok) {
+  //       const errorData = await response.json().catch(() => ({}));
+  //       throw new Error(errorData.error || `Sign-up failed: ${response.status}`);
+  //     }
 
-      return {
-        token: data.token,
-        user: {
-          id: data.user.id,
-          email: data.user.email,
-          username: data.user.username,
-          display_name: data.user.display_name,
-          accountTier: data.user.accountTier,
-          authMethod: data.user.authMethod,
-          profileCompletion: data.user.profileCompletion,
-          onboarding_completed: data.user.onboarding_completed
-        },
-        isNewUser: data.isNewUser
-      };
-    } catch (error) {
-      console.error('❌ AuthAPI: Email sign-up error:', error);
-      throw error;
-    }
-  }
+  //     const data = await response.json();
+  //     console.log('✅ AuthAPI: Email sign-up successful');
 
-  // Email login (two-tier endpoint)
-  static async emailLogin(email: string, password: string): Promise<{ token: string; user: User; isNewUser: boolean }> {
-    try {
-      console.log('📧 AuthAPI: Email login request:', email);
+  //     return {
+  //       token: data.token,
+  //       user: {
+  //         id: data.user.id,
+  //         email: data.user.email,
+  //         username: data.user.username,
+  //         display_name: data.user.display_name,
+  //         accountTier: data.user.accountTier,
+  //         authMethod: data.user.authMethod,
+  //         profileCompletion: data.user.profileCompletion,
+  //         onboarding_completed: data.user.onboarding_completed
+  //       },
+  //       isNewUser: data.isNewUser
+  //     };
+  //   } catch (error) {
+  //     console.error('❌ AuthAPI: Email sign-up error:', error);
+  //     throw error;
+  //   }
+  // }
 
-      const response = await fetch(`${this.baseURL}/api/auth/email/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password
-        }),
-      });
+  // // Email login (two-tier endpoint)
+  // static async emailLogin(email: string, password: string): Promise<{ token: string; user: User; isNewUser: boolean }> {
+  //   try {
+  //     console.log('📧 AuthAPI: Email login request:', email);
 
-      console.log('📧 AuthAPI: Login response status:', response.status);
+  //     const response = await fetch(`${this.baseURL}/api/auth/email/login`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({
+  //         email,
+  //         password
+  //       }),
+  //     });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Login failed: ${response.status}`);
-      }
+  //     console.log('📧 AuthAPI: Login response status:', response.status);
 
-      const data = await response.json();
-      console.log('✅ AuthAPI: Email login successful');
+  //     if (!response.ok) {
+  //       const errorData = await response.json().catch(() => ({}));
+  //       throw new Error(errorData.error || `Login failed: ${response.status}`);
+  //     }
 
-      return {
-        token: data.token,
-        user: {
-          id: data.user.id,
-          email: data.user.email,
-          username: data.user.username,
-          display_name: data.user.display_name,
-          accountTier: data.user.accountTier,
-          authMethod: data.user.authMethod,
-          profileCompletion: data.user.profileCompletion,
-          onboarding_completed: data.user.onboarding_completed
-        },
-        isNewUser: data.isNewUser
-      };
-    } catch (error) {
-      console.error('❌ AuthAPI: Email login error:', error);
-      throw error;
-    }
-  }
+  //     const data = await response.json();
+  //     console.log('✅ AuthAPI: Email login successful');
+
+  //     return {
+  //       token: data.token,
+  //       user: {
+  //         id: data.user.id,
+  //         email: data.user.email,
+  //         username: data.user.username,
+  //         display_name: data.user.display_name,
+  //         accountTier: data.user.accountTier,
+  //         authMethod: data.user.authMethod,
+  //         profileCompletion: data.user.profileCompletion,
+  //         onboarding_completed: data.user.onboarding_completed
+  //       },
+  //       isNewUser: data.isNewUser
+  //     };
+  //   } catch (error) {
+  //     console.error('❌ AuthAPI: Email login error:', error);
+  //     throw error;
+  //   }
+  // }
 
   // Verify JWT token
   static async verifyToken(token: string): Promise<{ valid: boolean; user?: User }> {

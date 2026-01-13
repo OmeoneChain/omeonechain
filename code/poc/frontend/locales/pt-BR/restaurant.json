@@ -1,0 +1,58 @@
+{
+  "loading": "Carregando...",
+  "notFound": "Restaurante não encontrado",
+  "goBack": "Voltar",
+  "back": "Voltar",
+  "save": "Salvar restaurante",
+  "saved": "Salvo",
+  "share": {
+    "title": "Compartilhar restaurante",
+    "text": "Confira {name} no BocaBoca"
+  },
+  "actions": {
+    "website": "Website",
+    "call": "Ligar",
+    "directions": "Como Chegar"
+  },
+  "scores": {
+    "title": "O Que as Pessoas Acham",
+    "yourNetwork": "Sua Rede",
+    "similarTaste": "Gostos Similares",
+    "allReviews": "Todas Avaliações",
+    "followPeople": "Siga pessoas",
+    "tasteMatch": "70%+ similar"
+  },
+  "rec": "rec",
+  "recs": "recs",
+  "photos": {
+    "title": "Fotos & Pratos"
+  },
+  "yourReview": {
+    "title": "Sua Avaliação",
+    "subtitle": "Compartilhe sua experiência para construir seu perfil de gosto",
+    "writeReview": "Escrever Avaliação"
+  },
+  "network": {
+    "title": "Da Sua Rede",
+    "subtitle": "Pessoas que você segue ou que te seguem",
+    "suggestedSubtitle": "Pessoas com gostos similares que você pode querer seguir",
+    "empty": {
+      "line1": "Ninguém da sua rede avaliou este lugar ainda.",
+      "line2": "Seja o primeiro a compartilhar sua experiência!"
+    }
+  },
+  "similarTaste": {
+    "title": "De Usuários com Gostos Similares",
+    "subtitle": "Usuários com 70%+ de alinhamento de gosto com você"
+  },
+  "location": "Localização",
+  "relationships": {
+    "mutualFollow": "Seguem mutuamente",
+    "following": "Seguindo",
+    "followsYou": "Te segue"
+  },
+  "tasteMatch": "{percent}% similar",
+  "match": "similar",
+  "sharedSpots": "lugares em comum",
+  "follow": "Seguir"
+}

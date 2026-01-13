@@ -1,5 +1,16 @@
 {
   "profile": {
+    "title": "Profile",
+    "loading": "Loading profile...",
+    "anonymousUser": "Anonymous User",
+    "usernameNotSet": "username_not_set",
+    "about": "About",
+    "location": "Location",
+    "authRequired": {
+      "title": "Authentication Required",
+      "description": "Please connect your wallet to view your profile.",
+      "goHome": "Go Home"
+    },
     "tabs": {
       "tasteMap": "Taste Map",
       "activity": "Activity",
@@ -20,14 +31,20 @@
       "recommendations": "Recommendations",
       "followers": "Followers",
       "following": "Following",
-      "tokensEarned": "Tokens Earned"
+      "tokensEarned": "Tokens Earned",
+      "reputation": "Reputation"
     },
     "header": {
       "joined": "Joined {date}",
       "editProfile": "Edit Profile",
       "follow": "Follow",
       "following": "Following",
-      "unfollow": "Unfollow"
+      "unfollow": "Unfollow",
+      "darkMode": "Dark Mode",
+      "lightMode": "Light Mode",
+      "userNotFound": "User Not Found",
+      "userNotFoundDescription": "The user you're looking for doesn't exist or has been removed.",
+      "emailAccount": "Email Account"
     },
     "actions": {
       "share": "Share",
@@ -36,25 +53,72 @@
     },
     "cards": {
       "viewProfile": "View Profile",
-      "viewDetails": "View Details"
+      "viewDetails": "View Details",
+      "viewList": "View List",
+      "public": "Public",
+      "private": "Private",
+      "items": "{count} items",
+      "placesToTry": "Places to Try",
+      "bookmarks": "Bookmarks",
+      "mixed": "Mixed",
+      "yourCommentary": "Your Commentary",
+      "theirCommentary": "Their Commentary",
+      "resharedOn": "Reshared on {date}"
     },
     "rewardsTab": {
+      "title": "Rewards",
+      "private": "Rewards information is only visible to the account owner.",
+      "loading": "Loading rewards data...",
       "balance": {
         "title": "Token Balance",
         "description": "Your earned BOCA tokens from platform contributions"
       },
+      "attribution": {
+        "title": "Attribution Rewards",
+        "description": "Earn BOCA when others reshare your recommendations",
+        "fromReshares": "from {count} reshare",
+        "fromResharesPlural": "from {count} reshares",
+        "reshared": "reshared",
+        "loadMore": "Load More"
+      },
       "onboarding": {
-        "title": "Onboarding Rewards",
+        "title": "Welcome Rewards",
         "complete": "complete",
-        "nextStep": "Next step:"
+        "nextStep": "Next step:",
+        "completeTitle": "Onboarding Complete!",
+        "completeDescription": "You've earned {amount} for completing all welcome tasks!",
+        "keepEngaging": "Keep engaging with the community to earn more rewards.",
+        "milestones": {
+          "followUsers": {
+            "name": "Follow Users",
+            "description": "Follow at least 3 users to build your network"
+          },
+          "createRecommendations": {
+            "name": "Create Recommendations",
+            "description": "Share your first 5 restaurant recommendations"
+          },
+          "engageWithPosts": {
+            "name": "Engage with Community",
+            "description": "Like, save, or comment on 10 posts from at least 3 different users"
+          }
+        }
       }
     },
     "errors": {
       "loadingRecommendations": "Failed to load recommendations",
       "loadingLists": "Failed to load guides",
-      "network": "Network error. Please check your connection."
+      "loadingSavedLists": "Failed to load saved lists",
+      "loadingReshares": "Failed to load reshares",
+      "loadingLikes": "Failed to load likes",
+      "loadingFollowers": "Failed to load followers",
+      "loadingFollowing": "Failed to load following",
+      "network": "Network error. Please check your connection.",
+      "fallback": "Something went wrong. Please try refreshing the page."
     },
     "activity": {
+      "title": "Activity",
+      "description": "View and manage your account activity",
+      "comingSoon": "More activity features coming soon!",
       "security": {
         "title": "Account Security",
         "status": "Account Status",
@@ -127,7 +191,7 @@
   "profileMap": {
     "header": {
       "ownTitle": "Your Taste Map",
-      "otherTitle": "{name}'s Taste Map"
+      "otherTitle": "{username}'s Taste Map"
     },
     "viewToggle": {
       "map": "Map",
@@ -143,8 +207,8 @@
     "legend": {
       "title": "Rating Legend",
       "loved": "Loved (8-10)",
-      "liked": "Liked (5-7)",
-      "meh": "Meh (1-4)"
+      "liked": "Liked (6-7)",
+      "meh": "Meh (<6)"
     },
     "infoWindow": {
       "reviewed": "Reviewed",
@@ -165,7 +229,7 @@
       },
       "otherProfile": {
         "title": "No Reviews Yet",
-        "description": "{name} hasn't reviewed any restaurants yet.",
+        "description": "This user hasn't reviewed any restaurants yet.",
         "defaultUsername": "This user"
       }
     },

@@ -7,6 +7,7 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '@/hooks/useAuth'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getLocale } from 'next-intl/server'
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 const inter = Inter({ subsets: ['latin'] })
 

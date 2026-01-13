@@ -72,6 +72,8 @@ export function StickyPublishButton({
               return 'Publishing...';
             case 'singleScreen.publish.button':
               return `Publish & earn ${params?.tokens ?? ''} BOCA`;
+            case 'singleScreen.publish.bonusHint':
+              return 'Tip: some bonuses are unlocked with validation and community engagement';
             case 'singleScreen.publish.bonusEarned':
               return 'Bonus available after validation.';
             default:
@@ -92,23 +94,18 @@ export function StickyPublishButton({
   const showBonusHint = !disabled && !isPublishing && bonusAmount > 0.0001;
 
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-50"
-      style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-        borderTop: `1px solid ${BRAND.stone[200]}`,
-        paddingBottom: 'env(safe-area-inset-bottom, 16px)',
-      }}
-    >
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#2D2C3A]/95 backdrop-blur-md border-t border-gray-200 dark:border-[#3D3C4A] pb-[env(safe-area-inset-bottom,16px)]">
       <div className="px-4 py-3 max-w-lg mx-auto">
+        {/* Bonus hint - always show when not disabled */}
+        {!disabled && !isPublishing && (
+          <p className="text-xs text-center mb-2 text-gray-500 dark:text-gray-400">
+            {tt('singleScreen.publish.bonusHint')}
+          </p>
+        )}
+
         {/* Disabled reason message */}
         {disabled && disabledReason && !isPublishing && (
-          <p
-            className="text-xs text-center mb-2"
-            style={{ color: BRAND.stone[500] }}
-          >
+          <p className="text-xs text-center mb-2 text-gray-500 dark:text-gray-400">
             {disabledReason}
           </p>
         )}
@@ -118,25 +115,11 @@ export function StickyPublishButton({
           type="button"
           onClick={onPublish}
           disabled={disabled || isPublishing}
-          className="w-full flex items-center justify-center gap-3 rounded-xl font-semibold text-white transition-all duration-200"
-          style={{
-            height: '56px',
-            backgroundColor: disabled ? BRAND.stone[300] : BRAND.coral,
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            opacity: isPublishing ? 0.8 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (!disabled && !isPublishing) {
-              e.currentTarget.style.backgroundColor = BRAND.coralDark;
-              e.currentTarget.style.transform = 'scale(1.01)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!disabled && !isPublishing) {
-              e.currentTarget.style.backgroundColor = BRAND.coral;
-              e.currentTarget.style.transform = 'scale(1)';
-            }
-          }}
+          className={`w-full flex items-center justify-center gap-3 rounded-xl font-semibold text-white transition-all duration-200 h-14 ${
+            disabled 
+              ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' 
+              : 'bg-[#FF644A] hover:bg-[#E65441] hover:scale-[1.01] cursor-pointer'
+          } ${isPublishing ? 'opacity-80' : ''}`}
         >
           {isPublishing ? (
             <>
@@ -154,10 +137,7 @@ export function StickyPublishButton({
 
         {/* Bonus hint (only if estimate exceeds baseReward) */}
         {showBonusHint && (
-          <p
-            className="text-xs text-center mt-2"
-            style={{ color: BRAND.emerald[600] }}
-          >
+          <p className="text-xs text-center mt-2 text-emerald-600 dark:text-emerald-400">
             🎉 {tt('singleScreen.publish.bonusEarned') || 'Bonus available after validation.'}
           </p>
         )}

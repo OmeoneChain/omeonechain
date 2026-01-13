@@ -1,6 +1,26 @@
 // File: components/profile/UserProfile.tsx
 // Refactored: Map-first profile with 4-tab structure (Taste Map | Activity | Network | Settings [own only])
 // Preserves: all data fetching, rewards/onboarding/attribution, cards, follow/unfollow, profile editor, i18n
+//
+// =============================================================================
+// DARK MODE PATTERNS USED IN THIS FILE:
+// =============================================================================
+// Page/Card background:   bg-white dark:bg-[#2D2C3A]
+// Elevated surface:       bg-gray-50 dark:bg-[#353444]
+// Borders:                border-gray-200 dark:border-[#3D3C4A]
+// Light borders:          border-gray-100 dark:border-[#3D3C4A]
+// Primary text:           text-gray-900 dark:text-gray-100
+// Secondary text:         text-gray-600 dark:text-gray-400
+// Muted text:             text-gray-500 dark:text-gray-500
+// Faint text:             text-gray-400 dark:text-gray-500
+// Hover states:           hover:bg-gray-50 dark:hover:bg-[#353444]
+// Active sub-tabs:        bg-white dark:bg-[#2D2C3A] shadow-sm
+// Skeleton loaders:       bg-gray-200 dark:bg-gray-700
+// Gradient cards:         Light gradients → dark solid surfaces with accent borders
+// Error backgrounds:      bg-red-50 dark:bg-red-900/20
+// Success backgrounds:    bg-green-50 dark:bg-green-900/20
+// Info backgrounds:       bg-blue-50 dark:bg-blue-900/20
+// =============================================================================
 
 'use client';
 
@@ -806,13 +826,13 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (u.walletAddress && u.walletAddress.trim() !== '' && u.walletAddress !== '0x') {
       return {
         type: 'wallet' as const,
-        icon: <Wallet className="w-4 h-4 text-green-600" />,
+        icon: <Wallet className="w-4 h-4 text-green-600 dark:text-green-400" />,
         display: `${u.walletAddress.substring(0, 6)}...${u.walletAddress.substring(u.walletAddress.length - 4)}`
       };
     }
     return {
       type: 'email' as const,
-      icon: <Mail className="w-4 h-4 text-blue-600" />,
+      icon: <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
       display: u.email || t('header.emailAccount')
     };
   };
@@ -965,10 +985,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   }, [isOwnProfile, loadAttributionRewards]);
 
   // -------------------------------
-  // Cards (preserved)
+  // Cards (preserved with dark mode)
   // -------------------------------
   const SocialUserCard = ({ user: socialUser }: { user: SocialUser }) => (
-    <div className="flex items-center gap-4 p-4 bg-white rounded-lg border hover:shadow-sm transition-shadow">
+    <div className="flex items-center gap-4 p-4 bg-white dark:bg-[#2D2C3A] rounded-lg border border-gray-200 dark:border-[#3D3C4A] hover:shadow-sm dark:hover:shadow-[0_2px_10px_rgba(0,0,0,0.3)] transition-shadow">
       <div className="relative">
         <img
           src={socialUser.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${socialUser.username || socialUser.id}`}
@@ -987,16 +1007,16 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
       <div className="flex-1">
         <h3
-          className="font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+          className="font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
           onClick={() => router.push(`/users/${socialUser.id}`)}
         >
           {socialUser.display_name || socialUser.username || 'Unknown User'}
         </h3>
-        <p className="text-sm text-gray-600 mb-1">@{socialUser.username || socialUser.id}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">@{socialUser.username || socialUser.id}</p>
 
-        {socialUser.bio && <p className="text-sm text-gray-500 mb-1 line-clamp-2">{socialUser.bio}</p>}
+        {socialUser.bio && <p className="text-sm text-gray-500 dark:text-gray-500 mb-1 line-clamp-2">{socialUser.bio}</p>}
 
-        <div className="flex items-center gap-4 text-xs text-gray-500">
+        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-500">
           <span>{socialUser.followers_count || 0} {t('profile.stats.followers').toLowerCase()}</span>
           <span>{socialUser.recommendations_count || 0} {t('profile.stats.recommendations').toLowerCase()}</span>
           {socialUser.avg_trust_score > 0 && (
@@ -1017,7 +1037,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       <div className="flex gap-2">
         <button
           onClick={() => router.push(`/users/${socialUser.id}`)}
-          className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
+          className="px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-[#4D4C5A] rounded-lg hover:bg-gray-50 dark:hover:bg-[#353444]"
         >
           {t('profile.cards.viewProfile')}
         </button>
@@ -1026,33 +1046,33 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   );
 
   const RecommendationCard = ({ recommendation }: { recommendation: UserRecommendation }) => (
-    <div className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
+    <div className="bg-white dark:bg-[#2D2C3A] rounded-lg border border-gray-200 dark:border-[#3D3C4A] p-4 hover:shadow-sm dark:hover:shadow-[0_2px_10px_rgba(0,0,0,0.3)] transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h3 className="font-medium text-gray-900 mb-1">{recommendation.title}</h3>
+          <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">{recommendation.title}</h3>
           {recommendation.category && (
-            <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+            <span className="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
               {recommendation.category}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1 text-sm">
           <Star className="w-4 h-4 text-yellow-500" />
-          <span className="text-gray-700">{Number(recommendation.trustScore || 0).toFixed(1)}</span>
+          <span className="text-gray-700 dark:text-gray-300">{Number(recommendation.trustScore || 0).toFixed(1)}</span>
         </div>
       </div>
 
-      {recommendation.body && <p className="text-gray-700 mb-3 line-clamp-3">{recommendation.body}</p>}
+      {recommendation.body && <p className="text-gray-700 dark:text-gray-300 mb-3 line-clamp-3">{recommendation.body}</p>}
 
       {recommendation.location && (
-        <div className="flex items-center gap-1 text-sm text-gray-500 mb-3">
+        <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-500 mb-3">
           <MapPin className="w-4 h-4" />
           <span>{recommendation.location.address || recommendation.location.city}</span>
         </div>
       )}
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm text-gray-500">
+        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
           <span className="flex items-center gap-1">
             <Heart className="w-4 h-4" />
             {recommendation.upvotes}
@@ -1066,7 +1086,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
         <button
           onClick={() => router.push(`/recommendations/${recommendation.id}`)}
-          className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50"
+          className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
         >
           {t('profile.cards.viewDetails')}
         </button>
@@ -1075,15 +1095,17 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   );
 
   const ListCard = ({ list }: { list: UserList }) => (
-    <div className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
+    <div className="bg-white dark:bg-[#2D2C3A] rounded-lg border border-gray-200 dark:border-[#3D3C4A] p-4 hover:shadow-sm dark:hover:shadow-[0_2px_10px_rgba(0,0,0,0.3)] transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h3 className="font-medium text-gray-900 mb-1">{list.title}</h3>
-          {list.description && <p className="text-sm text-gray-600 line-clamp-2 mb-2">{list.description}</p>}
+          <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">{list.title}</h3>
+          {list.description && <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">{list.description}</p>}
           <div className="flex items-center gap-2">
             <span
               className={`inline-block px-2 py-1 text-xs rounded-full ${
-                list.is_public ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                list.is_public 
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
               }`}
             >
               {list.is_public ? t('profile.cards.public') : t('profile.cards.private')}
@@ -1093,7 +1115,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm text-gray-500">
+        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
           <span className="flex items-center gap-1">
             <List className="w-4 h-4" />
             {t('profile.cards.items', { count: list.item_count })}
@@ -1107,7 +1129,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
         <button
           onClick={() => router.push(`/lists/${list.id}`)}
-          className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50"
+          className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
         >
           {t('profile.cards.viewList')}
         </button>
@@ -1116,21 +1138,21 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   );
 
   const SavedListCard = ({ list }: { list: SavedListData }) => (
-    <div className="bg-white rounded-lg border p-4 hover:shadow-sm transition-shadow">
+    <div className="bg-white dark:bg-[#2D2C3A] rounded-lg border border-gray-200 dark:border-[#3D3C4A] p-4 hover:shadow-sm dark:hover:shadow-[0_2px_10px_rgba(0,0,0,0.3)] transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3 flex-1">
           <div className="text-2xl">{list.icon || '📚'}</div>
           <div className="flex-1">
-            <h3 className="font-medium text-gray-900 mb-1">{list.name}</h3>
-            {list.description && <p className="text-sm text-gray-600 line-clamp-2 mb-2">{list.description}</p>}
+            <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">{list.name}</h3>
+            {list.description && <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">{list.description}</p>}
             <div className="flex items-center gap-2">
               <span
                 className={`inline-block px-2 py-1 text-xs rounded-full ${
                   list.listType === 'places'
-                    ? 'bg-blue-100 text-blue-800'
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                     : list.listType === 'bookmarks'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-purple-100 text-purple-800'
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                      : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
                 }`}
               >
                 {list.listType === 'places'
@@ -1141,7 +1163,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               </span>
               <span
                 className={`inline-block px-2 py-1 text-xs rounded-full ${
-                  list.isPublic ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  list.isPublic 
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                 }`}
               >
                 {list.isPublic ? t('profile.cards.public') : t('profile.cards.private')}
@@ -1152,7 +1176,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm text-gray-500">
+        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-500">
           <span className="flex items-center gap-1">
             <List className="w-4 h-4" />
             {t('profile.cards.items', { count: list.itemCount })}
@@ -1162,7 +1186,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
         <button
           onClick={() => router.push(`/saved-lists/${list.id}`)}
-          className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50"
+          className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
         >
           {t('profile.cards.viewList')}
         </button>
@@ -1173,12 +1197,12 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   const ResharedRecommendationCard = ({ item }: { item: ResharedRecommendation }) => (
     <div className="space-y-0">
       {item.reshare.comment && (
-        <div className="bg-stone-50 border border-stone-200 rounded-t-lg px-4 py-3">
-          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold mb-1">
+        <div className="bg-stone-50 dark:bg-[#353444] border border-stone-200 dark:border-[#3D3C4A] rounded-t-lg px-4 py-3">
+          <p className="text-xs text-stone-500 dark:text-gray-500 uppercase tracking-wide font-semibold mb-1">
             {isOwnProfile ? t('profile.cards.yourCommentary') : t('profile.cards.theirCommentary')}
           </p>
-          <p className="text-stone-900 text-sm leading-relaxed">{item.reshare.comment}</p>
-          <p className="text-xs text-stone-400 mt-2">
+          <p className="text-stone-900 dark:text-gray-100 text-sm leading-relaxed">{item.reshare.comment}</p>
+          <p className="text-xs text-stone-400 dark:text-gray-500 mt-2">
             {t('profile.cards.resharedOn', { date: formatDate(item.reshare.created_at) })}
           </p>
         </div>
@@ -1198,7 +1222,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       return (
         <div className="text-center py-8">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-          <p className="text-gray-600">{t('common.loading')}</p>
+          <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
         </div>
       );
     }
@@ -1206,9 +1230,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (recommendationsError) {
       return (
         <div className="text-center py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-red-800 mb-2">{recommendationsError}</p>
-            <button onClick={loadRecommendations} className="text-sm text-red-600 hover:text-red-800 underline">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-red-800 dark:text-red-400 mb-2">{recommendationsError}</p>
+            <button onClick={loadRecommendations} className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline">
               {t('profile.actions.tryAgain')}
             </button>
           </div>
@@ -1219,11 +1243,11 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (recommendationsData.length === 0) {
       return (
         <div className="text-center py-12">
-          <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <MessageCircle className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             {isOwnProfile ? t('profile.empty.recommendations.own') : t('profile.empty.recommendations.other')}
           </h3>
-          <p className="text-gray-500 mb-4">
+          <p className="text-gray-500 dark:text-gray-500 mb-4">
             {isOwnProfile ? t('profile.empty.recommendations.ownDescription') : t('profile.empty.recommendations.otherDescription')}
           </p>
           {isOwnProfile && (
@@ -1241,10 +1265,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {t('profile.tabs.recommendationsFull')} ({recommendationsData.length})
           </h3>
-          <button onClick={loadRecommendations} className="text-sm text-blue-600 hover:text-blue-800">
+          <button onClick={loadRecommendations} className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
             {t('profile.actions.refresh')}
           </button>
         </div>
@@ -1263,7 +1287,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       return (
         <div className="text-center py-8">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-          <p className="text-gray-600">{t('common.loading')}</p>
+          <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
         </div>
       );
     }
@@ -1271,9 +1295,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (contentError) {
       return (
         <div className="text-center py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-red-800 mb-2">{contentError}</p>
-            <button onClick={loadUserReshares} className="text-sm text-red-600 hover:text-red-800 underline">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-red-800 dark:text-red-400 mb-2">{contentError}</p>
+            <button onClick={loadUserReshares} className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline">
               {t('profile.actions.tryAgain')}
             </button>
           </div>
@@ -1284,11 +1308,11 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (resharesData.length === 0) {
       return (
         <div className="text-center py-12">
-          <Share2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <Share2 className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             {isOwnProfile ? t('profile.empty.reshares.own') : t('profile.empty.reshares.other')}
           </h3>
-          <p className="text-gray-500 mb-4">
+          <p className="text-gray-500 dark:text-gray-500 mb-4">
             {isOwnProfile ? t('profile.empty.reshares.ownDescription') : t('profile.empty.reshares.otherDescription')}
           </p>
           {isOwnProfile && (
@@ -1306,10 +1330,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {t('profile.tabs.reshares')} ({resharesData.length})
           </h3>
-          <button onClick={loadUserReshares} className="text-sm text-blue-600 hover:text-blue-800">
+          <button onClick={loadUserReshares} className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
             {t('profile.actions.refresh')}
           </button>
         </div>
@@ -1328,7 +1352,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       return (
         <div className="text-center py-8">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-          <p className="text-gray-600">{t('common.loading')}</p>
+          <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
         </div>
       );
     }
@@ -1336,15 +1360,15 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (contentError) {
       return (
         <div className="text-center py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-red-800 mb-2">{contentError}</p>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-red-800 dark:text-red-400 mb-2">{contentError}</p>
             <button
               onClick={() => {
                 if (type === 'lists') loadUserLists();
                 else if (type === 'likes') loadUserLikes();
                 else loadUserSavedLists();
               }}
-              className="text-sm text-red-600 hover:text-red-800 underline"
+              className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline"
             >
               {t('profile.actions.tryAgain')}
             </button>
@@ -1359,8 +1383,8 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (data.length === 0) {
       return (
         <div className="text-center py-12">
-          {React.createElement(emptyIcon, { className: 'w-16 h-16 text-gray-400 mx-auto mb-4' })}
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          {React.createElement(emptyIcon, { className: 'w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4' })}
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             {type === 'lists'
               ? isOwnProfile
                 ? t('profile.empty.lists.own')
@@ -1373,7 +1397,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                   ? t('profile.empty.bookmarks.own')
                   : t('profile.empty.bookmarks.other')}
           </h3>
-          <p className="text-gray-500 mb-4">
+          <p className="text-gray-500 dark:text-gray-500 mb-4">
             {type === 'lists'
               ? isOwnProfile
                 ? t('profile.empty.lists.ownDescription')
@@ -1405,7 +1429,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {type === 'lists'
               ? t('profile.tabs.guides')
               : type === 'likes'
@@ -1419,7 +1443,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               else if (type === 'likes') loadUserLikes();
               else loadUserSavedLists();
             }}
-            className="text-sm text-blue-600 hover:text-blue-800"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
           >
             {t('profile.actions.refresh')}
           </button>
@@ -1441,7 +1465,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       return (
         <div className="text-center py-8">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-          <p className="text-gray-600">{t('common.loading')}</p>
+          <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
         </div>
       );
     }
@@ -1449,11 +1473,11 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (socialError) {
       return (
         <div className="text-center py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-red-800 mb-2">{socialError}</p>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-red-800 dark:text-red-400 mb-2">{socialError}</p>
             <button
               onClick={() => (type === 'followers' ? loadFollowers() : loadFollowing())}
-              className="text-sm text-red-600 hover:text-red-800 underline"
+              className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline"
             >
               {t('profile.actions.tryAgain')}
             </button>
@@ -1465,8 +1489,8 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (data.length === 0) {
       return (
         <div className="text-center py-12">
-          <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <Users className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             {type === 'followers'
               ? isOwnProfile
                 ? t('profile.empty.followers.own')
@@ -1475,7 +1499,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 ? t('profile.empty.following.own')
                 : t('profile.empty.following.other')}
           </h3>
-          <p className="text-gray-500 mb-4">
+          <p className="text-gray-500 dark:text-gray-500 mb-4">
             {type === 'followers'
               ? isOwnProfile
                 ? t('profile.empty.followers.ownDescription')
@@ -1499,12 +1523,12 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {type === 'followers' ? t('profile.tabs.followers') : t('profile.tabs.following')} ({data.length})
           </h3>
           <button
             onClick={() => (type === 'followers' ? loadFollowers() : loadFollowing())}
-            className="text-sm text-blue-600 hover:text-blue-800"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
           >
             {t('profile.actions.refresh')}
           </button>
@@ -1523,9 +1547,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (!isOwnProfile) {
       return (
         <div className="text-center py-12">
-          <Gift className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('profile.rewardsTab.title')}</h3>
-          <p className="text-gray-500">{t('profile.rewardsTab.private')}</p>
+          <Gift className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('profile.rewardsTab.title')}</h3>
+          <p className="text-gray-500 dark:text-gray-500">{t('profile.rewardsTab.private')}</p>
         </div>
       );
     }
@@ -1534,18 +1558,18 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       return (
         <div className="text-center py-12">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
-          <p className="text-gray-600">{t('profile.rewardsTab.loading')}</p>
+          <p className="text-gray-600 dark:text-gray-400">{t('profile.rewardsTab.loading')}</p>
         </div>
       );
     }
 
     return (
       <div className="space-y-6">
-        {/* Token Balance Card */}
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-6">
+        {/* Token Balance Card - gradient in light, solid surface with accent border in dark */}
+        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-[#353444] dark:to-[#353444] border border-orange-200 dark:border-[#FF644A]/30 rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Gift className="w-5 h-5 text-orange-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <Gift className="w-5 h-5 text-orange-600 dark:text-[#FF644A]" />
               {t('profile.rewardsTab.balance.title')}
             </h3>
             <button
@@ -1554,35 +1578,35 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 loadOnboardingProgress();
                 loadAttributionRewards();
               }}
-              className="text-sm text-blue-600 hover:text-blue-800"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
             >
               {t('profile.actions.refresh')}
             </button>
           </div>
-          <div className="text-4xl font-bold text-orange-600 mb-2">{tokenBalance.toFixed(2)} BOCA</div>
-          <p className="text-sm text-gray-600">{t('profile.rewardsTab.balance.description')}</p>
+          <div className="text-4xl font-bold text-orange-600 dark:text-[#FF644A] mb-2">{tokenBalance.toFixed(2)} BOCA</div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{t('profile.rewardsTab.balance.description')}</p>
         </div>
 
         {/* Attribution Rewards Card */}
         {attributionLoading ? (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50 rounded-lg p-6">
             <div className="flex items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-green-600 mr-2" />
-              <span className="text-gray-600">{t('common.loading')}</span>
+              <Loader2 className="w-6 h-6 animate-spin text-green-600 dark:text-green-400 mr-2" />
+              <span className="text-gray-600 dark:text-gray-400">{t('common.loading')}</span>
             </div>
           </div>
         ) : attributionRewards && attributionRewards.total_count > 0 ? (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Share2 className="w-5 h-5 text-green-600" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                 {t('profile.rewardsTab.attribution.title')}
               </h3>
               <div className="text-right">
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {attributionRewards.total_earned_boca.toFixed(2)} BOCA
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-gray-500">
                   {attributionRewards.total_count === 1
                     ? t('profile.rewardsTab.attribution.fromReshares', { count: attributionRewards.total_count })
                     : t('profile.rewardsTab.attribution.fromResharesPlural', { count: attributionRewards.total_count })}
@@ -1590,27 +1614,27 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               </div>
             </div>
 
-            <p className="text-sm text-gray-600 mb-4">{t('profile.rewardsTab.attribution.description')}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{t('profile.rewardsTab.attribution.description')}</p>
 
             <div className="space-y-3 max-h-64 overflow-y-auto">
               {attributionRewards.attributions.map((attr) => (
                 <div
                   key={attr.id}
-                  className="bg-white rounded-lg p-3 border border-green-100 hover:border-green-200 transition-colors"
+                  className="bg-white dark:bg-[#2D2C3A] rounded-lg p-3 border border-green-100 dark:border-green-800/30 hover:border-green-200 dark:hover:border-green-700/50 transition-colors"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-gray-900">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {attr.resharer.display_name || attr.resharer.username}
                         </span>
-                        <span className="text-xs text-gray-500">{t('profile.rewardsTab.attribution.reshared')}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-500">{t('profile.rewardsTab.attribution.reshared')}</span>
                       </div>
-                      <p className="text-sm text-gray-700 mb-1">"{attr.recommendation_title}"</p>
-                      <p className="text-xs text-gray-500">{formatDate(attr.created_at)}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">"{attr.recommendation_title}"</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">{formatDate(attr.created_at)}</p>
                     </div>
                     <div className="text-right ml-3">
-                      <div className="text-sm font-semibold text-green-600">+{attr.bonus_boca.toFixed(2)} BOCA</div>
+                      <div className="text-sm font-semibold text-green-600 dark:text-green-400">+{attr.bonus_boca.toFixed(2)} BOCA</div>
                     </div>
                   </div>
                 </div>
@@ -1623,7 +1647,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                   // pagination intentionally preserved as "load more" placeholder
                   console.log('Load more attributions');
                 }}
-                className="w-full mt-4 px-4 py-2 text-sm text-green-600 hover:text-green-800 border border-green-300 rounded-lg hover:bg-green-50"
+                className="w-full mt-4 px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 border border-green-300 dark:border-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/30"
               >
                 {t('profile.rewardsTab.attribution.loadMore')}
               </button>
@@ -1633,10 +1657,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
         {/* Onboarding Progress Card */}
         {onboardingProgress && !onboardingProgress.isComplete && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">{t('profile.rewardsTab.onboarding.title')}</h3>
-              <span className="text-sm font-medium text-blue-600">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('profile.rewardsTab.onboarding.title')}</h3>
+              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
                 {onboardingProgress.completionPercentage}% {t('profile.rewardsTab.onboarding.complete')}
               </span>
             </div>
@@ -1646,27 +1670,29 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               <div className="flex items-start gap-3">
                 <div
                   className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                    onboardingProgress.milestones.followUsers.isComplete ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                    onboardingProgress.milestones.followUsers.isComplete 
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
                   }`}
                 >
                   {onboardingProgress.milestones.followUsers.isComplete ? '✓' : '👥'}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-medium text-gray-900">{onboardingProgress.milestones.followUsers.name}</h4>
-                    <span className="text-sm text-gray-600">{onboardingProgress.milestones.followUsers.displayReward}</span>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">{t('profile.rewardsTab.onboarding.milestones.followUsers.name')}</h4>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{onboardingProgress.milestones.followUsers.displayReward}</span>
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{onboardingProgress.milestones.followUsers.description}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{t('profile.rewardsTab.onboarding.milestones.followUsers.description')}</p>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full transition-all"
                         style={{
-                          width: `${(onboardingProgress.milestones.followUsers.current / onboardingProgress.milestones.followUsers.requirement) * 100}%`
+                          width: `${Math.min((onboardingProgress.milestones.followUsers.current / onboardingProgress.milestones.followUsers.requirement) * 100, 100)}%`
                         }}
                       />
                     </div>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-500">
                       {onboardingProgress.milestones.followUsers.current}/{onboardingProgress.milestones.followUsers.requirement}
                     </span>
                   </div>
@@ -1677,29 +1703,31 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               <div className="flex items-start gap-3">
                 <div
                   className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                    onboardingProgress.milestones.createRecommendations.isComplete ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                    onboardingProgress.milestones.createRecommendations.isComplete 
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
                   }`}
                 >
                   {onboardingProgress.milestones.createRecommendations.isComplete ? '✓' : '📝'}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-medium text-gray-900">{onboardingProgress.milestones.createRecommendations.name}</h4>
-                    <span className="text-sm text-gray-600">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">{t('profile.rewardsTab.onboarding.milestones.createRecommendations.name')}</h4>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
                       {onboardingProgress.milestones.createRecommendations.displayReward}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{onboardingProgress.milestones.createRecommendations.description}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{t('profile.rewardsTab.onboarding.milestones.createRecommendations.description')}</p>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full transition-all"
                         style={{
-                          width: `${(onboardingProgress.milestones.createRecommendations.current / onboardingProgress.milestones.createRecommendations.requirement) * 100}%`
+                          width: `${Math.min((onboardingProgress.milestones.createRecommendations.current / onboardingProgress.milestones.createRecommendations.requirement) * 100, 100)}%`
                         }}
                       />
                     </div>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-500">
                       {onboardingProgress.milestones.createRecommendations.current}/{onboardingProgress.milestones.createRecommendations.requirement}
                     </span>
                   </div>
@@ -1710,27 +1738,29 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               <div className="flex items-start gap-3">
                 <div
                   className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                    onboardingProgress.milestones.engageWithPosts.isComplete ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                    onboardingProgress.milestones.engageWithPosts.isComplete 
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
                   }`}
                 >
                   {onboardingProgress.milestones.engageWithPosts.isComplete ? '✓' : '💬'}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-medium text-gray-900">{onboardingProgress.milestones.engageWithPosts.name}</h4>
-                    <span className="text-sm text-gray-600">{onboardingProgress.milestones.engageWithPosts.displayReward}</span>
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">{t('profile.rewardsTab.onboarding.milestones.engageWithPosts.name')}</h4>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{onboardingProgress.milestones.engageWithPosts.displayReward}</span>
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{onboardingProgress.milestones.engageWithPosts.description}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{t('profile.rewardsTab.onboarding.milestones.engageWithPosts.description')}</p>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full transition-all"
                         style={{
-                          width: `${(onboardingProgress.milestones.engageWithPosts.current / onboardingProgress.milestones.engageWithPosts.requirement) * 100}%`
+                          width: `${Math.min((onboardingProgress.milestones.engageWithPosts.current / onboardingProgress.milestones.engageWithPosts.requirement) * 100, 100)}%`
                         }}
                       />
                     </div>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-500">
                       {onboardingProgress.milestones.engageWithPosts.current}/{onboardingProgress.milestones.engageWithPosts.requirement}
                     </span>
                   </div>
@@ -1739,9 +1769,13 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
             </div>
 
             {onboardingProgress.nextStep && (
-              <div className="mt-4 p-3 bg-white rounded-lg border border-blue-200">
-                <p className="text-sm text-gray-700">
-                  <span className="font-medium">{t('profile.rewardsTab.onboarding.nextStep')}</span> {onboardingProgress.nextStep}
+              <div className="mt-4 p-3 bg-white dark:bg-[#2D2C3A] rounded-lg border border-blue-200 dark:border-blue-800/50">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">{t('profile.rewardsTab.onboarding.nextStep')}</span>{' '}
+                  {onboardingProgress.nextStep === 'follow' && t('profile.rewardsTab.onboarding.milestones.followUsers.name')}
+                  {onboardingProgress.nextStep === 'recommend' && t('profile.rewardsTab.onboarding.milestones.createRecommendations.name')}
+                  {onboardingProgress.nextStep === 'engage' && t('profile.rewardsTab.onboarding.milestones.engageWithPosts.name')}
+                  {!['follow', 'recommend', 'engage'].includes(onboardingProgress.nextStep) && onboardingProgress.nextStep}
                 </p>
               </div>
             )}
@@ -1749,13 +1783,13 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         )}
 
         {onboardingProgress && onboardingProgress.isComplete && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-            <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('profile.rewardsTab.onboarding.completeTitle')}</h3>
-            <p className="text-gray-600 mb-2">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50 rounded-lg p-6 text-center">
+            <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('profile.rewardsTab.onboarding.completeTitle')}</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-2">
               {t('profile.rewardsTab.onboarding.completeDescription', { amount: onboardingProgress.displayTotalEarned })}
             </p>
-            <p className="text-sm text-gray-500">{t('profile.rewardsTab.onboarding.keepEngaging')}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-500">{t('profile.rewardsTab.onboarding.keepEngaging')}</p>
           </div>
         )}
       </div>
@@ -1766,11 +1800,11 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (!isOwnProfile) {
       return (
         <div className="text-center py-12">
-          <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('profile.activity.title')}</h3>
-          <p className="text-gray-500 mb-4">{t('profile.activity.description')}</p>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-md mx-auto">
-            <p className="text-sm text-gray-600">{t('profile.activity.comingSoon')}</p>
+          <Shield className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('profile.activity.title')}</h3>
+          <p className="text-gray-500 dark:text-gray-500 mb-4">{t('profile.activity.description')}</p>
+          <div className="bg-gray-50 dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] rounded-lg p-4 max-w-md mx-auto">
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('profile.activity.comingSoon')}</p>
           </div>
         </div>
       );
@@ -1779,53 +1813,53 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">{t('profile.activity.security.title')}</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('profile.activity.security.title')}</h3>
         </div>
 
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-3">
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-3">
             <Shield className="w-4 h-4" />
             {t('profile.activity.security.status')}
           </h4>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-700">{t('profile.activity.security.profileCompletion')}</span>
-              <span className="text-sm font-medium text-green-600">{profileCompletion}%</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('profile.activity.security.profileCompletion')}</span>
+              <span className="text-sm font-medium text-green-600 dark:text-green-400">{profileCompletion}%</span>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-700">{t('profile.activity.security.accountStatus')}</span>
-              <span className="text-sm font-medium text-blue-600">{t('profile.activity.security.active')}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('profile.activity.security.accountStatus')}</span>
+              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{t('profile.activity.security.active')}</span>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-700">{t('profile.activity.security.securityFeatures')}</span>
-              <span className="text-sm font-medium text-gray-600">{t('profile.activity.security.basic')}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('profile.activity.security.securityFeatures')}</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('profile.activity.security.basic')}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 flex items-center gap-2 mb-3">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-3">
             <Wallet className="w-4 h-4" />
             {t('profile.activity.security.backup.title')}
           </h4>
 
-          <p className="text-sm text-gray-600 mb-3">{t('profile.activity.security.backup.description')}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{t('profile.activity.security.backup.description')}</p>
 
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              <span className="text-gray-700">{t('profile.activity.security.backup.emailVerification')}</span>
+              <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />
+              <span className="text-gray-700 dark:text-gray-300">{t('profile.activity.security.backup.emailVerification')}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <div className="w-4 h-4 border-2 border-gray-300 rounded" />
-              <span className="text-gray-500">{t('profile.activity.security.backup.accountBackup')}</span>
+              <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded" />
+              <span className="text-gray-500 dark:text-gray-500">{t('profile.activity.security.backup.accountBackup')}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <div className="w-4 h-4 border-2 border-gray-300 rounded" />
-              <span className="text-gray-500">{t('profile.activity.security.backup.twoFactor')}</span>
+              <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded" />
+              <span className="text-gray-500 dark:text-gray-500">{t('profile.activity.security.backup.twoFactor')}</span>
             </div>
           </div>
         </div>
@@ -1834,23 +1868,23 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   };
 
   // -------------------------------
-  // Loading / not found (preserved)
+  // Loading / not found (preserved with dark mode)
   // -------------------------------
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="animate-pulse">
           <div className="flex items-start gap-6 mb-8">
-            <div className="w-24 h-24 bg-gray-200 rounded-full" />
+            <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full" />
             <div className="flex-1">
-              <div className="h-8 bg-gray-200 rounded w-48 mb-2" />
-              <div className="h-4 bg-gray-200 rounded w-32 mb-4" />
-              <div className="h-10 bg-gray-200 rounded w-24" />
+              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-2" />
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-4" />
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-24" />
             </div>
           </div>
           <div className="grid grid-cols-4 gap-4 mb-8">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-200 rounded" />
+              <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
             ))}
           </div>
         </div>
@@ -1862,9 +1896,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center">
-          <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('profile.header.userNotFound')}</h3>
-          <p className="text-gray-500">{t('profile.header.userNotFoundDescription')}</p>
+          <User className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('profile.header.userNotFound')}</h3>
+          <p className="text-gray-500 dark:text-gray-500">{t('profile.header.userNotFoundDescription')}</p>
         </div>
       </div>
     );
@@ -1885,18 +1919,18 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      {/* Compact Profile Header (refactor style, preserving data) */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
+      {/* Compact Profile Header */}
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-[#3D3C4A] p-4 mb-4">
         <div className="flex items-start gap-4">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
             <img
               src={user.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${user.username || user.userId}`}
               alt={user.displayName}
-              className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border border-gray-200"
+              className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border border-gray-200 dark:border-[#3D3C4A]"
             />
             {user.verificationLevel !== 'basic' && (
-              <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
+              <div className="absolute -bottom-1 -right-1 bg-white dark:bg-[#2D2C3A] rounded-full p-0.5">
                 {getVerificationIcon(user.verificationLevel) || <CheckCircle className="w-5 h-5 text-green-500" />}
               </div>
             )}
@@ -1906,17 +1940,17 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h1 className="text-lg md:text-xl font-bold text-gray-900 truncate">
+                <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
                   {user.displayName || user.username}
                 </h1>
-                <p className="text-sm text-gray-500 truncate">@{user.username}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 truncate">@{user.username}</p>
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
                 {isOwnProfile ? (
                   <button
                     onClick={() => setShowProfileEditor(true)}
-                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#353444] rounded-lg transition-colors"
                     title={t('profile.header.editProfile')}
                   >
                     <Settings className="w-5 h-5" />
@@ -1926,7 +1960,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                     onClick={handleFollow}
                     disabled={followLoading}
                     className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                      isFollowing ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-blue-500 text-white hover:bg-blue-600'
+                      isFollowing 
+                        ? 'bg-gray-100 dark:bg-[#353444] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#3D3C4A]' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
                     } ${followLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <Users className="w-4 h-4" />
@@ -1936,7 +1972,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
                 <button
                   onClick={handleShare}
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#353444] rounded-lg transition-colors"
                   title={t('profile.actions.share')}
                 >
                   <Share2 className="w-5 h-5" />
@@ -1945,10 +1981,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
             </div>
 
             {/* Bio */}
-            {user.bio && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{user.bio}</p>}
+            {user.bio && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{user.bio}</p>}
 
             {/* Meta */}
-            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500">
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500 dark:text-gray-500">
               <span className="flex items-center gap-1">
                 {authInfo.icon}
                 {authInfo.display}
@@ -1970,16 +2006,16 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         </div>
 
         {/* Compact Stats Row (clickable -> tab routing) */}
-        <div className="flex items-center justify-around mt-4 pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-around mt-4 pt-4 border-t border-gray-100 dark:border-[#3D3C4A]">
           <button
             onClick={() => {
               setActiveTab('activity');
               setActivitySubTab('recommendations');
             }}
-            className="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+            className="text-center hover:bg-gray-50 dark:hover:bg-[#353444] px-4 py-2 rounded-lg transition-colors"
           >
-            <div className="text-lg font-bold text-gray-900">{user.totalRecommendations}</div>
-            <div className="text-xs text-gray-500">{t('profile.stats.recommendations')}</div>
+            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{user.totalRecommendations}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-500">{t('profile.stats.recommendations')}</div>
           </button>
 
           <button
@@ -1987,10 +2023,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               setActiveTab('network');
               setNetworkSubTab('followers');
             }}
-            className="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+            className="text-center hover:bg-gray-50 dark:hover:bg-[#353444] px-4 py-2 rounded-lg transition-colors"
           >
-            <div className="text-lg font-bold text-gray-900">{user.followers}</div>
-            <div className="text-xs text-gray-500">{t('profile.stats.followers')}</div>
+            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{user.followers}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-500">{t('profile.stats.followers')}</div>
           </button>
 
           <button
@@ -1998,10 +2034,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               setActiveTab('network');
               setNetworkSubTab('following');
             }}
-            className="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+            className="text-center hover:bg-gray-50 dark:hover:bg-[#353444] px-4 py-2 rounded-lg transition-colors"
           >
-            <div className="text-lg font-bold text-gray-900">{user.following}</div>
-            <div className="text-xs text-gray-500">{t('profile.stats.following')}</div>
+            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{user.following}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-500">{t('profile.stats.following')}</div>
           </button>
 
           {isOwnProfile && (
@@ -2010,21 +2046,21 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 setActiveTab('settings');
                 setSettingsSubTab('rewards');
               }}
-              className="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+              className="text-center hover:bg-gray-50 dark:hover:bg-[#353444] px-4 py-2 rounded-lg transition-colors"
             >
-              <div className="text-lg font-bold text-orange-600">
+              <div className="text-lg font-bold text-orange-600 dark:text-[#FF644A]">
                 {tokenBalanceLoading ? '...' : tokenBalance.toFixed(1)}
               </div>
-              <div className="text-xs text-gray-500">{t('profile.stats.tokensEarned')}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-500">{t('profile.stats.tokensEarned')}</div>
             </button>
           )}
         </div>
       </div>
 
       {/* Main Tabs Container */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-[#3D3C4A] overflow-hidden">
         {/* Main Tab Nav */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 dark:border-[#3D3C4A]">
           {mainTabs
             .filter((x) => x.visible)
             .map((tab) => (
@@ -2032,12 +2068,14 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors relative ${
-                  activeTab === tab.key ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  activeTab === tab.key 
+                    ? 'text-blue-600 dark:text-blue-400' 
+                    : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
               >
                 {tab.icon}
                 <span className="hidden sm:inline">{tab.label}</span>
-                {activeTab === tab.key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+                {activeTab === tab.key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />}
               </button>
             ))}
         </div>
@@ -2058,11 +2096,13 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           {/* Activity */}
           {activeTab === 'activity' && (
             <div>
-              <div className="flex flex-wrap items-center gap-1 p-2 bg-gray-50 border-b border-gray-100">
+              <div className="flex flex-wrap items-center gap-1 p-2 bg-gray-50 dark:bg-[#353444] border-b border-gray-100 dark:border-[#3D3C4A]">
                 <button
                   onClick={() => setActivitySubTab('recommendations')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    activitySubTab === 'recommendations' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    activitySubTab === 'recommendations' 
+                      ? 'bg-white dark:bg-[#2D2C3A] shadow-sm text-gray-900 dark:text-gray-100' 
+                      : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -2072,7 +2112,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 <button
                   onClick={() => setActivitySubTab('reshares')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    activitySubTab === 'reshares' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    activitySubTab === 'reshares' 
+                      ? 'bg-white dark:bg-[#2D2C3A] shadow-sm text-gray-900 dark:text-gray-100' 
+                      : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   <Repeat2 className="w-4 h-4" />
@@ -2082,7 +2124,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 <button
                   onClick={() => setActivitySubTab('lists')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    activitySubTab === 'lists' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    activitySubTab === 'lists' 
+                      ? 'bg-white dark:bg-[#2D2C3A] shadow-sm text-gray-900 dark:text-gray-100' 
+                      : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   <List className="w-4 h-4" />
@@ -2094,7 +2138,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 <button
                   onClick={() => setActivitySubTab('likes')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    activitySubTab === 'likes' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    activitySubTab === 'likes' 
+                      ? 'bg-white dark:bg-[#2D2C3A] shadow-sm text-gray-900 dark:text-gray-100' 
+                      : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   <Heart className="w-4 h-4" />
@@ -2104,7 +2150,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 <button
                   onClick={() => setActivitySubTab('bookmarks')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    activitySubTab === 'bookmarks' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    activitySubTab === 'bookmarks' 
+                      ? 'bg-white dark:bg-[#2D2C3A] shadow-sm text-gray-900 dark:text-gray-100' 
+                      : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   <Bookmark className="w-4 h-4" />
@@ -2125,24 +2173,28 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           {/* Network */}
           {activeTab === 'network' && (
             <div>
-              <div className="flex items-center gap-1 p-2 bg-gray-50 border-b border-gray-100">
+              <div className="flex items-center gap-1 p-2 bg-gray-50 dark:bg-[#353444] border-b border-gray-100 dark:border-[#3D3C4A]">
                 <button
                   onClick={() => setNetworkSubTab('followers')}
                   className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    networkSubTab === 'followers' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    networkSubTab === 'followers' 
+                      ? 'bg-white dark:bg-[#2D2C3A] shadow-sm text-gray-900 dark:text-gray-100' 
+                      : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   {t('profile.tabs.followers')}
-                  <span className="text-xs text-gray-400">({user.followers})</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">({user.followers})</span>
                 </button>
                 <button
                   onClick={() => setNetworkSubTab('following')}
                   className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    networkSubTab === 'following' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    networkSubTab === 'following' 
+                      ? 'bg-white dark:bg-[#2D2C3A] shadow-sm text-gray-900 dark:text-gray-100' 
+                      : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   {t('profile.tabs.following')}
-                  <span className="text-xs text-gray-400">({user.following})</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">({user.following})</span>
                 </button>
               </div>
 
@@ -2156,11 +2208,13 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           {/* Settings (own only) */}
           {activeTab === 'settings' && isOwnProfile && (
             <div>
-              <div className="flex items-center gap-1 p-2 bg-gray-50 border-b border-gray-100">
+              <div className="flex items-center gap-1 p-2 bg-gray-50 dark:bg-[#353444] border-b border-gray-100 dark:border-[#3D3C4A]">
                 <button
                   onClick={() => setSettingsSubTab('rewards')}
                   className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    settingsSubTab === 'rewards' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    settingsSubTab === 'rewards' 
+                      ? 'bg-white dark:bg-[#2D2C3A] shadow-sm text-gray-900 dark:text-gray-100' 
+                      : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   <Award className="w-4 h-4" />
@@ -2169,7 +2223,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 <button
                   onClick={() => setSettingsSubTab('security')}
                   className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    settingsSubTab === 'security' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    settingsSubTab === 'security' 
+                      ? 'bg-white dark:bg-[#2D2C3A] shadow-sm text-gray-900 dark:text-gray-100' 
+                      : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   <Shield className="w-4 h-4" />

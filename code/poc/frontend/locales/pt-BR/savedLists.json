@@ -1,0 +1,253 @@
+{
+  "title": "Minhas Listas Salvas",
+  "subtitle": "Organize seus restaurantes favoritos",
+  "pageTitle": "Minhas Listas Salvas",
+  "pageDescription": "Organize seus lugares favoritos, salvos e guias",
+  "createNew": "Criar Nova Lista",
+  "createNewList": "Criar Nova Lista",
+  "createFirstList": "Criar Sua Primeira Lista",
+  
+  "tabs": {
+    "all": "Todas as Listas",
+    "places": "Listas Pessoais",
+    "guides": "Listas Curadas"
+  },
+  
+  "emptyState": {
+    "title": "Nenhuma lista salva ainda",
+    "description": "Comece a organizar seus restaurantes favoritos criando sua primeira lista!"
+  },
+  
+  "empty": {
+    "all": "Nenhuma lista salva ainda",
+    "places": "Nenhuma lista pessoal ainda",
+    "guides": "Nenhuma lista curada ainda",
+    "description": "Crie sua primeira lista para começar a organizar seus restaurantes e descobertas favoritas."
+  },
+  
+  "error": {
+    "title": "Erro ao carregar listas",
+    "tryAgain": "Tentar novamente"
+  },
+  
+  "listTypes": {
+    "places": "Lugares para Conhecer",
+    "bookmarks": "Favoritos",
+    "collection": "Coleção",
+    "list": "Lista"
+  },
+  
+  "privacy": {
+    "public": "Público",
+    "private": "Privado"
+  },
+  
+  "time": {
+    "justNow": "Agora mesmo",
+    "hoursAgo": "{hours}h atrás",
+    "yesterday": "Ontem",
+    "daysAgo": "{days}d atrás"
+  },
+  
+  "restaurantCount": "{count, plural, =0 {Nenhum restaurante} =1 {1 restaurante} other {# restaurantes}}",
+  "byYou": "Por você",
+  "viewList": "Ver Lista",
+  "linkCopied": "Link copiado!",
+  
+  "actions": {
+    "edit": "Editar",
+    "share": "Compartilhar",
+    "delete": "Excluir",
+    "addRestaurant": "Adicionar Restaurante"
+  },
+  
+  "deleteConfirm": "Excluir \"{name}\"? Essa ação não pode ser desfeita.",
+  
+  "detail": {
+    "backToLists": "Voltar para Minhas Listas",
+    "restaurants": "Restaurantes",
+    "created": "Criado",
+    "updated": "Atualizado",
+    "editList": "Editar Lista",
+    "publishCuratedList": "Publicar Lista Curada",
+    "noRestaurants": {
+      "title": "Nenhum restaurante ainda",
+      "description": "Comece a adicionar seus lugares favoritos a esta lista!",
+      "addButton": "Adicionar Restaurantes"
+    },
+    "listNotFound": {
+      "title": "Lista não encontrada",
+      "description": "Falha ao carregar lista"
+    },
+    "loading": "Carregando sua lista..."
+  },
+  
+  "edit": {
+    "title": "Editar Lista",
+    "fields": {
+      "icon": {
+        "label": "Ícone da Lista",
+        "hint": "Clique para alterar o ícone"
+      },
+      "name": {
+        "label": "Nome da Lista",
+        "placeholder": "Digite o nome da lista..."
+      },
+      "description": {
+        "label": "Descrição",
+        "placeholder": "Adicione uma descrição para sua lista..."
+      },
+      "notes": {
+        "label": "Notas (Rascunho)",
+        "placeholder": "Adicione notas para sua lista curada...",
+        "hint": "Estas notas serão incluídas quando você publicar como lista curada."
+      }
+    },
+    "restaurants": {
+      "title": "Restaurantes ({count})",
+      "addButton": "Adicionar",
+      "removeButton": "Remover",
+      "empty": "Nenhum restaurante adicionado ainda. Comece a construir sua lista!",
+      "search": {
+        "title": "Buscar Restaurante",
+        "placeholder": "Busque um restaurante para adicionar...",
+        "hint": "Busque por nome ou localização"
+      }
+    },
+    "actions": {
+      "save": "Salvar Alterações",
+      "saving": "Salvando..."
+    },
+    "validation": {
+      "nameRequired": "Nome da lista é obrigatório"
+    },
+    "errors": {
+      "updateFailed": "Falha ao atualizar lista. Tente novamente.",
+      "removeFailed": "Falha ao remover restaurante. Tente novamente.",
+      "addFailed": "Falha ao adicionar restaurante. Tente novamente."
+    }
+  },
+  
+  "form": {
+    "title": "Criar Nova Lista",
+    "fields": {
+      "name": {
+        "label": "Nome da Lista",
+        "placeholder": "ex.: Melhores Pizzarias, Lugares para um Date..."
+      },
+      "description": {
+        "label": "Descrição",
+        "placeholder": "Sobre o que é essa lista?"
+      }
+    },
+    "actions": {
+      "create": "Criar Lista",
+      "creating": "Criando..."
+    },
+    "validation": {
+      "nameRequired": "Por favor, digite um nome para sua lista"
+    },
+    "errors": {
+      "createFailed": "Falha ao criar lista. Tente novamente."
+    }
+  },
+  
+  "modal": {
+    "title": {
+      "create": "Criar Nova Lista",
+      "restaurant": "Salvar Restaurante na Lista",
+      "recommendation": "Salvar Recomendação na Lista",
+      "guide": "Salvar Guia na Lista"
+    },
+    "loading": "Carregando suas listas...",
+    "itemCount": "{count, plural, =0 {Nenhum item} =1 {1 item} other {# itens}}",
+    "alreadySaved": "Salvo",
+    "empty": {
+      "title": "Nenhuma lista ainda",
+      "description": "Crie sua primeira lista para começar a salvar itens!"
+    },
+    "fields": {
+      "nameRequired": "Nome da Lista *",
+      "namePlaceholder": "ex.: Lugares para Encontros",
+      "descriptionLabel": "Descrição (opcional)",
+      "descriptionPlaceholder": "Para que serve esta lista?"
+    },
+    "actions": {
+      "createNew": "Criar Nova Lista",
+      "saving": "Salvando...",
+      "cancel": "Cancelar",
+      "create": "Criar Lista",
+      "creating": "Criando..."
+    },
+    "toast": {
+      "saved": "Salvo na lista!",
+      "saveFailed": "Falha ao salvar. Tente novamente.",
+      "loadFailed": "Falha ao carregar listas. Tente novamente.",
+      "createdAndSaved": "Criado \"{name}\" e salvo!",
+      "saveToNewFailed": "Lista criada mas falha ao salvar item. Tente novamente."
+    }
+  },
+  
+  "publish": {
+    "title": "Publicar Lista Curada",
+    "success": "\"{title}\" foi publicado com sucesso!",
+    "footerNote": "Seu guia ficará visível para a comunidade",
+    "infoBanner": {
+      "title": "Compartilhe suas recomendações",
+      "description": "Publicar sua lista a transforma em um guia público que outros podem descobrir, salvar e seguir. Você pode editar ou despublicar a qualquer momento."
+    },
+    "fields": {
+      "title": {
+        "label": "Título do Guia",
+        "placeholder": "Dê um título interessante ao seu guia..."
+      },
+      "description": {
+        "label": "Descrição",
+        "placeholder": "Conte às pessoas o que torna este guia especial...",
+        "hintPrefilled": "Preenchido a partir das notas da sua lista",
+        "hintEmpty": "Adicione uma descrição para ajudar as pessoas a descobrir seu guia"
+      },
+      "category": {
+        "label": "Categoria",
+        "options": {
+          "restaurants": "Restaurantes",
+          "cafes": "Cafés",
+          "bars": "Bares",
+          "quickBites": "Lanches Rápidos",
+          "fineDining": "Alta Gastronomia",
+          "localFavorites": "Favoritos Locais"
+        }
+      },
+      "city": {
+        "label": "Cidade"
+      },
+      "bestFor": {
+        "label": "Ideal Para",
+        "placeholder": "ex.: Encontros, Almoço de negócios, Família..."
+      },
+      "tags": {
+        "label": "Tags",
+        "placeholder": "ex.: Italiano, Área externa, Econômico...",
+        "hint": "Separe as tags com vírgulas"
+      }
+    },
+    "preview": {
+      "title": "Prévia",
+      "restaurantsIncluded": "Restaurantes incluídos",
+      "restaurantCount": "{count, plural, =1 {1 restaurante} other {# restaurantes}}",
+      "moreRestaurants": "...e mais {count}"
+    },
+    "actions": {
+      "publish": "Publicar Guia",
+      "publishing": "Publicando..."
+    },
+    "validation": {
+      "titleRequired": "Por favor, digite um título para seu guia",
+      "emptyList": "Adicione pelo menos um restaurante antes de publicar"
+    },
+    "errors": {
+      "notLoggedIn": "Faça login para publicar guias",
+      "publishFailed": "Falha ao publicar guia. Tente novamente."
+    }
+  }
+}

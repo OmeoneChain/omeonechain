@@ -51,6 +51,8 @@ import bountyRoutes from './routes/bounty';
 import mapRecommendationsRouter from './api/routes/map-recommendations';
 import { getGooglePlacesCacheService } from './services/google-places-cache';
 import uploadRouter from './api/routes/upload';
+import rewardRoutes from './api/routes/rewards';
+import phoneAuthRoutes from './api/routes/phone-auth';
 
 // Add server identification
 console.log('🟢 REAL SERVER RUNNING - src/server.ts - TWO-TIER AUTH + USER PROFILE INTEGRATION');
@@ -657,273 +659,279 @@ const router = express.Router();
 // TWO-TIER AUTHENTICATION ENDPOINTS WITH ONBOARDING
 // =============================================================================
 
-// ===========================
-// EMAIL AUTHENTICATION (Basic Tier)
-// ===========================
+// ==========================================================================
+// DISABLED: Email auth removed - phone/wallet only (Jan 2026)
+// Email may be re-enabled later for: account recovery, 2FA, B2B restaurant portal
+// To re-enable: uncomment these routes and corresponding frontend code
+// ==========================================================================
 
-// Register with email
-router.post('/auth/email/register', async (req, res) => {
-  try {
-    console.log('📧 Email registration request:', req.body.email);
-    
-    const validation = emailRegisterSchema.safeParse(req.body);
-    if (!validation.success) {
-      console.error('❌ Registration validation failed:', validation.error.errors);
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid registration data',
-        details: validation.error.errors
-      });
-    }
+// // ===========================
+// // EMAIL AUTHENTICATION (Basic Tier) - DISABLED
+// // ===========================
 
-    const { email, password, username, display_name } = validation.data;
-    const emailLower = email.toLowerCase();
+// // Register with email
+// router.post('/auth/email/register', async (req, res) => {
+//   try {
+//     console.log('📧 Email registration request:', req.body.email);
+//     
+//     const validation = emailRegisterSchema.safeParse(req.body);
+//     if (!validation.success) {
+//       console.error('❌ Registration validation failed:', validation.error.errors);
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid registration data',
+//         details: validation.error.errors
+//       });
+//     }
+//
+//     const { email, password, username, display_name } = validation.data;
+//     const emailLower = email.toLowerCase();
+//
+//     // Check if email already exists
+//     const { data: existingUser, error: checkError } = await supabase
+//       .from('users')
+//       .select('id, email')
+//       .eq('email', emailLower)
+//       .single();
+//
+//     if (existingUser && !checkError) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Email already registered',
+//         field: 'email'
+//       });
+//     }
+//
+//     // Check if username is taken (if provided)
+//     if (username) {
+//       const { data: existingUsername } = await supabase
+//         .from('users')
+//         .select('id')
+//         .eq('username', username)
+//         .single();
+//
+//       if (existingUsername) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Username already taken',
+//           field: 'username'
+//         });
+//       }
+//     }
+//
+//     // Hash password
+//     const password_hash = await bcrypt.hash(password, 10);
+//
+//     // Generate clean username with collision checking
+//     let finalUsername: string;
+//
+//     if (username) {
+//       finalUsername = username;
+//     } else {
+//       const baseUsername = emailLower.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+//       let testUsername = baseUsername;
+//       let attempts = 0;
+//       
+//       while (attempts < 10) {
+//         const { data: existing } = await supabase
+//           .from('users')
+//           .select('id')
+//           .eq('username', testUsername)
+//           .maybeSingle();
+//         
+//         if (!existing) {
+//           finalUsername = testUsername;
+//           break;
+//         }
+//         
+//         attempts++;
+//         testUsername = `${baseUsername}${attempts}`;
+//       }
+//       
+//       if (!finalUsername!) {
+//         finalUsername = `user_${Date.now()}`;
+//       }
+//     }
+//
+//     const finalDisplayName = display_name || 
+//                             (finalUsername.charAt(0).toUpperCase() + finalUsername.slice(1));
+//
+//     // Create user with onboarding fields
+//     const newUser: DatabaseUser = {
+//       email: emailLower,
+//       password_hash,
+//       username: finalUsername,
+//       display_name: finalDisplayName,
+//       account_tier: 'email_basic',
+//       auth_method: 'email',
+//       reputation_score: 0,
+//       trust_score: 0,
+//       staking_balance: 0,
+//       staking_tier: 'explorer',
+//       verification_level: 'basic',
+//       pending_token_claims: 0,
+//       location_country: 'BR',
+//       onboarding_completed: false,
+//       onboarding_step: 'welcome',
+//       profile_completion: 25
+//     };
+//
+//     const { data: createdUser, error: createError } = await supabase
+//       .from('users')
+//       .insert(newUser)
+//       .select()
+//       .single();
+//
+//     if (createError) {
+//       console.error('❌ User creation error:', createError);
+//       
+//       if (createError.code === '23505' && createError.message.includes('username')) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Username already taken. Please try a different one.',
+//           field: 'username'
+//         });
+//       }
+//       
+//       throw createError;
+//     }
+//
+//     // Generate JWT
+//     const jwtToken = JWTUtils.generateToken({
+//       userId: createdUser.id!,
+//       email: emailLower,
+//       accountTier: 'email_basic',
+//       authMethod: 'email'
+//     });
+//
+//     console.log(`✅ Email user created: ${createdUser.id} with username: ${finalUsername}`);
+//
+//     const profileCompletion = calculateProfileCompletion(createdUser);
+//
+//     res.json({
+//       success: true,
+//       token: jwtToken,
+//       user: {
+//         id: createdUser.id,
+//         email: createdUser.email,
+//         username: createdUser.username,
+//         display_name: createdUser.display_name,
+//         accountTier: 'email_basic',
+//         authMethod: 'email',
+//         profileCompletion,
+//         pendingTokenClaims: 0,
+//         reputationScore: 0,
+//         trustScore: 0,
+//         onboarding_completed: false,
+//         onboarding_step: 'welcome'
+//       },
+//       isNewUser: true,
+//       expiresIn: 86400
+//     });
+//
+//   } catch (error) {
+//     console.error('❌ Email registration error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Registration failed'
+//     });
+//   }
+// });
 
-    // Check if email already exists
-    const { data: existingUser, error: checkError } = await supabase
-      .from('users')
-      .select('id, email')
-      .eq('email', emailLower)
-      .single();
-
-    if (existingUser && !checkError) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email already registered',
-        field: 'email'
-      });
-    }
-
-    // Check if username is taken (if provided)
-    if (username) {
-      const { data: existingUsername } = await supabase
-        .from('users')
-        .select('id')
-        .eq('username', username)
-        .single();
-
-      if (existingUsername) {
-        return res.status(400).json({
-          success: false,
-          error: 'Username already taken',
-          field: 'username'
-        });
-      }
-    }
-
-    // Hash password
-    const password_hash = await bcrypt.hash(password, 10);
-
-    // Generate clean username with collision checking
-    let finalUsername: string;
-
-    if (username) {
-      finalUsername = username;
-    } else {
-      const baseUsername = emailLower.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-      let testUsername = baseUsername;
-      let attempts = 0;
-      
-      while (attempts < 10) {
-        const { data: existing } = await supabase
-          .from('users')
-          .select('id')
-          .eq('username', testUsername)
-          .maybeSingle();
-        
-        if (!existing) {
-          finalUsername = testUsername;
-          break;
-        }
-        
-        attempts++;
-        testUsername = `${baseUsername}${attempts}`;
-      }
-      
-      if (!finalUsername!) {
-        finalUsername = `user_${Date.now()}`;
-      }
-    }
-
-    const finalDisplayName = display_name || 
-                            (finalUsername.charAt(0).toUpperCase() + finalUsername.slice(1));
-
-    // Create user with onboarding fields
-    const newUser: DatabaseUser = {
-      email: emailLower,
-      password_hash,
-      username: finalUsername,
-      display_name: finalDisplayName,
-      account_tier: 'email_basic',
-      auth_method: 'email',
-      reputation_score: 0,
-      trust_score: 0,
-      staking_balance: 0,
-      staking_tier: 'explorer',
-      verification_level: 'basic',
-      pending_token_claims: 0,
-      location_country: 'BR',
-      onboarding_completed: false,
-      onboarding_step: 'welcome',  // NEW: Start at welcome step
-      profile_completion: 25
-    };
-
-    const { data: createdUser, error: createError } = await supabase
-      .from('users')
-      .insert(newUser)
-      .select()
-      .single();
-
-    if (createError) {
-      console.error('❌ User creation error:', createError);
-      
-      if (createError.code === '23505' && createError.message.includes('username')) {
-        return res.status(400).json({
-          success: false,
-          error: 'Username already taken. Please try a different one.',
-          field: 'username'
-        });
-      }
-      
-      throw createError;
-    }
-
-    // Generate JWT
-    const jwtToken = JWTUtils.generateToken({
-      userId: createdUser.id!,
-      email: emailLower,
-      accountTier: 'email_basic',
-      authMethod: 'email'
-    });
-
-    console.log(`✅ Email user created: ${createdUser.id} with username: ${finalUsername}`);
-
-    const profileCompletion = calculateProfileCompletion(createdUser);
-
-    res.json({
-      success: true,
-      token: jwtToken,
-      user: {
-        id: createdUser.id,
-        email: createdUser.email,
-        username: createdUser.username,
-        display_name: createdUser.display_name,
-        accountTier: 'email_basic',
-        authMethod: 'email',
-        profileCompletion,
-        pendingTokenClaims: 0,
-        reputationScore: 0,
-        trustScore: 0,
-        onboarding_completed: false,
-        onboarding_step: 'welcome'  // NEW: Include current step
-      },
-      isNewUser: true,
-      expiresIn: 86400
-    });
-
-  } catch (error) {
-    console.error('❌ Email registration error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Registration failed'
-    });
-  }
-});
-
-// Login with email
-router.post('/auth/email/login', async (req, res) => {
-  try {
-    console.log('📧 Email login request:', req.body.email);
-    
-    const validation = emailLoginSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid login data',
-        details: validation.error.errors
-      });
-    }
-
-    const { email, password } = validation.data;
-    const emailLower = email.toLowerCase();
-
-    // Find user by email
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', emailLower)
-      .single();
-
-    if (error || !user || !user.password_hash) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid email or password'
-      });
-    }
-
-    // Verify password
-    const passwordValid = await bcrypt.compare(password, user.password_hash);
-    if (!passwordValid) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid email or password'
-      });
-    }
-
-    // Update last login
-    await supabase
-      .from('users')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', user.id);
-
-    // Generate JWT
-    const jwtToken = JWTUtils.generateToken({
-      userId: user.id!,
-      email: emailLower,
-      accountTier: user.account_tier || 'email_basic',
-      authMethod: user.auth_method || 'email'
-    });
-
-    console.log(`✅ Email user logged in: ${user.id}`);
-
-    const profileCompletion = calculateProfileCompletion(user);
-
-    res.json({
-      success: true,
-      token: jwtToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        display_name: user.display_name,
-        bio: user.bio,
-        avatar_url: user.avatar_url,
-        location_city: user.location_city,
-        location_country: user.location_country,
-        accountTier: user.account_tier || 'email_basic',
-        authMethod: user.auth_method || 'email',
-        profileCompletion,
-        pendingTokenClaims: user.pending_token_claims || 0,
-        reputationScore: user.reputation_score || 0,
-        trustScore: user.trust_score || 0,
-        stakingBalance: user.staking_balance || 0,
-        stakingTier: user.staking_tier || 'explorer',
-        verificationLevel: user.verification_level || 'basic',
-        onboarding_completed: user.onboarding_completed || false,
-        onboarding_step: user.onboarding_step || 'complete'
-      },
-      isNewUser: false,
-      expiresIn: 86400
-    });
-
-  } catch (error) {
-    console.error('❌ Email login error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Login failed'
-    });
-  }
-});
+// // Login with email
+// router.post('/auth/email/login', async (req, res) => {
+//   try {
+//     console.log('📧 Email login request:', req.body.email);
+//     
+//     const validation = emailLoginSchema.safeParse(req.body);
+//     if (!validation.success) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid login data',
+//         details: validation.error.errors
+//       });
+//     }
+//
+//     const { email, password } = validation.data;
+//     const emailLower = email.toLowerCase();
+//
+//     // Find user by email
+//     const { data: user, error } = await supabase
+//       .from('users')
+//       .select('*')
+//       .eq('email', emailLower)
+//       .single();
+//
+//     if (error || !user || !user.password_hash) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Invalid email or password'
+//       });
+//     }
+//
+//     // Verify password
+//     const passwordValid = await bcrypt.compare(password, user.password_hash);
+//     if (!passwordValid) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Invalid email or password'
+//       });
+//     }
+//
+//     // Update last login
+//     await supabase
+//       .from('users')
+//       .update({ updated_at: new Date().toISOString() })
+//       .eq('id', user.id);
+//
+//     // Generate JWT
+//     const jwtToken = JWTUtils.generateToken({
+//       userId: user.id!,
+//       email: emailLower,
+//       accountTier: user.account_tier || 'email_basic',
+//       authMethod: user.auth_method || 'email'
+//     });
+//
+//     console.log(`✅ Email user logged in: ${user.id}`);
+//
+//     const profileCompletion = calculateProfileCompletion(user);
+//
+//     res.json({
+//       success: true,
+//       token: jwtToken,
+//       user: {
+//         id: user.id,
+//         email: user.email,
+//         username: user.username,
+//         display_name: user.display_name,
+//         bio: user.bio,
+//         avatar_url: user.avatar_url,
+//         location_city: user.location_city,
+//         location_country: user.location_country,
+//         accountTier: user.account_tier || 'email_basic',
+//         authMethod: user.auth_method || 'email',
+//         profileCompletion,
+//         pendingTokenClaims: user.pending_token_claims || 0,
+//         reputationScore: user.reputation_score || 0,
+//         trustScore: user.trust_score || 0,
+//         stakingBalance: user.staking_balance || 0,
+//         stakingTier: user.staking_tier || 'explorer',
+//         verificationLevel: user.verification_level || 'basic',
+//         onboarding_completed: user.onboarding_completed || false,
+//         onboarding_step: user.onboarding_step || 'complete'
+//       },
+//       isNewUser: false,
+//       expiresIn: 86400
+//     });
+//
+//   } catch (error) {
+//     console.error('❌ Email login error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Login failed'
+//     });
+//   }
+// });
 
 // ===========================
 // WALLET AUTHENTICATION (Full Tier)
@@ -1033,7 +1041,7 @@ router.post('/auth/wallet/verify', async (req, res) => {
         .from('users')
         .update({ 
           updated_at: new Date().toISOString(),
-          account_tier: 'wallet_full',
+          account_tier: 'wallet',
           auth_method: 'wallet'
         })
         .eq('wallet_address', walletAddressLower)
@@ -1054,7 +1062,7 @@ router.post('/auth/wallet/verify', async (req, res) => {
         wallet_address: walletAddressLower,
         username: `user_${walletAddress.slice(2, 8).toLowerCase()}`,
         display_name: `User ${walletAddress.slice(2, 8)}`,
-        account_tier: 'wallet_full',
+        account_tier: 'wallet',
         auth_method: 'wallet',
         reputation_score: 0,
         trust_score: 0,
@@ -1456,7 +1464,7 @@ router.post('/auth/login', async (req, res) => {
         .from('users')
         .update({ 
           updated_at: new Date().toISOString(), 
-          account_tier: 'wallet_full', 
+          account_tier: 'wallet', 
           auth_method: 'wallet' 
         })
         .eq('wallet_address', walletAddressLower)
@@ -1470,7 +1478,7 @@ router.post('/auth/login', async (req, res) => {
           wallet_address: walletAddressLower,
           username: `user_${walletAddress.slice(2, 8)}`,
           display_name: `User ${walletAddress.slice(2, 8)}`,
-          account_tier: 'wallet_full',
+          account_tier: 'wallet',
           auth_method: 'wallet',
           pending_tokens: 0,
           reputation_score: 0,
@@ -1540,7 +1548,7 @@ router.post('/auth/email-signup', async (req, res) => {
         email: emailLower,
         password_hash,
         display_name: displayName || emailLower.split('@')[0],
-        account_tier: 'email_basic',
+        account_tier: 'verified',
         auth_method: 'email',
         pending_tokens: 0,
         reputation_score: 0,
@@ -1813,6 +1821,55 @@ router.patch('/auth/profile', authenticateToken, async (req, res) => {
 });
 
 // =============================================================================
+// TOKEN ENDPOINTS
+// =============================================================================
+
+// GET /api/tokens/balance - Get current user's token balance
+router.get('/tokens/balance', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('tokens_earned, pending_tokens, staking_balance')
+      .eq('id', userId)
+      .single();
+
+    if (error || !user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const tokensEarned = parseFloat(user.tokens_earned) || 0;
+    const pendingTokens = parseFloat(user.pending_tokens) || 0;
+    const stakingBalance = parseFloat(user.staking_balance) || 0;
+    
+    const availableBalance = tokensEarned;
+
+    console.log(`💰 Token balance for user ${userId}: ${availableBalance} BOCA`);
+
+    res.json({
+      success: true,
+      balance: availableBalance,
+      details: {
+        tokens_earned: tokensEarned,
+        pending_tokens: pendingTokens,
+        staking_balance: stakingBalance
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get token balance error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get token balance'
+    });
+  }
+});
+
+// =============================================================================
 // USER PROFILE INTEGRATION ENDPOINTS
 // =============================================================================
 
@@ -1965,11 +2022,11 @@ app.use('/api/lottery', lotteryRoutes);
 
 app.use('/api/photo-contest', photoContestRoutes);
 
-app.use('/api/bounties', bountyRoutes);
-
 app.use('/api/recommendations', mapRecommendationsRouter);
 
 app.use('/api/upload', uploadRouter);
+
+app.use('/api/auth/phone', phoneAuthRoutes);
 
 // =============================================================================
 // 🔥 CRITICAL FIX: MOUNT ROUTER TO APP
@@ -1986,6 +2043,8 @@ app.use('/api/social', optionalAuth, socialRoutes);
 
 // Mount the list routes
 app.use('/api/lists', optionalAuth, guidesRoutes);
+
+app.use('/api/bounty', optionalAuth, bountyRoutes);
 
 // Mount the enhanced recommendation routes with Trust Score 2.0 support
 app.use('/api/recommendations', recommendationRoutes);
@@ -2011,8 +2070,13 @@ app.use('/api', authenticateToken, notificationsRoutes);
 // Onboarding routes (Option A - v0.8)
 app.use('/api/onboarding', authenticateToken, onboardingRoutes);
 
-// Rewards routes (Option A - v0.8)  
+// OLD: Social rewards - helpful comments, boosts, reshare attribution
+// Routes: /api/recommendations/:recId/boost, /api/recommendations/:recId/comments/:commentId/helpful, etc.
 app.use('/api', authenticateToken, rewardsRoutes);
+
+// NEW: Blockchain token rewards - minting, pending rewards, claims
+// Routes: /api/rewards/recommendation, /api/rewards/upvote, /api/rewards/claim, etc.
+app.use('/api/rewards', authenticateToken, rewardRoutes);
 
 // =============================================================================
 // USER PROFILE INTEGRATION ENDPOINTS

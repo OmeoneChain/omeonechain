@@ -3,6 +3,7 @@
 
 import { Pool } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
+import { getRewardService, RewardResult } from './reward-service';
 
 interface SavedList {
   id: string;
@@ -242,6 +243,105 @@ class SavedListsService {
     return result.rows.length > 0;
   }
 
+  /**
+   * Check and award list milestone rewards
+   * White Paper v1.02:
+   * - Create list with 5+ items: 5.0 BOCA
+   * - List reaches 10 saves: +10.0 BOCA
+   * - List reaches 50 saves: +20.0 BOCA
+   */
+  async checkListRewards(listId: string, userId: string): Promise<{
+    awarded: string[];
+    totalBoca: number;
+  }> {
+    const { getRewardService } = require('./reward-service');
+    const rewardService = getRewardService();
+    const awarded: string[] = [];
+    let totalBoca = 0;
+    
+    // Get list with item count and save count
+    const result = await this.db.query(
+      `SELECT sl.*, 
+              COUNT(DISTINCT sli.id) as item_count
+       FROM user_saved_lists sl
+       LEFT JOIN saved_list_items sli ON sli.list_id = sl.id
+       WHERE sl.id = $1 AND sl.user_id = $2
+       GROUP BY sl.id`,
+      [listId, userId]
+    );
+    
+    if (result.rows.length === 0) return { awarded, totalBoca };
+    
+    const list = result.rows[0];
+    const itemCount = parseInt(list.item_count) || 0;
+    const savesCount = list.saves_count || 0;
+    
+    // Check 5+ items reward (one-time)
+    if (itemCount >= 5 && !list.reward_5_items_awarded) {
+      console.log(`🏆 [LIST REWARD] List "${list.name}" has 5+ items! Awarding 5.0 BOCA...`);
+      
+      try {
+        const result = await rewardService.awardListCreation(userId, listId);
+        
+        if (result.success) {
+          await this.db.query(
+            `UPDATE user_saved_lists SET reward_5_items_awarded = true WHERE id = $1`,
+            [listId]
+          );
+          awarded.push('5_items');
+          totalBoca += result.displayAmount;
+          console.log(`✅ [LIST REWARD] 5-item bonus: ${result.displayAmount} BOCA`);
+        }
+      } catch (error) {
+        console.error('❌ [LIST REWARD] 5-item bonus error:', error);
+      }
+    }
+    
+    // Check 10 saves reward (one-time)
+    if (savesCount >= 10 && !list.reward_10_saves_awarded) {
+      console.log(`🏆 [LIST REWARD] List "${list.name}" reached 10 saves! Awarding +10.0 BOCA...`);
+      
+      try {
+        const result = await rewardService.awardList10Saves(userId, listId);
+        
+        if (result.success) {
+          await this.db.query(
+            `UPDATE user_saved_lists SET reward_10_saves_awarded = true WHERE id = $1`,
+            [listId]
+          );
+          awarded.push('10_saves');
+          totalBoca += result.displayAmount;
+          console.log(`✅ [LIST REWARD] 10-saves bonus: ${result.displayAmount} BOCA`);
+        }
+      } catch (error) {
+        console.error('❌ [LIST REWARD] 10-saves bonus error:', error);
+      }
+    }
+    
+    // Check 50 saves reward (one-time)  
+    if (savesCount >= 50 && !list.reward_50_saves_awarded) {
+      console.log(`🏆 [LIST REWARD] List "${list.name}" reached 50 saves! Awarding +20.0 BOCA...`);
+      
+      try {
+        const result = await rewardService.awardList50Saves(userId, listId);
+        
+        if (result.success) {
+          await this.db.query(
+            `UPDATE user_saved_lists SET reward_50_saves_awarded = true WHERE id = $1`,
+            [listId]
+          );
+          awarded.push('50_saves');
+          totalBoca += result.displayAmount;
+          console.log(`✅ [LIST REWARD] 50-saves bonus: ${result.displayAmount} BOCA`);
+        }
+      } catch (error) {
+        console.error('❌ [LIST REWARD] 50-saves bonus error:', error);
+      }
+    }
+    
+    return { awarded, totalBoca };
+  }
+
   // ========================================
   // List Items Management
   // ========================================
@@ -326,7 +426,7 @@ class SavedListsService {
         );
         return this.formatItem(existing.rows[0]);
       }
-
+    
       const savedItem = result.rows[0];
 
       // 2. Calculate and award token reward
@@ -339,6 +439,9 @@ class SavedListsService {
       );
 
       await client.query('COMMIT');
+
+      // await this.checkListRewards(data.listId, data.userId);
+      
       return this.formatItem(savedItem);
       
     } catch (error) {

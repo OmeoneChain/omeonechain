@@ -7,6 +7,95 @@ import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import { getRewardService } from '../../services/reward-service';
+
+/**
+ * Check and award list/guide milestone rewards
+ * White Paper v1.02:
+ * - List reaches 10 saves: +10.0 BOCA
+ * - List reaches 50 saves: +20.0 BOCA
+ */
+async function checkGuideMilestoneRewards(
+  guideId: string, 
+  ownerId: string, 
+  currentSaves: number,
+  itemCount?: number
+): Promise<void> {
+  try {
+    const rewardService = getRewardService();
+    
+    // Get current reward status
+    const { data: guide } = await supabase
+      .from('food_guides')
+      .select('reward_5_items_awarded, reward_10_saves_awarded, reward_50_saves_awarded, title')
+      .eq('id', guideId)
+      .single();
+    
+    if (!guide) return;
+    
+    // Check 5+ items milestone (NEW)
+    if (itemCount && itemCount >= 5 && !guide.reward_5_items_awarded) {
+      console.log(`🏆 [GUIDE REWARD] Guide "${guide.title}" has 5+ items! Awarding 5.0 BOCA...`);
+      
+      const result = await rewardService.awardListCreation(ownerId, guideId);
+      
+      if (result.success) {
+        await supabase
+          .from('food_guides')
+          .update({ reward_5_items_awarded: true })
+          .eq('id', guideId);
+        console.log(`✅ [GUIDE REWARD] 5-items bonus: ${result.displayAmount} BOCA`);
+        if (result.txDigest) {
+          console.log(`   TX: ${result.txDigest}`);
+        }
+      } else {
+        console.error(`❌ [GUIDE REWARD] 5-items failed: ${result.error}`);
+      }
+    }
+    
+    // Check 10 saves milestone
+    if (currentSaves >= 10 && !guide.reward_10_saves_awarded) {
+      console.log(`🏆 [GUIDE REWARD] Guide "${guide.title}" reached 10 saves! Awarding +10.0 BOCA...`);
+      
+      const result = await rewardService.awardList10Saves(ownerId, guideId);
+      
+      if (result.success) {
+        await supabase
+          .from('food_guides')
+          .update({ reward_10_saves_awarded: true })
+          .eq('id', guideId);
+        console.log(`✅ [GUIDE REWARD] 10-saves bonus: ${result.displayAmount} BOCA`);
+        if (result.txDigest) {
+          console.log(`   TX: ${result.txDigest}`);
+        }
+      } else {
+        console.error(`❌ [GUIDE REWARD] 10-saves failed: ${result.error}`);
+      }
+    }
+    
+    // Check 50 saves milestone
+    if (currentSaves >= 50 && !guide.reward_50_saves_awarded) {
+      console.log(`🏆 [GUIDE REWARD] Guide "${guide.title}" reached 50 saves! Awarding +20.0 BOCA...`);
+      
+      const result = await rewardService.awardList50Saves(ownerId, guideId);
+      
+      if (result.success) {
+        await supabase
+          .from('food_guides')
+          .update({ reward_50_saves_awarded: true })
+          .eq('id', guideId);
+        console.log(`✅ [GUIDE REWARD] 50-saves bonus: ${result.displayAmount} BOCA`);
+        if (result.txDigest) {
+          console.log(`   TX: ${result.txDigest}`);
+        }
+      } else {
+        console.error(`❌ [GUIDE REWARD] 50-saves failed: ${result.error}`);
+      }
+    }
+  } catch (error) {
+    console.error('⚠️ Error checking guide milestone rewards:', error);
+  }
+}
 
 const router = express.Router();
 
@@ -371,6 +460,9 @@ router.post('/', authenticate, async (req: express.Request, res: express.Respons
     }
 
     console.log(`✅ Added ${createdItems.length} restaurants to list`);
+
+    // Check for 5+ items milestone reward
+    await checkGuideMilestoneRewards(newList.id, newList.author_id, 0, createdItems.length);
 
     res.status(201).json({
       success: true,
@@ -1059,9 +1151,16 @@ router.post('/:listId/bookmark', authenticate, async (req: express.Request, res:
 
       const { data: listData } = await supabase
         .from('food_guides')
-        .select('bookmarks_count')
+        .select('bookmarks_count, user_id')
         .eq('id', listId)
         .single();
+      
+      // Check for guide milestone rewards (10 saves, 50 saves)
+      // Only award if someone else is bookmarking (not the owner)
+      if (listData?.user_id && listData.user_id !== userId) {
+        const newCount = listData.bookmarks_count || 0;
+        await checkGuideMilestoneRewards(listId, listData.user_id, newCount);
+      }
 
       console.log(`✅ List bookmarked, new count: ${listData?.bookmarks_count || 0}`);
 

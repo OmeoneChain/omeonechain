@@ -48,8 +48,8 @@
   "results": "Results",
 
   "tiers": {
-    "my_network": "My Network",
-    "similar_tastes": "Similar Tastes",
+    "myNetwork": "My Network",
+    "similarTastes": "Similar Tastes",
     "community": "Community",
     "unrated": "Unrated"
   },
@@ -169,6 +169,11 @@
       "title": "No requests yet",
       "description": "Be the first to ask the community for restaurant recommendations!",
       "cta": "Ask for Recommendations"
+    },
+    "search": {
+      "noResults": {
+        "description": "Try adjusting your search or filters to find what you're looking for."
+      }
     }
   },
 
@@ -177,20 +182,35 @@
       "title": "Ask for Recommendations",
       "subtitle": "Get personalized suggestions from the community"
     },
+    "stake": {
+      "balance": "Your Balance",
+      "amount": "Stake Amount",
+      "winnerReceives": "Winner receives:",
+      "platformFee": "Platform fee:",
+      "loading": "Loading...",
+      "minStake": "Minimum stake is {amount} BOCA",
+      "insufficientBalance": "Insufficient balance ({balance} BOCA available)",
+      "loginRequired": "Please log in to create a request",
+      "balanceError": "Unable to load token balance",
+      "successMessage": "Request created! {amount} BOCA staked"
+    },
     "fields": {
       "title": {
         "label": "What are you looking for?",
         "placeholder": "e.g., Best sushi for a special anniversary dinner",
+        "characters": "characters",
         "charCount": "{count}/200 characters"
       },
       "description": {
         "label": "Additional details (optional)",
         "placeholder": "Tell us more about what you're looking for, any preferences, past experiences...",
+        "characters": "characters",
         "charCount": "{count}/1000 characters"
       },
       "location": {
         "label": "Location",
-        "placeholder": "e.g., São Paulo, Vila Madalena"
+        "placeholder": "e.g., São Paulo, Vila Madalena",
+        "hint": "City, neighborhood, region, or \"anywhere\" / \"worldwide\""
       },
       "cuisineType": {
         "label": "Cuisine Type",
@@ -201,11 +221,26 @@
         "placeholder": "Select an occasion..."
       },
       "budgetRange": {
-        "label": "Budget Range"
+        "label": "Budget Range",
+        "hint": "Select one or more • Click again to deselect"
       },
       "dietary": {
         "label": "Dietary Restrictions"
+      },
+      "urgency": {
+        "label": "How soon do you need recommendations?",
+        "expiresLabel": "Request will expire:"
       }
+    },
+    "urgency": {
+      "label": "How soon do you need recommendations?",
+      "expiresLabel": "Request will expire:",
+      "6h": "6 hours",
+      "24h": "24 hours",
+      "3d": "3 days",
+      "7d": "7 days",
+      "14d": "2 weeks",
+      "30d": "30 days"
     },
     "occasions": {
       "date_night": "Date Night",
@@ -234,12 +269,13 @@
     "validation": {
       "titleRequired": "Please enter what you're looking for",
       "titleTooShort": "Please provide more detail (at least 10 characters)",
+      "locationRequired": "Location is required",
       "loginRequired": "Please log in to create a request"
     },
     "tip": "The more specific you are, the better recommendations you'll receive. Include details like preferred neighborhoods, price range, or any must-haves.",
     "actions": {
       "cancel": "Cancel",
-      "submit": "Post Request",
+      "submit": "Post Request ({amount} BOCA)",
       "creating": "Creating..."
     },
     "success": "Your request has been posted! You'll be notified when you receive recommendations.",
@@ -337,15 +373,111 @@
     "closed": "Closed"
   },
 
+  "tiers": {
+    "myNetwork": "My Network",
+    "similarTastes": "Similar Tastes",
+    "community": "Community",
+    "unrated": "Unrated"
+  },
+  "infoWindow": {
+    "fromNetwork": "from your network",
+    "similarTastesRecommend": "Similar tastes recommend",
+    "communityRecs": "community recommendations",
+    "open": "Open",
+    "closed": "Closed",
+    "beFirst": "Be First to Review",
+    "viewDetails": "View Details",
+    "directions": "Directions"
+  },
+  "list": {
+    "fromYourNetwork": "from your network",
+    "recommendation": "recommendation",
+    "recommendations": "recommendations",
+    "beFirst": "Be the first to review",
+    "showingOf": "Showing {shown} of {total} restaurants. Zoom in to see more."
+  },
+  "search": {
+    "placeholder": "Search restaurants by name, cuisine, or location..."
+  },
+  "nearMe": "Near Me",
+  "filters": {
+    "title": "Filters",
+    "cuisine": "Cuisine",
+    "priceRange": "Price Range",
+    "clear": "Clear all filters"
+  },
+  "results": "Results",
+  "noResults": {
+    "title": "No restaurants found",
+    "description": "Try adjusting your search or filters"
+  },
+  "tipModal": {
+    "title": "Send a Tip",
+    "subtitle": "Show appreciation for this response",
+    "recommended": "Recommended",
+    "yourBalance": "Your Balance",
+    "customAmount": "Custom Amount",
+    "infoNote": "100% of your tip goes directly to {name}. Tips are a way to thank helpful responses beyond the winning selection.",
+    "insufficientBalance": "Insufficient balance. You have {balance} BOCA available.",
+    "cancel": "Cancel",
+    "sending": "Sending...",
+    "sendAmount": "Send {amount} BOCA",
+    "success": {
+      "title": "Tip Sent!",
+      "description": "{amount} BOCA sent to {name}"
+    },
+    "error": {
+      "failed": "Failed to send tip"
+    }
+  },
+  "awardModal": {
+    "title": {
+      "select": "Select Winning Restaurant",
+      "confirm": "Confirm Award"
+    },
+    "winnerReceives": "Winner receives",
+    "percentOfStake": "{percent}% of stake",
+    "percentBurned": "{percent}% burned",
+    "firstResponderNote": "The first person who suggested the winning restaurant will automatically receive the bounty.",
+    "restaurantsSuggested": "{count, plural, =1 {1 restaurant suggested} other {# restaurants suggested}}",
+    "othersAlsoSuggested": "+{count, plural, =1 {1 other also suggested this} other {# others also suggested this}}",
+    "bountyGoesToFirst": "Bounty goes to first responder",
+    "firstSuggested": "First suggested {time}",
+    "totalStaked": "Total staked",
+    "winnerReceivesPercent": "Winner receives ({percent}%)",
+    "burnedPercent": "Burned ({percent}%)",
+    "tipNote": "After awarding, you can optionally tip other helpful responses from your own wallet.",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "back": "Back",
+    "awarding": "Awarding...",
+    "awardAmount": "Award {amount} BOCA",
+    "error": {
+      "failed": "Failed to award bounty"
+    }
+  },
+  "responseCard": {
+    "winner": "Winner!",
+    "earned": "Earned {amount} BOCA",
+    "first": "FIRST",
+    "sendTip": "Send Tip"
+  },
   "detail": {
     "loading": "Loading request...",
     "error": {
       "title": "Error Loading Request",
       "notFound": "This request was not found or may have been deleted."
     },
+    "errors": {
+      "restaurantProcessFailed": "Could not process restaurants. Please try selecting a different restaurant.",
+      "submitFailed": "Failed to submit response"
+    },
     "backToDiscover": "Back to Discover",
     "back": "Back",
     "requestLabel": "Discovery Request",
+    "expired": "Expired",
+    "expiresIn": "Expires {time}",
+    "postedAgo": "Posted {time}",
     "loginToUpvote": "Please log in to upvote",
     "upvoteSuccess": "Upvote recorded successfully",
     "bestAnswerSuccess": "Marked as best answer",
@@ -361,26 +493,47 @@
     "yourRecommendation": "Your Recommendation",
     "responsePlaceholder": "Share your restaurant recommendations and tips...",
     "characters": "characters",
+    "optional": "optional",
     "cancel": "Cancel",
     "submitting": "Submitting...",
     "submit": "Submit Response",
     "responses": "{count, plural, =0 {No responses yet} =1 {1 Response} other {# Responses}}",
+    "responseCount": "{count, plural, =1 {1 response} other {# responses}}",
     "bestAnswer": "Best Answer",
     "markBest": "Mark as Best",
     "recommendedPlaces": "Recommended Places:",
     "helpful": "Helpful",
     "noResponses": "No responses yet. Be the first to help!",
     "beFirst": "Be the First to Respond",
+    "alreadyResponded": "You've already shared a recommendation for this request.",
     "recommendRestaurants": "Recommend Restaurants",
     "searchRestaurantPlaceholder": "Search for a restaurant to recommend...",
     "searchRestaurantHelp": "Search and select restaurants you want to recommend",
-    "selectRestaurantRequired": "Please select at least one restaurant to recommend",
+    "selectRestaurantRequired": "Select at least 1 restaurant",
     "selectedRestaurants": "Selected Restaurants",
     "removeRestaurant": "Remove",
     "addNotes": "Add notes (optional)",
     "notesPlaceholder": "Why do you recommend this place?",
     "dishRecommendations": "Dish recommendations",
     "dishPlaceholder": "e.g., Try the carbonara!",
-    "restaurantNotesPlaceholder": "Why do you recommend this place? Any tips?"
+    "restaurantNotesPlaceholder": "Why do you recommend this place? Any tips?",
+    "bounty": "Bounty",
+    "bountyAwarded": "Bounty Awarded",
+    "bountyWinnerInfo": "Best response wins {amount} BOCA (90%)",
+    "bountyStatus": {
+      "active": "Bounty Active",
+      "awarded": "Awarded",
+      "refunded": "Refunded"
+    },
+    "awardBounty": "Award Bounty",
+    "refund": "Refund",
+    "tipHint": "You can now tip other helpful responses",
+    "winBounty": "Win {amount} BOCA",
+    "refundDialog": {
+      "title": "Refund Bounty?",
+      "description": "This will return your {amount} BOCA stake.",
+      "refunding": "Refunding...",
+      "confirm": "Confirm Refund"
+    }
   }
 }

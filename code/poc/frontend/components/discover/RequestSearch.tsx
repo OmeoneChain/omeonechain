@@ -2,6 +2,7 @@
 // Search and filter component for Discovery Requests tab
 // Searches across: title, description, location, cuisine, occasion, creator name
 // Filters: status, has bounty, budget range
+// UPDATED: Added dark mode support throughout
 
 'use client';
 
@@ -121,17 +122,17 @@ const RequestSearch = ({
       {/* Main Search Bar */}
       <div
         className={`
-          relative flex items-center bg-white rounded-xl border-2 transition-all duration-200
+          relative flex items-center bg-white dark:bg-[#2D2C3A] rounded-xl border-2 transition-all duration-200
           ${isFocused 
             ? 'border-[#FF644A] shadow-lg shadow-[#FF644A]/10' 
-            : 'border-stone-200 hover:border-stone-300'
+            : 'border-gray-200 dark:border-[#3D3C4A] hover:border-gray-300 dark:hover:border-[#4D4C5A]'
           }
         `}
       >
         {/* Search Icon */}
         <div className="pl-4 pr-2">
           <Search 
-            className={`w-5 h-5 transition-colors ${isFocused ? 'text-[#FF644A]' : 'text-stone-400'}`}
+            className={`w-5 h-5 transition-colors ${isFocused ? 'text-[#FF644A]' : 'text-gray-400 dark:text-gray-500'}`}
           />
         </div>
 
@@ -145,7 +146,7 @@ const RequestSearch = ({
           onBlur={() => setIsFocused(false)}
           onKeyDown={handleKeyDown}
           placeholder={t('requestSearch.placeholder')}
-          className="flex-1 py-3.5 pr-4 bg-transparent text-[#1F1E2A] placeholder-stone-400 focus:outline-none text-base"
+          className="flex-1 py-3.5 pr-4 bg-transparent text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none text-base"
         />
 
         {/* Loading Spinner */}
@@ -177,7 +178,7 @@ const RequestSearch = ({
         {query && !isSearching && (
           <button
             onClick={handleClear}
-            className="pr-3 text-stone-400 hover:text-stone-600 transition-colors"
+            className="pr-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             aria-label={t('requestSearch.clear')}
           >
             <X className="w-5 h-5" />
@@ -191,7 +192,7 @@ const RequestSearch = ({
             mr-3 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-all
             ${showFilters || filterCount > 0
               ? 'bg-[#FF644A] text-white'
-              : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+              : 'bg-gray-100 dark:bg-[#353444] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#404050]'
             }
           `}
         >
@@ -226,10 +227,10 @@ const RequestSearch = ({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="p-4 bg-white rounded-xl border border-stone-200 space-y-4">
+            <div className="p-4 bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] space-y-4">
               {/* Status Filter */}
               <div>
-                <label className="block text-sm font-medium text-[#1F1E2A] mb-2">
+                <label className="block text-sm font-medium text-[#1F1E2A] dark:text-white mb-2">
                   {t('requestSearch.statusLabel')}
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -241,13 +242,13 @@ const RequestSearch = ({
                         px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-all
                         ${status === option.value
                           ? option.value === 'open' 
-                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
                             : option.value === 'answered'
-                            ? 'bg-sky-100 text-sky-700 border border-sky-200'
+                            ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800'
                             : option.value === 'closed'
-                            ? 'bg-stone-200 text-stone-700 border border-stone-300'
+                            ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600'
                             : 'bg-[#FF644A] text-white border border-[#FF644A]'
-                          : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'
+                          : 'bg-gray-50 dark:bg-[#353444] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-100 dark:hover:bg-[#404050]'
                         }
                       `}
                     >
@@ -260,7 +261,7 @@ const RequestSearch = ({
 
               {/* Bounty Filter */}
               <div>
-                <label className="block text-sm font-medium text-[#1F1E2A] mb-2">
+                <label className="block text-sm font-medium text-[#1F1E2A] dark:text-white mb-2">
                   {t('requestSearch.bountyLabel')}
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -270,7 +271,7 @@ const RequestSearch = ({
                       px-3 py-1.5 rounded-lg text-sm font-medium transition-all
                       ${hasBounty === null
                         ? 'bg-[#FF644A] text-white border border-[#FF644A]'
-                        : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'
+                        : 'bg-gray-50 dark:bg-[#353444] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-100 dark:hover:bg-[#404050]'
                       }
                     `}
                   >
@@ -281,8 +282,8 @@ const RequestSearch = ({
                     className={`
                       px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-all
                       ${hasBounty === true
-                        ? 'bg-amber-100 text-amber-700 border border-amber-200'
-                        : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'
+                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                        : 'bg-gray-50 dark:bg-[#353444] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-100 dark:hover:bg-[#404050]'
                       }
                     `}
                   >
@@ -294,8 +295,8 @@ const RequestSearch = ({
                     className={`
                       px-3 py-1.5 rounded-lg text-sm font-medium transition-all
                       ${hasBounty === false
-                        ? 'bg-stone-200 text-stone-700 border border-stone-300'
-                        : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'
+                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600'
+                        : 'bg-gray-50 dark:bg-[#353444] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-100 dark:hover:bg-[#404050]'
                       }
                     `}
                   >
@@ -306,7 +307,7 @@ const RequestSearch = ({
 
               {/* Budget Filter */}
               <div>
-                <label className="block text-sm font-medium text-[#1F1E2A] mb-2">
+                <label className="block text-sm font-medium text-[#1F1E2A] dark:text-white mb-2">
                   {t('requestSearch.budgetLabel')}
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -317,8 +318,8 @@ const RequestSearch = ({
                       className={`
                         px-3 py-1.5 rounded-lg text-sm font-medium transition-all min-w-[48px]
                         ${budget === option.value
-                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                          : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                          : 'bg-gray-50 dark:bg-[#353444] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-100 dark:hover:bg-[#404050]'
                         }
                       `}
                     >
@@ -330,7 +331,7 @@ const RequestSearch = ({
 
               {/* Clear All Filters */}
               {hasActiveFilters && (
-                <div className="pt-2 border-t border-stone-100">
+                <div className="pt-2 border-t border-gray-100 dark:border-[#3D3C4A]">
                   <button
                     onClick={handleClearAll}
                     className="text-sm text-[#FF644A] hover:text-[#E65441] font-medium"
@@ -345,7 +346,7 @@ const RequestSearch = ({
       </AnimatePresence>
 
       {/* Search Scope Hint */}
-      <p className="text-xs text-stone-500 pl-1">
+      <p className="text-xs text-gray-500 dark:text-gray-400 pl-1">
         {t('requestSearch.scopeHint')}
       </p>
 
@@ -358,7 +359,7 @@ const RequestSearch = ({
             exit={{ opacity: 0 }}
             className="flex items-center gap-2"
           >
-            <span className="text-sm text-stone-600">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
               {resultCount === 0 
                 ? t('requestSearch.noResults')
                 : t('requestSearch.resultsCount', { 

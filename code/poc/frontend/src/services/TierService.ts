@@ -1,6 +1,6 @@
 // File path: /code/poc/frontend/src/services/TierService.ts
-// NEW: Tier-based user status system for BocaBoca v0.8
-// Replaces old TrustScoreService.ts (0-1000 reputation score)
+// Tier-based user status system for BocaBoca v1.1
+// UPDATED January 2026: Rate limits increased (10/day, 20 on registration)
 
 import { IOTAService } from './IOTAService';
 import IOTA_TESTNET_CONFIG from '../config/testnet-config';
@@ -44,7 +44,7 @@ export interface RateLimitStatus {
   used: number;
   remaining: number;
   resetsAt: string;
-  isBoostDay: boolean; // registration or wallet upgrade day
+  isBoostDay: boolean; // registration day only (v1.1: wallet upgrade day removed)
   isPenalized: boolean;
 }
 
@@ -64,6 +64,11 @@ export interface ValidationProgress {
   validationRate: number; // percentage
   averageEngagement: number; // average engagement points per rec
 }
+
+// v1.1 Rate limit constants
+const DAILY_RATE_LIMIT = 10;      // Standard daily limit
+const FIRST_DAY_BOOST = 20;       // Registration day limit
+const SPAM_RATE_LIMIT = 3;        // Reduced limit for spam-flagged
 
 class TierService {
   private iotaService: IOTAService;
@@ -105,7 +110,7 @@ class TierService {
         engagementWeight: tierWeights[tierData.currentTier],
         rateLimit: rateLimitData.dailyLimit,
         rateLimitRemaining: rateLimitData.remaining,
-        escrowRequired: tierData.currentTier === 'new',
+        escrowRequired: false, // v1.1: Escrow removed for all tiers
         nextTier: nextTierInfo.nextTier,
         nextTierRequirements: nextTierInfo.requirements,
         benefits: this.config.tierSystem.benefits[tierData.currentTier],
@@ -190,13 +195,13 @@ class TierService {
     } catch (error) {
       console.error('❌ Failed to get rate limit status:', error);
       
-      // Return mock data for development
+      // Return mock data for development - UPDATED v1.1 limits
       return {
         userId: userAddress,
         tier: 'established',
-        dailyLimit: 5,
+        dailyLimit: DAILY_RATE_LIMIT,  // UPDATED: was 5, now 10
         used: 2,
-        remaining: 3,
+        remaining: DAILY_RATE_LIMIT - 2, // 8 remaining
         resetsAt: new Date(Date.now() + 86400000).toISOString(),
         isBoostDay: false,
         isPenalized: false
@@ -292,6 +297,7 @@ class TierService {
     benefits: string[];
     color: string;
     icon: string;
+    rateLimit: number;
   } {
     const tierConfig = this.config.tierSystem.requirements[tier];
     const weight = this.config.tierSystem.weights[tier];
@@ -302,19 +308,22 @@ class TierService {
         name: 'New',
         requirements: '0-6 days active',
         color: '#9CA3AF', // gray
-        icon: '🌱'
+        icon: '🌱',
+        rateLimit: DAILY_RATE_LIMIT
       },
       established: {
         name: 'Established',
         requirements: '7+ days active',
         color: '#3B82F6', // blue
-        icon: '⭐'
+        icon: '⭐',
+        rateLimit: DAILY_RATE_LIMIT
       },
       trusted: {
         name: 'Trusted',
         requirements: '30+ days active + 3 validated recommendations',
         color: '#10B981', // green
-        icon: '👑'
+        icon: '👑',
+        rateLimit: DAILY_RATE_LIMIT
       }
     };
 
@@ -324,7 +333,23 @@ class TierService {
       requirements: tierInfo[tier].requirements,
       benefits,
       color: tierInfo[tier].color,
-      icon: tierInfo[tier].icon
+      icon: tierInfo[tier].icon,
+      rateLimit: tierInfo[tier].rateLimit
+    };
+  }
+
+  /**
+   * Get rate limit constants for display
+   */
+  getRateLimitConstants(): {
+    standard: number;
+    boost: number;
+    penalty: number;
+  } {
+    return {
+      standard: DAILY_RATE_LIMIT,
+      boost: FIRST_DAY_BOOST,
+      penalty: SPAM_RATE_LIMIT
     };
   }
 
@@ -419,11 +444,12 @@ class TierService {
       return tier.toLowerCase() as UserTier;
     }
     
-    // If contract returns numbers: 0 = new, 1 = established, 2 = trusted
+    // If contract returns numbers: 1 = new, 2 = established, 3 = trusted
+    // (Updated to match user_status.move constants)
     const tierMap: { [key: number]: UserTier } = {
-      0: 'new',
-      1: 'established',
-      2: 'trusted'
+      1: 'new',
+      2: 'established',
+      3: 'trusted'
     };
     
     return tierMap[tier] || 'new';

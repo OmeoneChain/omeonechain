@@ -45,6 +45,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const [editContent, setEditContent] = useState(comment.content);
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   const isAuthor = currentUserId === comment.user_id;
   const isDeleted = !!comment.deleted_at;
@@ -115,7 +116,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   if (isDeleted) {
     return (
       <div className={`${depth > 0 ? 'comment-reply-indent' : ''} py-3`}>
-        <div className="text-sm text-gray-400 italic bg-gray-50 rounded-lg p-3">
+        <div className="text-sm text-gray-400 dark:text-gray-500 italic bg-gray-50 dark:bg-[#353444] rounded-lg p-3">
           {t('comments.deleted')}
         </div>
         
@@ -151,17 +152,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {/* Avatar */}
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200">
-                {comment.author?.avatar ? (
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-[#353444]">
+                {comment.author?.avatar && !avatarError ? (
                   <Image
                     src={comment.author.avatar}
                     alt={comment.author.name || comment.author.username || t('comments.fallback.anonymous')}
                     width={32}
                     height={32}
                     className="w-full h-full object-cover"
+                    onError={() => setAvatarError(true)}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-300 text-white text-sm font-medium">
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#FF644A] to-[#E65441] text-white text-sm font-medium">
                     {(comment.author?.name || comment.author?.username || 'U').charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -171,23 +173,23 @@ const CommentItem: React.FC<CommentItemProps> = ({
             {/* User info */}
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-sm text-gray-900 truncate">
+                <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
                   {comment.author?.name || comment.author?.username || t('comments.fallback.anonymous')}
                 </span>
                 {comment.author?.verificationLevel && comment.author.verificationLevel !== 'basic' && (
                   <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                     comment.author.verificationLevel === 'expert' 
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'bg-blue-100 text-blue-700'
+                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
                   }`}>
                     {comment.author.verificationLevel}
                   </span>
                 )}
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   {timeAgo(comment.created_at)}
                 </span>
                 {isEdited && (
-                  <span className="text-xs text-gray-400 italic">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 italic">
                     ({t('comments.labels.edited')})
                   </span>
                 )}
@@ -199,9 +201,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              className="p-1 hover:bg-gray-100 dark:hover:bg-[#353444] rounded transition-colors"
             >
-              <MoreHorizontal size={16} className="text-gray-500" />
+              <MoreHorizontal size={16} className="text-gray-500 dark:text-gray-400" />
             </button>
             
             <AnimatePresence>
@@ -210,7 +212,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]"
+                  className="absolute right-0 top-8 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-1 z-10 min-w-[120px]"
                 >
                   {canEdit && (
                     <button
@@ -218,7 +220,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                         setIsEditing(true);
                         setShowMenu(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-2 text-gray-700 dark:text-gray-300"
                     >
                       <Edit2 size={14} />
                       {t('comments.actions.edit')}
@@ -230,7 +232,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                         handleDelete();
                         setShowMenu(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-2 text-red-600 dark:text-red-400"
                     >
                       <Trash2 size={14} />
                       {t('comments.actions.delete')}
@@ -242,7 +244,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                         onReport?.(comment.id);
                         setShowMenu(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-2 text-red-600 dark:text-red-400"
                     >
                       <Flag size={14} />
                       {t('comments.actions.report')}
@@ -260,7 +262,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-coral focus:border-coral transition-all"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-[#3D3C4A] rounded-lg resize-none bg-white dark:bg-[#353444] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF644A] focus:border-[#FF644A] transition-all"
               rows={3}
               maxLength={1000}
               autoFocus
@@ -271,21 +273,21 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   setIsEditing(false);
                   setEditContent(comment.content);
                 }}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 font-medium"
+                className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium"
               >
                 {t('comments.actions.cancel')}
               </button>
               <button
                 onClick={handleEditSubmit}
                 disabled={!editContent.trim() || editContent === comment.content}
-                className="px-4 py-1.5 bg-coral text-white rounded-lg text-sm font-medium hover:bg-coral-dark disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-1.5 bg-[#FF644A] text-white rounded-lg text-sm font-medium hover:bg-[#E65441] disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
               >
                 {t('comments.actions.save')}
               </button>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-gray-700 leading-relaxed mb-3 whitespace-pre-wrap">
+          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3 whitespace-pre-wrap">
             {comment.content}
           </p>
         )}
@@ -296,8 +298,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
             onClick={handleLike}
             className={`flex items-center gap-1 text-xs font-medium transition-colors ${
               comment.has_liked
-                ? 'text-coral'
-                : 'text-gray-500 hover:text-coral'
+                ? 'text-[#FF644A]'
+                : 'text-gray-500 dark:text-gray-400 hover:text-[#FF644A]'
             }`}
             whileTap={{ scale: 0.95 }}
           >
@@ -308,7 +310,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
           {canReply && (
             <motion.button
               onClick={() => setIsReplying(!isReplying)}
-              className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-coral transition-colors"
+              className="flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-[#FF644A] transition-colors"
               whileTap={{ scale: 0.95 }}
             >
               <MessageCircle size={14} />

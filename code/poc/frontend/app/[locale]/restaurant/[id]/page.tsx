@@ -18,6 +18,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import CleanHeader from '@/components/CleanHeader';
+import { useTranslations } from 'next-intl';
 
 // ============================================================================
 // TYPES
@@ -62,9 +63,9 @@ interface Recommendation {
   visit_date?: string;
   verified_visit: boolean;
   taste_alignment?: number;
-  is_following?: boolean;      // Current user follows this author
-  is_followed_by?: boolean;    // This author follows current user
-  is_friend: boolean;          // Legacy: mutual follow
+  is_following?: boolean;
+  is_followed_by?: boolean;
+  is_friend: boolean;
   author_credibility?: {
     total_recommendations: number;
     expertise_area?: string;
@@ -102,39 +103,12 @@ interface UserReview {
   photos: string[];
 }
 
-// Photo data type for rich photo information
 interface PhotoData {
   url: string;
   tag: string;
   dishName?: string | null;
   caption?: string | null;
   helpfulCount?: number;
-}
-
-// ============================================================================
-// BRAND COLORS (kept for consistency; may be used elsewhere later)
-// ============================================================================
-
-const colors = {
-  warmCoral: '#FF644A',
-  terracotta: '#E65441',
-  midnightNavy: '#1F1E2A',
-  softCream: '#FFF4E1',
-  mintBreeze: '#BFE2D9',
-  plumShadow: '#35273B',
-  stoneGray: '#9CA3AF',
-};
-
-/**
- * Clean up address string artifacts from API data
- */
-function cleanAddress(address: string | undefined | null): string {
-  if (!address) return '';
-  return address
-    .replace(/__+/g, ' ')
-    .replace(/--+/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 // ============================================================================
@@ -155,27 +129,34 @@ const apiUrl = (path: string) => {
 const IPFS_GATEWAY = process.env.NEXT_PUBLIC_IPFS_GATEWAY || 'https://ipfs.io/ipfs';
 
 function normalizePhotoUrl(value: string | null | undefined): string {
-  // Guard against null/undefined
   if (!value || typeof value !== 'string') {
     return '';
   }
 
-  // already a normal URL
   if (value.startsWith('http://') || value.startsWith('https://')) return value;
 
-  // ipfs://CID or ipfs://ipfs/CID
   if (value.startsWith('ipfs://')) {
     const cleaned = value.replace('ipfs://', '').replace(/^ipfs\//, '');
     return `${IPFS_GATEWAY}/${cleaned}`;
   }
 
-  // Raw IPFS CID (starts with Qm for v0 or bafy for v1)
   if (value.startsWith('Qm') || value.startsWith('bafy')) {
     return `https://gateway.pinata.cloud/ipfs/${value}`;
   }
 
-  // treat as CID or gateway-relative
   return `${IPFS_GATEWAY}/${value}`;
+}
+
+/**
+ * Clean up address string artifacts from API data
+ */
+function cleanAddress(address: string | undefined | null): string {
+  if (!address) return '';
+  return address
+    .replace(/__+/g, ' ')
+    .replace(/--+/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // ============================================================================
@@ -189,12 +170,6 @@ const emptyTiered = (): TieredRecommendations => ({
   all_network: [],
 });
 
-/**
- * Your backend payload(s) observed:
- * - { success: true, recommendations: [...] }
- * - sometimes nested under { data: { recommendations: [...] } }
- * - earlier tiered concept: all_network (but your current API sample doesn't include it)
- */
 function normalizeRecommendationsPayload(payload: any): Recommendation[] {
   const raw = Array.isArray(payload?.recommendations)
     ? payload.recommendations
@@ -234,64 +209,34 @@ function normalizeRecommendationsPayload(payload: any): Recommendation[] {
         author_id: String(author?.id ?? r?.author_id ?? ''),
         author_name: String(author?.display_name ?? author?.username ?? r?.author_name ?? 'Unknown'),
         author_avatar: author?.avatar_url ?? r?.author_avatar ?? undefined,
-
         content: String(r?.content ?? ''),
-
         overall_rating: overallRating,
-
         context_tags: tags,
         photos,
-
         created_at: createdAt,
         visit_date: r?.visit_date ?? undefined,
         verified_visit: Boolean(r?.verified_visit ?? false),
-
         taste_alignment: typeof r?.taste_alignment === 'number' ? r.taste_alignment : undefined,
         is_following: Boolean(r?.is_following ?? false),
         is_followed_by: Boolean(r?.is_followed_by ?? false),
         is_friend: Boolean(r?.is_friend ?? false),
-
         author_credibility: r?.author_credibility ?? undefined,
-
         dishes: Array.isArray(r?.dishes)
           ? r.dishes.map((d: any) => ({
               name: String(d?.name ?? ''),
               rating: typeof d?.rating === 'number' ? d.rating : 0,
             }))
           : [],
-
         likes_count:
           typeof r?.likes_count === 'number'
             ? r.likes_count
             : typeof r?.likes === 'number'
               ? r.likes
               : 0,
-
         comments_count: typeof r?.comments_count === 'number' ? r.comments_count : 0,
       } as Recommendation;
     })
     .map((r, idx) => (r.id ? r : { ...r, id: `missing-id-${idx}` }));
-}
-
-// ============================================================================
-// HELPER: Get tag display label
-// ============================================================================
-
-function getTagLabel(tag: string): string {
-  const labels: Record<string, string> = {
-    'food': '🍽️ Food',
-    'dish': '🍽️ Dish',
-    'vibe': '✨ Vibe',
-    'ambiance': '🏠 Ambiance',
-    'menu': '📋 Menu',
-    'exterior': '🏪 Exterior',
-    'interior': '🪑 Interior',
-    'drinks': '🍹 Drinks',
-    'dessert': '🍰 Dessert',
-    'other': '📷 Photo',
-    'unknown': '📷 Photo',
-  };
-  return labels[tag?.toLowerCase()] || '📷 Photo';
 }
 
 // ============================================================================
@@ -306,6 +251,7 @@ function ScoreCard({
   icon: Icon,
   highlight = false,
   onClick,
+  recLabel,
 }: {
   score: number | null;
   label: string;
@@ -314,6 +260,7 @@ function ScoreCard({
   icon: React.ElementType;
   highlight?: boolean;
   onClick?: () => void;
+  recLabel: string;
 }) {
   const hasScore = score !== null && count > 0;
 
@@ -321,16 +268,18 @@ function ScoreCard({
     <div
       onClick={onClick}
       className={`flex flex-col items-center p-4 rounded-xl transition-all ${
-        highlight ? 'bg-gradient-to-br from-[#FFB3AB] to-[#FF644A] text-white' : 'bg-white border border-gray-100'
+        highlight 
+          ? 'bg-gradient-to-br from-[#FFB3AB] to-[#FF644A] text-white' 
+          : 'bg-white dark:bg-[#2D2C3A] border border-gray-100 dark:border-[#3D3C4A]'
       } ${onClick ? 'cursor-pointer hover:opacity-90' : ''}`}
     >
-      <Icon className={`w-5 h-5 mb-2 ${highlight ? 'text-white' : 'text-gray-400'}`} />
-      <div className={`text-3xl font-bold ${highlight ? 'text-white' : 'text-[#1F1E2A]'}`}>
+      <Icon className={`w-5 h-5 mb-2 ${highlight ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
+      <div className={`text-3xl font-bold ${highlight ? 'text-white' : 'text-[#1F1E2A] dark:text-white'}`}>
         {hasScore ? score!.toFixed(1) : '—'}
       </div>
-      <div className={`text-sm font-medium ${highlight ? 'text-white/90' : 'text-[#1F1E2A]'}`}>{label}</div>
-      <div className={`text-xs ${highlight ? 'text-white/70' : 'text-gray-500'}`}>
-        {count > 0 ? `${count} ${count === 1 ? 'rec' : 'recs'}` : sublabel}
+      <div className={`text-sm font-medium ${highlight ? 'text-white/90' : 'text-[#1F1E2A] dark:text-white'}`}>{label}</div>
+      <div className={`text-xs ${highlight ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+        {count > 0 ? `${count} ${recLabel}` : sublabel}
       </div>
     </div>
   );
@@ -338,7 +287,7 @@ function ScoreCard({
 
 function ContextTag({ tag }: { tag: string }) {
   return (
-    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-[#FFF4E1] text-[#1F1E2A] border border-[#FF644A]/20">
+    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-[#FFF4E1] dark:bg-[#FF644A]/20 text-[#1F1E2A] dark:text-white border border-[#FF644A]/20 dark:border-[#FF644A]/30">
       {tag}
     </span>
   );
@@ -346,16 +295,33 @@ function ContextTag({ tag }: { tag: string }) {
 
 /**
  * PhotoCarousel - Simplified version without Add Photo functionality
- * Photos are only added through creating a recommendation
  */
 function PhotoCarousel({
   photos,
   dishes,
+  title,
 }: {
   photos: PhotoData[];
   dishes: Dish[];
+  title: string;
 }) {
-  // Combine dish photos with restaurant photos
+  const getTagLabel = (tag: string): string => {
+    const labels: Record<string, string> = {
+      'food': '🍽️',
+      'dish': '🍽️',
+      'vibe': '✨',
+      'ambiance': '🏠',
+      'menu': '📋',
+      'exterior': '🏪',
+      'interior': '🪑',
+      'drinks': '🍹',
+      'dessert': '🍰',
+      'other': '📷',
+      'unknown': '📷',
+    };
+    return labels[tag?.toLowerCase()] || '📷';
+  };
+
   const allDisplayPhotos: Array<{ url: string; label: string }> = [
     ...dishes
       .filter((d) => d.photo_url)
@@ -371,14 +337,13 @@ function PhotoCarousel({
     })),
   ];
 
-  // Don't show section if no photos
   if (allDisplayPhotos.length === 0) {
     return null;
   }
 
   return (
     <div className="mb-6">
-      <h3 className="text-lg font-semibold text-[#1F1E2A] mb-3">Photos & Dishes</h3>
+      <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white mb-3">{title}</h3>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {allDisplayPhotos.map((photo, idx) => (
           <div key={`${photo.url}-${idx}`} className="flex-shrink-0 relative">
@@ -403,27 +368,29 @@ function UserReviewSection({
   review,
   onEdit,
   onWriteReview,
+  t,
 }: {
   review: UserReview | null;
   onEdit: () => void;
   onWriteReview: () => void;
+  t: any;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   if (!review) {
     return (
-      <div className="mb-6 p-4 bg-gradient-to-r from-[#FFF4E1] to-white rounded-xl border border-[#FF644A]/20">
+      <div className="mb-6 p-4 bg-gradient-to-r from-[#FFF4E1] to-white dark:from-[#FF644A]/20 dark:to-[#2D2C3A] rounded-xl border border-[#FF644A]/20 dark:border-[#FF644A]/30">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-[#1F1E2A]">Your Review</h3>
-            <p className="text-sm text-gray-600">Share your experience to build your taste profile</p>
+            <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white">{t('yourReview.title')}</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('yourReview.subtitle')}</p>
           </div>
           <button
             onClick={onWriteReview}
             className="flex items-center gap-2 px-4 py-2 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441] transition-colors"
           >
             <Edit3 className="w-4 h-4" />
-            Write Review
+            {t('yourReview.writeReview')}
           </button>
         </div>
       </div>
@@ -431,19 +398,19 @@ function UserReviewSection({
   }
 
   return (
-    <div className="mb-6 bg-white rounded-xl border border-gray-100 overflow-hidden">
+    <div className="mb-6 bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-100 dark:border-[#3D3C4A] overflow-hidden">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
+        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#353444]"
       >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-[#FF644A] flex items-center justify-center text-white font-bold">
             {review.overall_rating}
           </div>
           <div className="text-left">
-            <h3 className="font-semibold text-[#1F1E2A]">Your Review</h3>
-            <p className="text-sm text-gray-500">
-              {new Date(review.visit_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            <h3 className="font-semibold text-[#1F1E2A] dark:text-white">{t('yourReview.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {new Date(review.visit_date).toLocaleDateString()}
             </p>
           </div>
         </div>
@@ -453,22 +420,22 @@ function UserReviewSection({
               e.stopPropagation();
               onEdit();
             }}
-            className="p-2 text-gray-400 hover:text-[#FF644A]"
+            className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#FF644A]"
           >
             <Edit3 className="w-4 h-4" />
           </button>
-          {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400 dark:text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
         </div>
       </button>
 
       {isExpanded && (
-        <div className="px-4 pb-4 border-t border-gray-100 pt-3">
-          <p className="text-[#1F1E2A] mb-3">{review.content}</p>
+        <div className="px-4 pb-4 border-t border-gray-100 dark:border-[#3D3C4A] pt-3">
+          <p className="text-[#1F1E2A] dark:text-gray-200 mb-3">{review.content}</p>
 
           {review.dishes.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {review.dishes.map((dish, idx) => (
-                <span key={idx} className="text-sm px-2 py-1 bg-[#FFF4E1] rounded-lg">
+                <span key={idx} className="text-sm px-2 py-1 bg-[#FFF4E1] dark:bg-[#353444] text-[#1F1E2A] dark:text-gray-200 rounded-lg">
                   {dish.name}: <span className="font-medium">{dish.rating}/10</span>
                 </span>
               ))}
@@ -493,22 +460,21 @@ function UserReviewSection({
   );
 }
 
-function NetworkRecommendationCard({ rec }: { rec: Recommendation }) {
-  // Determine relationship label
+function NetworkRecommendationCard({ rec, t }: { rec: Recommendation; t: any }) {
   const getRelationshipLabel = () => {
-    if (rec.is_friend) return '👥 Mutual follow';
-    if (rec.is_following) return '👤 Following';
-    if (rec.is_followed_by) return '👤 Follows you';
+    if (rec.is_friend) return `👥 ${t('relationships.mutualFollow')}`;
+    if (rec.is_following) return `👤 ${t('relationships.following')}`;
+    if (rec.is_followed_by) return `👤 ${t('relationships.followsYou')}`;
     return null;
   };
 
   const relationshipLabel = getRelationshipLabel();
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3">
+    <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-100 dark:border-[#3D3C4A] p-4 mb-3">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-[#353444] overflow-hidden">
             {rec.author_avatar ? (
               <img src={rec.author_avatar} alt={rec.author_name} className="w-full h-full object-cover" />
             ) : (
@@ -518,31 +484,31 @@ function NetworkRecommendationCard({ rec }: { rec: Recommendation }) {
             )}
           </div>
           <div>
-            <div className="font-medium text-[#1F1E2A]">{rec.author_name}</div>
+            <div className="font-medium text-[#1F1E2A] dark:text-white">{rec.author_name}</div>
             <div className="flex items-center gap-2">
               {relationshipLabel && (
-                <span className="text-xs text-gray-500">{relationshipLabel}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{relationshipLabel}</span>
               )}
               {typeof rec.taste_alignment === 'number' && rec.taste_alignment > 0 && (
                 <span className="text-xs text-[#FF644A] font-medium">
-                  {Math.round(rec.taste_alignment * 100)}% taste match
+                  {t('tasteMatch', { percent: Math.round(rec.taste_alignment * 100) })}
                 </span>
               )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="text-2xl font-bold text-[#1F1E2A]">{rec.overall_rating}</div>
-          <div className="text-sm text-gray-500">/10</div>
+          <div className="text-2xl font-bold text-[#1F1E2A] dark:text-white">{rec.overall_rating}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">/10</div>
         </div>
       </div>
 
-      <p className="text-[#1F1E2A] text-sm mb-3 line-clamp-3">{rec.content}</p>
+      <p className="text-[#1F1E2A] dark:text-gray-200 text-sm mb-3 line-clamp-3">{rec.content}</p>
 
       {rec.context_tags.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
           {rec.context_tags.slice(0, 3).map((tag, idx) => (
-            <span key={idx} className="text-xs px-2 py-1 bg-[#FFF4E1] text-[#1F1E2A] rounded-full">
+            <span key={idx} className="text-xs px-2 py-1 bg-[#FFF4E1] dark:bg-[#353444] text-[#1F1E2A] dark:text-gray-200 rounded-full">
               {tag}
             </span>
           ))}
@@ -552,59 +518,61 @@ function NetworkRecommendationCard({ rec }: { rec: Recommendation }) {
       {rec.dishes.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
           {rec.dishes.slice(0, 2).map((dish, idx) => (
-            <span key={idx} className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-lg">
+            <span key={idx} className="text-xs px-2 py-1 bg-gray-100 dark:bg-[#353444] text-gray-700 dark:text-gray-300 rounded-lg">
               {dish.name}: {dish.rating}/10
             </span>
           ))}
         </div>
       )}
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
+      <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1">
             <Heart className="w-4 h-4" /> {rec.likes_count}
           </span>
           <span className="flex items-center gap-1">💬 {rec.comments_count}</span>
         </div>
-        <span>{new Date(rec.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+        <span>{new Date(rec.created_at).toLocaleDateString()}</span>
       </div>
     </div>
   );
 }
 
-function SimilarTasteCard({ rec }: { rec: Recommendation }) {
+function SimilarTasteCard({ rec, t }: { rec: Recommendation; t: any }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3">
+    <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-100 dark:border-[#3D3C4A] p-4 mb-3">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#BFE2D9] flex items-center justify-center">
-            <Star className="w-5 h-5 text-[#1F1E2A]" />
+          <div className="w-10 h-10 rounded-full bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 flex items-center justify-center">
+            <Star className="w-5 h-5 text-[#1F1E2A] dark:text-[#BFE2D9]" />
           </div>
           <div>
-            <div className="font-medium text-[#1F1E2A]">{rec.author_name}</div>
+            <div className="font-medium text-[#1F1E2A] dark:text-white">{rec.author_name}</div>
             {typeof rec.taste_alignment === 'number' && (
-              <div className="text-sm text-[#FF644A] font-medium">{Math.round(rec.taste_alignment * 100)}% taste match</div>
+              <div className="text-sm text-[#FF644A] font-medium">
+                {t('tasteMatch', { percent: Math.round(rec.taste_alignment * 100) })}
+              </div>
             )}
             {rec.author_credibility && (
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
                 {rec.author_credibility.expertise_area && `${rec.author_credibility.expertise_area} · `}
-                {rec.author_credibility.total_recommendations} recs
+                {rec.author_credibility.total_recommendations} {t('recs')}
               </div>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="text-2xl font-bold text-[#1F1E2A]">{rec.overall_rating}</div>
-          <div className="text-sm text-gray-500">/10</div>
+          <div className="text-2xl font-bold text-[#1F1E2A] dark:text-white">{rec.overall_rating}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">/10</div>
         </div>
       </div>
 
-      <p className="text-[#1F1E2A] text-sm mb-3 line-clamp-3">{rec.content}</p>
+      <p className="text-[#1F1E2A] dark:text-gray-200 text-sm mb-3 line-clamp-3">{rec.content}</p>
 
       {rec.context_tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {rec.context_tags.slice(0, 3).map((tag, idx) => (
-            <span key={idx} className="text-xs px-2 py-1 bg-[#FFF4E1] text-[#1F1E2A] rounded-full">
+            <span key={idx} className="text-xs px-2 py-1 bg-[#FFF4E1] dark:bg-[#353444] text-[#1F1E2A] dark:text-gray-200 rounded-full">
               {tag}
             </span>
           ))}
@@ -614,10 +582,10 @@ function SimilarTasteCard({ rec }: { rec: Recommendation }) {
   );
 }
 
-function SuggestedUserCard({ user, onFollow }: { user: SuggestedUser; onFollow: () => void }) {
+function SuggestedUserCard({ user, onFollow, t }: { user: SuggestedUser; onFollow: () => void; t: any }) {
   return (
-    <div className="flex-shrink-0 w-40 bg-white rounded-xl border border-gray-100 p-3 text-center">
-      <div className="w-12 h-12 rounded-full bg-gray-200 mx-auto mb-2 overflow-hidden">
+    <div className="flex-shrink-0 w-40 bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-100 dark:border-[#3D3C4A] p-3 text-center">
+      <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-[#353444] mx-auto mb-2 overflow-hidden">
         {user.avatar_url ? (
           <img src={user.avatar_url} alt={user.display_name} className="w-full h-full object-cover" />
         ) : (
@@ -626,15 +594,15 @@ function SuggestedUserCard({ user, onFollow }: { user: SuggestedUser; onFollow: 
           </div>
         )}
       </div>
-      <div className="font-medium text-[#1F1E2A] text-sm truncate">{user.display_name}</div>
-      <div className="text-xs text-[#FF644A] mb-1">{Math.round(user.taste_alignment * 100)}% match</div>
-      <div className="text-xs text-gray-500 mb-2">{user.mutual_restaurants} shared spots</div>
+      <div className="font-medium text-[#1F1E2A] dark:text-white text-sm truncate">{user.display_name}</div>
+      <div className="text-xs text-[#FF644A] mb-1">{Math.round(user.taste_alignment * 100)}% {t('match')}</div>
+      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{user.mutual_restaurants} {t('sharedSpots')}</div>
       <button
         onClick={onFollow}
         className="w-full flex items-center justify-center gap-1 py-1.5 bg-[#FF644A] text-white text-xs rounded-lg hover:bg-[#E65441]"
       >
         <UserPlus className="w-3 h-3" />
-        Follow
+        {t('follow')}
       </button>
     </div>
   );
@@ -643,15 +611,15 @@ function SuggestedUserCard({ user, onFollow }: { user: SuggestedUser; onFollow: 
 /**
  * LocationMap - Google Maps embed for restaurant location
  */
-function LocationMap({ restaurant }: { restaurant: Restaurant }) {
+function LocationMap({ restaurant, title }: { restaurant: Restaurant; title: string }) {
   const mapQuery = encodeURIComponent(
     `${restaurant.name}, ${restaurant.address}, ${restaurant.city}`
   );
 
   return (
     <section className="mb-6">
-      <h3 className="text-lg font-semibold text-[#1F1E2A] mb-3">Location</h3>
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white mb-3">{title}</h3>
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-100 dark:border-[#3D3C4A] overflow-hidden">
         <div className="h-40 rounded-t-xl overflow-hidden">
           <iframe
             width="100%"
@@ -664,8 +632,8 @@ function LocationMap({ restaurant }: { restaurant: Restaurant }) {
           />
         </div>
         <div className="p-4">
-          <p className="text-[#1F1E2A]">{restaurant.address}</p>
-          <p className="text-gray-500 text-sm">{restaurant.city}</p>
+          <p className="text-[#1F1E2A] dark:text-white">{restaurant.address}</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">{restaurant.city}</p>
         </div>
       </div>
     </section>
@@ -679,6 +647,7 @@ function LocationMap({ restaurant }: { restaurant: Restaurant }) {
 export default function RestaurantDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const t = useTranslations('restaurant');
   const restaurantId = params?.id as string;
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -714,10 +683,9 @@ export default function RestaurantDetailPage() {
         const r = restaurantData.restaurant || restaurantData;
         r.address = cleanAddress(r.address);
 
-        // 2) Determine userId (use local var; don't rely on async state)
+        // 2) Determine userId
         let userId: string | null = null;
 
-        // First try localStorage (fastest, most reliable)
         try {
           const storedUser = localStorage.getItem('omeone_user');
           if (storedUser) {
@@ -730,7 +698,6 @@ export default function RestaurantDetailPage() {
           // ignore parse errors
         }
 
-        // Fallback to /api/auth/me if localStorage didn't have it
         if (!userId && token) {
           try {
             const meRes = await fetch(apiUrl('/api/auth/me'), { headers });
@@ -746,13 +713,12 @@ export default function RestaurantDetailPage() {
           }
         }
 
-        // apply restaurant + user state
         if (!isCancelled) {
           setRestaurant(r);
           setCurrentUser(userId ? { id: userId } : null);
         }
 
-        // 3) Recommendations — fetch for everyone; add userId only if available
+        // 3) Recommendations
         const qs = userId ? `?userId=${encodeURIComponent(userId)}` : '';
         const recsRes = await fetch(apiUrl(`/api/restaurants/${restaurantId}/recommendations${qs}`), { headers });
 
@@ -763,7 +729,6 @@ export default function RestaurantDetailPage() {
           const recsData = await recsRes.json();
           normalized = normalizeRecommendationsPayload(recsData);
 
-          // For now, map everything into all_network (tiers can come later)
           tiered = {
             tier1_friends_high_match: [],
             tier2_similar_taste: [],
@@ -775,7 +740,6 @@ export default function RestaurantDetailPage() {
         if (!isCancelled) {
           setRecommendations(tiered);
 
-          // infer "Your Review" from network recs, if possible
           if (userId) {
             const mine = normalized.find((rec) => rec.author_id === userId);
             if (mine) {
@@ -795,7 +759,7 @@ export default function RestaurantDetailPage() {
           }
         }
 
-        // 4) Dishes aggregation — fetch for everyone; add userId only if available
+        // 4) Dishes aggregation
         const dishesRes = await fetch(apiUrl(`/api/restaurants/${restaurantId}/dishes${qs}`), { headers });
         if (!isCancelled) {
           if (dishesRes.ok) {
@@ -806,7 +770,7 @@ export default function RestaurantDetailPage() {
           }
         }
 
-        // 5) Restaurant photos - fetch from dedicated photos endpoint
+        // 5) Restaurant photos
         const photosRes = await fetch(apiUrl(`/api/restaurants/${restaurantId}/photos?limit=20`), { headers });
         if (!isCancelled && photosRes.ok) {
           const photosData = await photosRes.json();
@@ -831,7 +795,7 @@ export default function RestaurantDetailPage() {
   }, [restaurantId]);
 
   // ============================================================================
-  // COMPUTED SCORES - Simplified categories
+  // COMPUTED SCORES
   // ============================================================================
   const scores = useMemo(() => {
     if (!recommendations) {
@@ -847,12 +811,10 @@ export default function RestaurantDetailPage() {
 
     const allRecs = recommendations.all_network;
 
-    // "Your Network" = people you follow OR who follow you (any connection)
     const networkRecs = allRecs.filter(r => 
       r.is_friend || r.is_following || r.is_followed_by
     );
 
-    // "Similar Taste" = users with >= 70% taste alignment (who are NOT in your network)
     const TASTE_THRESHOLD = 0.7;
     const similarTasteRecs = allRecs.filter(r => 
       !r.is_friend && !r.is_following && !r.is_followed_by &&
@@ -876,7 +838,6 @@ export default function RestaurantDetailPage() {
   }, [recommendations]);
 
   const allPhotos = useMemo(() => {
-    // Use photos fetched from dedicated photos endpoint
     return restaurantPhotos.map(photo => ({
       url: normalizePhotoUrl(photo.ipfsHash),
       tag: photo.tagType || 'unknown',
@@ -884,7 +845,7 @@ export default function RestaurantDetailPage() {
       caption: photo.caption,
       helpfulCount: photo.helpfulCount || 0
     }))
-    .filter(photo => photo.url !== '');  // Filter out photos with no URL
+    .filter(photo => photo.url !== '');
   }, [restaurantPhotos]);
 
   const contextTags = useMemo(() => {
@@ -906,7 +867,7 @@ export default function RestaurantDetailPage() {
     if (navigator.share && restaurant) {
       navigator.share({
         title: restaurant.name,
-        text: `Check out ${restaurant.name} on BocaBoca`,
+        text: t('share.text', { name: restaurant.name }),
         url: window.location.href,
       });
     }
@@ -918,12 +879,15 @@ export default function RestaurantDetailPage() {
   };
   const handleFollowUser = (userId: string) => console.log('Follow user:', userId);
 
+  // Pluralized rec label
+  const getRecLabel = (count: number) => count === 1 ? t('rec') : t('recs');
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FFF4E1]">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <CleanHeader />
         <div className="flex items-center justify-center py-20">
-          <div className="animate-pulse text-[#FF644A]">Loading...</div>
+          <div className="animate-pulse text-[#FF644A]">{t('loading')}</div>
         </div>
       </div>
     );
@@ -931,13 +895,13 @@ export default function RestaurantDetailPage() {
 
   if (error || !restaurant) {
     return (
-      <div className="min-h-screen bg-[#FFF4E1]">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <CleanHeader />
         <div className="flex flex-col items-center justify-center p-6 py-20">
-          <div className="text-[#1F1E2A] text-lg mb-4">{error || 'Restaurant not found'}</div>
+          <div className="text-[#1F1E2A] dark:text-white text-lg mb-4">{error || t('notFound')}</div>
           <button onClick={handleBack} className="flex items-center gap-2 text-[#FF644A] hover:text-[#E65441]">
             <ArrowLeft className="w-5 h-5" />
-            Go back
+            {t('goBack')}
           </button>
         </div>
       </div>
@@ -945,44 +909,43 @@ export default function RestaurantDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF4E1]">
-      {/* GLOBAL HEADER - Same as Discover page */}
+    <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       <CleanHeader />
 
       <main className="px-4 py-6 max-w-2xl mx-auto">
         {/* BACK LINK */}
         <button 
           onClick={handleBack} 
-          className="flex items-center gap-2 text-gray-500 hover:text-[#FF644A] mb-4 transition-colors"
+          className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#FF644A] mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back</span>
+          <span className="text-sm">{t('back')}</span>
         </button>
 
         {/* RESTAURANT INFO SECTION */}
         <section className="mb-6">
           <div className="flex items-start justify-between mb-1">
-            <h1 className="text-2xl font-bold text-[#1F1E2A]">{restaurant.name}</h1>
+            <h1 className="text-2xl font-bold text-[#1F1E2A] dark:text-white">{restaurant.name}</h1>
             {/* SAVE & SHARE BUTTONS */}
             <div className="flex items-center gap-1">
               <button 
                 onClick={handleSave} 
-                className={`p-2 rounded-full transition-colors ${isSaved ? 'text-[#FF644A]' : 'text-gray-400 hover:text-[#FF644A]'}`}
-                title={isSaved ? 'Saved' : 'Save restaurant'}
+                className={`p-2 rounded-full transition-colors ${isSaved ? 'text-[#FF644A]' : 'text-gray-400 dark:text-gray-500 hover:text-[#FF644A]'}`}
+                title={isSaved ? t('saved') : t('save')}
               >
                 <Heart className={`w-6 h-6 ${isSaved ? 'fill-current' : ''}`} />
               </button>
               <button 
                 onClick={handleShare} 
-                className="p-2 rounded-full text-gray-400 hover:text-[#FF644A] transition-colors"
-                title="Share restaurant"
+                className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:text-[#FF644A] transition-colors"
+                title={t('share.title')}
               >
                 <Share2 className="w-6 h-6" />
               </button>
             </div>
           </div>
           
-          <p className="text-gray-600 mb-3">
+          <p className="text-gray-600 dark:text-gray-400 mb-3">
             {[restaurant.cuisineType, restaurant.priceRange, restaurant.city].filter(Boolean).join(' · ')}
           </p>
 
@@ -1000,44 +963,45 @@ export default function RestaurantDetailPage() {
                 href={restaurant.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-[#1F1E2A] hover:bg-gray-50"
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444]"
               >
                 <Globe className="w-4 h-4" />
-                Website
+                {t('actions.website')}
               </a>
             )}
             {restaurant.phone && (
               <a
                 href={`tel:${restaurant.phone}`}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-[#1F1E2A] hover:bg-gray-50"
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444]"
               >
                 <Phone className="w-4 h-4" />
-                Call
+                {t('actions.call')}
               </a>
             )}
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurant.address)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-[#1F1E2A] hover:bg-gray-50"
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444]"
             >
               <MapPin className="w-4 h-4" />
-              Directions
+              {t('actions.directions')}
             </a>
           </div>
         </section>
 
         {/* SIMPLIFIED SCORE CARDS */}
         <section className="mb-6">
-          <h3 className="text-lg font-semibold text-[#1F1E2A] mb-3">What People Think</h3>
+          <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white mb-3">{t('scores.title')}</h3>
           <div className="grid grid-cols-3 gap-3">
             <ScoreCard
               score={scores.networkScore}
-              label="Your Network"
-              sublabel="Follow people"
+              label={t('scores.yourNetwork')}
+              sublabel={t('scores.followPeople')}
               count={scores.networkRecs.length}
               icon={Users}
               highlight={scores.networkRecs.length > 0}
+              recLabel={getRecLabel(scores.networkRecs.length)}
               onClick={() => {
                 document.getElementById('network-reviews')?.scrollIntoView({ 
                   behavior: 'smooth',
@@ -1047,64 +1011,68 @@ export default function RestaurantDetailPage() {
             />
             <ScoreCard 
               score={scores.similarTasteScore} 
-              label="Similar Taste" 
-              sublabel="70%+ match" 
+              label={t('scores.similarTaste')} 
+              sublabel={t('scores.tasteMatch')} 
               count={scores.similarTasteRecs.length} 
-              icon={Star} 
+              icon={Star}
+              recLabel={getRecLabel(scores.similarTasteRecs.length)}
             />
             <ScoreCard 
               score={scores.allScore} 
-              label="All Reviews" 
+              label={t('scores.allReviews')} 
               sublabel="BocaBoca" 
               count={scores.allRecs.length} 
-              icon={TrendingUp} 
+              icon={TrendingUp}
+              recLabel={getRecLabel(scores.allRecs.length)}
             />
           </div>
         </section>
 
-        {/* PHOTO CAROUSEL - Simplified without Add Photo buttons */}
-        <PhotoCarousel photos={allPhotos} dishes={dishes} />
+        {/* PHOTO CAROUSEL */}
+        <PhotoCarousel photos={allPhotos} dishes={dishes} title={t('photos.title')} />
 
         {/* USER'S OWN REVIEW */}
-        <UserReviewSection review={userReview} onEdit={handleEditReview} onWriteReview={handleWriteReview} />
+        <UserReviewSection review={userReview} onEdit={handleEditReview} onWriteReview={handleWriteReview} t={t} />
 
         {/* YOUR NETWORK RECOMMENDATIONS */}
         {scores.networkRecs.length > 0 ? (
           <section id="network-reviews" className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-[#1F1E2A]">From Your Network</h3>
-              <span className="text-sm text-gray-500">{scores.networkRecs.length} {scores.networkRecs.length === 1 ? 'rec' : 'recs'}</span>
+              <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white">{t('network.title')}</h3>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {scores.networkRecs.length} {getRecLabel(scores.networkRecs.length)}
+              </span>
             </div>
-            <p className="text-sm text-gray-600 mb-3">People you follow or who follow you</p>
-            {scores.networkRecs.map((rec) => <NetworkRecommendationCard key={rec.id} rec={rec} />)}
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{t('network.subtitle')}</p>
+            {scores.networkRecs.map((rec) => <NetworkRecommendationCard key={rec.id} rec={rec} t={t} />)}
           </section>
         ) : (
           <section id="network-reviews" className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-[#1F1E2A]">From Your Network</h3>
+              <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white">{t('network.title')}</h3>
             </div>
             {suggestedUsers.length > 0 ? (
               <>
-                <p className="text-sm text-gray-600 mb-3">People with similar taste you might want to follow</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{t('network.suggestedSubtitle')}</p>
                 <div className="flex gap-3 overflow-x-auto pb-2">
                   {suggestedUsers.map((user) => (
-                    <SuggestedUserCard key={user.id} user={user} onFollow={() => handleFollowUser(user.id)} />
+                    <SuggestedUserCard key={user.id} user={user} onFollow={() => handleFollowUser(user.id)} t={t} />
                   ))}
                 </div>
               </>
             ) : (
-              <div className="bg-white rounded-xl border border-gray-100 p-6 text-center">
-                <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">
-                  No one in your network has reviewed this place yet.
+              <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-100 dark:border-[#3D3C4A] p-6 text-center">
+                <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  {t('network.empty.line1')}
                   <br />
-                  Be the first to share your experience!
+                  {t('network.empty.line2')}
                 </p>
                 <button
                   onClick={handleWriteReview}
                   className="mt-3 px-4 py-2 bg-[#FF644A] text-white rounded-lg text-sm hover:bg-[#E65441]"
                 >
-                  Write a Review
+                  {t('yourReview.writeReview')}
                 </button>
               </div>
             )}
@@ -1115,16 +1083,18 @@ export default function RestaurantDetailPage() {
         {scores.similarTasteRecs.length > 0 && (
           <section className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-[#1F1E2A]">From Similar Taste Users</h3>
-              <span className="text-sm text-gray-500">{scores.similarTasteRecs.length} {scores.similarTasteRecs.length === 1 ? 'rec' : 'recs'}</span>
+              <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white">{t('similarTaste.title')}</h3>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {scores.similarTasteRecs.length} {getRecLabel(scores.similarTasteRecs.length)}
+              </span>
             </div>
-            <p className="text-sm text-gray-600 mb-3">Users with 70%+ taste alignment with you</p>
-            {scores.similarTasteRecs.map((rec) => <SimilarTasteCard key={rec.id} rec={rec} />)}
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{t('similarTaste.subtitle')}</p>
+            {scores.similarTasteRecs.map((rec) => <SimilarTasteCard key={rec.id} rec={rec} t={t} />)}
           </section>
         )}
 
         {/* LOCATION SECTION with Google Maps */}
-        <LocationMap restaurant={restaurant} />
+        <LocationMap restaurant={restaurant} title={t('location')} />
       </main>
     </div>
   );

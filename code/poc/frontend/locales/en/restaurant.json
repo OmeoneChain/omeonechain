@@ -1,0 +1,58 @@
+{
+  "loading": "Loading...",
+  "notFound": "Restaurant not found",
+  "goBack": "Go back",
+  "back": "Back",
+  "save": "Save restaurant",
+  "saved": "Saved",
+  "share": {
+    "title": "Share restaurant",
+    "text": "Check out {name} on BocaBoca"
+  },
+  "actions": {
+    "website": "Website",
+    "call": "Call",
+    "directions": "Directions"
+  },
+  "scores": {
+    "title": "What People Think",
+    "yourNetwork": "Your Network",
+    "similarTaste": "Similar Taste",
+    "allReviews": "All Reviews",
+    "followPeople": "Follow people",
+    "tasteMatch": "70%+ match"
+  },
+  "rec": "rec",
+  "recs": "recs",
+  "photos": {
+    "title": "Photos & Dishes"
+  },
+  "yourReview": {
+    "title": "Your Review",
+    "subtitle": "Share your experience to build your taste profile",
+    "writeReview": "Write Review"
+  },
+  "network": {
+    "title": "From Your Network",
+    "subtitle": "People you follow or who follow you",
+    "suggestedSubtitle": "People with similar taste you might want to follow",
+    "empty": {
+      "line1": "No one in your network has reviewed this place yet.",
+      "line2": "Be the first to share your experience!"
+    }
+  },
+  "similarTaste": {
+    "title": "From Similar Taste Users",
+    "subtitle": "Users with 70%+ taste alignment with you"
+  },
+  "location": "Location",
+  "relationships": {
+    "mutualFollow": "Mutual follow",
+    "following": "Following",
+    "followsYou": "Follows you"
+  },
+  "tasteMatch": "{percent}% taste match",
+  "match": "match",
+  "sharedSpots": "shared spots",
+  "follow": "Follow"
+}

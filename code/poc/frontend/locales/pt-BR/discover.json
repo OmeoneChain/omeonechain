@@ -48,8 +48,8 @@
   "results": "Resultados",
 
   "tiers": {
-    "my_network": "Minha Rede",
-    "similar_tastes": "Gostos Similares",
+    "myNetwork": "Minha Rede",
+    "similarTastes": "Gostos Similares",
     "community": "Comunidade",
     "unrated": "Sem Avaliação"
   },
@@ -169,6 +169,11 @@
       "title": "Nenhum pedido ainda",
       "description": "Seja o primeiro a pedir recomendações de restaurantes à comunidade!",
       "cta": "Pedir Recomendações"
+    },
+    "search": {
+      "noResults": {
+        "description": "Tente ajustar sua busca ou filtros para encontrar o que procura."
+      }
     }
   },
 
@@ -177,20 +182,35 @@
       "title": "Pedir Recomendações",
       "subtitle": "Receba sugestões personalizadas da comunidade"
     },
+    "stake": {
+      "balance": "Seu Saldo",
+      "amount": "Valor do Stake",
+      "winnerReceives": "Vencedor recebe:",
+      "platformFee": "Taxa da plataforma:",
+      "loading": "Carregando...",
+      "minStake": "Stake mínimo é {amount} BOCA",
+      "insufficientBalance": "Saldo insuficiente ({balance} BOCA disponível)",
+      "loginRequired": "Faça login para criar um pedido",
+      "balanceError": "Não foi possível carregar o saldo",
+      "successMessage": "Pedido criado! {amount} BOCA apostado"
+    },
     "fields": {
       "title": {
         "label": "O que você está procurando?",
         "placeholder": "Ex: Melhor sushi para um jantar especial de aniversário",
+        "characters": "caracteres",
         "charCount": "{count}/200 caracteres"
       },
       "description": {
         "label": "Detalhes adicionais (opcional)",
         "placeholder": "Conte-nos mais sobre o que você procura, preferências, experiências anteriores...",
+        "characters": "caracteres",
         "charCount": "{count}/1000 caracteres"
       },
       "location": {
         "label": "Localização",
-        "placeholder": "Ex: São Paulo, Vila Madalena"
+        "placeholder": "Ex: São Paulo, Vila Madalena",
+        "hint": "Cidade, bairro, região ou \"qualquer lugar\" / \"mundial\""
       },
       "cuisineType": {
         "label": "Tipo de Culinária",
@@ -201,11 +221,26 @@
         "placeholder": "Selecione uma ocasião..."
       },
       "budgetRange": {
-        "label": "Faixa de Preço"
+        "label": "Faixa de Preço",
+        "hint": "Selecione um ou mais • Clique novamente para desmarcar"
       },
       "dietary": {
         "label": "Restrições Alimentares"
+      },
+      "urgency": {
+        "label": "Quando você precisa das recomendações?",
+        "expiresLabel": "O pedido expira em:"
       }
+    },
+    "urgency": {
+      "label": "Quando você precisa das recomendações?",
+      "expiresLabel": "O pedido expira em:",
+      "6h": "6 horas",
+      "24h": "24 horas",
+      "3d": "3 dias",
+      "7d": "7 dias",
+      "14d": "2 semanas",
+      "30d": "30 dias"
     },
     "occasions": {
       "date_night": "Noite Romântica",
@@ -234,12 +269,13 @@
     "validation": {
       "titleRequired": "Por favor, informe o que você está procurando",
       "titleTooShort": "Por favor, forneça mais detalhes (mínimo 10 caracteres)",
+      "locationRequired": "Localização é obrigatória",
       "loginRequired": "Por favor, faça login para criar um pedido"
     },
     "tip": "Quanto mais específico você for, melhores recomendações receberá. Inclua detalhes como bairros preferidos, faixa de preço ou itens essenciais.",
     "actions": {
       "cancel": "Cancelar",
-      "submit": "Publicar Pedido",
+      "submit": "Publicar Pedido ({amount} BOCA)",
       "creating": "Criando..."
     },
     "success": "Seu pedido foi publicado! Você será notificado quando receber recomendações.",
@@ -337,15 +373,111 @@
     "closed": "Fechado"
   },
 
+  "tiers": {
+    "myNetwork": "Minha Rede",
+    "similarTastes": "Gostos Similares",
+    "community": "Comunidade",
+    "unrated": "Sem Avaliação"
+  },
+  "infoWindow": {
+    "fromNetwork": "da sua rede",
+    "similarTastesRecommend": "Gostos similares recomendam",
+    "communityRecs": "recomendações da comunidade",
+    "open": "Aberto",
+    "closed": "Fechado",
+    "beFirst": "Seja o Primeiro a Avaliar",
+    "viewDetails": "Ver Detalhes",
+    "directions": "Como Chegar"
+  },
+  "list": {
+    "fromYourNetwork": "da sua rede",
+    "recommendation": "recomendação",
+    "recommendations": "recomendações",
+    "beFirst": "Seja o primeiro a avaliar",
+    "showingOf": "Mostrando {shown} de {total} restaurantes. Aproxime para ver mais."
+  },
+  "search": {
+    "placeholder": "Buscar restaurantes por nome, culinária ou localização..."
+  },
+  "nearMe": "Perto de Mim",
+  "filters": {
+    "title": "Filtros",
+    "cuisine": "Culinária",
+    "priceRange": "Faixa de Preço",
+    "clear": "Limpar todos os filtros"
+  },
+  "results": "Resultados",
+  "noResults": {
+    "title": "Nenhum restaurante encontrado",
+    "description": "Tente ajustar sua busca ou filtros"
+  },
+  "tipModal": {
+    "title": "Enviar Gorjeta",
+    "subtitle": "Demonstre apreço por esta resposta",
+    "recommended": "Recomendou",
+    "yourBalance": "Seu Saldo",
+    "customAmount": "Valor Personalizado",
+    "infoNote": "100% da sua gorjeta vai diretamente para {name}. Gorjetas são uma forma de agradecer respostas úteis além da seleção vencedora.",
+    "insufficientBalance": "Saldo insuficiente. Você tem {balance} BOCA disponível.",
+    "cancel": "Cancelar",
+    "sending": "Enviando...",
+    "sendAmount": "Enviar {amount} BOCA",
+    "success": {
+      "title": "Gorjeta Enviada!",
+      "description": "{amount} BOCA enviado para {name}"
+    },
+    "error": {
+      "failed": "Falha ao enviar gorjeta"
+    }
+  },
+  "awardModal": {
+    "title": {
+      "select": "Selecionar Restaurante Vencedor",
+      "confirm": "Confirmar Premiação"
+    },
+    "winnerReceives": "Vencedor recebe",
+    "percentOfStake": "{percent}% da aposta",
+    "percentBurned": "{percent}% queimado",
+    "firstResponderNote": "A primeira pessoa que sugeriu o restaurante vencedor receberá automaticamente a recompensa.",
+    "restaurantsSuggested": "{count, plural, =1 {1 restaurante sugerido} other {# restaurantes sugeridos}}",
+    "othersAlsoSuggested": "+{count, plural, =1 {1 outro também sugeriu} other {# outros também sugeriram}}",
+    "bountyGoesToFirst": "Recompensa vai para o primeiro a responder",
+    "firstSuggested": "Primeiro a sugerir {time}",
+    "totalStaked": "Total apostado",
+    "winnerReceivesPercent": "Vencedor recebe ({percent}%)",
+    "burnedPercent": "Queimado ({percent}%)",
+    "tipNote": "Após premiar, você pode opcionalmente dar gorjetas para outras respostas úteis da sua própria carteira.",
+    "cancel": "Cancelar",
+    "continue": "Continuar",
+    "back": "Voltar",
+    "awarding": "Premiando...",
+    "awardAmount": "Premiar {amount} BOCA",
+    "error": {
+      "failed": "Falha ao premiar recompensa"
+    }
+  },
+  "responseCard": {
+    "winner": "Vencedor!",
+    "earned": "Ganhou {amount} BOCA",
+    "first": "PRIMEIRO",
+    "sendTip": "Enviar Gorjeta"
+  },
   "detail": {
     "loading": "Carregando pedido...",
     "error": {
       "title": "Erro ao Carregar Pedido",
       "notFound": "Este pedido não foi encontrado ou pode ter sido excluído."
     },
+    "errors": {
+      "restaurantProcessFailed": "Não foi possível processar os restaurantes. Por favor, tente selecionar um restaurante diferente.",
+      "submitFailed": "Falha ao enviar resposta"
+    },
     "backToDiscover": "Voltar para Descobrir",
     "back": "Voltar",
     "requestLabel": "Pedido de Descoberta",
+    "expired": "Expirado",
+    "expiresIn": "Expira {time}",
+    "postedAgo": "Publicado {time}",
     "loginToUpvote": "Por favor, faça login para votar",
     "upvoteSuccess": "Voto registrado com sucesso",
     "bestAnswerSuccess": "Marcado como melhor resposta",
@@ -361,26 +493,47 @@
     "yourRecommendation": "Sua Recomendação",
     "responsePlaceholder": "Compartilhe suas recomendações de restaurantes e dicas...",
     "characters": "caracteres",
+    "optional": "opcional",
     "cancel": "Cancelar",
     "submitting": "Enviando...",
     "submit": "Enviar Resposta",
     "responses": "{count, plural, =0 {Nenhuma resposta ainda} =1 {1 Resposta} other {# Respostas}}",
+    "responseCount": "{count, plural, =1 {1 resposta} other {# respostas}}",
     "bestAnswer": "Melhor Resposta",
     "markBest": "Marcar como Melhor",
     "recommendedPlaces": "Lugares Recomendados:",
     "helpful": "Útil",
     "noResponses": "Nenhuma resposta ainda. Seja o primeiro a ajudar!",
     "beFirst": "Seja o Primeiro a Responder",
+    "alreadyResponded": "Você já compartilhou uma recomendação para este pedido.",
     "recommendRestaurants": "Recomendar Restaurantes",
     "searchRestaurantPlaceholder": "Buscar um restaurante para recomendar...",
     "searchRestaurantHelp": "Busque e selecione os restaurantes que deseja recomendar",
-    "selectRestaurantRequired": "Por favor, selecione pelo menos um restaurante para recomendar",
+    "selectRestaurantRequired": "Selecione pelo menos 1 restaurante",
     "selectedRestaurants": "Restaurantes Selecionados",
     "removeRestaurant": "Remover",
     "addNotes": "Adicionar notas (opcional)",
     "notesPlaceholder": "Por que você recomenda este lugar?",
     "dishRecommendations": "Pratos recomendados",
     "dishPlaceholder": "Ex: Experimente a carbonara!",
-    "restaurantNotesPlaceholder": "Por que você recomenda este lugar? Alguma dica?"
+    "restaurantNotesPlaceholder": "Por que você recomenda este lugar? Alguma dica?",
+    "bounty": "Recompensa",
+    "bountyAwarded": "Recompensa Concedida",
+    "bountyWinnerInfo": "Melhor resposta ganha {amount} BOCA (90%)",
+    "bountyStatus": {
+      "active": "Recompensa Ativa",
+      "awarded": "Concedida",
+      "refunded": "Reembolsada"
+    },
+    "awardBounty": "Conceder Recompensa",
+    "refund": "Reembolsar",
+    "tipHint": "Você agora pode dar gorjetas para outras respostas úteis",
+    "winBounty": "Ganhe {amount} BOCA",
+    "refundDialog": {
+      "title": "Reembolsar Recompensa?",
+      "description": "Isso retornará seus {amount} BOCA apostados.",
+      "refunding": "Reembolsando...",
+      "confirm": "Confirmar Reembolso"
+    }
   }
 }

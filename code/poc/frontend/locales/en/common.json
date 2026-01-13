@@ -19,7 +19,9 @@
     "upgradeBadge": "Upgrade",
     "walletAccount": "Wallet Account",
     "emailAccount": "Email Account",
-    "bocaBalance": "BOCA Balance"
+    "bocaBalance": "BOCA Balance",
+    "darkMode": "Dark Mode",
+    "lightMode": "Light Mode"
   },
   "auth": {
     "authRequired": "Authentication Required",
@@ -1282,6 +1284,29 @@
       "aria": {
         "save": "Save item",
         "saved": "Item saved"
+      },
+      "form": {
+        "title": "Create New List",
+        "fields": {
+          "name": {
+            "label": "List Name",
+            "placeholder": "e.g., Date Night Spots"
+          },
+          "description": {
+            "label": "Description",
+            "placeholder": "What's this list about?"
+          }
+        },
+        "validation": {
+          "nameRequired": "Please enter a list name"
+        },
+        "actions": {
+          "create": "Create List",
+          "creating": "Creating..."
+        },
+        "errors": {
+          "createFailed": "Failed to create list. Please try again."
+        }
       }
     },
     "card": {

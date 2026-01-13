@@ -234,7 +234,7 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
   ): string | undefined {
     if (!components) return undefined;
     
-    const component = components.find(c => c.types.includes(type));
+    const component = components.find(c => c.types?.includes(type));
     return component ? (useShortText ? component.shortText : component.longText) : undefined;
   }
 

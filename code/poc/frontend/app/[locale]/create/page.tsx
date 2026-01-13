@@ -49,27 +49,25 @@ const CreatePage: React.FC = () => {
   // Success handlers
   const handleCreateListSuccess = (listId: string) => {
     setShowCreateListModal(false);
-    // Navigate to the newly created list
     router.push(`/list/${listId}`);
   };
 
   const handleCreateRequestSuccess = () => {
     setShowCreateRequestModal(false);
-    // Navigate to discover page with requests tab active
     router.push('/discover?tab=requests');
   };
 
   // Loading state for hydration
   if (!mounted) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: '#FFF4E1' }}>
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <CleanHeader currentPath="/create" />
         <div className="py-12 px-4">
           <div className="max-w-2xl mx-auto text-center">
-            <h1 className="text-3xl font-bold mb-4" style={{ color: '#1F1E2A' }}>
+            <h1 className="text-3xl font-bold mb-4 text-[#1F1E2A] dark:text-white">
               {t('hub.title')}
             </h1>
-            <p style={{ color: '#666' }}>
+            <p className="text-gray-600 dark:text-gray-400">
               {t('hub.subtitle')}
             </p>
           </div>
@@ -79,7 +77,7 @@ const CreatePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FFF4E1' }}>
+    <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       {/* Header with navigation */}
       <CleanHeader currentPath="/create" />
       
@@ -88,10 +86,10 @@ const CreatePage: React.FC = () => {
         <div className="max-w-2xl mx-auto">
           {/* Page header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold mb-3" style={{ color: '#1F1E2A' }}>
+            <h1 className="text-3xl sm:text-4xl font-bold mb-3 text-[#1F1E2A] dark:text-white">
               {t('hub.title')}
             </h1>
-            <p className="text-lg" style={{ color: '#666' }}>
+            <p className="text-lg text-gray-600 dark:text-gray-400">
               {t('hub.subtitle')}
             </p>
           </div>
@@ -101,8 +99,7 @@ const CreatePage: React.FC = () => {
             {/* Recommendation - Active */}
             <button
               onClick={() => handleOptionClick('recommendation')}
-              className="w-full bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 text-left group"
-              style={{ border: '1px solid #E5E5E5' }}
+              className="w-full bg-white dark:bg-[#2D2C3A] rounded-xl p-5 shadow-sm hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 text-left group border border-gray-200 dark:border-[#3D3C4A]"
             >
               <div className="flex items-center gap-4">
                 {/* Icon with coral background */}
@@ -114,89 +111,63 @@ const CreatePage: React.FC = () => {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h3 
-                    className="text-lg font-semibold group-hover:text-[#FF644A] transition-colors"
-                    style={{ color: '#1F1E2A' }}
-                  >
+                  <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white group-hover:text-[#FF644A] transition-colors">
                     {t('hub.options.recommendation.title')}
                   </h3>
-                  <p className="text-sm mt-0.5" style={{ color: '#666' }}>
+                  <p className="text-sm mt-0.5 text-gray-600 dark:text-gray-400">
                     {t('hub.options.recommendation.description')}
                   </p>
                 </div>
                 
-                <ChevronRight 
-                  className="w-5 h-5 group-hover:translate-x-1 transition-all flex-shrink-0" 
-                  style={{ color: '#9CA3AF' }}
-                />
+                <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
               </div>
             </button>
 
             {/* Curated List - Now Active */}
             <button
               onClick={() => handleOptionClick('list')}
-              className="w-full bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 text-left group"
-              style={{ border: '1px solid #E5E5E5' }}
+              className="w-full bg-white dark:bg-[#2D2C3A] rounded-xl p-5 shadow-sm hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 text-left group border border-gray-200 dark:border-[#3D3C4A]"
             >
               <div className="flex items-center gap-4">
                 {/* Icon with mint background */}
-                <div 
-                  className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: '#BFE2D9' }}
-                >
-                  <ListOrdered className="w-7 h-7" style={{ color: '#2D7A5F' }} />
+                <div className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform bg-[#BFE2D9] dark:bg-[#BFE2D9]/20">
+                  <ListOrdered className="w-7 h-7 text-[#2D7A5F] dark:text-[#6EE7B7]" />
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h3 
-                    className="text-lg font-semibold group-hover:text-[#2D7A5F] transition-colors"
-                    style={{ color: '#1F1E2A' }}
-                  >
+                  <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white group-hover:text-[#2D7A5F] dark:group-hover:text-[#6EE7B7] transition-colors">
                     {t('hub.options.list.title')}
                   </h3>
-                  <p className="text-sm mt-0.5" style={{ color: '#666' }}>
+                  <p className="text-sm mt-0.5 text-gray-600 dark:text-gray-400">
                     {t('hub.options.list.description')}
                   </p>
                 </div>
                 
-                <ChevronRight 
-                  className="w-5 h-5 group-hover:translate-x-1 transition-all flex-shrink-0" 
-                  style={{ color: '#9CA3AF' }}
-                />
+                <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
               </div>
             </button>
 
             {/* Request - Now Active */}
             <button
               onClick={() => handleOptionClick('request')}
-              className="w-full bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 text-left group"
-              style={{ border: '1px solid #E5E5E5' }}
+              className="w-full bg-white dark:bg-[#2D2C3A] rounded-xl p-5 shadow-sm hover:shadow-md dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 text-left group border border-gray-200 dark:border-[#3D3C4A]"
             >
               <div className="flex items-center gap-4">
                 {/* Icon with plum background */}
-                <div 
-                  className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: '#E9E4EC' }}
-                >
-                  <HelpCircle className="w-7 h-7" style={{ color: '#35273B' }} />
+                <div className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform bg-[#E9E4EC] dark:bg-[#E9E4EC]/20">
+                  <HelpCircle className="w-7 h-7 text-[#35273B] dark:text-[#D8B4FE]" />
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h3 
-                    className="text-lg font-semibold group-hover:text-[#35273B] transition-colors"
-                    style={{ color: '#1F1E2A' }}
-                  >
+                  <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white group-hover:text-[#35273B] dark:group-hover:text-[#D8B4FE] transition-colors">
                     {t('hub.options.request.title')}
                   </h3>
-                  <p className="text-sm mt-0.5" style={{ color: '#666' }}>
+                  <p className="text-sm mt-0.5 text-gray-600 dark:text-gray-400">
                     {t('hub.options.request.description')}
                   </p>
                 </div>
                 
-                <ChevronRight 
-                  className="w-5 h-5 group-hover:translate-x-1 transition-all flex-shrink-0" 
-                  style={{ color: '#9CA3AF' }}
-                />
+                <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
               </div>
             </button>
           </div>
@@ -205,15 +176,11 @@ const CreatePage: React.FC = () => {
           <div className="mt-8 text-center">
             <a 
               href="/rewards" 
-              className="inline-flex items-center gap-2 text-sm transition-colors group"
-              style={{ color: '#666' }}
+              className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 transition-colors group"
             >
-              <Sparkles 
-                className="w-4 h-4 group-hover:scale-110 transition-transform" 
-                style={{ color: '#FFB84D' }} 
-              />
+              <Sparkles className="w-4 h-4 text-[#FFB84D] group-hover:scale-110 transition-transform" />
               <span>{t('hub.rewardsHint')}</span>
-              <span className="font-medium" style={{ color: '#FF644A' }}>
+              <span className="font-medium text-[#FF644A]">
                 {t('hub.learnMore')}
               </span>
             </a>
