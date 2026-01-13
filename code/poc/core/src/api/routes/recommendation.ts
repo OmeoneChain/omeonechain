@@ -1,14 +1,16 @@
 // File: code/poc/core/src/api/routes/recommendation.ts
-// White Paper v1.0 Token Rewards - Simplified flat rewards
+// White Paper v1.02 Token Rewards - Two-Tier Integration
 // 
-// REWARD STRUCTURE (White Paper v1.0):
-// - Create recommendation (wallet tier): 5.0 BOCA flat
-// - Create recommendation (email tier):  2.5 BOCA flat
-// - Receive like:                         1.0 BOCA (tier-weighted)
-// - Receive save/bookmark:                1.0 BOCA (tier-weighted)
+// REWARD STRUCTURE (White Paper v1.02):
+// - Create recommendation (wallet tier): 5.0 BOCA → on-chain mint
+// - Create recommendation (email tier):  2.5 BOCA → pending_tokens
+// - Receive like:                         1.0 BOCA base × engager tier weight
+// - Receive save/bookmark:                1.0 BOCA base × engager tier weight
 //
 // NOTE: Validation bonus (+10.0 BOCA at 3.0 engagement points) handled separately
 // NOTE: First reviewer bonus (+10.0 BOCA) handled by database trigger
+//
+// UPDATED: January 6, 2025 - Integrated rewardService for two-tier token distribution
 
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
@@ -16,6 +18,97 @@ import { RecommendationEngine } from '../../recommendation/engine';
 import { AdapterFactory, AdapterType } from '../../adapters/adapter-factory';
 import { IPFSStorageProvider } from '../../storage/ipfs-storage';
 import { authenticateToken } from '../../middleware/auth';
+
+// NEW: Import reward service for two-tier token distribution
+import { getRewardService, RewardResult, UserAuthTier } from '../../services/reward-service';
+
+/**
+ * Update engagement points on a recommendation and check for validation bonus
+ * White Paper v1.02: +10.0 BOCA when recommendation reaches 3.0 engagement points
+ */
+async function updateEngagementPoints(
+  recommendationId: string, 
+  engagerId: string, 
+  actionType: 'like' | 'save' | 'comment'
+): Promise<void> {
+  try {
+    // Get engager's tier weight
+    const { data: engager } = await supabase
+      .from('users')
+      .select('reputation_tier')
+      .eq('id', engagerId)
+      .single();
+    
+    const tierWeights: Record<string, number> = {
+      'new': 0.5,
+      'established': 1.0,
+      'trusted': 1.5
+    };
+    const tierWeight = tierWeights[engager?.reputation_tier || 'established'] || 1.0;
+    
+    // Calculate points based on action type
+    const basePoints: Record<string, number> = {
+      'like': 1.0,
+      'save': 1.0,
+      'comment': 0.5
+    };
+    const pointsToAdd = basePoints[actionType] * tierWeight;
+    
+    // Get current recommendation state
+    const { data: rec } = await supabase
+      .from('recommendations')
+      .select('engagement_points, validation_bonus_awarded, author_id')
+      .eq('id', recommendationId)
+      .single();
+    
+    if (!rec) return;
+    
+    const currentPoints = rec.engagement_points || 0;
+    const newPoints = currentPoints + pointsToAdd;
+    
+    // Update engagement points
+    await supabase
+      .from('recommendations')
+      .update({ engagement_points: newPoints })
+      .eq('id', recommendationId);
+    
+    console.log(`📊 Engagement points: ${currentPoints.toFixed(2)} → ${newPoints.toFixed(2)} (+${pointsToAdd.toFixed(2)} from ${actionType})`);
+    
+    // Check if validation bonus threshold reached (3.0 points)
+    if (newPoints >= 3.0 && !rec.validation_bonus_awarded) {
+      console.log(`🎯 [VALIDATION] Recommendation reached 3.0 points! Awarding +10.0 BOCA bonus...`);
+      
+      try {
+        const validationResult = await rewardService.awardValidationBonus(
+          rec.author_id,
+          recommendationId
+        );
+        
+        if (validationResult.success) {
+          // Mark as awarded to prevent double-awarding
+          await supabase
+            .from('recommendations')
+            .update({
+              validation_bonus_awarded: true,
+              validation_bonus_awarded_at: new Date().toISOString()
+            })
+            .eq('id', recommendationId);
+          
+          console.log(`✅ [VALIDATION] Bonus awarded: ${validationResult.displayAmount} BOCA`);
+          if (validationResult.txDigest) {
+            console.log(`   TX: ${validationResult.txDigest}`);
+          }
+        } else {
+          console.error(`❌ [VALIDATION] Bonus failed: ${validationResult.error}`);
+        }
+      } catch (validationError) {
+        console.error('❌ [VALIDATION] Exception:', validationError);
+      }
+    }
+  } catch (error) {
+    console.error('⚠️ Error updating engagement points:', error);
+  }
+}
 
 const router = Router();
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -27,8 +120,11 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
+// NEW: Initialize reward service singleton
+const rewardService = getRewardService();
+
 // =============================================================================
-// WHITE PAPER v1.0 TOKEN REWARD CONSTANTS
+// WHITE PAPER v1.02 TOKEN REWARD CONSTANTS (for reference/logging)
 // =============================================================================
 
 /** Flat reward for creating a recommendation (wallet-tier users) */
@@ -263,7 +359,7 @@ async function updateUserReputationTier(userId: string): Promise<'new' | 'establ
   // Check for spam flags
   const hasSpamFlags = (user.spam_flags || 0) > 0;
 
-  // Determine tier (White Paper v1.0 simplified tiers)
+  // Determine tier (White Paper v1.02 simplified tiers)
   let tier: 'new' | 'established' | 'trusted' = 'new';
 
   if (hasSpamFlags) {
@@ -292,85 +388,21 @@ async function updateUserReputationTier(userId: string): Promise<'new' | 'establ
 }
 
 /**
- * 💰 Get flat creation reward based on account tier (White Paper v1.0)
- * 
- * Wallet-tier users: 5.0 BOCA
- * Email-tier users:  2.5 BOCA
+ * 💰 Get expected creation reward based on account tier (for logging/response)
  */
-function getCreationReward(accountTier: string): number {
+function getExpectedCreationReward(accountTier: string): number {
   if (accountTier === 'wallet_full') {
-    console.log(`💰 Creation reward: ${CREATION_REWARD_WALLET} BOCA (wallet tier)`);
     return CREATION_REWARD_WALLET;
   } else {
-    console.log(`💰 Creation reward: ${CREATION_REWARD_EMAIL} BOCA (email tier)`);
     return CREATION_REWARD_EMAIL;
   }
 }
 
 /**
- * 💰 Get tier multiplier for engagement rewards
+ * 💰 Get tier multiplier for engagement rewards (for logging/response)
  */
 function getTierMultiplier(reputationTier: string): number {
   return TIER_MULTIPLIERS[reputationTier] || TIER_MULTIPLIERS['established'];
-}
-
-/**
- * 💰 Calculate token reward for INTERACTIONS (like/save) based on engager's reputation tier
- * 
- * White Paper v1.0: Base reward is 1.0 BOCA, weighted by engager's tier
- * - New (0.5x):         0.50 BOCA
- * - Established (1.0x): 1.00 BOCA
- * - Trusted (1.5x):     1.50 BOCA
- */
-async function calculateEngagementReward(engagerUserId: string, baseReward: number): Promise<number> {
-  const { data: userData } = await supabase
-    .from('users')
-    .select('reputation_tier')
-    .eq('id', engagerUserId)
-    .single();
-
-  const engagerTier = userData?.reputation_tier || 'established';
-  const tierMultiplier = getTierMultiplier(engagerTier);
-  const tokensEarned = baseReward * tierMultiplier;
-
-  console.log(`💰 Engagement reward: ${tokensEarned.toFixed(2)} BOCA (base: ${baseReward}, engager tier: ${engagerTier}, multiplier: ${tierMultiplier})`);
-  
-  return tokensEarned;
-}
-
-/**
- * 💰 Award tokens to user
- */
-async function awardTokens(userId: string, amount: number): Promise<void> {
-  console.log(`💰 Awarding ${amount.toFixed(2)} BOCA to user ${userId}...`);
-  
-  const { data: user, error: fetchError } = await supabase
-    .from('users')
-    .select('tokens_earned')
-    .eq('id', userId)
-    .single();
-  
-  if (fetchError) {
-    console.error('❌ Failed to fetch user for token award:', fetchError);
-    throw fetchError;
-  }
-  
-  const currentAmount = user?.tokens_earned || 0;
-  const newAmount = currentAmount + amount;
-  
-  console.log(`💰 Current: ${currentAmount.toFixed(2)} BOCA → New: ${newAmount.toFixed(2)} BOCA`);
-  
-  const { error: updateError } = await supabase
-    .from('users')
-    .update({ tokens_earned: newAmount })
-    .eq('id', userId);
-  
-  if (updateError) {
-    console.error('❌ Failed to update tokens:', updateError);
-    throw updateError;
-  }
-  
-  console.log(`✅ Awarded ${amount.toFixed(2)} BOCA to user ${userId}`);
 }
 
 // =============================================================================
@@ -419,7 +451,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 
     const authorId = req.user!.id;
     const authorName = req.user!.display_name || req.user!.username || 'User';
-    const accountTier = req.user!.accountTier || 'email_basic';
+    const accountTier = (req.user!.accountTier || 'email_basic') as UserAuthTier;
 
     console.log('🔵 Creating Trust Score 2.0 recommendation:', {
       title,
@@ -605,9 +637,9 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       console.log(`✅ Restaurant created: ID ${restaurantId}`);
     }
 
-    // Step 3: Calculate token reward (White Paper v1.0 - FLAT rewards)
-    const userAccountTier = user.account_tier || accountTier;
-    const tokenReward = getCreationReward(userAccountTier);
+    // Step 3: Calculate expected token reward (for response/logging)
+    const userAccountTier = (user.account_tier || accountTier) as UserAuthTier;
+    const expectedTokenReward = getExpectedCreationReward(userAccountTier);
 
     // Step 4: Submit to blockchain (optional)
     console.log('🔗 Submitting to blockchain...');
@@ -663,7 +695,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         tags: tags,
         context_tags: context_tags,
         trust_score: blockchainRecommendation ? 0.25 : 0.15,
-        base_reward: tokenReward,
+        base_reward: expectedTokenReward,
         location_data: {
           address: restaurantAddress,
           coordinates: latitude && longitude ? { lat: latitude, lng: longitude } : null
@@ -832,27 +864,92 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       }
     }
 
-    // Step 9: Award tokens to user (White Paper v1.0 flat reward)
-    console.log(`💰 Awarding ${tokenReward.toFixed(2)} BOCA to user ${user.id}...`);
+    // =========================================================================
+    // Step 9: Award tokens via TWO-TIER REWARD SERVICE (NEW INTEGRATION)
+    // =========================================================================
+    console.log(`💰 [TWO-TIER] Awarding recommendation reward to user ${user.id}...`);
+    console.log(`💰 [TWO-TIER] Account tier: ${userAccountTier}, Expected: ${expectedTokenReward} BOCA`);
     
-    const currentTokens = user.tokens_earned || 0;
-    const newTokenBalance = currentTokens + tokenReward;
+    let rewardResult: RewardResult;
+    let firstReviewerResult: RewardResult | null = null;
     
-    const { data: updatedUser, error: tokenError } = await supabase
-      .from('users')
-      .update({
-        tokens_earned: newTokenBalance
-      })
-      .eq('id', user.id)
-      .select()
-      .single();
-
-    if (tokenError) {
-      console.error('⚠️ Failed to award tokens:', tokenError);
-      console.error('   This is a critical error - user did not receive tokens!');
-    } else {
-      console.log(`✅ Tokens awarded! User balance: ${currentTokens.toFixed(2)} → ${newTokenBalance.toFixed(2)} BOCA`);
-      console.log(`   Increase: +${tokenReward.toFixed(2)} BOCA`);
+    try {
+      rewardResult = await rewardService.awardRecommendation(
+        user.id,
+        recommendation.id,
+        userAccountTier
+      );
+      
+      if (rewardResult.success) {
+        console.log(`✅ [TWO-TIER] Reward successful!`);
+        console.log(`   Method: ${rewardResult.method}`);
+        console.log(`   Amount: ${rewardResult.displayAmount} BOCA`);
+        if (rewardResult.txDigest) {
+          console.log(`   TX Digest: ${rewardResult.txDigest}`);
+        }
+        if (rewardResult.pendingRewardId) {
+          console.log(`   Pending ID: ${rewardResult.pendingRewardId}`);
+        }
+        console.log(`   New Balance: ${rewardResult.newBalance?.toFixed(2)} BOCA`);
+      } else {
+        console.error(`❌ [TWO-TIER] Reward failed: ${rewardResult.error}`);
+      }
+      
+      // =========================================================================
+      // Step 9b: Check for FIRST REVIEWER BONUS (+10.0 BOCA)
+      // =========================================================================
+      // Check if this is the first recommendation for this restaurant
+      const { count: existingRecommendationCount, error: countError } = await supabase
+        .from('recommendations')
+        .select('id', { count: 'exact', head: true })
+        .eq('restaurant_id', restaurant.id);
+      
+      // If count is 1, this IS the first recommendation (the one we just created)
+      const isFirstReviewer = !countError && existingRecommendationCount === 1;
+      
+      if (isFirstReviewer) {
+        console.log(`🏆 [FIRST REVIEWER] This is the first review for restaurant ${restaurant.name}!`);
+        console.log(`🏆 [FIRST REVIEWER] Awarding +10.0 BOCA first reviewer bonus...`);
+        
+        try {
+          firstReviewerResult = await rewardService.awardFirstReviewer(
+            user.id,
+            restaurant.id,
+            recommendation.id
+          );
+          
+          if (firstReviewerResult.success) {
+            console.log(`✅ [FIRST REVIEWER] Bonus awarded successfully!`);
+            console.log(`   Method: ${firstReviewerResult.method}`);
+            console.log(`   Amount: ${firstReviewerResult.displayAmount} BOCA`);
+            if (firstReviewerResult.txDigest) {
+              console.log(`   TX Digest: ${firstReviewerResult.txDigest}`);
+            }
+            console.log(`   New Balance: ${firstReviewerResult.newBalance?.toFixed(2)} BOCA`);
+            
+            // Optionally update restaurant to track first reviewer
+            await supabase
+              .from('restaurants')
+              .update({ first_reviewer_id: user.id })
+              .eq('id', restaurant.id);
+          } else {
+            console.error(`❌ [FIRST REVIEWER] Bonus failed: ${firstReviewerResult.error}`);
+          }
+        } catch (firstReviewerError) {
+          console.error('❌ [FIRST REVIEWER] Exception:', firstReviewerError);
+        }
+      }
+      
+    } catch (rewardError) {
+      console.error('❌ [TWO-TIER] Exception during reward:', rewardError);
+      rewardResult = {
+        success: false,
+        action: userAccountTier === 'wallet_full' ? 'recommendation' : 'recommendation_email',
+        amount: 0,
+        displayAmount: 0,
+        method: 'pending',
+        error: rewardError instanceof Error ? rewardError.message : 'Unknown error'
+      };
     }
 
     // Step 10: Update user reputation tier
@@ -885,18 +982,41 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       .eq('id', recommendation.id)
       .single();
 
+    // Fetch updated user for response
+    const { data: updatedUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
     console.log('✅ Trust Score 2.0 recommendation complete!');
+
+    // Calculate total reward (base + first reviewer bonus if applicable)
+    const totalRewardAmount = rewardResult.displayAmount + (firstReviewerResult?.displayAmount || 0);
+    const finalBalance = firstReviewerResult?.newBalance || rewardResult.newBalance;
 
     return res.json({
       success: true,
       recommendation: completeRecommendation || recommendation,
       restaurant,
       user: updatedUser || user,
-      tokens_earned: tokenReward,
+      tokens_earned: totalRewardAmount,
       reward_info: {
-        amount: tokenReward,
+        amount: rewardResult.displayAmount,
         account_tier: userAccountTier,
-        reward_type: userAccountTier === 'wallet_full' ? 'wallet_creation' : 'email_creation'
+        method: rewardResult.method,              // 'on_chain' or 'pending'
+        tx_digest: rewardResult.txDigest || null, // Only for wallet users
+        pending_id: rewardResult.pendingRewardId || null, // Only for email users
+        new_balance: finalBalance,
+        success: rewardResult.success,
+        error: rewardResult.error || null,
+        // First reviewer bonus info (if applicable)
+        first_reviewer_bonus: firstReviewerResult ? {
+          awarded: firstReviewerResult.success,
+          amount: firstReviewerResult.displayAmount,
+          method: firstReviewerResult.method,
+          tx_digest: firstReviewerResult.txDigest || null,
+        } : null
       },
       trustScore2_0: {
         dishCount: dishes.length,
@@ -910,7 +1030,11 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
         contentHash: blockchainRecommendation.contentHash,
         trustScore: blockchainRecommendation.trust_score || 0.25
       } : null,
-      message: `Recommendation created! Earned ${tokenReward.toFixed(1)} BOCA.`
+      message: rewardResult.success 
+        ? firstReviewerResult?.success
+          ? `Recommendation created! Earned ${totalRewardAmount.toFixed(1)} BOCA (${rewardResult.displayAmount.toFixed(1)} base + ${firstReviewerResult.displayAmount.toFixed(1)} first reviewer bonus).`
+          : `Recommendation created! Earned ${rewardResult.displayAmount.toFixed(1)} BOCA (${rewardResult.method === 'on_chain' ? 'minted on-chain' : 'pending claim'}).`
+        : `Recommendation created! Token reward pending.`
     });
 
   } catch (error) {
@@ -1224,7 +1348,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 });
 
 // =============================================================================
-// INTERACTION ENDPOINTS (LIKE/BOOKMARK WITH TOKEN REWARDS)
+// INTERACTION ENDPOINTS (LIKE/BOOKMARK WITH TWO-TIER TOKEN REWARDS)
 // =============================================================================
 
 // GET /status - Get user's like/bookmark status for all recommendations
@@ -1280,7 +1404,7 @@ router.get('/status', authenticateToken, async (req: Request, res: Response) => 
   }
 });
 
-// POST /:id/like - Toggle like on a recommendation (WITH TOKEN REWARDS)
+// POST /:id/like - Toggle like on a recommendation (WITH TWO-TIER TOKEN REWARDS)
 router.post('/:id/like', authenticateToken, async (req: Request, res: Response) => {
   try {
     const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
@@ -1312,7 +1436,7 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
 
     let action: 'liked' | 'unliked';
     let newCount: number;
-    let tokensEarned = 0;
+    let rewardResult: RewardResult | null = null;
 
     if (existingLike) {
       // Unlike: Remove the like
@@ -1370,15 +1494,37 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
         console.warn('⚠️ Failed to update like count:', updateError);
       }
 
-      // 💰 Award tokens to recommendation author (NOT self-likes)
+      // =========================================================================
+      // 💰 Award tokens to recommendation author via TWO-TIER REWARD SERVICE
+      // =========================================================================
       if (recommendation.author_id !== userId) {
-        tokensEarned = await calculateEngagementReward(userId, LIKE_REWARD_BASE);
-        await awardTokens(recommendation.author_id, tokensEarned);
-        console.log(`💰 Author ${recommendation.author_id} earned ${tokensEarned.toFixed(2)} BOCA from like`);
+        console.log(`💰 [TWO-TIER] Awarding like reward to author ${recommendation.author_id}...`);
+        
+        try {
+          rewardResult = await rewardService.awardUpvoteReceived(
+            recommendation.author_id,  // Author receives reward
+            recommendationId,
+            userId                     // Engager's tier determines weight
+          );
+          
+          if (rewardResult.success) {
+            console.log(`✅ [TWO-TIER] Like reward: ${rewardResult.displayAmount} BOCA (${rewardResult.method})`);
+            if (rewardResult.txDigest) {
+              console.log(`   TX: ${rewardResult.txDigest}`);
+            }
+          } else {
+            console.error(`❌ [TWO-TIER] Like reward failed: ${rewardResult.error}`);
+          }
+        } catch (rewardError) {
+          console.error('❌ [TWO-TIER] Exception during like reward:', rewardError);
+        }
       } else {
         console.log('⚠️ Self-like detected - no tokens awarded');
       }
 
+      // Update engagement points for validation bonus tracking
+      await updateEngagementPoints(recommendationId, userId, 'like');
+      
       action = 'liked';
       console.log(`❤️ Liked recommendation, new count: ${newCount}`);
     }
@@ -1387,11 +1533,15 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
       success: true,
       action,
       newCount,
-      reward: tokensEarned > 0 ? {
-        amount: tokensEarned,
+      reward: rewardResult?.success ? {
+        amount: rewardResult.displayAmount,
         recipient: recommendation.author_id,
         recipient_type: 'recommendation_author',
-        reason: 'like_received'
+        reason: 'like_received',
+        method: rewardResult.method,
+        tx_digest: rewardResult.txDigest || null,
+        pending_id: rewardResult.pendingRewardId || null,
+        new_balance: rewardResult.newBalance
       } : null
     });
 
@@ -1403,7 +1553,7 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
   }
 });
 
-// POST /:id/bookmark - Toggle bookmark on a recommendation (WITH TOKEN REWARDS)
+// POST /:id/bookmark - Toggle bookmark on a recommendation (WITH TWO-TIER TOKEN REWARDS)
 router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Response) => {
   try {
     const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
@@ -1435,7 +1585,7 @@ router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Respon
 
     let action: 'bookmarked' | 'unbookmarked';
     let newCount: number;
-    let tokensEarned = 0;
+    let rewardResult: RewardResult | null = null;
 
     if (existingBookmark) {
       // Unbookmark: Remove the bookmark
@@ -1493,15 +1643,37 @@ router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Respon
         console.warn('⚠️ Failed to update bookmark count:', updateError);
       }
 
-      // 💰 Award tokens to recommendation author (NOT self-saves)
+      // =========================================================================
+      // 💰 Award tokens to recommendation author via TWO-TIER REWARD SERVICE
+      // =========================================================================
       if (recommendation.author_id !== userId) {
-        tokensEarned = await calculateEngagementReward(userId, SAVE_REWARD_BASE);
-        await awardTokens(recommendation.author_id, tokensEarned);
-        console.log(`💰 Author ${recommendation.author_id} earned ${tokensEarned.toFixed(2)} BOCA from save`);
+        console.log(`💰 [TWO-TIER] Awarding save reward to author ${recommendation.author_id}...`);
+        
+        try {
+          rewardResult = await rewardService.awardSaveReceived(
+            recommendation.author_id,  // Author receives reward
+            recommendationId,
+            userId                     // Engager's tier determines weight
+          );
+          
+          if (rewardResult.success) {
+            console.log(`✅ [TWO-TIER] Save reward: ${rewardResult.displayAmount} BOCA (${rewardResult.method})`);
+            if (rewardResult.txDigest) {
+              console.log(`   TX: ${rewardResult.txDigest}`);
+            }
+          } else {
+            console.error(`❌ [TWO-TIER] Save reward failed: ${rewardResult.error}`);
+          }
+        } catch (rewardError) {
+          console.error('❌ [TWO-TIER] Exception during save reward:', rewardError);
+        }
       } else {
         console.log('⚠️ Self-save detected - no tokens awarded');
       }
 
+      // Update engagement points for validation bonus tracking
+      await updateEngagementPoints(recommendationId, userId, 'save');
+      
       action = 'bookmarked';
       console.log(`🔖 Bookmarked recommendation, new count: ${newCount}`);
     }
@@ -1510,11 +1682,15 @@ router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Respon
       success: true,
       action,
       newCount,
-      reward: tokensEarned > 0 ? {
-        amount: tokensEarned,
+      reward: rewardResult?.success ? {
+        amount: rewardResult.displayAmount,
         recipient: recommendation.author_id,
         recipient_type: 'recommendation_author',
-        reason: 'save_received'
+        reason: 'save_received',
+        method: rewardResult.method,
+        tx_digest: rewardResult.txDigest || null,
+        pending_id: rewardResult.pendingRewardId || null,
+        new_balance: rewardResult.newBalance
       } : null
     });
 
@@ -1524,6 +1700,13 @@ router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Respon
       error: 'Internal server error: ' + (error as Error).message
     });
   }
+});
+
+// POST /:id/save - Alias for bookmark (frontend uses this endpoint)
+router.post('/:id/save', authenticateToken, async (req: Request, res: Response) => {
+  // Delegate to bookmark handler
+  req.params.id = req.params.id;
+  return router.handle(req, res, () => {});
 });
 
 export default router;

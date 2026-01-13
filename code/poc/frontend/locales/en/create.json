@@ -111,8 +111,10 @@
         "visibilityLabel": "Who can see this list?",
         "visibility": {
           "public": "Public - Anyone can see",
-          "followers": "Followers only",
-          "private": "Private - Only you"
+          "publicDesc": "Anyone can see",
+          "private": "Private",
+          "privateDesc": "Only you",
+          "followers": "Followers only"
         }
       },
       "search": {

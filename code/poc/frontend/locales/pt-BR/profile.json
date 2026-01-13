@@ -1,218 +1,242 @@
 {
-  "page": {
-    "title": "Descubra Boa Comida",
-    "subtitle": "Recomendações curadas de especialistas gastronômicos em Brasília"
-  },
-
-  "search": {
-    "placeholder": "Buscar restaurantes por nome, culinária ou local...",
-    "button": "Buscar",
-    "searching": "Buscando...",
-    "noResults": "Nenhum resultado encontrado para \"{query}\"",
-    "suggestions": {
-      "romantic": "Restaurantes românticos",
-      "pizza": "Pizzarias autênticas",
-      "brunch": "Brunch na Asa Sul",
-      "happyHour": "Happy hour no centro"
-    }
-  },
-
-  "tabs": {
-    "curated": "Listas Curadas",
-    "requests": "Pedidos",
-    "map": "Mapa"
-  },
-
-  "header": {
-    "restaurants": "restaurantes",
-    "onMap": "no mapa"
-  },
-
-  "legend": "Legenda",
-
-  "nearMe": "Perto de Mim",
-
-  "filters": {
-    "title": "Filtros",
-    "cuisine": "Culinária",
-    "priceRange": "Faixa de Preço",
-    "clear": "Limpar filtros"
-  },
-
-  "results": "Resultados",
-
-  "tiers": {
-    "my_network": "Minha Rede",
-    "similar_tastes": "Gostos Similares",
-    "community": "Comunidade",
-    "unrated": "Sem Avaliação"
-  },
-
-  "open": "Aberto",
-  "closed": "Fechado",
-  "noReviews": "Sem avaliações ainda",
-  "recommendation": "recomendação",
-  "recommendations": "recomendações",
-  "fromNetwork": "da sua rede",
-  "viewDetails": "Ver Detalhes",
-  "directions": "Como Chegar",
-  "beFirstToReview": "Seja o primeiro a avaliar",
-
-  "tierMyNetwork": "Minha Rede",
-  "tierSimilarTastes": "Gostos Similares",
-  "tierCommunity": "Comunidade",
-  "tierUnrated": "Sem Avaliação",
-
-  "noResults": {
-    "title": "Nenhum restaurante encontrado",
-    "description": "Tente ajustar seus filtros ou buscar em outra área"
-  },
-
-  "infoWindow": {
-    "rating": "Avaliação",
-    "by": "por",
-    "viewDetails": "Ver Detalhes",
-    "noRating": "Ainda não avaliado",
-    "recommendations": "{count} recomendações"
-  },
-
-  "mapEmpty": {
-    "title": "Nenhum restaurante encontrado",
-    "description": "Tente ajustar seus filtros ou buscar em outra área"
-  },
-
-  "mapLoading": "Carregando dados do mapa...",
-
-  "mapError": {
-    "title": "Falha ao carregar dados do mapa",
-    "retry": "Tentar Novamente"
-  },
-
-  "listSearch": {
-    "placeholder": "Buscar listas por nome, local, culinária, criador ou restaurante...",
-    "badge": "Listas",
-    "scopeHint": "Busque em títulos, locais, culinárias, tags, criadores e restaurantes nas listas",
-    "clear": "Limpar busca",
-    "quickFiltersTitle": "Buscas rápidas",
-    "quickFilters": {
-      "dateNight": "Jantar Romântico",
-      "brunch": "Brunch",
-      "italian": "Italiano",
-      "japanese": "Japonês",
-      "vegetarian": "Vegetariano",
-      "cocktails": "Coquetéis"
+  "profile": {
+    "title": "Perfil",
+    "loading": "Carregando perfil...",
+    "anonymousUser": "Usuário Anônimo",
+    "usernameNotSet": "nome_nao_definido",
+    "about": "Sobre",
+    "location": "Localização",
+    "authRequired": {
+      "title": "Autenticação Necessária",
+      "description": "Por favor, conecte sua carteira para ver seu perfil.",
+      "goHome": "Ir para Início"
     },
-    "noResults": "Nenhuma lista encontrada para \"{query}\"",
-    "resultsCount": "{count} {count, plural, =1 {lista encontrada} other {listas encontradas}} para \"{query}\"",
-    "clearSearch": "Limpar busca"
-  },
-
-  "lists": {
+    "tabs": {
+      "tasteMap": "Mapa de Gostos",
+      "activity": "Atividade",
+      "network": "Rede",
+      "settings": "Configurações",
+      "recommendations": "Recomendações",
+      "reshares": "Compartilhamentos",
+      "guides": "Guias",
+      "likes": "Curtidas",
+      "myLists": "Minhas Listas",
+      "followers": "Seguidores",
+      "following": "Seguindo",
+      "rewards": "Recompensas",
+      "security": "Segurança",
+      "recommendationsFull": "Recomendações"
+    },
+    "stats": {
+      "recommendations": "Recomendações",
+      "followers": "Seguidores",
+      "following": "Seguindo",
+      "tokensEarned": "Tokens Ganhos",
+      "reputation": "Reputação"
+    },
+    "header": {
+      "joined": "Entrou em {date}",
+      "editProfile": "Editar Perfil",
+      "follow": "Seguir",
+      "following": "Seguindo",
+      "unfollow": "Deixar de Seguir",
+      "darkMode": "Modo Escuro",
+      "lightMode": "Modo Claro",
+      "userNotFound": "Usuário Não Encontrado",
+      "userNotFoundDescription": "O usuário que você procura não existe ou foi removido.",
+      "emailAccount": "Conta de Email"
+    },
+    "actions": {
+      "share": "Compartilhar",
+      "tryAgain": "Tentar Novamente",
+      "refresh": "Atualizar"
+    },
+    "cards": {
+      "viewProfile": "Ver Perfil",
+      "viewDetails": "Ver Detalhes",
+      "viewList": "Ver Lista",
+      "public": "Público",
+      "private": "Privado",
+      "items": "{count} itens",
+      "placesToTry": "Lugares para Experimentar",
+      "bookmarks": "Salvos",
+      "mixed": "Misto",
+      "yourCommentary": "Seu Comentário",
+      "theirCommentary": "Comentário",
+      "resharedOn": "Compartilhado em {date}"
+    },
+    "rewardsTab": {
+      "title": "Recompensas",
+      "private": "Informações de recompensas são visíveis apenas para o dono da conta.",
+      "loading": "Carregando dados de recompensas...",
+      "balance": {
+        "title": "Saldo de Tokens",
+        "description": "Seus tokens BOCA ganhos por contribuições na plataforma"
+      },
+      "attribution": {
+        "title": "Recompensas de Atribuição",
+        "description": "Ganhe BOCA quando outros compartilham suas recomendações",
+        "fromReshares": "de {count} compartilhamento",
+        "fromResharesPlural": "de {count} compartilhamentos",
+        "reshared": "compartilhou",
+        "loadMore": "Carregar Mais"
+      },
+      "onboarding": {
+        "title": "Recompensas de Boas-Vindas",
+        "complete": "completo",
+        "nextStep": "Próximo passo:",
+        "completeTitle": "Boas-Vindas Concluídas!",
+        "completeDescription": "Você ganhou {amount} por completar todas as tarefas de boas-vindas!",
+        "keepEngaging": "Continue engajando com a comunidade para ganhar mais recompensas.",
+        "milestones": {
+          "followUsers": {
+            "name": "Seguir Usuários",
+            "description": "Siga pelo menos 3 usuários para construir sua rede"
+          },
+          "createRecommendations": {
+            "name": "Criar Recomendações",
+            "description": "Compartilhe suas primeiras 5 recomendações de restaurantes"
+          },
+          "engageWithPosts": {
+            "name": "Engajar com a Comunidade",
+            "description": "Curta, salve ou comente em 10 posts de pelo menos 3 usuários diferentes"
+          }
+        }
+      }
+    },
+    "errors": {
+      "loadingRecommendations": "Falha ao carregar recomendações",
+      "loadingLists": "Falha ao carregar guias",
+      "loadingSavedLists": "Falha ao carregar listas salvas",
+      "loadingReshares": "Falha ao carregar compartilhamentos",
+      "loadingLikes": "Falha ao carregar curtidas",
+      "loadingFollowers": "Falha ao carregar seguidores",
+      "loadingFollowing": "Falha ao carregar seguindo",
+      "network": "Erro de rede. Por favor, verifique sua conexão.",
+      "fallback": "Algo deu errado. Por favor, atualize a página."
+    },
+    "activity": {
+      "title": "Atividade",
+      "description": "Visualize e gerencie a atividade da sua conta",
+      "comingSoon": "Mais recursos de atividade em breve!",
+      "security": {
+        "title": "Segurança da Conta",
+        "status": "Status da Conta",
+        "profileCompletion": "Perfil Completo",
+        "accountStatus": "Status da Conta",
+        "securityFeatures": "Recursos de Segurança",
+        "active": "Ativo",
+        "basic": "Básico",
+        "backup": {
+          "title": "Recuperação de Conta",
+          "description": "Proteja sua conta com opções de backup",
+          "emailVerification": "Email Verificado",
+          "accountBackup": "Backup da Conta",
+          "twoFactor": "Autenticação de Dois Fatores"
+        }
+      }
+    },
     "empty": {
-      "title": "Nenhuma lista curada ainda",
-      "description": "Seja o primeiro a criar uma lista curada de ótimos restaurantes!",
-      "cta": "Criar Primeira Lista"
-    },
-    "search": {
-      "noResults": {
-        "title": "Nenhuma lista encontrada",
-        "description": "Não encontramos listas correspondentes a \"{query}\". Tente uma busca diferente ou crie sua própria lista.",
-        "clearSearch": "Limpar busca",
-        "createList": "Criar uma Lista"
+      "recommendations": {
+        "own": "Você ainda não fez nenhuma recomendação",
+        "other": "Nenhuma recomendação ainda",
+        "ownDescription": "Compartilhe seus restaurantes e pratos favoritos com a comunidade",
+        "otherDescription": "Este usuário ainda não compartilhou nenhuma recomendação",
+        "cta": "Criar Sua Primeira Recomendação"
+      },
+      "reshares": {
+        "own": "Você ainda não compartilhou nenhuma recomendação",
+        "other": "Nenhum compartilhamento ainda",
+        "ownDescription": "Compartilhe ótimas recomendações para ajudar outros a descobrir lugares incríveis",
+        "otherDescription": "Este usuário ainda não compartilhou nenhuma recomendação",
+        "cta": "Descobrir Recomendações"
+      },
+      "likes": {
+        "own": "Você ainda não curtiu nenhuma recomendação",
+        "other": "Nenhuma curtida ainda",
+        "ownDescription": "Curta recomendações para salvá-las e mostrar sua apreciação",
+        "otherDescription": "Este usuário ainda não curtiu nenhuma recomendação",
+        "cta": "Descobrir Recomendações"
+      },
+      "bookmarks": {
+        "own": "Você ainda não salvou nenhuma recomendação",
+        "other": "Nenhuma recomendação salva",
+        "ownDescription": "Salve recomendações para encontrá-las facilmente depois",
+        "otherDescription": "Este usuário ainda não salvou nenhuma recomendação",
+        "cta": "Descobrir Recomendações"
+      },
+      "lists": {
+        "own": "Você ainda não criou nenhum guia",
+        "other": "Nenhum guia ainda",
+        "ownDescription": "Crie listas curadas dos seus restaurantes favoritos para compartilhar",
+        "otherDescription": "Este usuário ainda não criou nenhum guia",
+        "cta": "Criar um Guia"
+      },
+      "following": {
+        "own": "Você ainda não está seguindo ninguém",
+        "other": "Não está seguindo ninguém",
+        "ownDescription": "Descubra e siga usuários para ver suas recomendações no seu feed",
+        "otherDescription": "Este usuário não está seguindo ninguém",
+        "cta": "Encontrar Pessoas para Seguir"
+      },
+      "followers": {
+        "own": "Você ainda não tem seguidores",
+        "other": "Nenhum seguidor ainda",
+        "ownDescription": "Compartilhe ótimas recomendações para atrair seguidores",
+        "otherDescription": "Este usuário ainda não tem seguidores",
+        "cta": "Compartilhar Seu Perfil"
       }
     }
   },
-
-  "requests": {
+  "profileMap": {
+    "header": {
+      "ownTitle": "Seu Mapa de Gostos",
+      "otherTitle": "Mapa de Gostos de {username}"
+    },
+    "viewToggle": {
+      "map": "Mapa",
+      "list": "Lista"
+    },
+    "stats": {
+      "reviews": "Avaliações",
+      "avgRating": "Nota Média",
+      "loved": "Amei",
+      "liked": "Gostei",
+      "meh": "Meh"
+    },
+    "legend": {
+      "title": "Legenda",
+      "loved": "Amei (8-10)",
+      "liked": "Gostei (6-7)",
+      "meh": "Meh (<6)"
+    },
+    "infoWindow": {
+      "reviewed": "Avaliado em",
+      "viewRestaurant": "Ver Restaurante",
+      "directions": "Direções"
+    },
+    "list": {
+      "restaurant": "Restaurante"
+    },
+    "hints": {
+      "tapMarker": "Toque em um marcador para ver detalhes"
+    },
     "empty": {
-      "title": "Nenhum pedido ainda",
-      "description": "Seja o primeiro a pedir recomendações de restaurantes à comunidade!",
-      "cta": "Pedir Recomendações"
-    }
-  },
-
-  "listCard": {
-    "badge": "Curada",
-    "by": "por",
-    "verified": "Verificado",
-    "friend": "Amigo",
-    "friendOfFriend": "Amigo de Amigo",
-    "restaurants": "restaurantes",
-    "restaurant": "restaurante",
-    "viewList": "Ver Lista",
-    "likes": "curtidas",
-    "saves": "salvos",
-    "like": "Curtir",
-    "save": "Salvar",
-    "share": "Compartilhar",
-    "report": "Denunciar",
-    "reportList": "Denunciar esta lista",
-    "moreRestaurants": "+{count} mais"
-  },
-
-  "sidebar": {
-    "trending": {
-      "title": "Em Alta",
-      "empty": "Nenhum conteúdo em alta ainda",
-      "upvotes": "{count} votos"
+      "ownProfile": {
+        "title": "Nenhuma Avaliação Ainda",
+        "description": "Comece a explorar e avaliar restaurantes para construir seu mapa de gostos!",
+        "cta": "Descobrir Restaurantes"
+      },
+      "otherProfile": {
+        "title": "Nenhuma Avaliação Ainda",
+        "description": "Este usuário ainda não avaliou nenhum restaurante.",
+        "defaultUsername": "Este usuário"
+      }
     },
-    "quickActions": {
-      "title": "Ações Rápidas",
-      "createRecommendation": "Criar Recomendação",
-      "createList": "Criar Lista",
-      "askRecommendations": "Pedir Recomendações",
-      "viewHistory": "Ver Meu Histórico"
-    },
-    "diningMemory": {
-      "title": "Sua Memória Gastronômica",
-      "recentRecommendations": "Recomendações recentes: {count}",
-      "savedLists": "Listas salvas: {count}",
-      "following": "Seguindo: {count} especialistas",
-      "viewAll": "Ver Todo Histórico"
-    },
-    "communityStats": {
-      "title": "Estatísticas da Comunidade",
-      "totalRecommendations": "Total de recomendações: {count}",
-      "curatedLists": "Listas curadas: {count}",
-      "openRequests": "Pedidos abertos: {count}",
-      "activeExperts": "Especialistas ativos: {count}"
+    "errors": {
+      "loadFailed": "Falha ao carregar mapa de gostos",
+      "mapLoadError": "Não foi possível carregar o mapa",
+      "tryAgainLater": "Por favor, tente novamente mais tarde"
     }
-  },
-
-  "loading": {
-    "title": "Carregando...",
-    "error": {
-      "title": "Erro ao Carregar Conteúdo",
-      "retry": "Tentar Novamente"
-    }
-  },
-
-  "toast": {
-    "loginRequired": "Por favor, faça login para {action}",
-    "listCreated": "Lista criada com sucesso!",
-    "requestCreated": "Pedido criado com sucesso!",
-    "likeFailed": "Falha ao curtir lista",
-    "bookmarkFailed": "Falha ao salvar lista",
-    "bookmarkAdded": "Pedido salvo",
-    "bookmarkRemoved": "Salvo removido",
-    "bookmarkRequestFailed": "Falha ao salvar pedido",
-    "shareCopied": "Link copiado para a área de transferência!",
-    "reportSubmitted": "Denúncia enviada. Obrigado!"
-  },
-
-  "actions": {
-    "createList": "criar uma lista",
-    "createRequest": "criar um pedido",
-    "likeLists": "curtir listas",
-    "bookmarkLists": "salvar listas",
-    "bookmarkRequests": "salvar pedidos"
-  },
-
-  "timeAgo": {
-    "now": "Agora",
-    "minutes": "{count}m",
-    "hours": "{count}h",
-    "days": "{count}d",
-    "weeks": "{count}sem"
   }
 }

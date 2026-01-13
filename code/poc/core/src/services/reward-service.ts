@@ -9,7 +9,7 @@
  * 
  * Target location: code/poc/core/src/services/reward-service.ts
  * 
- * @version 1.0.0
+ * @version 1.1.0 - Added users.tokens_earned sync for frontend compatibility
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -38,18 +38,27 @@ export type UserAuthTier = 'email_basic' | 'wallet_full';
 
 export type RewardAction = 
   | 'recommendation'
+  | 'recommendation_email'      // Separate action for email-tier creation (2.5 BOCA)
+  | 'first_reviewer'            // First review of a new restaurant (+10.0 BOCA)
   | 'upvote_given'
   | 'upvote_received'
+  | 'save_received'             // For bookmark/save engagement
+  | 'comment_received'          // Author earns when someone comments (0.5 BOCA)
   | 'first_upvote_bonus'
-  | 'comment'
-  | 'share'
+  | 'comment'                   // Commenter reward (if applicable)
+  | 'share'                     // Reshare reward (2.0 BOCA to resharer)
+  | 'reshare_attribution'       // Attribution to original author (1.0 BOCA)
   | 'boost'
   | 'daily_login'
   | 'streak_bonus_7_day'
   | 'referral'
   | 'profile_complete'
   | 'new_restaurant'
-  | 'photo_upload';
+  | 'photo_upload'
+  | 'validation_bonus'          // +10.0 BOCA when rec reaches 3.0 engagement points
+  | 'list_creation'             // 5.0 BOCA for creating list with 5+ items
+  | 'list_10_saves'             // 10.0 BOCA when list reaches 10 saves
+  | 'list_50_saves';            // 20.0 BOCA when list reaches 50 saves
 
 export interface User {
   id: string;
@@ -59,6 +68,7 @@ export interface User {
   trust_tier: 1 | 2 | 3;           // Derived from 'reputation_tier' column
   reputation_tier: string;         // Raw value: 'new', 'established', 'trusted'
   created_at: string;
+  tokens_earned?: number;          // NEW: Current balance for sync
 }
 
 export interface PendingReward {
@@ -82,6 +92,7 @@ export interface RewardResult {
   method: 'on_chain' | 'pending';
   txDigest?: string;
   pendingRewardId?: string;
+  newBalance?: number;      // NEW: Updated tokens_earned balance
   error?: string;
 }
 
@@ -131,11 +142,16 @@ export interface RewardServiceConfig {
 /** Default cooldowns in seconds */
 const DEFAULT_COOLDOWNS: Record<RewardAction, number> = {
   recommendation: 60,          // 1 minute between recommendations
+  recommendation_email: 60,    // Same cooldown for email tier
+  first_reviewer: 0,           // No cooldown (one-time per restaurant)
   upvote_given: 5,             // 5 seconds between upvotes
   upvote_received: 0,          // No cooldown (triggered by others)
+  save_received: 0,            // No cooldown (triggered by others)
+  comment_received: 0,         // No cooldown (triggered by others)
   first_upvote_bonus: 0,       // No cooldown (triggered by others)
   comment: 30,                 // 30 seconds between comments
   share: 60,                   // 1 minute between shares
+  reshare_attribution: 0,      // No cooldown (triggered by others)
   boost: 300,                  // 5 minutes between boosts
   daily_login: 86400,          // 24 hours
   streak_bonus_7_day: 604800,  // 7 days
@@ -143,11 +159,16 @@ const DEFAULT_COOLDOWNS: Record<RewardAction, number> = {
   profile_complete: Infinity,  // One-time only
   new_restaurant: 300,         // 5 minutes between adding restaurants
   photo_upload: 60,            // 1 minute between photos
+  validation_bonus: 0,         // No cooldown (triggered by engagement threshold)
+  list_creation: 0,            // No cooldown (milestone-based)
+  list_10_saves: 0,            // No cooldown (milestone-based)
+  list_50_saves: 0,            // No cooldown (milestone-based)
 };
 
 /** Daily limits per action (0 = unlimited) */
 const DAILY_ACTION_LIMITS: Partial<Record<RewardAction, number>> = {
   recommendation: 10,
+  recommendation_email: 10,
   upvote_given: 50,
   comment: 30,
   share: 20,
@@ -159,21 +180,33 @@ const DAILY_ACTION_LIMITS: Partial<Record<RewardAction, number>> = {
 /** Default daily reward cap (100 BOCA) */
 const DEFAULT_DAILY_CAP = 100;
 
-/** Map action names to reward amounts */
+/** 
+ * Map action names to reward amounts (in base units)
+ * White Paper v1.02 values
+ */
 const ACTION_TO_REWARD: Record<RewardAction, number> = {
-  recommendation: REWARDS.RECOMMENDATION,
-  upvote_given: REWARDS.UPVOTE_GIVEN,
-  upvote_received: REWARDS.UPVOTE_RECEIVED,
-  first_upvote_bonus: REWARDS.FIRST_UPVOTE_BONUS,
-  comment: REWARDS.COMMENT,
-  share: REWARDS.SHARE,
-  boost: REWARDS.BOOST,
-  daily_login: REWARDS.DAILY_LOGIN,
-  streak_bonus_7_day: REWARDS.STREAK_BONUS_7_DAY,
-  referral: REWARDS.REFERRAL,
-  profile_complete: REWARDS.PROFILE_COMPLETE,
-  new_restaurant: REWARDS.NEW_RESTAURANT,
-  photo_upload: REWARDS.PHOTO_UPLOAD,
+  recommendation: REWARDS.RECOMMENDATION,           // 5.0 BOCA (wallet tier)
+  recommendation_email: REWARDS.RECOMMENDATION / 2, // 2.5 BOCA (email tier)
+  first_reviewer: REWARDS.REFERRAL,                 // 10.0 BOCA (same as referral amount)
+  upvote_given: REWARDS.UPVOTE_GIVEN,               // 0.5 BOCA
+  upvote_received: REWARDS.UPVOTE_RECEIVED,         // 1.0 BOCA base
+  save_received: REWARDS.UPVOTE_RECEIVED,           // 1.0 BOCA base (same as upvote)
+  comment_received: REWARDS.COMMENT,                // 0.5 BOCA base (tier-weighted)
+  first_upvote_bonus: REWARDS.FIRST_UPVOTE_BONUS,   // 2.0 BOCA
+  comment: REWARDS.COMMENT,                         // 0.5 BOCA
+  share: REWARDS.FIRST_UPVOTE_BONUS,                // 2.0 BOCA (White Paper v1.02: reshare = 2.0)
+  reshare_attribution: REWARDS.UPVOTE_RECEIVED,     // 1.0 BOCA (attribution to author)
+  boost: REWARDS.BOOST,                             // 1.0 BOCA
+  daily_login: REWARDS.DAILY_LOGIN,                 // 1.0 BOCA
+  streak_bonus_7_day: REWARDS.STREAK_BONUS_7_DAY,   // 5.0 BOCA
+  referral: REWARDS.REFERRAL,                       // 10.0 BOCA
+  profile_complete: REWARDS.PROFILE_COMPLETE,       // 5.0 BOCA
+  new_restaurant: REWARDS.NEW_RESTAURANT,           // 3.0 BOCA
+  photo_upload: REWARDS.PHOTO_UPLOAD,               // 2.0 BOCA
+  validation_bonus: REWARDS.REFERRAL,               // 10.0 BOCA (same as referral)
+  list_creation: REWARDS.PROFILE_COMPLETE,          // 5.0 BOCA (list with 5+ items)
+  list_10_saves: REWARDS.REFERRAL,                  // 10.0 BOCA (list reaches 10 saves)
+  list_50_saves: REWARDS.REFERRAL * 2,              // 20.0 BOCA (list reaches 50 saves)
 };
 
 // =============================================================================
@@ -214,6 +247,8 @@ export class RewardService {
    *   - wallet_full: Mints tokens on-chain
    *   - email_basic: Stores in pending_tokens table
    * 
+   * ALSO updates users.tokens_earned for frontend display compatibility
+   * 
    * @param userId - User's database ID
    * @param action - The action being rewarded
    * @param metadata - Optional metadata (e.g., recommendation ID)
@@ -239,9 +274,34 @@ export class RewardService {
         }
       }
 
-      // Calculate tiered reward amount
+      // Calculate reward amount
+      // IMPORTANT: Tier weighting only applies to ENGAGEMENT rewards (upvote_received, save_received)
+      // Creation rewards (recommendation, recommendation_email) are FLAT per White Paper v1.02
       const baseAmount = ACTION_TO_REWARD[action];
-      const tieredAmount = calculateTieredReward(baseAmount, user.trust_tier);
+      
+      // Determine if this is an engagement reward that should be tier-weighted
+      const engagementActions: RewardAction[] = [
+        'upvote_received', 
+        'save_received', 
+        'comment_received', 
+        'reshare_attribution',  // Attribution reward weighted by resharer's tier
+        'upvote_given'
+      ];
+      const isEngagementReward = engagementActions.includes(action);
+      
+      let tieredAmount: bigint;
+      if (isEngagementReward) {
+        // For engagement rewards, apply tier weighting
+        // Use engager's tier if provided, otherwise use recipient's tier
+        const tierForCalculation = metadata?.engager_trust_tier as (1 | 2 | 3) | undefined;
+        tieredAmount = tierForCalculation 
+          ? calculateTieredReward(baseAmount, tierForCalculation)
+          : calculateTieredReward(baseAmount, user.trust_tier);
+      } else {
+        // For creation rewards (recommendation, daily_login, etc.), use flat amount
+        tieredAmount = BigInt(baseAmount);
+      }
+      
       const displayAmount = toDisplayAmount(tieredAmount);
 
       // Route based on account tier
@@ -578,21 +638,74 @@ export class RewardService {
   // PUBLIC API - Convenience Methods for Specific Actions
   // ===========================================================================
 
-  /** Award recommendation reward */
-  async awardRecommendation(userId: string, recommendationId: string): Promise<RewardResult> {
-    return this.awardReward(userId, 'recommendation', { recommendation_id: recommendationId });
+  /** 
+   * Award recommendation creation reward
+   * Automatically handles account tier differentiation:
+   *   - wallet_full: 5.0 BOCA
+   *   - email_basic: 2.5 BOCA
+   */
+  async awardRecommendation(
+    userId: string, 
+    recommendationId: string,
+    accountTier?: UserAuthTier | string
+  ): Promise<RewardResult> {
+    // Determine correct action based on account tier
+    // If accountTier not provided, fetch it
+    let tier = accountTier;
+    if (!tier) {
+      const user = await this.getUser(userId);
+      tier = user?.account_tier || 'email_basic';
+    }
+  
+    // Check for any wallet-based tier (handles 'wallet', 'wallet_full', etc.)
+    const isWalletTier = tier?.toLowerCase().includes('wallet');
+    const action: RewardAction = isWalletTier ? 'recommendation' : 'recommendation_email';
+  
+    return this.awardReward(userId, action, { recommendation_id: recommendationId });
   }
 
-  /** Award upvote given reward */
+  /** Award upvote given reward (to the person giving the upvote) */
   async awardUpvoteGiven(userId: string, recommendationId: string): Promise<RewardResult> {
     return this.awardReward(userId, 'upvote_given', { recommendation_id: recommendationId });
   }
 
-  /** Award upvote received reward */
-  async awardUpvoteReceived(userId: string, recommendationId: string, voterId: string): Promise<RewardResult> {
-    return this.awardReward(userId, 'upvote_received', { 
+  /** 
+   * Award upvote/like received reward (to the recommendation author)
+   * Tier weighting is based on the ENGAGER's tier, not the author's
+   */
+  async awardUpvoteReceived(
+    authorId: string, 
+    recommendationId: string, 
+    engagerId: string
+  ): Promise<RewardResult> {
+    // Get engager's trust tier for weighting
+    const engager = await this.getUser(engagerId);
+    const engagerTrustTier = engager?.trust_tier || 2; // Default to established
+    
+    return this.awardReward(authorId, 'upvote_received', { 
       recommendation_id: recommendationId,
-      voter_id: voterId,
+      engager_id: engagerId,
+      engager_trust_tier: engagerTrustTier,
+    });
+  }
+
+  /**
+   * Award save/bookmark received reward (to the recommendation author)
+   * Tier weighting is based on the ENGAGER's tier, not the author's
+   */
+  async awardSaveReceived(
+    authorId: string,
+    recommendationId: string,
+    engagerId: string
+  ): Promise<RewardResult> {
+    // Get engager's trust tier for weighting
+    const engager = await this.getUser(engagerId);
+    const engagerTrustTier = engager?.trust_tier || 2; // Default to established
+    
+    return this.awardReward(authorId, 'save_received', {
+      recommendation_id: recommendationId,
+      engager_id: engagerId,
+      engager_trust_tier: engagerTrustTier,
     });
   }
 
@@ -621,6 +734,107 @@ export class RewardService {
     return this.awardReward(userId, 'profile_complete');
   }
 
+  /** Award comment reward (to commenter) */
+  async awardComment(userId: string, recommendationId: string): Promise<RewardResult> {
+    return this.awardReward(userId, 'comment', { recommendation_id: recommendationId });
+  }
+
+  /** Award share/reshare reward */
+  async awardShare(userId: string, recommendationId: string): Promise<RewardResult> {
+    return this.awardReward(userId, 'share', { recommendation_id: recommendationId });
+  }
+
+  /**
+   * Award first reviewer bonus (+10.0 BOCA)
+   * Given to the first person to review a new restaurant
+   */
+  async awardFirstReviewer(userId: string, restaurantId: number, recommendationId: string): Promise<RewardResult> {
+    return this.awardReward(userId, 'first_reviewer', {
+      restaurant_id: restaurantId,
+      recommendation_id: recommendationId,
+    });
+  }
+
+  /**
+   * Award comment received reward (to the recommendation author)
+   * Tier weighting is based on the ENGAGER's (commenter's) tier
+   */
+  async awardCommentReceived(
+    authorId: string,
+    recommendationId: string,
+    commenterId: string
+  ): Promise<RewardResult> {
+    // Get commenter's trust tier for weighting
+    const commenter = await this.getUser(commenterId);
+    const commenterTrustTier = commenter?.trust_tier || 2; // Default to established
+    
+    return this.awardReward(authorId, 'comment_received', {
+      recommendation_id: recommendationId,
+      commenter_id: commenterId,
+      engager_trust_tier: commenterTrustTier,
+    });
+  }
+
+  /**
+   * Award validation bonus (+10.0 BOCA)
+   * Given when a recommendation reaches 3.0 engagement points
+   */
+  async awardValidationBonus(userId: string, recommendationId: string): Promise<RewardResult> {
+    return this.awardReward(userId, 'validation_bonus', {
+      recommendation_id: recommendationId,
+    });
+  }
+
+  /**
+   * Award reshare attribution reward (1.0 BOCA to original author)
+   * Given to the author when their content is reshared
+   */
+  async awardReshareAttribution(
+    authorId: string,
+    recommendationId: string,
+    resharerId: string
+  ): Promise<RewardResult> {
+    // Get resharer's trust tier for weighting
+    const resharer = await this.getUser(resharerId);
+    const resharerTrustTier = resharer?.trust_tier || 2;
+    
+    return this.awardReward(authorId, 'reshare_attribution', {
+      recommendation_id: recommendationId,
+      resharer_id: resharerId,
+      engager_trust_tier: resharerTrustTier,
+    });
+  }
+
+  /**
+   * Award list creation reward (5.0 BOCA)
+   * Given when user creates a list with 5+ items
+   */
+  async awardListCreation(userId: string, listId: string): Promise<RewardResult> {
+    return this.awardReward(userId, 'list_creation', {
+      list_id: listId,
+    });
+  }
+
+  /**
+   * Award list milestone reward (10.0 BOCA)
+   * Given when a list reaches 10 saves
+   */
+  async awardList10Saves(userId: string, listId: string): Promise<RewardResult> {
+    return this.awardReward(userId, 'list_10_saves', {
+      list_id: listId,
+    });
+  }
+
+  /**
+   * Award list milestone reward (20.0 BOCA)
+   * Given when a list reaches 50 saves
+   */
+  async awardList50Saves(userId: string, listId: string): Promise<RewardResult> {
+    return this.awardReward(userId, 'list_50_saves', {
+      list_id: listId,
+    });
+  }
+
   // ===========================================================================
   // INTERNAL - Database Operations
   // ===========================================================================
@@ -628,7 +842,7 @@ export class RewardService {
   private async getUser(userId: string): Promise<User | null> {
     const { data, error } = await this.supabase
       .from('users')
-      .select('id, email, wallet_address, account_tier, reputation_tier, created_at')
+      .select('id, email, wallet_address, account_tier, reputation_tier, created_at, tokens_earned')
       .eq('id', userId)
       .single();
 
@@ -648,6 +862,7 @@ export class RewardService {
       account_tier: (data.account_tier as UserAuthTier) || 'email_basic',
       reputation_tier: data.reputation_tier || 'new',
       trust_tier: trustTierMap[data.reputation_tier?.toLowerCase()] || 1,
+      tokens_earned: data.tokens_earned || 0,
     };
   }
 
@@ -719,6 +934,50 @@ export class RewardService {
       .in('id', rewardIds);
   }
 
+  /**
+   * NEW: Update users.tokens_earned for frontend display compatibility
+   * This keeps the legacy balance column in sync while we transition
+   */
+  private async updateUserTokensEarned(
+    userId: string, 
+    amountToAdd: number
+  ): Promise<number> {
+    try {
+      // Get current balance
+      const { data: user, error: fetchError } = await this.supabase
+        .from('users')
+        .select('tokens_earned')
+        .eq('id', userId)
+        .single();
+
+      if (fetchError) {
+        console.error('[RewardService] Failed to fetch user balance:', fetchError);
+        return 0;
+      }
+
+      const currentBalance = user?.tokens_earned || 0;
+      const displayAmountToAdd = toDisplayAmount(amountToAdd);
+      const newBalance = currentBalance + displayAmountToAdd;
+
+      // Update balance
+      const { error: updateError } = await this.supabase
+        .from('users')
+        .update({ tokens_earned: newBalance })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error('[RewardService] Failed to update tokens_earned:', updateError);
+        return currentBalance;
+      }
+
+      console.log(`💰 [RewardService] Updated tokens_earned: ${currentBalance.toFixed(2)} → ${newBalance.toFixed(2)} BOCA (+${displayAmountToAdd.toFixed(2)})`);
+      return newBalance;
+    } catch (error) {
+      console.error('[RewardService] updateUserTokensEarned error:', error);
+      return 0;
+    }
+  }
+
   // ===========================================================================
   // INTERNAL - Reward Distribution
   // ===========================================================================
@@ -756,6 +1015,9 @@ export class RewardService {
       };
     }
 
+    // NEW: Update users.tokens_earned for frontend compatibility
+    const newBalance = await this.updateUserTokensEarned(user.id, Number(amount));
+
     return {
       success: true,
       action,
@@ -763,6 +1025,7 @@ export class RewardService {
       displayAmount,
       method: 'on_chain',
       txDigest: mintResult.digest,
+      newBalance,
     };
   }
 
@@ -807,6 +1070,10 @@ export class RewardService {
       pending_reward_id: data.id,
     });
 
+    // NEW: Update users.tokens_earned for frontend compatibility
+    // Even for pending rewards, we update the display balance so users see their earnings
+    const newBalance = await this.updateUserTokensEarned(user.id, Number(amount));
+
     return {
       success: true,
       action,
@@ -814,6 +1081,7 @@ export class RewardService {
       displayAmount,
       method: 'pending',
       pendingRewardId: data.id,
+      newBalance,
     };
   }
 

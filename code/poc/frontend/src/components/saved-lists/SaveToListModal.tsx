@@ -32,7 +32,8 @@ export default function SaveToListModal({
   onClose,
   onSave
 }: SaveToListModalProps) {
-  const t = useTranslations();
+  const t = useTranslations('savedLists');
+  const tCommon = useTranslations('common');
   const [lists, setLists] = useState<SavedList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [showCreateNew, setShowCreateNew] = useState(false);
@@ -65,7 +66,7 @@ export default function SaveToListModal({
       setSavedToLists(alreadySaved);
     } catch (error) {
       console.error('Error fetching lists:', error);
-      showToast(t('savedLists.modal.toast.loadFailed'), 'error');
+      showToast(t('modal.toast.loadFailed'), 'error');
     } finally {
       setIsLoading(false);
     }
@@ -73,9 +74,9 @@ export default function SaveToListModal({
 
   const getTitle = () => {
     switch(itemType) {
-      case 'restaurant': return t('savedLists.modal.title.restaurant');
-      case 'recommendation': return t('savedLists.modal.title.recommendation');
-      case 'guide': return t('savedLists.modal.title.guide');
+      case 'restaurant': return t('modal.title.restaurant');
+      case 'recommendation': return t('modal.title.recommendation');
+      case 'guide': return t('modal.title.guide');
     }
   };
 
@@ -89,12 +90,12 @@ export default function SaveToListModal({
         itemId
       });
 
-      showToast(t('savedLists.modal.toast.saved'));
+      showToast(t('modal.toast.saved'));
       onSave();
       onClose();
     } catch (error) {
       console.error('Error saving to list:', error);
-      showToast(error instanceof Error ? error.message : t('savedLists.modal.toast.saveFailed'), 'error');
+      showToast(error instanceof Error ? error.message : t('modal.toast.saveFailed'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -124,13 +125,13 @@ export default function SaveToListModal({
       });
 
       console.log('Item saved successfully to new list');
-      showToast(t('savedLists.modal.toast.createdAndSaved', { name: newList.name }));
+      showToast(t('modal.toast.createdAndSaved', { name: newList.name }));
       
       onSave();
       onClose();
     } catch (error) {
       console.error('Error saving to new list:', error);
-      showToast(error instanceof Error ? error.message : t('savedLists.modal.toast.saveToNewFailed'), 'error');
+      showToast(error instanceof Error ? error.message : t('modal.toast.saveToNewFailed'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -155,7 +156,7 @@ export default function SaveToListModal({
             <Bookmark className="w-5 h-5 text-[#E65441]" />
           </div>
           <h2>{getTitle()}</h2>
-          <button onClick={onClose} className="close-button" aria-label={t('common.close')}>
+          <button onClick={onClose} className="close-button" aria-label={tCommon('close')}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -164,7 +165,7 @@ export default function SaveToListModal({
           {isLoading ? (
             <div className="loading-state">
               <div className="spinner" />
-              <p>{t('savedLists.modal.loading')}</p>
+              <p>{t('modal.loading')}</p>
             </div>
           ) : (
             <>
@@ -174,8 +175,8 @@ export default function SaveToListModal({
                     <div className="empty-icon">
                       <FolderHeart className="w-8 h-8 text-[#E65441]" />
                     </div>
-                    <p className="empty-title">{t('savedLists.modal.empty.title')}</p>
-                    <p className="empty-description">{t('savedLists.modal.empty.description')}</p>
+                    <p className="empty-title">{t('modal.empty.title')}</p>
+                    <p className="empty-description">{t('modal.empty.description')}</p>
                   </div>
                 ) : (
                   lists.map(list => {
@@ -197,14 +198,14 @@ export default function SaveToListModal({
                         <div className="list-info">
                           <div className="list-name">{list.name}</div>
                           <div className="list-meta">
-                            {list.itemCount || 0} {(list.itemCount || 0) === 1 ? 'item' : 'items'}
+                            {t('modal.itemCount', { count: list.itemCount || 0 })}
                           </div>
                         </div>
                         
                         {isAlreadySaved ? (
                           <div className="saved-badge">
                             <Check className="w-4 h-4" />
-                            <span>Saved</span>
+                            <span>{t('modal.alreadySaved')}</span>
                           </div>
                         ) : isSelected ? (
                           <div className="selected-indicator">
@@ -226,7 +227,7 @@ export default function SaveToListModal({
                   className="create-new-button"
                 >
                   <Plus className="w-4 h-4" />
-                  {t('savedLists.modal.actions.createNew')}
+                  {t('modal.actions.createNew')}
                 </button>
               ) : (
                 <div className="create-form-wrapper">
@@ -247,14 +248,14 @@ export default function SaveToListModal({
         {!showCreateNew && (
           <div className="modal-footer">
             <button onClick={onClose} className="button-secondary">
-              {t('common.cancel')}
+              {tCommon('cancel')}
             </button>
             <button 
               onClick={handleSave} 
               disabled={!selectedListId || isSaving}
               className="button-primary"
             >
-              {isSaving ? t('savedLists.modal.actions.saving') : t('common.save')}
+              {isSaving ? t('modal.actions.saving') : tCommon('save')}
             </button>
           </div>
         )}
@@ -268,6 +269,7 @@ export default function SaveToListModal({
           right: 0;
           bottom: 0;
           background: rgba(31, 30, 42, 0.5);
+          backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -286,12 +288,21 @@ export default function SaveToListModal({
           box-shadow: 0 20px 25px -5px rgba(31, 30, 42, 0.15);
         }
 
+        :global(.dark) .modal-content {
+          background: #2D2C3A;
+          box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.4);
+        }
+
         .modal-header {
           display: flex;
           align-items: center;
           gap: 0.75rem;
           padding: 1.25rem 1.5rem;
           border-bottom: 1px solid #f3f4f6;
+        }
+
+        :global(.dark) .modal-header {
+          border-bottom-color: #3D3C4A;
         }
 
         .header-icon {
@@ -304,12 +315,20 @@ export default function SaveToListModal({
           justify-content: center;
         }
 
+        :global(.dark) .header-icon {
+          background: linear-gradient(135deg, rgba(255, 100, 74, 0.2) 0%, rgba(230, 84, 65, 0.2) 100%);
+        }
+
         .modal-header h2 {
           flex: 1;
           margin: 0;
           font-size: 1.125rem;
           font-weight: 600;
           color: #1F1E2A;
+        }
+
+        :global(.dark) .modal-header h2 {
+          color: white;
         }
 
         .close-button {
@@ -322,9 +341,18 @@ export default function SaveToListModal({
           transition: all 0.2s;
         }
 
+        :global(.dark) .close-button {
+          color: #9ca3af;
+        }
+
         .close-button:hover {
           background: #f3f4f6;
           color: #1F1E2A;
+        }
+
+        :global(.dark) .close-button:hover {
+          background: #353444;
+          color: white;
         }
 
         .modal-body {
@@ -342,6 +370,14 @@ export default function SaveToListModal({
           gap: 1rem;
         }
 
+        .loading-state p {
+          color: #6b7280;
+        }
+
+        :global(.dark) .loading-state p {
+          color: #9ca3af;
+        }
+
         .spinner {
           width: 2rem;
           height: 2rem;
@@ -349,6 +385,11 @@ export default function SaveToListModal({
           border-top-color: #E65441;
           border-radius: 50%;
           animation: spin 1s linear infinite;
+        }
+
+        :global(.dark) .spinner {
+          border-color: #353444;
+          border-top-color: #FF644A;
         }
 
         @keyframes spin {
@@ -374,9 +415,19 @@ export default function SaveToListModal({
           background: white;
         }
 
+        :global(.dark) .list-option {
+          background: #353444;
+          border-color: #3D3C4A;
+        }
+
         .list-option:hover:not(.already-saved) {
           border-color: #E65441;
           background: #FFF4E1;
+        }
+
+        :global(.dark) .list-option:hover:not(.already-saved) {
+          border-color: #FF644A;
+          background: rgba(255, 100, 74, 0.1);
         }
 
         .list-option.selected {
@@ -384,10 +435,19 @@ export default function SaveToListModal({
           background: #FFF4E1;
         }
 
+        :global(.dark) .list-option.selected {
+          border-color: #FF644A;
+          background: rgba(255, 100, 74, 0.15);
+        }
+
         .list-option.already-saved {
           opacity: 0.6;
           cursor: not-allowed;
           background: #f9fafb;
+        }
+
+        :global(.dark) .list-option.already-saved {
+          background: #2D2C3A;
         }
 
         /* Clean icon container - no emoji! */
@@ -420,9 +480,17 @@ export default function SaveToListModal({
           margin-bottom: 0.125rem;
         }
 
+        :global(.dark) .list-name {
+          color: white;
+        }
+
         .list-meta {
           font-size: 0.8125rem;
           color: #9ca3af;
+        }
+
+        :global(.dark) .list-meta {
+          color: #6b7280;
         }
 
         .saved-badge {
@@ -437,6 +505,11 @@ export default function SaveToListModal({
           font-weight: 500;
         }
 
+        :global(.dark) .saved-badge {
+          background: rgba(5, 150, 105, 0.2);
+          color: #34d399;
+        }
+
         .selected-indicator {
           width: 1.25rem;
           height: 1.25rem;
@@ -447,11 +520,19 @@ export default function SaveToListModal({
           justify-content: center;
         }
 
+        :global(.dark) .selected-indicator {
+          border-color: #FF644A;
+        }
+
         .radio-dot {
           width: 0.625rem;
           height: 0.625rem;
           border-radius: 50%;
           background: #E65441;
+        }
+
+        :global(.dark) .radio-dot {
+          background: #FF644A;
         }
 
         .empty-state {
@@ -470,15 +551,27 @@ export default function SaveToListModal({
           margin: 0 auto 1rem;
         }
 
+        :global(.dark) .empty-icon {
+          background: linear-gradient(135deg, rgba(255, 100, 74, 0.2) 0%, rgba(230, 84, 65, 0.2) 100%);
+        }
+
         .empty-title {
           font-weight: 600;
           color: #1F1E2A;
           margin-bottom: 0.25rem;
         }
 
+        :global(.dark) .empty-title {
+          color: white;
+        }
+
         .empty-description {
           font-size: 0.875rem;
           color: #9ca3af;
+        }
+
+        :global(.dark) .empty-description {
+          color: #6b7280;
         }
 
         .create-new-button {
@@ -498,10 +591,22 @@ export default function SaveToListModal({
           transition: all 0.2s;
         }
 
+        :global(.dark) .create-new-button {
+          background: #353444;
+          border-color: #4D4C5A;
+          color: #9ca3af;
+        }
+
         .create-new-button:hover {
           border-color: #E65441;
           color: #E65441;
           background: #FFF4E1;
+        }
+
+        :global(.dark) .create-new-button:hover {
+          border-color: #FF644A;
+          color: #FF644A;
+          background: rgba(255, 100, 74, 0.1);
         }
 
         .create-form-wrapper {
@@ -510,12 +615,20 @@ export default function SaveToListModal({
           border-top: 1px solid #f3f4f6;
         }
 
+        :global(.dark) .create-form-wrapper {
+          border-top-color: #3D3C4A;
+        }
+
         .modal-footer {
           display: flex;
           justify-content: flex-end;
           gap: 0.75rem;
           padding: 1.25rem 1.5rem;
           border-top: 1px solid #f3f4f6;
+        }
+
+        :global(.dark) .modal-footer {
+          border-top-color: #3D3C4A;
         }
 
         .button-secondary {
@@ -530,9 +643,20 @@ export default function SaveToListModal({
           transition: all 0.2s;
         }
 
+        :global(.dark) .button-secondary {
+          background: #353444;
+          border-color: #3D3C4A;
+          color: #d1d5db;
+        }
+
         .button-secondary:hover {
           background: #f9fafb;
           border-color: #9ca3af;
+        }
+
+        :global(.dark) .button-secondary:hover {
+          background: #404050;
+          border-color: #4D4C5A;
         }
 
         .button-primary {

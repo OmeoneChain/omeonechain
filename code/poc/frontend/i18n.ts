@@ -12,7 +12,23 @@ export default getRequestConfig(async ({ locale }) => {
   console.log('=== i18n.ts loading for locale:', validLocale);
 
   // Load all translation files and merge them
-  const [common, auth, recommendations, rewards, errors, feed, community, discover, create, landing, profile] = await Promise.all([
+  const [
+    common, 
+    auth, 
+    recommendations, 
+    rewards, 
+    errors, 
+    feed, 
+    community, 
+    discover, 
+    create, 
+    landing, 
+    profile,
+    savedLists,
+    social,
+    restaurant,
+    restaurantCard,
+  ] = await Promise.all([
     import(`./locales/${validLocale}/common.json`),
     import(`./locales/${validLocale}/auth.json`),
     import(`./locales/${validLocale}/recommendations.json`),
@@ -24,6 +40,10 @@ export default getRequestConfig(async ({ locale }) => {
     import(`./locales/${validLocale}/create.json`),
     import(`./locales/${validLocale}/landing.json`),
     import(`./locales/${validLocale}/profile.json`),
+    import(`./locales/${validLocale}/savedLists.json`),
+    import(`./locales/${validLocale}/social.json`),
+    import(`./locales/${validLocale}/restaurant.json`),
+    import(`./locales/${validLocale}/restaurantCard.json`),
   ]);
 
   console.log('=== landing.default keys:', Object.keys(landing.default));
@@ -45,6 +65,10 @@ export default getRequestConfig(async ({ locale }) => {
       landing: landing.default,
       profile: profile.default.profile,
       profileMap: profile.default.profileMap,
+      savedLists: savedLists.default,
+      social: social.default,
+      restaurant: restaurant.default,
+      restaurantCard: restaurantCard.default,
     }
   };
 });

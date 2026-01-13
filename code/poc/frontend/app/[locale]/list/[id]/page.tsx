@@ -1,5 +1,6 @@
 // app/[locale]/list/[id]/page.tsx
 // Curated List (Guide) Detail Page - PUBLIC view of community-created food guides
+// UPDATED: Dark mode support added
 // ✅ Calls /api/lists/[id] endpoint (guides.ts routes)
 // ✅ Public - no auth required to view (optionalAuth)
 // ✅ Shows creator attribution
@@ -50,14 +51,12 @@ interface Restaurant {
   cuisine_type?: string;
   neighborhood?: string;
   address?: string;
-  // List-specific fields
-  notes?: string;        // Creator's notes about why this restaurant is on the list
-  position?: number;     // Order/rank in the list
-  added_at?: string;     // When it was added
-  // Photo fields (future-ready)
+  notes?: string;
+  position?: number;
+  added_at?: string;
   photos?: RestaurantPhoto[];
   cover_photo_url?: string;
-  photo_url?: string;    // Primary photo
+  photo_url?: string;
 }
 
 interface Creator {
@@ -86,9 +85,9 @@ interface CuratedListDetail {
   updated_at: string;
   restaurants: Restaurant[];
   creator: Creator;
-  // Photo fields (future-ready)
   cover_image_url?: string;
   photos?: RestaurantPhoto[];
+  icon?: string;
 }
 
 export default function CuratedListDetailPage() {
@@ -131,13 +130,10 @@ export default function CuratedListDetailPage() {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
     
-      // Close guide menu if clicking outside
       if (guideMenuRef.current && !guideMenuRef.current.contains(target)) {
         setShowGuideMenu(false);
       }
     
-      // Close restaurant menus only if clicking outside any restaurant dropdown
-      // Check if click is inside a restaurant dropdown menu
       const clickedInsideRestaurantMenu = (event.target as HTMLElement).closest('[data-restaurant-menu]');
       if (!clickedInsideRestaurantMenu) {
         setOpenRestaurantMenuId(null);
@@ -162,7 +158,8 @@ export default function CuratedListDetailPage() {
         'Content-Type': 'application/json',
       };
       
-      const token = authToken || localStorage.getItem('omeone_auth_token');      if (token) {
+      const token = authToken || localStorage.getItem('omeone_auth_token');
+      if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
@@ -180,7 +177,6 @@ export default function CuratedListDetailPage() {
       const listData = data.guide || data;
       setList(listData);
       
-      // Set like and bookmark status from API response
       setIsLiked(listData.user_has_liked || false);
       setLikesCount(listData.likes_count || 0);
       setIsBookmarked(listData.user_has_bookmarked || false);
@@ -193,12 +189,10 @@ export default function CuratedListDetailPage() {
     }
   };
 
-  // Handle like toggle
   const handleLike = async () => {
     const token = localStorage.getItem('omeone_auth_token');
     
     if (!token) {
-      // Show a toast or subtle message instead of redirect
       alert(locale === 'pt-BR' ? 'Entre para curtir este guia' : 'Log in to like this guide');
       return;
     }
@@ -227,7 +221,6 @@ export default function CuratedListDetailPage() {
     }
   };
 
-  // Handle bookmark toggle
   const handleBookmark = async () => {
     const token = localStorage.getItem('omeone_auth_token');
     
@@ -265,18 +258,15 @@ export default function CuratedListDetailPage() {
     }
   };
 
-  // Open SaveToListModal for the guide (no redirect, just open modal)
   const handleAddGuideToList = () => {
     setShowGuideMenu(false);
     setShowSaveGuideModal(true);
   };
 
-  // Open SaveToListModal for a restaurant (no redirect, just open modal)
   const handleAddRestaurantToList = (restaurantId: number) => {
     console.log('🔥 handleAddRestaurantToList called with:', restaurantId);
     setOpenRestaurantMenuId(null);
     setSaveRestaurantModal({ isOpen: true, restaurantId });
-    console.log('🔥 State should now be:', { isOpen: true, restaurantId });
   };
 
   const handleShare = async () => {
@@ -379,8 +369,8 @@ export default function CuratedListDetailPage() {
     return (
       <>
         <CleanHeader />
-        <div className="min-h-screen bg-[#FFF8F0] flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35]"></div>
+        <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF644A]"></div>
         </div>
       </>
     );
@@ -390,14 +380,14 @@ export default function CuratedListDetailPage() {
     return (
       <>
         <CleanHeader />
-        <div className="min-h-screen bg-[#FFF8F0] flex items-center justify-center">
+        <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A] flex items-center justify-center">
           <div className="text-center px-4">
             <div className="text-6xl mb-4">📋</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t.notFound}</h2>
-            <p className="text-gray-600 mb-6 max-w-md">{t.notFoundDesc}</p>
+            <h2 className="text-2xl font-bold text-[#1F1E2A] dark:text-white mb-2">{t.notFound}</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">{t.notFoundDesc}</p>
             <button
               onClick={() => router.push(`/${locale}/discover`)}
-              className="px-6 py-3 bg-[#FF6B35] text-white rounded-xl font-semibold hover:bg-[#e55a2b] transition-colors"
+              className="px-6 py-3 bg-[#FF644A] text-white rounded-xl font-semibold hover:bg-[#E65441] transition-colors"
             >
               {t.backToDiscover}
             </button>
@@ -410,13 +400,13 @@ export default function CuratedListDetailPage() {
   return (
     <>
       <CleanHeader />
-      <div className="min-h-screen bg-[#FFF8F0]">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         {/* Back Button Bar */}
-        <div className="bg-white border-b border-gray-200">
+        <div className="bg-white dark:bg-[#2D2C3A] border-b border-gray-200 dark:border-[#3D3C4A]">
           <div className="max-w-4xl mx-auto px-4 py-4">
             <button
               onClick={() => router.push(`/${locale}/discover`)}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-[#FF644A] transition-colors"
             >
               <ArrowLeft size={20} />
               <span>{t.backToDiscover}</span>
@@ -431,7 +421,7 @@ export default function CuratedListDetailPage() {
             "h-48 sm:h-64 w-full relative",
             list.cover_image_url 
               ? "" 
-              : "bg-gradient-to-br from-[#FF6B35] via-[#FF8F5C] to-[#FFB088]"
+              : "bg-gradient-to-br from-[#FF644A] via-[#FF8F5C] to-[#FFB088]"
           )}>
             {list.cover_image_url && (
               <Image
@@ -450,17 +440,17 @@ export default function CuratedListDetailPage() {
             <div className="max-w-4xl mx-auto">
               <div className="flex items-start gap-4">
                 {/* Icon */}
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center text-3xl sm:text-4xl flex-shrink-0">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white dark:bg-[#2D2C3A] rounded-2xl shadow-lg flex items-center justify-center text-3xl sm:text-4xl flex-shrink-0">
                   {list.icon || '📋'}
                 </div>
                 
                 {/* Title and badges */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-[#FF6B35] text-xs font-semibold rounded-full">
+                    <span className="px-2.5 py-1 bg-white/90 dark:bg-[#2D2C3A]/90 backdrop-blur-sm text-[#FF644A] text-xs font-semibold rounded-full">
                       {t.guide}
                     </span>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-gray-700 text-xs font-medium rounded-full">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/90 dark:bg-[#2D2C3A]/90 backdrop-blur-sm text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full">
                       <Globe className="w-3.5 h-3.5" />
                       <span>{t.public}</span>
                     </div>
@@ -480,7 +470,7 @@ export default function CuratedListDetailPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden"
+            className="bg-white dark:bg-[#2D2C3A] rounded-2xl border border-gray-200 dark:border-[#3D3C4A] shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] overflow-hidden"
           >
             <div className="p-6 space-y-6">
               {/* Creator Info & Actions Row */}
@@ -489,7 +479,7 @@ export default function CuratedListDetailPage() {
                   href={`/${locale}/profile/${list.creator.id}`}
                   className="flex items-center gap-3 hover:opacity-80 transition-opacity"
                 >
-                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-[#353444] overflow-hidden flex-shrink-0">
                     {(list.creator.avatar || list.creator.profile_photo_url) ? (
                       <Image
                         src={list.creator.avatar || list.creator.profile_photo_url || ''}
@@ -499,20 +489,20 @@ export default function CuratedListDetailPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-[#FF6B35] text-white font-semibold">
+                      <div className="w-full h-full flex items-center justify-center bg-[#FF644A] text-white font-semibold">
                         {(list.creator.display_name || list.creator.username || 'U')[0].toUpperCase()}
                       </div>
                     )}
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">{t.by}</p>
-                    <p className="font-semibold text-gray-900">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t.by}</p>
+                    <p className="font-semibold text-[#1F1E2A] dark:text-white">
                       {list.creator.display_name || list.creator.username}
                     </p>
                   </div>
                 </Link>
 
-                {/* Action Buttons - Compact icons like social media */}
+                {/* Action Buttons */}
                 <div className="flex items-center gap-2">
                   {/* Heart (Like) Button */}
                   <motion.button
@@ -521,8 +511,8 @@ export default function CuratedListDetailPage() {
                     className={cn(
                       "p-2.5 rounded-xl transition-all",
                       isLiked
-                        ? "bg-red-50 text-red-500"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        ? "bg-red-50 dark:bg-red-900/20 text-red-500"
+                        : "bg-gray-100 dark:bg-[#353444] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#404050]"
                     )}
                     whileTap={{ scale: 0.95 }}
                     title={isLiked ? 'Unlike' : 'Like'}
@@ -537,8 +527,8 @@ export default function CuratedListDetailPage() {
                     className={cn(
                       "p-2.5 rounded-xl transition-all",
                       isBookmarked
-                        ? "bg-[#FF6B35] text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        ? "bg-[#FF644A] text-white"
+                        : "bg-gray-100 dark:bg-[#353444] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#404050]"
                     )}
                     whileTap={{ scale: 0.95 }}
                     title={isBookmarked ? 'Saved' : 'Save'}
@@ -549,7 +539,7 @@ export default function CuratedListDetailPage() {
                   {/* Share Button */}
                   <motion.button
                     onClick={handleShare}
-                    className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
+                    className="p-2.5 bg-gray-100 dark:bg-[#353444] text-gray-600 dark:text-gray-400 rounded-xl hover:bg-gray-200 dark:hover:bg-[#404050] transition-colors"
                     whileTap={{ scale: 0.95 }}
                     title={t.share}
                   >
@@ -560,7 +550,7 @@ export default function CuratedListDetailPage() {
                   <div className="relative" ref={guideMenuRef}>
                     <motion.button
                       onClick={() => setShowGuideMenu(!showGuideMenu)}
-                      className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
+                      className="p-2.5 bg-gray-100 dark:bg-[#353444] text-gray-600 dark:text-gray-400 rounded-xl hover:bg-gray-200 dark:hover:bg-[#404050] transition-colors"
                       whileTap={{ scale: 0.95 }}
                     >
                       <MoreHorizontal size={18} />
@@ -568,10 +558,10 @@ export default function CuratedListDetailPage() {
 
                     {/* Dropdown Menu */}
                     {showGuideMenu && (
-                      <div className="absolute right-0 top-12 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-20 min-w-[180px]">
+                      <div className="absolute right-0 top-12 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] py-1 z-20 min-w-[180px]">
                         <button
                           onClick={handleReport}
-                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-red-600"
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-red-600 dark:text-red-400"
                         >
                           <Flag size={16} />
                           {t.report}
@@ -584,7 +574,7 @@ export default function CuratedListDetailPage() {
 
               {/* Description */}
               {list.description && (
-                <p className="text-base text-gray-700 leading-relaxed">
+                <p className="text-base text-gray-700 dark:text-gray-300 leading-relaxed">
                   {list.description}
                 </p>
               )}
@@ -595,7 +585,7 @@ export default function CuratedListDetailPage() {
                   {list.tags.map((tag, index) => (
                     <span 
                       key={index}
-                      className="px-3 py-1.5 bg-[#FFF8F0] text-[#FF6B35] text-sm font-medium rounded-full"
+                      className="px-3 py-1.5 bg-[#FFF4E1] dark:bg-[#FF644A]/20 text-[#FF644A] text-sm font-medium rounded-full"
                     >
                       {tag}
                     </span>
@@ -604,21 +594,21 @@ export default function CuratedListDetailPage() {
               )}
 
               {/* Stats */}
-              <div className="flex items-center gap-4 text-sm text-gray-600 pb-4 border-b border-gray-200 flex-wrap">
+              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 pb-4 border-b border-gray-200 dark:border-[#3D3C4A] flex-wrap">
                 <div className="flex items-center gap-2">
-                  <Utensils size={16} className="text-[#FF6B35]" />
-                  <span className="font-medium">
+                  <Utensils size={16} className="text-[#FF644A]" />
+                  <span className="font-medium text-[#1F1E2A] dark:text-white">
                     {list.restaurants?.length || 0} {(list.restaurants?.length || 0) === 1 ? t.restaurant : t.restaurants}
                   </span>
                 </div>
-                <span className="text-gray-300">•</span>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
                 <div className="flex items-center gap-2">
                   <Heart size={16} className="text-red-400" />
                   <span>
                     {likesCount} {likesCount === 1 ? t.like : t.likes}
                   </span>
                 </div>
-                <span className="text-gray-300">•</span>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
                 <div className="flex items-center gap-2">
                   <Calendar size={16} />
                   <span>{t.updated} {timeAgo(list.updated_at)}</span>
@@ -627,7 +617,7 @@ export default function CuratedListDetailPage() {
 
               {/* Extended Content/Prose (if available) */}
               {list.content && list.content !== list.description && (
-                <div className="prose prose-sm max-w-none text-gray-700">
+                <div className="prose dark:prose-invert prose-sm max-w-none text-gray-700 dark:text-gray-300">
                   <p className="whitespace-pre-wrap">{list.content}</p>
                 </div>
               )}
@@ -635,8 +625,8 @@ export default function CuratedListDetailPage() {
               {/* Photo Gallery (future-ready) */}
               {list.photos && list.photos.length > 0 && (
                 <div className="space-y-3">
-                  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <Camera size={18} className="text-[#FF6B35]" />
+                  <h2 className="text-lg font-bold text-[#1F1E2A] dark:text-white flex items-center gap-2">
+                    <Camera size={18} className="text-[#FF644A]" />
                     {locale === 'pt-BR' ? 'Fotos' : 'Photos'}
                   </h2>
                   <div className="relative">
@@ -666,8 +656,8 @@ export default function CuratedListDetailPage() {
 
               {/* Restaurants Section */}
               <div className="space-y-4">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <Utensils size={18} className="text-[#FF6B35]" />
+                <h2 className="text-lg font-bold text-[#1F1E2A] dark:text-white flex items-center gap-2">
+                  <Utensils size={18} className="text-[#FF644A]" />
                   {t.featuredRestaurants}
                 </h2>
 
@@ -684,7 +674,7 @@ export default function CuratedListDetailPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.3, delay: index * 0.05 }}
-                          className="group bg-white rounded-xl border border-gray-200 hover:border-[#FF6B35] hover:shadow-lg transition-all overflow-hidden relative"
+                          className="group bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] hover:border-[#FF644A] dark:hover:border-[#FF644A] hover:shadow-lg dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all overflow-hidden relative"
                         >
                           <div className="flex items-stretch">
                             {/* Number Badge / Photo */}
@@ -700,14 +690,14 @@ export default function CuratedListDetailPage() {
                                     fill
                                     className="object-cover"
                                   />
-                                  <div className="absolute top-2 left-2 w-7 h-7 bg-[#FF6B35] rounded-full flex items-center justify-center shadow-md">
+                                  <div className="absolute top-2 left-2 w-7 h-7 bg-[#FF644A] rounded-full flex items-center justify-center shadow-md">
                                     <span className="text-white font-bold text-sm">
                                       {restaurant.position || index + 1}
                                     </span>
                                   </div>
                                 </>
                               ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-[#FF6B35] to-[#FFB088] flex items-center justify-center min-h-[80px]">
+                                <div className="w-full h-full bg-gradient-to-br from-[#FF644A] to-[#FFB088] flex items-center justify-center min-h-[80px]">
                                   <span className="text-white font-bold text-2xl">
                                     {restaurant.position || index + 1}
                                   </span>
@@ -721,20 +711,20 @@ export default function CuratedListDetailPage() {
                               onClick={() => handleRestaurantClick(restaurant.id)}
                             >
                               <div className="flex items-start justify-between gap-2 mb-1">
-                                <h3 className="font-semibold text-gray-900 text-base group-hover:text-[#FF6B35] transition-colors">
+                                <h3 className="font-semibold text-[#1F1E2A] dark:text-white text-base group-hover:text-[#FF644A] transition-colors">
                                   {restaurant.name}
                                 </h3>
                               </div>
                               
                               {/* Cuisine & Location */}
-                              <div className="flex items-center gap-2 text-sm text-gray-500 mb-2 flex-wrap">
+                              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2 flex-wrap">
                                 {restaurant.cuisine_type && (
-                                  <span className="px-2 py-0.5 bg-[#FFF8F0] text-[#FF6B35] rounded-full text-xs font-medium">
+                                  <span className="px-2 py-0.5 bg-[#FFF4E1] dark:bg-[#FF644A]/20 text-[#FF644A] rounded-full text-xs font-medium">
                                     {restaurant.cuisine_type}
                                   </span>
                                 )}
                                 {restaurant.neighborhood && (
-                                  <div className="flex items-center gap-1 text-gray-500">
+                                  <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                                     <MapPin size={12} />
                                     <span className="text-xs">{restaurant.neighborhood}</span>
                                   </div>
@@ -743,7 +733,7 @@ export default function CuratedListDetailPage() {
                               
                               {/* Creator's Notes */}
                               {restaurant.notes && (
-                                <p className="text-sm text-gray-600 italic border-l-2 border-[#FFE4D6] pl-3 mt-2">
+                                <p className="text-sm text-gray-600 dark:text-gray-400 italic border-l-2 border-[#FFE4D6] dark:border-[#FF644A]/30 pl-3 mt-2">
                                   "{restaurant.notes}"
                                 </p>
                               )}
@@ -758,25 +748,25 @@ export default function CuratedListDetailPage() {
                                     openRestaurantMenuId === restaurant.id ? null : restaurant.id
                                   );
                                 }}
-                                className="p-1.5 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-colors shadow-sm opacity-0 group-hover:opacity-100"
+                                className="p-1.5 bg-white/90 dark:bg-[#2D2C3A]/90 backdrop-blur-sm rounded-full hover:bg-white dark:hover:bg-[#2D2C3A] transition-colors shadow-sm opacity-0 group-hover:opacity-100"
                               >
-                                <MoreHorizontal size={16} className="text-gray-600" />
+                                <MoreHorizontal size={16} className="text-gray-600 dark:text-gray-400" />
                               </button>
 
                               {/* Restaurant Dropdown Menu */}
                               {openRestaurantMenuId === restaurant.id && (
                                 <div 
                                   data-restaurant-menu="true"
-                                  className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-20 min-w-[180px]"
+                                  className="absolute right-0 top-8 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] py-1 z-20 min-w-[180px]"
                                 >
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleAddRestaurantToList(restaurant.id);
                                     }}
-                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700"
+                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-gray-700 dark:text-gray-300"
                                   >
-                                    <FolderPlus size={16} className="text-[#FF6B35]" />
+                                    <FolderPlus size={16} className="text-[#FF644A]" />
                                     {t.addToList}
                                   </button>
                                   <button
@@ -784,9 +774,9 @@ export default function CuratedListDetailPage() {
                                       e.stopPropagation();
                                       handleRestaurantClick(restaurant.id);
                                     }}
-                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700"
+                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-gray-700 dark:text-gray-300"
                                   >
-                                    <ExternalLink size={16} className="text-gray-500" />
+                                    <ExternalLink size={16} className="text-gray-500 dark:text-gray-400" />
                                     {t.viewRestaurant}
                                   </button>
                                   <button
@@ -794,7 +784,7 @@ export default function CuratedListDetailPage() {
                                       e.stopPropagation();
                                       handleReportRestaurant(restaurant.id);
                                     }}
-                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-red-600"
+                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-red-600 dark:text-red-400"
                                   >
                                     <Flag size={16} />
                                     {t.report}
@@ -808,7 +798,7 @@ export default function CuratedListDetailPage() {
                     })}
                   </div>
                 ) : (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     <Utensils size={48} className="mx-auto mb-3 opacity-50" />
                     <p className="text-base font-medium">{t.noRestaurants}</p>
                   </div>
@@ -827,13 +817,9 @@ export default function CuratedListDetailPage() {
           onClose={() => setShowSaveGuideModal(false)}
           onSave={() => {
             setShowSaveGuideModal(false);
-            // Optionally show a success toast
           }}
         />
       )}
-
-      {/* Debug log */}
-      {console.log('🔍 saveRestaurantModal state:', saveRestaurantModal)}
 
       {/* SaveToListModal for Restaurant */}
       {saveRestaurantModal.isOpen && saveRestaurantModal.restaurantId && (
@@ -843,7 +829,6 @@ export default function CuratedListDetailPage() {
           onClose={() => setSaveRestaurantModal({ isOpen: false, restaurantId: null })}
           onSave={() => {
             setSaveRestaurantModal({ isOpen: false, restaurantId: null });
-            // Optionally show a success toast
           }}
         />
       )}

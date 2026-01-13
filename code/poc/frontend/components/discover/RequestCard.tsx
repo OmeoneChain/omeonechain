@@ -1,6 +1,6 @@
 // File: code/poc/frontend/components/discover/RequestCard.tsx
 // Discovery Request Card - Display restaurant recommendation requests in feed
-// Updated with BocaBoca brand colors
+// Updated with BocaBoca brand colors, bounty stake display, and dark mode support
 
 "use client"
 
@@ -19,7 +19,8 @@ import {
   DollarSign,
   Utensils,
   Calendar,
-  Award
+  Award,
+  Trophy
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -44,6 +45,7 @@ interface DiscoveryRequest {
   budget_range: string | string[] | null;
   dietary_restrictions: string[] | null;
   bounty_amount: number;
+  bounty_status?: 'pending' | 'awarded' | 'refunded' | 'expired' | 'none';
   status: 'open' | 'answered' | 'closed';
   response_count: number;
   view_count: number;
@@ -84,6 +86,41 @@ const RequestCard: React.FC<RequestCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
+  // Check request status for color theming
+  const isOpen = request.status === 'open';
+  const hasBounty = request.bounty_amount > 0;
+  const bountyStatus = request.bounty_status || (hasBounty ? 'pending' : 'none');
+  const isAwardedBounty = hasBounty && bountyStatus === 'awarded';
+  const isExpired = request.status === 'expired' || bountyStatus === 'expired';
+  const isClosed = request.status === 'closed';
+  const isAnswered = request.status === 'answered';
+
+  // Get header gradient based on status
+  const getHeaderGradient = () => {
+    if (isOpen && hasBounty) {
+      return "bg-gradient-to-r from-amber-500 to-amber-600";
+    } else if (isOpen) {
+      return "bg-gradient-to-r from-[#FF644A] to-[#E65441]";
+    } else if (isAnswered || isAwardedBounty) {
+      return "bg-gradient-to-r from-[#BFE2D9] to-[#9DD4C5]";
+    } else {
+      return "bg-gradient-to-r from-stone-400 to-stone-500";
+    }
+  };
+
+  // Get border color based on status
+  const getBorderClass = () => {
+    if (isOpen && hasBounty) {
+      return "border-amber-300 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-600";
+    } else if (isOpen) {
+      return "border-[#FF644A]/30 dark:border-[#FF644A]/40 hover:border-[#FF644A]/50 dark:hover:border-[#FF644A]/60";
+    } else if (isAnswered || isAwardedBounty) {
+      return "border-[#BFE2D9] dark:border-[#BFE2D9]/40 hover:border-[#9DD4C5] dark:hover:border-[#9DD4C5]/60";
+    } else {
+      return "border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500";
+    }
+  };
+
   const handleBookmark = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -92,10 +129,10 @@ const RequestCard: React.FC<RequestCardProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'open': return 'text-emerald-700 bg-emerald-50 border-emerald-200';
-      case 'answered': return 'text-sky-700 bg-sky-50 border-sky-200';
-      case 'closed': return 'text-stone-600 bg-stone-100 border-stone-300';
-      default: return 'text-stone-600 bg-stone-100 border-stone-300';
+      case 'open': return 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700';
+      case 'answered': return 'text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700';
+      case 'closed': return 'text-stone-600 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-600';
+      default: return 'text-stone-600 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 border-stone-300 dark:border-stone-600';
     }
   };
 
@@ -111,22 +148,18 @@ const RequestCard: React.FC<RequestCardProps> = ({
   const getBudgetDisplay = (budget: string | string[] | null) => {
     if (!budget) return null;
   
-    // Handle array format from backend
     let budgetArray: string[];
     if (Array.isArray(budget)) {
       budgetArray = budget;
     } else if (budget.includes(',')) {
-      // Handle comma-separated string
       budgetArray = budget.split(',').map(s => s.trim()).filter(Boolean);
     } else {
-      // Single value like "$$"
       return budget;
     }
   
     if (budgetArray.length === 0) return null;
     if (budgetArray.length === 1) return budgetArray[0];
   
-    // Sort by length ($ < $$ < $$$ < $$$$) and show as range
     budgetArray.sort((a, b) => a.length - b.length);
     return `${budgetArray[0]} - ${budgetArray[budgetArray.length - 1]}`;
   };
@@ -139,10 +172,34 @@ const RequestCard: React.FC<RequestCardProps> = ({
   };
 
   const formatTimeAgo = (dateString: string): string => {
-    // Ensure UTC interpretation - Supabase returns timestamps without 'Z'
     const normalizedDate = dateString.endsWith('Z') ? dateString : dateString.replace(' ', 'T') + 'Z';
     const date = new Date(normalizedDate);
     return format.relativeTime(date, now);
+  };
+
+  // Bounty Badge Component
+  const BountyBadge = ({ size = 'default' }: { size?: 'default' | 'small' }) => {
+    if (!hasBounty) return null;
+    
+    const isSmall = size === 'small';
+    
+    return (
+      <span 
+        className={cn(
+          "inline-flex items-center gap-1 font-semibold rounded-full",
+          isSmall ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-xs",
+          isOpen 
+            ? "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700" 
+            : isAwardedBounty
+              ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700"
+              : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-600"
+        )}
+        title={isOpen ? "Open request - bounty available" : isAwardedBounty ? "Bounty awarded" : "Request closed"}
+      >
+        <Trophy className={cn(isSmall ? "w-2.5 h-2.5" : "w-3 h-3")} />
+        <span>{request.bounty_amount} BOCA</span>
+      </span>
+    );
   };
 
   const isCompact = variant === 'compact';
@@ -151,8 +208,9 @@ const RequestCard: React.FC<RequestCardProps> = ({
     return (
       <motion.div
         className={cn(
-          "bg-white rounded-xl border border-stone-200 overflow-hidden transition-all duration-200",
-          "hover:shadow-soft hover:border-[#FF644A]/40 cursor-pointer",
+          "bg-white dark:bg-[#2D2C3A] rounded-xl border overflow-hidden transition-all duration-200",
+          "hover:shadow-soft dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] cursor-pointer",
+          getBorderClass(),
           className
         )}
         onHoverStart={() => setIsHovered(true)}
@@ -161,14 +219,26 @@ const RequestCard: React.FC<RequestCardProps> = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        {/* Compact Header - BocaBoca Coral Gradient */}
-        <div className="relative bg-gradient-to-r from-[#FF644A] to-[#E65441] px-3 py-2.5">
+        {/* Compact Header - Gradient stays same (looks great on both modes) */}
+        <div className={cn(
+          "relative px-3 py-2.5",
+          getHeaderGradient()
+        )}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-white flex-1 min-w-0">
-              <HelpCircle className="w-4 h-4 flex-shrink-0" />
+              {isOpen ? (
+                <Trophy className="w-4 h-4 flex-shrink-0" />
+              ) : (
+                <HelpCircle className="w-4 h-4 flex-shrink-0" />
+              )}
               <span className="font-semibold text-base truncate">{request.title}</span>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              {hasBounty && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-white/20 backdrop-blur-sm border border-white/30 text-white">
+                  🏆 {request.bounty_amount} BOCA
+                </span>
+              )}
               <span className={cn(
                 "px-2 py-0.5 text-white text-xs font-medium rounded-full border",
                 "bg-white/20 backdrop-blur-sm border-white/30"
@@ -195,49 +265,49 @@ const RequestCard: React.FC<RequestCardProps> = ({
           <div className="p-3.5 space-y-2.5">
             {/* Description */}
             {request.description && (
-              <p className="text-sm text-stone-600 line-clamp-2 leading-relaxed">
+              <p className="text-sm text-stone-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
                 {request.description}
               </p>
             )}
 
             {/* Context Tags - Horizontal Scroll */}
-            <div className="flex gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-100 pb-1">
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-stone-300 dark:scrollbar-thumb-gray-600 scrollbar-track-stone-100 dark:scrollbar-track-gray-800 pb-1">
               {request.location && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-[#FFF4E1] text-[#FF644A] text-xs rounded-full font-medium whitespace-nowrap">
+                <span className="flex items-center gap-1 px-2 py-1 bg-[#FFF4E1] dark:bg-[#FF644A]/20 text-[#FF644A] text-xs rounded-full font-medium whitespace-nowrap">
                   <MapPin size={10} />
                   {request.location}
                 </span>
               )}
               {request.cuisine_type && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-orange-50 text-orange-700 text-xs rounded-full font-medium whitespace-nowrap">
+                <span className="flex items-center gap-1 px-2 py-1 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded-full font-medium whitespace-nowrap">
                   <Utensils size={10} />
                   {request.cuisine_type}
                 </span>
               )}
               {request.occasion && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-sky-50 text-sky-700 text-xs rounded-full font-medium whitespace-nowrap">
+                <span className="flex items-center gap-1 px-2 py-1 bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 text-xs rounded-full font-medium whitespace-nowrap">
                   <Calendar size={10} />
                   {getOccasionDisplay(request.occasion)}
                 </span>
               )}
               {request.budget_range && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-full font-medium whitespace-nowrap">
+                <span className="flex items-center gap-1 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs rounded-full font-medium whitespace-nowrap">
                   <DollarSign size={10} />
                   {getBudgetDisplay(request.budget_range)}
                 </span>
               )}
               {request.dietary_restrictions && request.dietary_restrictions.length > 0 && (
-                <span className="px-2 py-1 bg-pink-50 text-pink-700 text-xs rounded-full font-medium whitespace-nowrap">
+                <span className="px-2 py-1 bg-pink-50 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400 text-xs rounded-full font-medium whitespace-nowrap">
                   {t('tags.dietaryCount', { count: request.dietary_restrictions.length })}
                 </span>
               )}
             </div>
 
             {/* Creator & Stats - Single compact row */}
-            <div className="flex items-center justify-between gap-2 text-xs pt-1 border-t border-stone-100">
+            <div className="flex items-center justify-between gap-2 text-xs pt-1 border-t border-stone-100 dark:border-[#3D3C4A]">
               {/* Creator */}
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div className="w-5 h-5 rounded-full overflow-hidden bg-[#FFF4E1] flex-shrink-0">
+                <div className="w-5 h-5 rounded-full overflow-hidden bg-[#FFF4E1] dark:bg-[#FF644A]/20 flex-shrink-0">
                   {request.creator.avatar_url ? (
                     <Image
                       src={request.creator.avatar_url}
@@ -252,13 +322,13 @@ const RequestCard: React.FC<RequestCardProps> = ({
                     </div>
                   )}
                 </div>
-                <span className="font-medium text-[#1F1E2A] truncate text-xs">
+                <span className="font-medium text-[#1F1E2A] dark:text-white truncate text-xs">
                   {request.creator.display_name || request.creator.username}
                 </span>
               </div>
 
               {/* Stats */}
-              <div className="flex items-center gap-2 text-xs text-stone-500 flex-shrink-0">
+              <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-gray-400 flex-shrink-0">
                 <div className="flex items-center gap-1">
                   <MessageCircle size={11} />
                   <span>{request.response_count}</span>
@@ -271,8 +341,8 @@ const RequestCard: React.FC<RequestCardProps> = ({
         </Link>
 
         {/* Actions Footer */}
-        <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-stone-100 bg-stone-50">
-          <div className="flex items-center gap-2.5 text-xs text-stone-500">
+        <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-stone-100 dark:border-[#3D3C4A] bg-stone-50 dark:bg-[#353444]">
+          <div className="flex items-center gap-2.5 text-xs text-stone-500 dark:text-gray-400">
             <div className="flex items-center gap-1">
               <Users size={11} />
               <span>{t('stats.views', { count: request.view_count })}</span>
@@ -286,8 +356,8 @@ const RequestCard: React.FC<RequestCardProps> = ({
               className={cn(
                 "p-1.5 rounded-lg transition-colors",
                 request.is_bookmarked 
-                  ? "text-[#FF644A] bg-[#FFF4E1]" 
-                  : "text-stone-500 hover:text-[#FF644A] hover:bg-[#FFF4E1]"
+                  ? "text-[#FF644A] bg-[#FFF4E1] dark:bg-[#FF644A]/20" 
+                  : "text-stone-500 dark:text-gray-400 hover:text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/20"
               )}
               whileTap={{ scale: 0.95 }}
             >
@@ -296,7 +366,7 @@ const RequestCard: React.FC<RequestCardProps> = ({
             
             <Link href={`/discovery/requests/${request.id}`}>
               <motion.button
-                className="p-1.5 rounded-lg text-stone-500 hover:text-[#1F1E2A] hover:bg-stone-100 transition-colors"
+                className="p-1.5 rounded-lg text-stone-500 dark:text-gray-400 hover:text-[#1F1E2A] dark:hover:text-white hover:bg-stone-100 dark:hover:bg-[#404050] transition-colors"
                 whileTap={{ scale: 0.95 }}
               >
                 <ChevronRight size={14} />
@@ -307,7 +377,7 @@ const RequestCard: React.FC<RequestCardProps> = ({
 
         {/* Menu Dropdown */}
         {showMenu && (
-          <div className="absolute right-3 top-12 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+          <div className="absolute right-3 top-12 bg-white dark:bg-[#2D2C3A] border border-stone-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-1 z-10 min-w-[120px]">
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -315,7 +385,7 @@ const RequestCard: React.FC<RequestCardProps> = ({
                 onReport?.(request.id);
                 setShowMenu(false);
               }}
-              className="w-full px-3 py-2 text-left text-sm hover:bg-stone-50 flex items-center text-red-600"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-stone-50 dark:hover:bg-[#353444] flex items-center text-red-600 dark:text-red-400"
             >
               <Flag size={14} className="mr-2" />
               {t('actions.report')}
@@ -330,8 +400,9 @@ const RequestCard: React.FC<RequestCardProps> = ({
   return (
     <motion.div
       className={cn(
-        "bg-white rounded-xl border border-stone-200 overflow-hidden transition-all duration-200",
-        "hover:shadow-soft hover:border-[#FF644A]/40",
+        "bg-white dark:bg-[#2D2C3A] rounded-xl border overflow-hidden transition-all duration-200",
+        "hover:shadow-soft dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)]",
+        getBorderClass(),
         className
       )}
       onHoverStart={() => setIsHovered(true)}
@@ -340,19 +411,38 @@ const RequestCard: React.FC<RequestCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Gradient Header - BocaBoca Coral */}
-      <div className="relative bg-gradient-to-r from-[#FF644A] to-[#E65441] px-4 py-3">
+      {/* Gradient Header - stays same (looks great on both modes) */}
+      <div className={cn(
+        "relative px-4 py-3",
+        getHeaderGradient()
+      )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-white">
-            <HelpCircle className="w-4 h-4" />
-            <span className="font-medium text-sm">{t('header.title')}</span>
+            {isOpen ? (
+              <>
+                <Trophy className="w-4 h-4" />
+                <span className="font-medium text-sm">{t('header.bounty') || 'Bounty Request'}</span>
+              </>
+            ) : (
+              <>
+                <HelpCircle className="w-4 h-4" />
+                <span className="font-medium text-sm">{t('header.title')}</span>
+              </>
+            )}
           </div>
-          <span className={cn(
-            "px-2 py-0.5 text-xs font-medium rounded-full border",
-            getStatusColor(request.status)
-          )}>
-            {getStatusText(request.status)}
-          </span>
+          <div className="flex items-center gap-2">
+            {hasBounty && (
+              <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-white/20 backdrop-blur-sm border border-white/30 text-white">
+                🏆 {request.bounty_amount} BOCA
+              </span>
+            )}
+            <span className={cn(
+              "px-2 py-0.5 text-xs font-medium rounded-full border",
+              getStatusColor(request.status)
+            )}>
+              {getStatusText(request.status)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -361,11 +451,28 @@ const RequestCard: React.FC<RequestCardProps> = ({
         {/* Header with Title and Menu */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-[#1F1E2A] text-lg leading-tight mb-1">
-              {request.title}
-            </h3>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h3 className="font-semibold text-[#1F1E2A] dark:text-white text-lg leading-tight">
+                {request.title}
+              </h3>
+              {hasBounty && (
+                <span className={cn(
+                  "inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full",
+                  isOpen 
+                    ? "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"
+                    : isAwardedBounty
+                      ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400"
+                      : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400"
+                )}>
+                  {isOpen && "Active Bounty"}
+                  {isAwardedBounty && "✓ Awarded"}
+                  {bountyStatus === 'expired' && "Expired"}
+                  {bountyStatus === 'refunded' && "Refunded"}
+                </span>
+              )}
+            </div>
             {request.description && (
-              <p className="text-sm text-stone-600 line-clamp-2">
+              <p className="text-sm text-stone-600 dark:text-gray-400 line-clamp-2">
                 {request.description}
               </p>
             )}
@@ -375,18 +482,18 @@ const RequestCard: React.FC<RequestCardProps> = ({
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-1 hover:bg-stone-100 rounded-lg transition-colors"
+                className="p-1 hover:bg-stone-100 dark:hover:bg-[#353444] rounded-lg transition-colors"
               >
-                <MoreHorizontal size={16} className="text-stone-500" />
+                <MoreHorizontal size={16} className="text-stone-500 dark:text-gray-400" />
               </button>
               {showMenu && (
-                <div className="absolute right-0 top-8 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                <div className="absolute right-0 top-8 bg-white dark:bg-[#2D2C3A] border border-stone-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-1 z-10 min-w-[120px]">
                   <button
                     onClick={() => {
                       onReport(request.id);
                       setShowMenu(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-stone-50 flex items-center text-red-600"
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-stone-50 dark:hover:bg-[#353444] flex items-center text-red-600 dark:text-red-400"
                   >
                     <Flag size={14} className="mr-2" />
                     {t('actions.report')}
@@ -399,7 +506,7 @@ const RequestCard: React.FC<RequestCardProps> = ({
 
         {/* Creator Info */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-[#FFF4E1]">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-[#FFF4E1] dark:bg-[#FF644A]/20">
             {request.creator.avatar_url ? (
               <Image
                 src={request.creator.avatar_url}
@@ -415,11 +522,11 @@ const RequestCard: React.FC<RequestCardProps> = ({
             )}
           </div>
           <div className="text-left">
-            <span className="text-sm font-medium text-[#1F1E2A]">
+            <span className="text-sm font-medium text-[#1F1E2A] dark:text-white">
               {request.creator.display_name || request.creator.username}
             </span>
             {request.creator.reputation_score > 0 && (
-              <div className="flex items-center gap-1 text-xs text-stone-500">
+              <div className="flex items-center gap-1 text-xs text-stone-500 dark:text-gray-400">
                 <Award size={10} />
                 <span>{t('creator.reputation', { score: request.creator.reputation_score })}</span>
               </div>
@@ -430,25 +537,25 @@ const RequestCard: React.FC<RequestCardProps> = ({
         {/* Context Tags */}
         <div className="flex flex-wrap gap-2">
           {request.location && (
-            <span className="flex items-center gap-1 px-2 py-1 bg-[#FFF4E1] text-[#FF644A] text-xs rounded-full font-medium">
+            <span className="flex items-center gap-1 px-2 py-1 bg-[#FFF4E1] dark:bg-[#FF644A]/20 text-[#FF644A] text-xs rounded-full font-medium">
               <MapPin size={12} />
               {request.location}
             </span>
           )}
           {request.cuisine_type && (
-            <span className="flex items-center gap-1 px-2 py-1 bg-orange-50 text-orange-700 text-xs rounded-full font-medium">
+            <span className="flex items-center gap-1 px-2 py-1 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded-full font-medium">
               <Utensils size={12} />
               {request.cuisine_type}
             </span>
           )}
           {request.occasion && (
-            <span className="flex items-center gap-1 px-2 py-1 bg-sky-50 text-sky-700 text-xs rounded-full font-medium">
+            <span className="flex items-center gap-1 px-2 py-1 bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 text-xs rounded-full font-medium">
               <Calendar size={12} />
               {getOccasionDisplay(request.occasion)}
             </span>
           )}
           {request.budget_range && (
-            <span className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-full font-medium">
+            <span className="flex items-center gap-1 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs rounded-full font-medium">
               <DollarSign size={12} />
               {getBudgetDisplay(request.budget_range)}
             </span>
@@ -456,7 +563,7 @@ const RequestCard: React.FC<RequestCardProps> = ({
         </div>
 
         {/* Stats */}
-        <div className="flex items-center justify-between text-xs text-stone-500 pt-2 border-t border-stone-100">
+        <div className="flex items-center justify-between text-xs text-stone-500 dark:text-gray-400 pt-2 border-t border-stone-100 dark:border-[#3D3C4A]">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <MessageCircle size={12} />
@@ -473,14 +580,25 @@ const RequestCard: React.FC<RequestCardProps> = ({
           </div>
         </div>
 
-        {/* View Request Button - BocaBoca Coral Gradient */}
+        {/* View Request Button - Gradients stay same (look great on both modes) */}
         <Link
           href={`/discovery/requests/${request.id}`}
-          className="block w-full px-4 py-2 bg-gradient-to-r from-[#FF644A] to-[#E65441] text-white rounded-lg hover:from-[#E65441] hover:to-[#d14a38] transition-colors text-sm font-medium text-center"
+          className={cn(
+            "block w-full px-4 py-2 rounded-lg transition-colors text-sm font-medium text-center",
+            isOpen && hasBounty
+              ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white"
+              : isOpen
+                ? "bg-gradient-to-r from-[#FF644A] to-[#E65441] hover:from-[#E65441] hover:to-[#d14a38] text-white"
+                : isAnswered || isAwardedBounty
+                  ? "bg-gradient-to-r from-[#BFE2D9] to-[#9DD4C5] hover:from-[#9DD4C5] hover:to-[#8BCABC] text-[#1F1E2A]"
+                  : "bg-gradient-to-r from-stone-400 to-stone-500 hover:from-stone-500 hover:to-stone-600 text-white"
+          )}
         >
           {request.response_count > 0 
             ? t('actions.viewResponses', { count: request.response_count })
-            : t('actions.beFirstToRespond')
+            : isOpen && hasBounty
+              ? `🏆 ${t('actions.beFirstToRespond')} (${request.bounty_amount} BOCA)`
+              : t('actions.beFirstToRespond')
           }
         </Link>
 
@@ -493,8 +611,8 @@ const RequestCard: React.FC<RequestCardProps> = ({
                 className={cn(
                   "p-2 rounded-lg transition-colors",
                   request.is_bookmarked 
-                    ? "text-[#FF644A] bg-[#FFF4E1]" 
-                    : "text-stone-500 hover:text-[#FF644A] hover:bg-[#FFF4E1]"
+                    ? "text-[#FF644A] bg-[#FFF4E1] dark:bg-[#FF644A]/20" 
+                    : "text-stone-500 dark:text-gray-400 hover:text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/20"
                 )}
                 whileTap={{ scale: 0.95 }}
               >

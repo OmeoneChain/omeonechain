@@ -4,10 +4,9 @@
 // Comments (optional) replaces Notes
 // Required: restaurant + overall_rating only
 //
-// UPDATED (per request):
-// 1) Re-ordered sections under Overall Rating:
-//    Restaurant Aspects -> Individual Dishes -> Photos -> Comments -> Labels -> Visit Context
-// 2) Overall Rating supports 0.5 increments and labels round to nearest integer for display.
+// UPDATED: Dark mode support added
+// UPDATED: 0.5 increments for Restaurant Aspects
+// UPDATED: Cancel button added
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -23,9 +22,11 @@ import {
   Users,
   Calendar,
   X,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
 
 import EnhancedPhotoUpload from './EnhancedPhotoUpload';
 import RestaurantAutocomplete from '../restaurant/RestaurantAutocomplete';
@@ -40,7 +41,7 @@ import CollapsibleSection from './CollapsibleSection';
 import RestaurantHeader from './RestaurantHeader';
 import StickyPublishButton from './StickyPublishButton';
 
-// Cast to any so we don’t get blocked by prop-type mismatches across local implementations
+// Cast to any so we don't get blocked by prop-type mismatches across local implementations
 const CS: any = CollapsibleSection as any;
 const RH: any = RestaurantHeader as any;
 const SPB: any = StickyPublishButton as any;
@@ -112,26 +113,16 @@ interface PhotoData {
     address?: string;
   };
   timestamp: Date;
-
-  // Tagging (optional)
-  // dish_tag can be:
-  // - a dish id from draft.dishes (preferred structured link)
-  // - 'other' for free-text
-  // - 'skip' or undefined for no tag
   dish_tag?: string;
   dish_tag_other?: string;
 }
 
 interface RecommendationDraft {
   restaurant: Restaurant | null;
-
-  // “Comments” section (optional)
   title: string;
   body: string;
   category: string;
-
-  // Required + optional metadata
-  overall_rating: number; // supports 0.5 increments
+  overall_rating: number;
   dishes: Dish[];
   aspects: RestaurantAspects | null;
   context: ContextualFactors | null;
@@ -143,6 +134,7 @@ interface RecommendationDraft {
 interface RecommendationCreationFlowProps {
   onSuccess?: (recommendationId: string) => void;
   onError?: (error: Error) => void;
+  onCancel?: () => void;
   isSubmitting?: boolean;
   setIsSubmitting?: (loading: boolean) => void;
 }
@@ -150,10 +142,12 @@ interface RecommendationCreationFlowProps {
 const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   onSuccess,
   onError,
+  onCancel,
   isSubmitting = false,
   setIsSubmitting,
 }) => {
   const t = useTranslations('recommendations');
+  const router = useRouter();
 
   // ============================================
   // CONSTANTS (using translations)
@@ -193,7 +187,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     { value: 'loud', label: t('noiseLevel.loud'), icon: '📢' },
   ];
 
-  // Integer labels (0-10). For half-steps we round to nearest int.
   const ratingLabels: { [key: number]: string } = {
     0: t('ratings.0'),
     1: t('ratings.1'),
@@ -229,7 +222,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     title: '',
     body: '',
     category: '',
-    overall_rating: 7, // can be 7.5 etc
+    overall_rating: 7,
     dishes: [],
     aspects: null,
     context: null,
@@ -238,17 +231,12 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     cuisine_type: '',
   });
 
-  // Loading states
   const [isLoading, setIsLoading] = useState(false);
-
-  // IOTA blockchain state
   const [iotaService, setIotaService] = useState<IOTAService | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'testing' | 'connected' | 'fallback'>('testing');
-
-  // Auth hooks
   const { user, isAuthenticated } = useAuth();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  // Current dish being edited
   const [currentDish, setCurrentDish] = useState<Dish>({
     id: '',
     name: '',
@@ -257,16 +245,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     would_order_again: true,
   });
   const [editingDishId, setEditingDishId] = useState<string | null>(null);
-
-  // Custom tag input
   const [customTag, setCustomTag] = useState('');
 
-  // API Base URL
   const API_BASE_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
-
-  // ============================================
-  // LOCATION (currently hardcoded in your file)
-  // ============================================
 
   const location = {
     latitude: -15.8052,
@@ -285,7 +266,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     if (!isAuthenticated || !user) {
       throw new Error(t('errors.noUserLoggedIn'));
     }
-
     return {
       id: user.id,
       name: user.name || (user as any).display_name || (user as any).username || 'User',
@@ -303,17 +283,50 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
   const formatRating = (val: number) => (Number.isInteger(val) ? String(val) : val.toFixed(1));
 
+  // Check if user has made any changes worth saving
+  const hasUnsavedChanges = useMemo(() => {
+    return (
+      draft.restaurant !== null ||
+      draft.title.trim() !== '' ||
+      draft.body.trim() !== '' ||
+      draft.dishes.length > 0 ||
+      draft.photos.length > 0 ||
+      draft.context_tags.length > 0 ||
+      draft.aspects !== null ||
+      draft.context !== null
+    );
+  }, [draft]);
+
+  // ============================================
+  // CANCEL HANDLING
+  // ============================================
+
+  const handleCancelClick = () => {
+    if (hasUnsavedChanges) {
+      setShowCancelConfirm(true);
+    } else {
+      handleConfirmCancel();
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    setShowCancelConfirm(false);
+    if (onCancel) {
+      onCancel();
+    } else {
+      router.back();
+    }
+  };
+
   // ============================================
   // EFFECTS
   // ============================================
 
   useEffect(() => {
-    // Initialize IOTA Service
     const initIOTA = async () => {
       try {
         const service = new IOTAService();
         setIotaService(service);
-
         const isConnected = await service.testConnection();
         if (isConnected) setConnectionStatus('connected');
         else setConnectionStatus('fallback');
@@ -321,12 +334,11 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         setConnectionStatus('fallback');
       }
     };
-
     initIOTA();
   }, []);
 
   // ============================================
-  // RESTAURANT SELECTION (Option A)
+  // RESTAURANT SELECTION
   // ============================================
 
   const handleRestaurantSelect = (restaurant: Restaurant) => {
@@ -342,7 +354,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       ...prev,
       restaurant: null,
       cuisine_type: '',
-      // keep everything else to avoid losing work
     }));
   };
 
@@ -411,7 +422,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   };
 
   // ============================================
-  // ASPECTS / CONTEXT UPDATERS (lifted to top-level)
+  // ASPECTS / CONTEXT UPDATERS
   // ============================================
 
   const aspects: RestaurantAspects = draft.aspects || {
@@ -521,75 +532,25 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   // REWARDS
   // ============================================
 
-// White Paper v1.0 launch constants (centralize so it's easy to adjust later)
-const REWARDS = {
-  createRecommendationWallet: 5.0,    // Immediate
-  createRecommendationEmail: 2.5,     // Not used here (auth-gated flow)
-  firstReviewerBonus: 10.0,           // Conditional (new restaurant first review)
-  validationBonusAt3Points: 10.0,     // Conditional + delayed (after validation threshold)
-};
+  const REWARDS = {
+    createRecommendationWallet: 5.0,
+    createRecommendationEmail: 2.5,
+    firstReviewerBonus: 10.0,
+    validationBonusAt3Points: 10.0,
+  };
 
-// Helpers
-const round1 = (n: number) => Math.round(n * 10) / 10;
-const hasNonEmptyString = (s?: string | null) => typeof s === 'string' && s.trim().length > 0;
+  const round1 = (n: number) => Math.round(n * 10) / 10;
 
-/**
- * Returns the estimated reward shown in the sticky footer.
- *
- * IMPORTANT: White Paper rewards are NOT based on "more details" for creation.
- * Details help quality/validation, but the immediate creation reward is flat.
- *
- * Strategy used here:
- * - Show "Immediate expected" reward = 5.0 BOCA for wallet-authenticated creation.
- * - Optionally add conditional items if we have signals (or conservative heuristics).
- * - Do NOT automatically add the validation bonus unless you explicitly want to
- *   display "potential future bonuses" in the same number.
- */
-const calculateExpectedRewards = (): number => {
-  // This flow requires auth (wallet), so use the wallet creation reward.
-  let immediate = REWARDS.createRecommendationWallet;
-
-  // ---- OPTIONAL: First reviewer bonus (only if we can infer it's a brand-new restaurant) ----
-  // Best practice: rely on a backend flag like `restaurant.is_new` or `restaurant.review_count === 0`.
-  // If you don't have that signal, DO NOT guess — leave it out to avoid misleading users.
-  //
-  // If you *do* have a signal available in the restaurant object, uncomment one of these:
-  //
-  // const isNewRestaurant =
-  //   (draft.restaurant as any)?.is_new === true ||
-  //   ((draft.restaurant as any)?.recommendation_count === 0) ||
-  //   ((draft.restaurant as any)?.review_count === 0);
-  //
-  // if (isNewRestaurant) immediate += REWARDS.firstReviewerBonus;
-
-  // ---- OPTIONAL: Validation bonus (delayed; should usually be shown separately) ----
-  // The WP says: +10.0 BOCA at 3.0 points. That's not immediate at publish time.
-  // If you *want* the footer to reflect "expected total incl. likely validation bonus",
-  // you could include it based on a heuristic for completeness/quality.
-  //
-  // Conservative heuristic example (commented out by default):
-  //
-  // const hasQualitySignals =
-  //   draft.dishes.length > 0 ||
-  //   !!draft.aspects ||
-  //   !!draft.context ||
-  //   draft.photos.length > 0 ||
-  //   draft.context_tags.length > 0 ||
-  //   hasNonEmptyString(draft.body) ||
-  //   hasNonEmptyString(draft.title);
-  //
-  // if (hasQualitySignals) immediate += REWARDS.validationBonusAt3Points;
-
-  return round1(immediate);
-};
-
+  const calculateExpectedRewards = (): number => {
+    let immediate = REWARDS.createRecommendationWallet;
+    return round1(immediate);
+  };
 
   // ============================================
   // SUBMIT
   // ============================================
 
   const handleSubmit = async () => {
-    // Required ONLY restaurant + rating
     if (!draft.restaurant) {
       alert(t('validation.fillRequired'));
       return;
@@ -612,7 +573,6 @@ const calculateExpectedRewards = (): number => {
     try {
       const currentUser = getCurrentUser();
 
-      // Upload photos to IPFS
       let photoHashes: string[] = [];
       if (draft.photos.length > 0) {
         try {
@@ -626,9 +586,6 @@ const calculateExpectedRewards = (): number => {
         }
       }
 
-      // Build photo tagging payload aligned to uploaded hashes (by index)
-      // Category tags that should pass through directly (not dish IDs)
-          
       const CATEGORY_TAGS = ['vibe', 'menu', 'drink', 'food'];
       
       const photo_tagging = (photoHashes || []).map((cid, idx) => {
@@ -636,37 +593,21 @@ const calculateExpectedRewards = (): number => {
         const tag = p?.dish_tag;
 
         if (!p) return { cid, tag: 'skip' };
-
-        if (!tag || tag === 'skip') {
-          return { cid, tag: 'skip' };
-        }
+        if (!tag || tag === 'skip') return { cid, tag: 'skip' };
 
         if (tag === 'other') {
           const other = (p.dish_tag_other || '').trim();
           return other ? { cid, tag: 'other', other } : { cid, tag: 'skip' };
         }
 
-        // Handle category tags (vibe, menu, drink, food) - pass through directly
         if (CATEGORY_TAGS.includes(tag)) {
           return { cid, tag: tag };
         }
 
-        // Debug: Log what we're looking up
-        console.log('🔍 DEBUG photo tagging:', {
-          idx,
-          tag,
-          dishesCount: draft.dishes.length,
-          dishIds: draft.dishes.map(d => d.id),
-          dishNames: draft.dishes.map(d => d.name),
-          foundDish: getDishNameById(tag)
-        });
-
-        // dish id - includes dish_name for display
         const dishName = getDishNameById(tag);
         return dishName ? { cid, tag: 'dish', dish_id: tag, dish_name: dishName } : { cid, tag: 'skip' };
       });
 
-      // Optional comments
       const titleTrim = draft.title.trim();
       const bodyTrim = draft.body.trim();
       const categoryTrim = draft.category?.trim();
@@ -675,9 +616,7 @@ const calculateExpectedRewards = (): number => {
         restaurant_id: draft.restaurant.id,
         restaurantName: draft.restaurant.name,
         authorId: currentUser.walletAddress,
-
         overall_rating: draft.overall_rating,
-
         latitude: draft.restaurant.latitude,
         longitude: draft.restaurant.longitude,
         location: {
@@ -685,11 +624,9 @@ const calculateExpectedRewards = (): number => {
           latitude: draft.restaurant.latitude,
           longitude: draft.restaurant.longitude,
         },
-
         ...(titleTrim ? { title: titleTrim } : {}),
         ...(bodyTrim ? { content: bodyTrim } : {}),
         ...(categoryTrim ? { category: categoryTrim } : {}),
-
         dishes: draft.dishes.length
           ? draft.dishes.map(dish => ({
               name: dish.name,
@@ -698,7 +635,6 @@ const calculateExpectedRewards = (): number => {
               would_order_again: dish.would_order_again,
             }))
           : undefined,
-
         aspects: draft.aspects
           ? {
               ambiance: draft.aspects.ambiance,
@@ -708,7 +644,6 @@ const calculateExpectedRewards = (): number => {
               wait_time_minutes: draft.aspects.wait_time_minutes,
             }
           : undefined,
-
         context: draft.context
           ? {
               occasion: draft.context.occasion,
@@ -720,10 +655,8 @@ const calculateExpectedRewards = (): number => {
               visit_duration_minutes: draft.context.visit_duration_minutes,
             }
           : undefined,
-
         context_tags: draft.context_tags,
         cuisine_type: draft.cuisine_type,
-
         photos: photoHashes,
         photo_tagging: photo_tagging.length ? photo_tagging : undefined,
       };
@@ -744,7 +677,6 @@ const calculateExpectedRewards = (): number => {
 
       const result = await response.json();
 
-      // Optional blockchain submission
       if (iotaService && connectionStatus === 'connected') {
         const blockchainData = {
           title: titleTrim || '',
@@ -798,7 +730,6 @@ const calculateExpectedRewards = (): number => {
 
       onSuccess?.(recommendationId);
 
-      // Reset
       setDraft({
         restaurant: null,
         title: '',
@@ -832,13 +763,13 @@ const calculateExpectedRewards = (): number => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#FFF4E1]">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <CleanHeader />
         <div className="max-w-2xl mx-auto px-4 py-16">
-          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+          <div className="bg-white dark:bg-[#2D2C3A] rounded-2xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] p-8 text-center">
             <AlertCircle className="h-16 w-16 text-[#FF644A] mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-[#1F1E2A] mb-4">{t('auth.required')}</h2>
-            <p className="text-[#9CA3AF] mb-6">{t('auth.connectWalletMessage')}</p>
+            <h2 className="text-2xl font-bold text-[#1F1E2A] dark:text-white mb-4">{t('auth.required')}</h2>
+            <p className="text-[#9CA3AF] dark:text-gray-400 mb-6">{t('auth.connectWalletMessage')}</p>
             <button
               onClick={() => (window.location.href = '/login')}
               className="bg-[#FF644A] text-white px-8 py-3 rounded-xl hover:bg-[#E65441] transition-colors font-medium shadow-md"
@@ -858,24 +789,33 @@ const calculateExpectedRewards = (): number => {
   const hasRestaurant = !!draft.restaurant;
 
   return (
-    <div className="min-h-screen bg-[#FFF4E1]">
+    <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       <CleanHeader />
 
       <div className="max-w-2xl mx-auto px-4 py-8 pb-28">
-        <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 transition-all duration-300">
+        <div className="bg-white dark:bg-[#2D2C3A] rounded-2xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] p-6 md:p-8 transition-all duration-300">
+          {/* Cancel Button */}
+          <button
+            onClick={handleCancelClick}
+            className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A] transition-colors mb-4"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-sm font-medium">{t('actions.cancel') || 'Cancel'}</span>
+          </button>
+
           {/* Title */}
           <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold text-[#1F1E2A] mb-2">
+            <h2 className="text-3xl font-bold text-[#1F1E2A] dark:text-white mb-2">
               {t('singleScreen.title') || 'Create a Recommendation'}
             </h2>
-            <p className="text-[#9CA3AF] text-lg">
-              {t('singleScreen.subtitle') || 'Restaurant + rating, and you’re done.'}
+            <p className="text-[#9CA3AF] dark:text-gray-400 text-lg">
+              {t('singleScreen.subtitle') || "Restaurant + rating, and you're done."}
             </p>
           </div>
 
           {/* Location */}
           {location && (
-            <div className="flex items-center justify-center text-sm text-[#9CA3AF] mb-6">
+            <div className="flex items-center justify-center text-sm text-[#9CA3AF] dark:text-gray-500 mb-6">
               <MapPin className="h-4 w-4 mr-1" />
               <span>
                 {location.city}, {location.country}
@@ -886,7 +826,7 @@ const calculateExpectedRewards = (): number => {
           {/* Restaurant: Option A inline search when none selected */}
           {!hasRestaurant ? (
             <div className="mb-6">
-              <div className="mb-3 text-sm font-semibold text-[#1F1E2A]">
+              <div className="mb-3 text-sm font-semibold text-[#1F1E2A] dark:text-white">
                 {t('singleScreen.restaurantLabel') || 'Restaurant'} <span className="text-[#FF644A]">*</span>
               </div>
               <RestaurantAutocomplete
@@ -901,7 +841,7 @@ const calculateExpectedRewards = (): number => {
                     : undefined
                 }
               />
-              <p className="text-center text-sm text-[#9CA3AF] mt-3">
+              <p className="text-center text-sm text-[#9CA3AF] dark:text-gray-500 mt-3">
                 {t('steps.restaurant.helpText') || 'Search by name or address to find your restaurant'}
               </p>
             </div>
@@ -913,7 +853,7 @@ const calculateExpectedRewards = (): number => {
 
           {/* Rating (required) */}
           <div className={`mb-8 ${!hasRestaurant ? 'opacity-50 pointer-events-none' : ''}`}>
-            <label className="block text-sm font-semibold text-[#1F1E2A] mb-3">
+            <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-3">
               {t('steps.essentials.overallRating') || 'Overall rating'} <span className="text-[#FF644A]">*</span>
             </label>
 
@@ -933,17 +873,17 @@ const calculateExpectedRewards = (): number => {
               <div className="flex items-center space-x-2 min-w-[140px]">
                 <Star className="h-5 w-5 text-[#FF644A] fill-[#FF644A]" />
                 <span className="text-2xl font-bold text-[#FF644A]">{formatRating(draft.overall_rating)}</span>
-                <span className="text-[#9CA3AF]">/10</span>
+                <span className="text-[#9CA3AF] dark:text-gray-500">/10</span>
               </div>
             </div>
 
-            <p className="text-sm text-[#9CA3AF] text-center mt-2">{getRatingLabel(draft.overall_rating)}</p>
+            <p className="text-sm text-[#9CA3AF] dark:text-gray-400 text-center mt-2">{getRatingLabel(draft.overall_rating)}</p>
           </div>
 
           {/* Optional sections only show once restaurant is selected */}
           {hasRestaurant && (
             <div className="space-y-4">
-              {/* 1) Restaurant Aspects (moved right after rating) */}
+              {/* 1) Restaurant Aspects */}
               <CS
                 title={t('singleScreen.sections.aspects') || t('aspects.title') || 'Restaurant Aspects'}
                 icon={<Star className="h-5 w-5 text-[#FF644A]" />}
@@ -952,55 +892,58 @@ const calculateExpectedRewards = (): number => {
                 <div className="space-y-4">
                   {/* Ambiance */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('aspects.ambiance')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.ambiance')}</label>
                     <div className="flex items-center space-x-3">
                       <input
                         type="range"
                         min="0"
                         max="10"
+                        step="0.5"
                         value={aspects.ambiance}
-                        onChange={e => updateAspects({ ambiance: parseInt(e.target.value, 10) })}
-                        className="flex-1 h-2"
+                        onChange={e => updateAspects({ ambiance: parseFloat(e.target.value) })}
+                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
                       />
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{aspects.ambiance}/10</span>
+                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(aspects.ambiance)}/10</span>
                     </div>
                   </div>
 
                   {/* Service */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('aspects.service')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.service')}</label>
                     <div className="flex items-center space-x-3">
                       <input
                         type="range"
                         min="0"
                         max="10"
+                        step="0.5"
                         value={aspects.service}
-                        onChange={e => updateAspects({ service: parseInt(e.target.value, 10) })}
-                        className="flex-1 h-2"
+                        onChange={e => updateAspects({ service: parseFloat(e.target.value) })}
+                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
                       />
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{aspects.service}/10</span>
+                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(aspects.service)}/10</span>
                     </div>
                   </div>
 
                   {/* Value for Money */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('aspects.valueForMoney')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.valueForMoney')}</label>
                     <div className="flex items-center space-x-3">
                       <input
                         type="range"
                         min="0"
                         max="10"
+                        step="0.5"
                         value={aspects.value_for_money}
-                        onChange={e => updateAspects({ value_for_money: parseInt(e.target.value, 10) })}
-                        className="flex-1 h-2"
+                        onChange={e => updateAspects({ value_for_money: parseFloat(e.target.value) })}
+                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
                       />
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{aspects.value_for_money}/10</span>
+                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(aspects.value_for_money)}/10</span>
                     </div>
                   </div>
 
                   {/* Noise Level */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('aspects.noiseLevel')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.noiseLevel')}</label>
                     <div className="grid grid-cols-3 gap-2">
                       {noiseLevelOptions.map(option => (
                         <button
@@ -1009,7 +952,7 @@ const calculateExpectedRewards = (): number => {
                           className={`p-2 rounded-xl text-center text-sm transition-colors ${
                             aspects.noise_level === option.value
                               ? 'bg-[#FF644A] text-white'
-                              : 'bg-white border border-gray-200 hover:border-[#FF644A]'
+                              : 'bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:border-[#FF644A]'
                           }`}
                         >
                           <div className="text-lg">{option.icon}</div>
@@ -1021,18 +964,18 @@ const calculateExpectedRewards = (): number => {
 
                   {/* Wait Time */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('aspects.waitTime')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.waitTime')}</label>
                     <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-[#9CA3AF]" />
+                      <Clock className="h-4 w-4 text-[#9CA3AF] dark:text-gray-500" />
                       <input
                         type="number"
                         placeholder={t('aspects.minutesPlaceholder')}
                         value={aspects.wait_time_minutes || ''}
                         onChange={e => updateAspects({ wait_time_minutes: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                        className="flex-1 px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                         min="0"
                       />
-                      <span className="text-sm text-[#9CA3AF]">{t('aspects.minutes')}</span>
+                      <span className="text-sm text-[#9CA3AF] dark:text-gray-500">{t('aspects.minutes')}</span>
                     </div>
                   </div>
                 </div>
@@ -1050,23 +993,23 @@ const calculateExpectedRewards = (): number => {
                   {draft.dishes.length > 0 && (
                     <div className="space-y-2">
                       {draft.dishes.map(dish => (
-                        <div key={dish.id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                        <div key={dish.id} className="flex items-center justify-between p-3 bg-white dark:bg-[#353444] border border-gray-100 dark:border-[#3D3C4A] rounded-xl shadow-sm">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-[#1F1E2A]">{dish.name}</span>
+                              <span className="font-medium text-[#1F1E2A] dark:text-white">{dish.name}</span>
                               <div className="flex items-center text-sm">
                                 <Star className="h-3 w-3 text-[#FF644A] fill-[#FF644A] mr-1" />
-                                <span className="font-bold text-[#FF644A]">{dish.rating}/10</span>
+                                <span className="font-bold text-[#FF644A]">{formatRating(dish.rating)}/10</span>
                               </div>
                             </div>
-                            {dish.notes && <p className="text-sm text-[#9CA3AF] mt-1">{dish.notes}</p>}
+                            {dish.notes && <p className="text-sm text-[#9CA3AF] dark:text-gray-400 mt-1">{dish.notes}</p>}
                             <div className="flex items-center text-xs mt-1">
                               {dish.would_order_again ? (
-                                <span className="text-green-600 flex items-center">
+                                <span className="text-green-600 dark:text-green-400 flex items-center">
                                   <ThumbsUp className="h-3 w-3 mr-1" /> {t('dishes.wouldOrderAgain')}
                                 </span>
                               ) : (
-                                <span className="text-red-600 flex items-center">
+                                <span className="text-red-600 dark:text-red-400 flex items-center">
                                   <ThumbsDown className="h-3 w-3 mr-1" /> {t('dishes.wouldNotOrderAgain')}
                                 </span>
                               )}
@@ -1075,7 +1018,7 @@ const calculateExpectedRewards = (): number => {
                           <div className="flex gap-2 ml-4">
                             <button
                               onClick={() => handleEditDish(dish)}
-                              className="p-2 text-[#FF644A] hover:bg-[#FFF4E1] rounded-lg transition-colors"
+                              className="p-2 text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/20 rounded-lg transition-colors"
                               title={t('actions.edit')}
                             >
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1089,7 +1032,7 @@ const calculateExpectedRewards = (): number => {
                             </button>
                             <button
                               onClick={() => handleDeleteDish(dish.id)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                               title={t('actions.remove')}
                             >
                               <X className="h-4 w-4" />
@@ -1101,15 +1044,15 @@ const calculateExpectedRewards = (): number => {
                   )}
 
                   {/* Add/edit dish */}
-                  <div className="space-y-3 bg-white p-4 rounded-xl border-2 border-dashed border-[#FF644A]/30">
-                    <p className="text-sm font-medium text-[#1F1E2A]">{editingDishId ? t('dishes.editDish') : t('dishes.addDish')}</p>
+                  <div className="space-y-3 bg-white dark:bg-[#353444] p-4 rounded-xl border-2 border-dashed border-[#FF644A]/30 dark:border-[#FF644A]/40">
+                    <p className="text-sm font-medium text-[#1F1E2A] dark:text-white">{editingDishId ? t('dishes.editDish') : t('dishes.addDish')}</p>
 
                     <input
                       type="text"
                       placeholder={t('dishes.namePlaceholder')}
                       value={currentDish.name}
                       onChange={e => setCurrentDish(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                     />
 
                     <div className="flex items-center space-x-3">
@@ -1120,9 +1063,9 @@ const calculateExpectedRewards = (): number => {
                         step="0.5"
                         value={currentDish.rating}
                         onChange={e => setCurrentDish(prev => ({ ...prev, rating: parseFloat(e.target.value) }))}
-                        className="flex-1 h-2"
+                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
                       />
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{currentDish.rating}/10</span>
+                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(currentDish.rating)}/10</span>
                     </div>
 
                     <textarea
@@ -1130,14 +1073,14 @@ const calculateExpectedRewards = (): number => {
                       value={currentDish.notes || ''}
                       onChange={e => setCurrentDish(prev => ({ ...prev, notes: e.target.value }))}
                       rows={2}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                     />
 
                     <div className="flex gap-2">
                       <button
                         onClick={() => setCurrentDish(prev => ({ ...prev, would_order_again: true }))}
                         className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
-                          currentDish.would_order_again ? 'bg-green-500 text-white' : 'bg-gray-100 text-[#1F1E2A] hover:bg-gray-200'
+                          currentDish.would_order_again ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white hover:bg-gray-200 dark:hover:bg-[#404050]'
                         }`}
                       >
                         <ThumbsUp className="h-4 w-4 inline mr-1" /> {t('actions.yes')}
@@ -1145,7 +1088,7 @@ const calculateExpectedRewards = (): number => {
                       <button
                         onClick={() => setCurrentDish(prev => ({ ...prev, would_order_again: false }))}
                         className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
-                          !currentDish.would_order_again ? 'bg-red-500 text-white' : 'bg-gray-100 text-[#1F1E2A] hover:bg-gray-200'
+                          !currentDish.would_order_again ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white hover:bg-gray-200 dark:hover:bg-[#404050]'
                         }`}
                       >
                         <ThumbsDown className="h-4 w-4 inline mr-1" /> {t('actions.no')}
@@ -1156,7 +1099,7 @@ const calculateExpectedRewards = (): number => {
                       {editingDishId && (
                         <button
                           onClick={handleCancelEditDish}
-                          className="flex-1 py-2 border border-gray-200 rounded-xl text-sm hover:bg-gray-50 transition-colors"
+                          className="flex-1 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#404050] transition-colors"
                         >
                           {t('actions.cancel')}
                         </button>
@@ -1174,7 +1117,7 @@ const calculateExpectedRewards = (): number => {
                 </div>
               </CS>
 
-              {/* 3) Photos (after dishes) */}
+              {/* 3) Photos */}
               <CS
                 title={t('singleScreen.sections.photos') || 'Photos'}
                 icon={<span className="text-lg">📷</span>}
@@ -1185,7 +1128,7 @@ const calculateExpectedRewards = (): number => {
                   <EnhancedPhotoUpload photos={draft.photos} onPhotosChange={handlePhotosChange} maxPhotos={5} allowLocation={true} />
 
                   {draft.photos.length > 0 && (
-                    <p className="text-xs text-[#22c55e]">
+                    <p className="text-xs text-green-600 dark:text-green-400">
                       {t('steps.preview.photoBonus', {
                         bonus: (draft.photos.length * 0.2).toFixed(1),
                         count: draft.photos.length,
@@ -1196,17 +1139,16 @@ const calculateExpectedRewards = (): number => {
                   {/* Tagging UI */}
                   {draft.photos.length > 0 && (
                     <div className="mt-4">
-                      <div className="text-sm font-semibold text-[#1F1E2A] mb-1">
+                      <div className="text-sm font-semibold text-[#1F1E2A] dark:text-white mb-1">
                         {t('photos.tagging.title')}
                       </div>
-                      <p className="text-xs text-[#9CA3AF] mb-3">{t('photos.tagging.help')}</p>
+                      <p className="text-xs text-[#9CA3AF] dark:text-gray-500 mb-3">{t('photos.tagging.help')}</p>
 
                       <div className="space-y-3">
                         {draft.photos.map((photo, idx) => {
                           const currentTag = photo.dish_tag || 'skip';
                           const isOther = currentTag === 'other';
 
-                          // Build label based on tag type
                           const getTagLabel = () => {
                             if (currentTag === 'skip') return t('photos.tagging.notTagged');
                             if (currentTag === 'other') return `${t('photos.tagging.current')} ${photo.dish_tag_other || ''}`;
@@ -1219,16 +1161,16 @@ const calculateExpectedRewards = (): number => {
                           const taggedLabel = getTagLabel();
 
                           return (
-                            <div key={photo.preview + idx} className="flex gap-3 items-start p-3 border border-gray-100 rounded-xl bg-white">
+                            <div key={photo.preview + idx} className="flex gap-3 items-start p-3 border border-gray-100 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444]">
                               <img
                                 src={photo.preview}
                                 alt={`photo-${idx}`}
-                                className="w-14 h-14 rounded-lg object-cover border border-gray-100"
+                                className="w-14 h-14 rounded-lg object-cover border border-gray-100 dark:border-[#3D3C4A]"
                               />
 
                               <div className="flex-1">
-                                <label className="block text-xs font-medium text-[#1F1E2A] mb-1">
-                                  {t('photos.tagging.label')} <span className="text-[#9CA3AF]">({t('singleScreen.optional')})</span>
+                                <label className="block text-xs font-medium text-[#1F1E2A] dark:text-white mb-1">
+                                  {t('photos.tagging.label')} <span className="text-[#9CA3AF] dark:text-gray-500">({t('singleScreen.optional')})</span>
                                 </label>
 
                                 <select
@@ -1243,11 +1185,10 @@ const calculateExpectedRewards = (): number => {
                                       updatePhotoTag(idx, { dish_tag: next, dish_tag_other: undefined });
                                     }
                                   }}
-                                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+                                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
                                 >
                                   <option value="skip">{t('photos.tagging.skip')}</option>
                 
-                                  {/* Category options */}
                                   <optgroup label={t('photos.tagging.categories') || 'Categories'}>
                                     <option value="vibe">🏮 {t('photos.tagging.vibe') || 'Ambiance/Vibe'}</option>
                                     <option value="menu">📋 {t('photos.tagging.menu') || 'Menu'}</option>
@@ -1273,11 +1214,11 @@ const calculateExpectedRewards = (): number => {
                                     value={photo.dish_tag_other || ''}
                                     onChange={e => updatePhotoTag(idx, { dish_tag_other: e.target.value })}
                                     placeholder={t('photos.tagging.otherPlaceholder')}
-                                    className="mt-2 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+                                    className="mt-2 w-full px-3 py-2 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
                                   />
                                 )}
 
-                                <p className="text-[11px] text-[#9CA3AF] mt-2">{taggedLabel}</p>
+                                <p className="text-[11px] text-[#9CA3AF] dark:text-gray-500 mt-2">{taggedLabel}</p>
                               </div>
                             </div>
                           );
@@ -1293,29 +1234,29 @@ const calculateExpectedRewards = (): number => {
                 <div className="space-y-5">
                   {/* Title (optional) */}
                   <div>
-                    <label className="block text-sm font-semibold text-[#1F1E2A] mb-2">
+                    <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-2">
                       {t('steps.preview.titleLabel') || 'Title'}{' '}
-                      <span className="text-xs text-[#9CA3AF]">({t('singleScreen.optional') || 'optional'})</span>
+                      <span className="text-xs text-[#9CA3AF] dark:text-gray-500">({t('singleScreen.optional') || 'optional'})</span>
                     </label>
                     <input
                       type="text"
                       placeholder={t('steps.preview.titlePlaceholder')}
                       value={draft.title}
                       onChange={e => setDraft(prev => ({ ...prev, title: e.target.value }))}
-                      className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+                      className="w-full p-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
                     />
                   </div>
 
                   {/* Category (optional) */}
                   <div>
-                    <label className="block text-sm font-semibold text-[#1F1E2A] mb-2">
+                    <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-2">
                       {t('steps.preview.categoryLabel') || 'Category'}{' '}
-                      <span className="text-xs text-[#9CA3AF]">({t('singleScreen.optional') || 'optional'})</span>
+                      <span className="text-xs text-[#9CA3AF] dark:text-gray-500">({t('singleScreen.optional') || 'optional'})</span>
                     </label>
                     <select
                       value={draft.category}
                       onChange={e => setDraft(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+                      className="w-full p-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
                     >
                       <option value="">{t('steps.preview.selectCategory')}</option>
                       {categories.map(cat => (
@@ -1328,18 +1269,18 @@ const calculateExpectedRewards = (): number => {
 
                   {/* Body/content (optional) */}
                   <div>
-                    <label className="block text-sm font-semibold text-[#1F1E2A] mb-2">
+                    <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-2">
                       {t('steps.preview.reviewLabel') || 'Comments'}{' '}
-                      <span className="text-xs text-[#9CA3AF]">({t('singleScreen.optional') || 'optional'})</span>
+                      <span className="text-xs text-[#9CA3AF] dark:text-gray-500">({t('singleScreen.optional') || 'optional'})</span>
                     </label>
                     <textarea
                       placeholder={t('steps.preview.reviewPlaceholder')}
                       value={draft.body}
                       onChange={e => setDraft(prev => ({ ...prev, body: e.target.value }))}
                       rows={6}
-                      className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+                      className="w-full p-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
                     />
-                    <p className="text-xs text-[#9CA3AF] mt-1">
+                    <p className="text-xs text-[#9CA3AF] dark:text-gray-500 mt-1">
                       {t('steps.preview.characterCount', { count: draft.body.length, max: 2000 })}
                     </p>
                   </div>
@@ -1367,7 +1308,7 @@ const calculateExpectedRewards = (): number => {
                           className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                             active
                               ? 'bg-[#FF644A] text-white shadow-md'
-                              : 'bg-[#FFF4E1] hover:bg-[#FFE4D6] text-[#1F1E2A] border border-[#E5E7EB]'
+                              : 'bg-[#FFF4E1] dark:bg-[#353444] hover:bg-[#FFE4D6] dark:hover:bg-[#404050] text-[#1F1E2A] dark:text-white border border-gray-200 dark:border-[#3D3C4A]'
                           }`}
                         >
                           {tag.icon} {tag.label}
@@ -1389,7 +1330,7 @@ const calculateExpectedRewards = (): number => {
                           handleAddCustomTag();
                         }
                       }}
-                      className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+                      className="flex-1 px-4 py-2 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
                     />
                     <button
                       onClick={handleAddCustomTag}
@@ -1408,12 +1349,12 @@ const calculateExpectedRewards = (): number => {
                         .map(tag => (
                           <span
                             key={tag}
-                            className="px-3 py-1 bg-[#BFE2D9] text-[#1F1E2A] rounded-full text-sm flex items-center gap-1.5"
+                            className="px-3 py-1 bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#1F1E2A] dark:text-[#6EE7B7] rounded-full text-sm flex items-center gap-1.5"
                           >
                             #{tag}
                             <button
                               onClick={() => handleRemoveTag(tag)}
-                              className="hover:bg-[#9DD5C5] rounded-full p-0.5 transition-colors"
+                              className="hover:bg-[#9DD5C5] dark:hover:bg-[#6EE7B7]/30 rounded-full p-0.5 transition-colors"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -1424,7 +1365,7 @@ const calculateExpectedRewards = (): number => {
                 </div>
               </CS>
 
-              {/* 6) Visit Context (moved last) */}
+              {/* 6) Visit Context */}
               <CS
                 title={t('singleScreen.sections.context') || t('context.title') || 'Visit Context'}
                 icon={<Calendar className="h-5 w-5 text-[#FF644A]" />}
@@ -1433,14 +1374,16 @@ const calculateExpectedRewards = (): number => {
                 <div className="space-y-4">
                   {/* Occasion */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('context.occasion')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.occasion')}</label>
                     <div className="grid grid-cols-2 gap-2">
                       {occasionOptions.map(option => (
                         <button
                           key={option.value}
                           onClick={() => updateContext({ occasion: option.value as any })}
                           className={`p-2 rounded-xl text-sm transition-colors ${
-                            context.occasion === option.value ? 'bg-[#FF644A] text-white' : 'bg-white border border-gray-200 hover:border-[#FF644A]'
+                            context.occasion === option.value 
+                              ? 'bg-[#FF644A] text-white' 
+                              : 'bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:border-[#FF644A]'
                           }`}
                         >
                           {option.icon} {option.label}
@@ -1451,31 +1394,33 @@ const calculateExpectedRewards = (): number => {
 
                   {/* Party Size */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('context.partySize')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.partySize')}</label>
                     <div className="flex items-center space-x-2">
-                      <Users className="h-4 w-4 text-[#9CA3AF]" />
+                      <Users className="h-4 w-4 text-[#9CA3AF] dark:text-gray-500" />
                       <input
                         type="number"
                         value={context.party_size}
                         onChange={e => updateContext({ party_size: parseInt(e.target.value, 10) || 1 })}
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                        className="flex-1 px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                         min="1"
                         max="20"
                       />
-                      <span className="text-sm text-[#9CA3AF]">{t('context.people')}</span>
+                      <span className="text-sm text-[#9CA3AF] dark:text-gray-500">{t('context.people')}</span>
                     </div>
                   </div>
 
                   {/* Meal Type */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('context.mealType')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.mealType')}</label>
                     <div className="grid grid-cols-3 gap-2">
                       {mealTypeOptions.map(option => (
                         <button
                           key={option.value}
                           onClick={() => updateContext({ meal_type: option.value as any })}
                           className={`p-2 rounded-xl text-xs transition-colors ${
-                            context.meal_type === option.value ? 'bg-[#FF644A] text-white' : 'bg-white border border-gray-200 hover:border-[#FF644A]'
+                            context.meal_type === option.value 
+                              ? 'bg-[#FF644A] text-white' 
+                              : 'bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:border-[#FF644A]'
                           }`}
                         >
                           <div className="text-lg">{option.icon}</div>
@@ -1487,35 +1432,34 @@ const calculateExpectedRewards = (): number => {
 
                   {/* Date and Time */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('context.dateTime')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.dateTime')}</label>
                     <input
                       type="datetime-local"
                       value={context.time_of_visit || ''}
                       onChange={e => {
                         const date = e.target.value;
                         const dayOfWeek = date ? new Date(date).toLocaleDateString('pt-BR', { weekday: 'long' }) : undefined;
-
                         updateContext({
                           time_of_visit: date,
                           day_of_week: dayOfWeek,
                         });
                       }}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                     />
                   </div>
 
                   {/* Total Spent */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('context.totalSpent')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.totalSpent')}</label>
                     <div className="flex items-center space-x-2">
-                      <DollarSign className="h-4 w-4 text-[#9CA3AF]" />
-                      <span className="text-sm text-[#9CA3AF]">R$</span>
+                      <DollarSign className="h-4 w-4 text-[#9CA3AF] dark:text-gray-500" />
+                      <span className="text-sm text-[#9CA3AF] dark:text-gray-500">R$</span>
                       <input
                         type="number"
                         placeholder="0.00"
                         value={context.total_spent || ''}
                         onChange={e => updateContext({ total_spent: e.target.value ? parseFloat(e.target.value) : undefined })}
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                        className="flex-1 px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                         step="0.01"
                         min="0"
                       />
@@ -1524,18 +1468,18 @@ const calculateExpectedRewards = (): number => {
 
                   {/* Visit Duration */}
                   <div>
-                    <label className="text-sm font-medium text-[#1F1E2A] mb-2 block">{t('context.visitDuration')}</label>
+                    <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.visitDuration')}</label>
                     <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-[#9CA3AF]" />
+                      <Clock className="h-4 w-4 text-[#9CA3AF] dark:text-gray-500" />
                       <input
                         type="number"
                         placeholder={t('aspects.minutesPlaceholder')}
                         value={context.visit_duration_minutes || ''}
                         onChange={e => updateContext({ visit_duration_minutes: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                        className="flex-1 px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                         min="0"
                       />
-                      <span className="text-sm text-[#9CA3AF]">{t('aspects.minutes')}</span>
+                      <span className="text-sm text-[#9CA3AF] dark:text-gray-500">{t('aspects.minutes')}</span>
                     </div>
                   </div>
                 </div>
@@ -1545,10 +1489,38 @@ const calculateExpectedRewards = (): number => {
         </div>
       </div>
 
+      {/* Cancel Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2D2C3A] rounded-2xl shadow-xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] p-6 max-w-sm w-full">
+            <h3 className="text-lg font-bold text-[#1F1E2A] dark:text-white mb-2">
+              {t('singleScreen.cancelConfirm.title') || 'Discard changes?'}
+            </h3>
+            <p className="text-sm text-[#9CA3AF] dark:text-gray-400 mb-6">
+              {t('singleScreen.cancelConfirm.message') || 'You have unsaved changes. Are you sure you want to leave?'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm font-medium text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
+              >
+                {t('singleScreen.cancelConfirm.stay') || 'Keep editing'}
+              </button>
+              <button
+                onClick={handleConfirmCancel}
+                className="flex-1 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition-colors"
+              >
+                {t('singleScreen.cancelConfirm.discard') || 'Discard'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sticky Publish Button */}
       <SPB
         disabled={!canPublish}
-        disabledReason={t('singleScreen.publishHint')}
+        disabledReason={t('singleScreen.publishHint') || 'Select a restaurant and rating to publish'}
         onPublish={handleSubmit}
         isPublishing={isLoading || isSubmitting}
         estimatedReward={calculateExpectedRewards()}

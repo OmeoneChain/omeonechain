@@ -1,0 +1,13 @@
+{
+  "reshare": {
+    "someone": "Alguém",
+    "reshared": "compartilhou",
+    "timeAgo": {
+      "now": "agora",
+      "minutes": "{count}m atrás",
+      "hours": "{count}h atrás",
+      "days": "{count}d atrás",
+      "weeks": "{count}sem atrás"
+    }
+  }
+}

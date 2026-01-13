@@ -1,5 +1,6 @@
 // app/saved-lists/[id]/page.tsx
 // Saved List Detail Page - Shows full list of restaurants in a saved list
+// UPDATED: i18n translations and dark mode support added
 // ✅ UPDATED: BocaBoca brand colors applied
 // ✅ UPDATED: Now includes EditListModal functionality
 // ✅ FIXED: Icon rendering - converts "folder-heart" string to actual Lucide icon
@@ -10,6 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -35,7 +37,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { cn, timeAgo } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import CleanHeader from '@/components/CleanHeader';
 import EditListModal from '@/components/saved-lists/EditListModal';
 import savedListsService from '@/lib/services/saved-lists-service';
@@ -59,26 +61,20 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 /**
  * Render list icon - handles both Lucide icon names and emoji fallback
- * @param iconName - The icon identifier (e.g., "folder-heart" or "🍕")
- * @param className - Tailwind classes for the icon
  */
 const renderListIcon = (iconName: string, className: string = "w-8 h-8 text-white") => {
-  // Check if it's a known Lucide icon name
   const IconComponent = ICON_MAP[iconName];
   if (IconComponent) {
     return <IconComponent className={className} />;
   }
-  // Fallback for emoji icons (legacy data) - emojis are typically 1-2 chars
   if (iconName && iconName.length <= 2) {
     return <span className="text-3xl">{iconName}</span>;
   }
-  // Default icon if nothing matches
   return <FolderHeart className={className} />;
 };
 
 /**
  * Generate gradient placeholder for restaurant (initials-based)
- * Much nicer than the 🍽️ emoji placeholder
  */
 const RestaurantPlaceholder = ({ name }: { name: string }) => {
   const initials = name
@@ -131,6 +127,7 @@ interface SavedListDetail {
 export default function SavedListDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const t = useTranslations('savedLists');
   const listId = params.id as string;
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
@@ -140,6 +137,33 @@ export default function SavedListDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Format time ago with translations
+  const timeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return t('time.justNow');
+    if (diffInHours < 24) return t('time.hoursAgo', { hours: diffInHours });
+    if (diffInHours < 48) return t('time.yesterday');
+    if (diffInHours < 168) return t('time.daysAgo', { days: Math.floor(diffInHours / 24) });
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  // Get list type label with translation
+  const getListTypeLabel = (listType: string) => {
+    switch (listType) {
+      case 'places':
+        return t('listTypes.places');
+      case 'bookmarks':
+        return t('listTypes.bookmarks');
+      case 'mixed':
+        return t('listTypes.collection');
+      default:
+        return t('listTypes.list');
+    }
+  };
 
   useEffect(() => {
     fetchListDetail();
@@ -177,9 +201,7 @@ export default function SavedListDetailPage() {
   const handleDelete = async () => {
     if (!list) return;
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${list.name}"? This action cannot be undone.`
-    );
+    const confirmed = window.confirm(t('deleteConfirm', { name: list.name }));
 
     if (!confirmed) return;
 
@@ -199,13 +221,13 @@ export default function SavedListDetailPage() {
   const getListTypeColor = (listType: string) => {
     switch (listType) {
       case 'places':
-        return 'from-[#FFB3AB] to-[#FF644A]';      // Sunset Gradient (primary)
+        return 'from-[#FFB3AB] to-[#FF644A]';
       case 'bookmarks':
-        return 'from-[#BFE2D9] to-[#7DCBB8]';      // Mint Breeze gradient
+        return 'from-[#BFE2D9] to-[#7DCBB8]';
       case 'mixed':
-        return 'from-[#E65441] to-[#FF644A]';      // Terracotta to Coral
+        return 'from-[#E65441] to-[#FF644A]';
       default:
-        return 'from-[#FFB3AB] to-[#FF644A]';      // Default to Sunset
+        return 'from-[#FFB3AB] to-[#FF644A]';
     }
   };
 
@@ -213,13 +235,13 @@ export default function SavedListDetailPage() {
   const getAccentColor = (listType: string) => {
     switch (listType) {
       case 'places':
-        return 'hover:border-[#FF644A] hover:bg-[#FFF4E1]';
+        return 'hover:border-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/10';
       case 'bookmarks':
-        return 'hover:border-[#7DCBB8] hover:bg-[#F0FAF7]';
+        return 'hover:border-[#7DCBB8] hover:bg-[#F0FAF7] dark:hover:bg-[#7DCBB8]/10';
       case 'mixed':
-        return 'hover:border-[#E65441] hover:bg-[#FFF4E1]';
+        return 'hover:border-[#E65441] hover:bg-[#FFF4E1] dark:hover:bg-[#E65441]/10';
       default:
-        return 'hover:border-[#FF644A] hover:bg-[#FFF4E1]';
+        return 'hover:border-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/10';
     }
   };
 
@@ -227,10 +249,10 @@ export default function SavedListDetailPage() {
     return (
       <>
         <CleanHeader />
-        <div className="min-h-screen bg-[#FFF4E1] flex items-center justify-center">
+        <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A] flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#FFB3AB] border-t-[#FF644A]"></div>
-            <p className="text-gray-600">Loading your list...</p>
+            <p className="text-gray-600 dark:text-gray-400">{t('detail.loading')}</p>
           </div>
         </div>
       </>
@@ -241,19 +263,18 @@ export default function SavedListDetailPage() {
     return (
       <>
         <CleanHeader />
-        <div className="min-h-screen bg-[#FFF4E1] flex items-center justify-center">
-          <div className="text-center bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-            {/* FIXED: Use Lucide icon instead of emoji */}
+        <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A] flex items-center justify-center">
+          <div className="text-center bg-white dark:bg-[#2D2C3A] p-8 rounded-xl shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-[#3D3C4A]">
             <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-[#FFB3AB] to-[#FF644A] rounded-full flex items-center justify-center">
               <FolderHeart className="w-8 h-8 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-[#1F1E2A] mb-2">List not found</h2>
-            <p className="text-gray-600 mb-6">{error || 'Failed to fetch list'}</p>
+            <h2 className="text-2xl font-bold text-[#1F1E2A] dark:text-white mb-2">{t('detail.listNotFound.title')}</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{error || t('detail.listNotFound.description')}</p>
             <button
               onClick={() => router.push('/saved-lists')}
               className="px-6 py-2.5 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441] transition-colors font-medium"
             >
-              Back to My Saved Lists
+              {t('detail.backToLists')}
             </button>
           </div>
         </div>
@@ -264,16 +285,16 @@ export default function SavedListDetailPage() {
   return (
     <>
       <CleanHeader />
-      <div className="min-h-screen bg-[#FFF4E1]">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         {/* Back Button Bar */}
-        <div className="bg-white border-b border-gray-200">
+        <div className="bg-white dark:bg-[#2D2C3A] border-b border-gray-200 dark:border-[#3D3C4A]">
           <div className="max-w-4xl mx-auto px-4 py-4">
             <button
               onClick={() => router.push('/saved-lists')}
-              className="flex items-center gap-2 text-gray-600 hover:text-[#FF644A] transition-colors group"
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-[#FF644A] transition-colors group"
             >
               <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-              <span>Back to My Saved Lists</span>
+              <span>{t('detail.backToLists')}</span>
             </button>
           </div>
         </div>
@@ -284,7 +305,7 @@ export default function SavedListDetailPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+            className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] overflow-hidden"
           >
             {/* Header with BocaBoca gradient */}
             <div className={cn(
@@ -295,7 +316,6 @@ export default function SavedListDetailPage() {
                 <div className="flex-1 min-w-0">
                   {/* Icon + Title */}
                   <div className="flex items-center gap-3 mb-2">
-                    {/* FIXED: Render actual Lucide icon instead of text string */}
                     <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
                       {renderListIcon(list.icon, "w-7 h-7 text-white")}
                     </div>
@@ -309,21 +329,21 @@ export default function SavedListDetailPage() {
                       {list.isPublic ? (
                         <>
                           <Globe className="w-3.5 h-3.5" />
-                          <span>Public</span>
+                          <span>{t('privacy.public')}</span>
                         </>
                       ) : (
                         <>
                           <Lock className="w-3.5 h-3.5" />
-                          <span>Private</span>
+                          <span>{t('privacy.private')}</span>
                         </>
                       )}
                     </div>
-                    <span className="px-2.5 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded-full capitalize">
-                      {list.listType}
+                    <span className="px-2.5 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded-full">
+                      {getListTypeLabel(list.listType)}
                     </span>
                     <div className="flex items-center gap-1 px-2.5 py-1 bg-white/20 backdrop-blur-sm text-white text-xs rounded-full">
                       <Calendar className="w-3 h-3" />
-                      <span>Updated {timeAgo(list.updatedAt)}</span>
+                      <span>{t('detail.updated')} {timeAgo(list.updatedAt)}</span>
                     </div>
                   </div>
                 </div>
@@ -334,7 +354,7 @@ export default function SavedListDetailPage() {
                     onClick={handleEdit}
                     className="p-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-colors"
                     whileTap={{ scale: 0.95 }}
-                    title="Edit list"
+                    title={t('actions.edit')}
                   >
                     <Edit size={18} />
                   </motion.button>
@@ -343,7 +363,7 @@ export default function SavedListDetailPage() {
                     disabled={isDeleting}
                     className="p-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-red-500/50 transition-colors disabled:opacity-50"
                     whileTap={{ scale: 0.95 }}
-                    title="Delete list"
+                    title={t('actions.delete')}
                   >
                     <Trash2 size={18} />
                   </motion.button>
@@ -354,41 +374,41 @@ export default function SavedListDetailPage() {
             <div className="p-6 space-y-6">
               {/* Description */}
               {list.description && (
-                <div className="bg-[#FFF4E1]/50 rounded-lg p-4 border border-[#FFB3AB]/30">
-                  <p className="text-base text-[#1F1E2A] leading-relaxed">
+                <div className="bg-[#FFF4E1]/50 dark:bg-[#FF644A]/10 rounded-lg p-4 border border-[#FFB3AB]/30 dark:border-[#FF644A]/20">
+                  <p className="text-base text-[#1F1E2A] dark:text-gray-200 leading-relaxed">
                     {list.description}
                   </p>
                 </div>
               )}
 
               {/* Stats */}
-              <div className="flex items-center gap-4 text-sm text-gray-600 pb-4 border-b border-gray-200">
+              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 pb-4 border-b border-gray-200 dark:border-[#3D3C4A]">
                 <div className="flex items-center gap-2">
                   <Utensils size={16} className="text-[#FF644A]" />
-                  <span className="font-medium text-[#1F1E2A]">
-                    {list.restaurant_count} restaurant{list.restaurant_count !== 1 ? 's' : ''}
+                  <span className="font-medium text-[#1F1E2A] dark:text-white">
+                    {t('restaurantCount', { count: list.restaurant_count })}
                   </span>
                 </div>
-                <span>•</span>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
                 <div className="flex items-center gap-2">
-                  <Calendar size={16} className="text-gray-400" />
-                  <span>Created {timeAgo(list.createdAt)}</span>
+                  <Calendar size={16} className="text-gray-400 dark:text-gray-500" />
+                  <span>{t('detail.created')} {timeAgo(list.createdAt)}</span>
                 </div>
               </div>
 
               {/* Restaurants Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-[#1F1E2A] flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-[#1F1E2A] dark:text-white flex items-center gap-2">
                     <Utensils size={18} className="text-[#FF644A]" />
-                    Restaurants
+                    {t('detail.restaurants')}
                   </h2>
                   <button 
                     onClick={handleEdit}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#FF644A] hover:bg-[#FFF4E1] rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/10 rounded-lg transition-colors"
                   >
                     <Plus size={16} />
-                    Add Restaurant
+                    {t('actions.addRestaurant')}
                   </button>
                 </div>
 
@@ -401,17 +421,17 @@ export default function SavedListDetailPage() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.05 }}
                         className={cn(
-                          "flex items-center gap-4 p-4 bg-white rounded-lg border border-gray-200 transition-all cursor-pointer",
+                          "flex items-center gap-4 p-4 bg-white dark:bg-[#353444] rounded-lg border border-gray-200 dark:border-[#3D3C4A] transition-all cursor-pointer",
                           getAccentColor(list.listType)
                         )}
                       >
-                        {/* ADDED: Numbered gradient badge */}
+                        {/* Numbered gradient badge */}
                         <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-[#FFB3AB] to-[#FF644A] rounded-full flex items-center justify-center shadow-sm">
                           <span className="text-white text-sm font-bold">{index + 1}</span>
                         </div>
 
-                        {/* FIXED: Restaurant image with gradient initials placeholder */}
-                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-[#FFF4E1] flex-shrink-0 border border-gray-100">
+                        {/* Restaurant image with gradient initials placeholder */}
+                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-[#FFF4E1] dark:bg-[#404050] flex-shrink-0 border border-gray-100 dark:border-[#4D4C5A]">
                           {restaurant.image ? (
                             <Image
                               src={restaurant.image}
@@ -427,28 +447,28 @@ export default function SavedListDetailPage() {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <h3 className="font-semibold text-[#1F1E2A] text-base truncate">
+                            <h3 className="font-semibold text-[#1F1E2A] dark:text-white text-base truncate">
                               {restaurant.name}
                             </h3>
                             {restaurant.rating && (
-                              <div className="flex items-center gap-1 flex-shrink-0 bg-[#FFF4E1] px-2 py-0.5 rounded-full">
+                              <div className="flex items-center gap-1 flex-shrink-0 bg-[#FFF4E1] dark:bg-[#FF644A]/20 px-2 py-0.5 rounded-full">
                                 <Star className="h-4 w-4 text-[#FF644A] fill-[#FF644A]" />
-                                <span className="text-sm font-medium text-[#1F1E2A]">
+                                <span className="text-sm font-medium text-[#1F1E2A] dark:text-white">
                                   {restaurant.rating.toFixed(1)}
                                 </span>
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                             {restaurant.cuisine && (
                               <span className="text-[#FF644A] font-medium">{restaurant.cuisine}</span>
                             )}
                             {restaurant.cuisine && restaurant.location && (
-                              <span>•</span>
+                              <span className="text-gray-300 dark:text-gray-600">•</span>
                             )}
                             {restaurant.location && (
                               <div className="flex items-center gap-1">
-                                <MapPin size={14} className="text-gray-400" />
+                                <MapPin size={14} className="text-gray-400 dark:text-gray-500" />
                                 <span>{restaurant.location}</span>
                               </div>
                             )}
@@ -458,18 +478,18 @@ export default function SavedListDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12 bg-[#FFF4E1]/50 rounded-xl border-2 border-dashed border-[#FFB3AB]">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-white rounded-full flex items-center justify-center shadow-sm">
+                  <div className="text-center py-12 bg-[#FFF4E1]/50 dark:bg-[#353444] rounded-xl border-2 border-dashed border-[#FFB3AB] dark:border-[#FF644A]/30">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-white dark:bg-[#2D2C3A] rounded-full flex items-center justify-center shadow-sm">
                       <Utensils size={32} className="text-[#FF644A]" />
                     </div>
-                    <p className="text-lg font-medium text-[#1F1E2A] mb-1">No restaurants yet</p>
-                    <p className="text-sm text-gray-500 mb-4">Start adding your favorite spots to this list!</p>
+                    <p className="text-lg font-medium text-[#1F1E2A] dark:text-white mb-1">{t('detail.noRestaurants.title')}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t('detail.noRestaurants.description')}</p>
                     <button 
                       onClick={handleEdit}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#FFB3AB] to-[#FF644A] text-white rounded-lg font-medium hover:from-[#FF644A] hover:to-[#E65441] transition-all shadow-sm hover:shadow-md"
                     >
                       <Plus size={18} />
-                      Add Restaurants
+                      {t('detail.noRestaurants.addButton')}
                     </button>
                   </div>
                 )}
@@ -477,23 +497,22 @@ export default function SavedListDetailPage() {
 
               {/* Quick Actions */}
               {list.items && list.items.length > 0 && (
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-gray-200 dark:border-[#3D3C4A]">
                   <div className="flex items-center gap-3 flex-wrap">
                     <button 
                       onClick={handleEdit}
                       className="flex items-center gap-2 px-4 py-2 bg-[#FF644A] text-white rounded-lg font-medium hover:bg-[#E65441] transition-colors"
                     >
                       <Edit size={16} />
-                      Edit List
+                      {t('detail.editList')}
                     </button>
                     {!list.isPublic && (
                       <button 
                         onClick={handlePublishAsGuide}
-                        className="flex items-center gap-2 px-4 py-2 border-2 border-[#FF644A] text-[#FF644A] rounded-lg font-medium hover:bg-[#FFF4E1] transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 border-2 border-[#FF644A] text-[#FF644A] rounded-lg font-medium hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/10 transition-colors"
                       >
                         <Globe size={16} />
-                        {/* FIXED: Renamed from "Publish as Guide" */}
-                        Publish Curated List
+                        {t('detail.publishCuratedList')}
                       </button>
                     )}
                   </div>

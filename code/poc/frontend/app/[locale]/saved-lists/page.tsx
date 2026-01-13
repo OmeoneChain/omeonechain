@@ -1,13 +1,32 @@
 // app/[locale]/saved-lists/page.tsx
-// V5: Using savedListsService for backend calls
+// V6: Using savedListsService for backend calls
 // - No search bar
 // - Tabs without emoji
 // - Mobile responsive (1 col on mobile, 2 on tablet, 3 on desktop)
+// - Dark mode support
+// - i18n translations
+//
+// =============================================================================
+// DARK MODE PATTERNS USED IN THIS FILE:
+// =============================================================================
+// Page background:      bg-[#FFF4E1] dark:bg-[#1F1E2A]
+// Card/Surface:         bg-white dark:bg-[#2D2C3A]
+// Elevated surface:     bg-[#FFF4E1] dark:bg-[#353444]
+// Primary text:         text-[#1F1E2A] dark:text-gray-100
+// Secondary text:       text-gray-600 dark:text-gray-400
+// Borders:              border-gray-200 dark:border-[#3D3C4A]
+// Input fields:         bg-white dark:bg-[#353444] with dark borders
+// Hover states:         hover:bg-[#FFE8E4] dark:hover:bg-[#353444]
+// Error backgrounds:    bg-red-50 dark:bg-red-900/20
+// Skeleton loaders:     bg-gray-200 dark:bg-gray-700
+// =============================================================================
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { 
   Plus,
   LayoutGrid,
@@ -36,15 +55,16 @@ interface SavedListWithItems extends SavedList {
 
 // Tab configuration - NO EMOJI
 const TABS = [
-  { id: 'all', label: 'All Saved Lists', Icon: Layers },
-  { id: 'places', label: 'Personal Lists', Icon: FolderHeart },
-  { id: 'guides', label: 'Curated Lists', Icon: BookOpen },
+  { id: 'all', labelKey: 'tabs.all', Icon: Layers },
+  { id: 'places', labelKey: 'tabs.places', Icon: FolderHeart },
+  { id: 'guides', labelKey: 'tabs.guides', Icon: BookOpen },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
 
 export default function SavedListsPage() {
   const router = useRouter();
+  const t = useTranslations('savedLists');
   const [lists, setLists] = useState<SavedListWithItems[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +128,7 @@ export default function SavedListsPage() {
     } else {
       // Fallback: copy to clipboard
       navigator.clipboard.writeText(`${window.location.origin}/saved-lists/${list.id}`);
-      alert('Link copied to clipboard!');
+      alert(t('linkCopied'));
     }
   };
 
@@ -136,16 +156,40 @@ export default function SavedListsPage() {
     }
   };
 
+  // Get empty state message based on active tab
+  const getEmptyMessage = () => {
+    switch (activeTab) {
+      case 'places':
+        return t('empty.places');
+      case 'guides':
+        return t('empty.guides');
+      default:
+        return t('empty.all');
+    }
+  };
+
+  // Helper to get modal translation keys
+  const modal = {
+    title: t('modal.title.create'),
+    nameRequired: t('modal.fields.nameRequired'),
+    namePlaceholder: t('modal.fields.namePlaceholder'),
+    descriptionLabel: t('modal.fields.descriptionLabel'),
+    descriptionPlaceholder: t('modal.fields.descriptionPlaceholder'),
+    cancel: t('modal.actions.cancel'),
+    create: t('modal.actions.create'),
+    creating: t('modal.actions.creating'),
+  };
+
   return (
     <>
       <CleanHeader />
-      <div className="min-h-screen bg-[#FFF4E1]">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-[#1F1E2A]">My Saved Lists</h1>
-              <p className="text-gray-600 mt-1">Organize your favorite places, bookmarks, and guides</p>
+              <h1 className="text-3xl font-bold text-[#1F1E2A] dark:text-gray-100">{t('pageTitle')}</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">{t('pageDescription')}</p>
             </div>
             
             <button
@@ -153,7 +197,7 @@ export default function SavedListsPage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#FF644A] hover:bg-[#E65441] text-white font-medium rounded-lg transition-colors shadow-sm"
             >
               <Plus size={20} />
-              Create New List
+              {t('createNewList')}
             </button>
           </div>
 
@@ -169,11 +213,11 @@ export default function SavedListsPage() {
                     "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
                     activeTab === tab.id
                       ? "bg-[#FF644A] text-white shadow-sm"
-                      : "bg-white text-[#1F1E2A] hover:bg-[#FFE8E4] border border-gray-200"
+                      : "bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-gray-300 hover:bg-[#FFE8E4] dark:hover:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A]"
                   )}
                 >
                   <TabIcon size={16} />
-                  {tab.label}
+                  {t(tab.labelKey)}
                 </button>
               );
             })}
@@ -181,14 +225,14 @@ export default function SavedListsPage() {
 
           {/* Error State */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-              <p className="font-medium">Error loading lists</p>
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg text-red-700 dark:text-red-400">
+              <p className="font-medium">{t('error.title')}</p>
               <p className="text-sm">{error}</p>
               <button 
                 onClick={() => window.location.reload()}
                 className="mt-2 text-sm underline hover:no-underline"
               >
-                Try again
+                {t('error.tryAgain')}
               </button>
             </div>
           )}
@@ -196,14 +240,14 @@ export default function SavedListsPage() {
           {/* View Toggle - Only show if we have lists */}
           {filteredLists.length > 0 && (
             <div className="flex justify-end mb-6">
-              <div className="inline-flex items-center bg-white rounded-lg border border-gray-200 p-1">
+              <div className="inline-flex items-center bg-white dark:bg-[#2D2C3A] rounded-lg border border-gray-200 dark:border-[#3D3C4A] p-1">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={cn(
                     "p-2 rounded-md transition-colors",
                     viewMode === 'grid'
-                      ? "bg-[#FFF4E1] text-[#E65441]"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-[#FFF4E1] dark:bg-[#353444] text-[#E65441] dark:text-[#FF644A]"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                   )}
                   aria-label="Grid view"
                 >
@@ -214,8 +258,8 @@ export default function SavedListsPage() {
                   className={cn(
                     "p-2 rounded-md transition-colors",
                     viewMode === 'list'
-                      ? "bg-[#FFF4E1] text-[#E65441]"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-[#FFF4E1] dark:bg-[#353444] text-[#E65441] dark:text-[#FF644A]"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                   )}
                   aria-label="List view"
                 >
@@ -235,11 +279,11 @@ export default function SavedListsPage() {
                 : "grid-cols-1 max-w-2xl"
             )}>
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse">
-                  <div className="h-48 bg-gray-200" />
+                <div key={i} className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] overflow-hidden animate-pulse">
+                  <div className="h-48 bg-gray-200 dark:bg-gray-700" />
                   <div className="p-4 space-y-3">
-                    <div className="h-4 bg-gray-200 rounded w-3/4" />
-                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
                   </div>
                 </div>
               ))}
@@ -254,20 +298,18 @@ export default function SavedListsPage() {
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-[#E65441] to-[#C94232] flex items-center justify-center">
                 <FolderHeart size={40} className="text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-[#1F1E2A] mb-2">
-                {activeTab === 'all' 
-                  ? "No saved lists yet" 
-                  : `No ${TABS.find(t => t.id === activeTab)?.label.toLowerCase()} yet`}
+              <h3 className="text-xl font-semibold text-[#1F1E2A] dark:text-gray-100 mb-2">
+                {getEmptyMessage()}
               </h3>
-              <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                Create your first list to start organizing your favorite restaurants and discoveries.
+              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                {t('empty.description')}
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF644A] hover:bg-[#E65441] text-white font-medium rounded-lg transition-colors"
               >
                 <Plus size={20} />
-                Create Your First List
+                {t('createFirstList')}
               </button>
             </motion.div>
           ) : (
@@ -313,39 +355,39 @@ export default function SavedListsPage() {
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <motion.div 
-              className="bg-white rounded-xl max-w-md w-full p-6"
+              className="bg-white dark:bg-[#2D2C3A] rounded-xl max-w-md w-full p-6 border border-transparent dark:border-[#3D3C4A]"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
             >
-              <h2 className="text-xl font-bold text-[#1F1E2A] mb-4">Create New List</h2>
+              <h2 className="text-xl font-bold text-[#1F1E2A] dark:text-gray-100 mb-4">{modal.title}</h2>
               
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="listName" className="block text-sm font-medium text-gray-700 mb-1">
-                    List Name *
+                  <label htmlFor="listName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {modal.nameRequired}
                   </label>
                   <input
                     id="listName"
                     type="text"
                     value={newListName}
                     onChange={(e) => setNewListName(e.target.value)}
-                    placeholder="e.g., Date Night Spots"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF644A] focus:border-transparent outline-none"
+                    placeholder={modal.namePlaceholder}
+                    className="w-full px-3 py-2 bg-white dark:bg-[#353444] border border-gray-300 dark:border-[#4D4C5A] rounded-lg focus:ring-2 focus:ring-[#FF644A] focus:border-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                     autoFocus
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="listDescription" className="block text-sm font-medium text-gray-700 mb-1">
-                    Description (optional)
+                  <label htmlFor="listDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {modal.descriptionLabel}
                   </label>
                   <textarea
                     id="listDescription"
                     value={newListDescription}
                     onChange={(e) => setNewListDescription(e.target.value)}
-                    placeholder="What's this list for?"
+                    placeholder={modal.descriptionPlaceholder}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF644A] focus:border-transparent outline-none resize-none"
+                    className="w-full px-3 py-2 bg-white dark:bg-[#353444] border border-gray-300 dark:border-[#4D4C5A] rounded-lg focus:ring-2 focus:ring-[#FF644A] focus:border-transparent outline-none resize-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                   />
                 </div>
               </div>
@@ -357,17 +399,17 @@ export default function SavedListsPage() {
                     setNewListName('');
                     setNewListDescription('');
                   }}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
                   disabled={creating}
                 >
-                  Cancel
+                  {modal.cancel}
                 </button>
                 <button
                   onClick={handleCreateList}
                   disabled={!newListName.trim() || creating}
                   className="px-4 py-2 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {creating ? 'Creating...' : 'Create List'}
+                  {creating ? modal.creating : modal.create}
                 </button>
               </div>
             </motion.div>

@@ -1,9 +1,34 @@
 // File: code/poc/core/src/routes/bounty.ts
 // Bounty System API Routes
-// Handles: User-funded discovery requests, submissions, prize distribution, refunds
+// Handles: User-funded discovery requests, submissions, prize distribution, refunds, tips
 //
-// Features: Flexible deadlines (1 hour - 12 weeks), multiple submissions, split prizes
-// Platform Fee: 10% burned from distributed prizes
+// IMPORTANT: All operations use `discovery_requests` table (not `bounty_requests`)
+// Column mapping for discovery_requests:
+//   - creator_id (not requester_user_id)
+//   - bounty_amount (not stake_amount_boca)
+//   - expires_at (not deadline_at)
+//   - response_count (not submission_count)
+//   - location (not location_city/location_country)
+//
+// IMPORTANT: Submissions use `discovery_responses` table (not `bounty_submissions`)
+// Column mapping for discovery_responses:
+//   - responder_id (not user_id or submitter_user_id)
+//   - response_text (not content or explanation)
+//   - upvotes_count (not vote_count)
+//   - recommendation_id (links to recommendations table)
+//
+// AWARD LOGIC: "Restaurant Wins, First Responder Paid"
+//   - Creator selects winning restaurant_id (not response_id)
+//   - System finds first response with recommendation pointing to that restaurant
+//   - 90% of stake goes to first responder, 10% burned
+//
+// TIPPING: After award, creator can tip other helpful responses
+//   - Tips come from creator's wallet (separate from bounty stake)
+//   - 100% goes to responder (no burn on tips)
+//   - Minimum tip: 0.5 BOCA
+//
+// Features: Flexible deadlines (1 hour - 12 weeks), multiple submissions
+// Platform Fee: 10% burned from main prize
 // Minimum Stake: 1.0 BOCA
 
 import { Router, Request, Response } from 'express';
@@ -28,7 +53,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const BOUNTY_CONFIG = {
   MIN_STAKE: 1.0,          // BOCA
-  PLATFORM_FEE: 10,        // Percent
+  PLATFORM_FEE: 10,        // Percent (burned from main prize)
+  MIN_TIP: 0.5,            // BOCA (minimum tip amount)
+  TIP_FEE: 0,              // Percent (no fee on tips - encourage generosity)
   MIN_DEADLINE_HOURS: 1,
   MAX_DEADLINE_HOURS: 2016, // 12 weeks
   DEADLINE_UNITS: ['hours', 'days', 'weeks'] as const
@@ -39,15 +66,17 @@ const BOUNTY_CONFIG = {
 // =============================================================================
 
 const createBountySchema = z.object({
-  title: z.string().min(10).max(255),
-  description: z.string().min(20).max(2000),
-  location_city: z.string().max(100).optional(),
-  location_country: z.string().max(100).optional(),
+  title: z.string().min(5).max(255),
+  description: z.string().min(5).max(2000).optional(),
+  location: z.string().max(100).optional(),
   cuisine_type: z.string().max(100).optional(),
-  tags: z.array(z.string()).max(10).optional(),
+  occasion: z.string().max(100).optional(),
+  budget_range: z.array(z.string()).max(4).optional(),
+  dietary_restrictions: z.array(z.string()).max(10).optional(),
   stake_amount: z.number().min(BOUNTY_CONFIG.MIN_STAKE),
-  deadline_unit: z.enum(BOUNTY_CONFIG.DEADLINE_UNITS),
-  deadline_amount: z.number().int().min(1).max(999)
+  expires_at: z.string().datetime().optional(),
+  deadline_unit: z.enum(BOUNTY_CONFIG.DEADLINE_UNITS).optional(),
+  deadline_amount: z.number().int().min(1).max(999).optional()
 });
 
 const submitSolutionSchema = z.object({
@@ -56,12 +85,20 @@ const submitSolutionSchema = z.object({
   explanation: z.string().min(20).max(1000).optional()
 });
 
-const awardPrizesSchema = z.object({
+// NEW: Award by restaurant_id (first responder logic)
+// restaurant_id can be integer or string (DB uses integers)
+const awardBountySchema = z.object({
   bounty_id: z.string().uuid(),
-  prize_allocations: z.array(z.object({
-    submission_id: z.string().uuid(),
-    amount: z.number().positive()
-  })).min(1)
+  restaurant_id: z.union([z.number(), z.string()]).transform(val => 
+    typeof val === 'string' ? parseInt(val, 10) : val
+  )
+});
+
+// NEW: Tip schema
+const tipResponseSchema = z.object({
+  bounty_id: z.string().uuid(),
+  response_id: z.string().uuid(),
+  amount: z.number().min(BOUNTY_CONFIG.MIN_TIP)
 });
 
 // =============================================================================
@@ -73,9 +110,31 @@ interface AuthenticatedRequest extends Request {
     id: string;
     address?: string;
     email?: string;
-    accountTier: 'email_basic' | 'wallet_full';
+    accountTier: 'verified' | 'wallet';
     authMethod: string;
   };
+}
+
+interface DiscoveryRequest {
+  id: string;
+  creator_id: string;
+  title: string;
+  description?: string;
+  location?: string;
+  cuisine_type?: string;
+  occasion?: string;
+  budget_range?: string[];
+  dietary_restrictions?: string[];
+  bounty_amount: number;
+  bounty_status: string;
+  status: string;
+  expires_at: string;
+  response_count: number;
+  view_count: number;
+  best_answer_id?: string;
+  created_at: string;
+  updated_at: string;
+  closed_at?: string;
 }
 
 // =============================================================================
@@ -83,30 +142,25 @@ interface AuthenticatedRequest extends Request {
 // =============================================================================
 
 /**
- * Deduct tokens from user balance
+ * Add tokens to user's balance
  */
-async function deductTokens(
-  userId: string, 
-  amount: number, 
-  reason: string
-): Promise<boolean> {
+async function addTokens(userId: string, amount: number, reason: string): Promise<boolean> {
   try {
-    const { data: user } = await supabase
+    // Get current balance
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('tokens_earned')
       .eq('id', userId)
       .single();
 
-    const currentBalance = user?.tokens_earned || 0;
-
-    if (currentBalance < amount) {
-      console.error(`❌ Insufficient balance: ${currentBalance} < ${amount}`);
+    if (userError || !user) {
+      console.error('❌ Failed to get user for token award:', userError);
       return false;
     }
 
-    const newBalance = currentBalance - amount;
-
-    const { error } = await supabase
+    // Update balance
+    const newBalance = (user.tokens_earned || 0) + amount;
+    const { error: updateError } = await supabase
       .from('users')
       .update({ 
         tokens_earned: newBalance,
@@ -114,12 +168,58 @@ async function deductTokens(
       })
       .eq('id', userId);
 
-    if (error) {
-      console.error('❌ Error deducting tokens:', error);
+    if (updateError) {
+      console.error('❌ Failed to update user tokens:', updateError);
       return false;
     }
 
-    console.log(`💸 Deducted ${amount} BOCA from user ${userId} for: ${reason}`);
+    console.log(`💰 Added ${amount} BOCA to user ${userId}: ${reason}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error in addTokens:', error);
+    return false;
+  }
+}
+
+/**
+ * Deduct tokens from user's balance (for tips)
+ */
+async function deductTokens(userId: string, amount: number, reason: string): Promise<boolean> {
+  try {
+    // Get current balance
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('tokens_earned')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      console.error('❌ Failed to get user for token deduction:', userError);
+      return false;
+    }
+
+    // Check sufficient balance
+    if ((user.tokens_earned || 0) < amount) {
+      console.error(`❌ Insufficient balance: ${user.tokens_earned} < ${amount}`);
+      return false;
+    }
+
+    // Update balance
+    const newBalance = (user.tokens_earned || 0) - amount;
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ 
+        tokens_earned: newBalance,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('❌ Failed to update user tokens:', updateError);
+      return false;
+    }
+
+    console.log(`💸 Deducted ${amount} BOCA from user ${userId}: ${reason}`);
     return true;
   } catch (error) {
     console.error('❌ Error in deductTokens:', error);
@@ -128,45 +228,242 @@ async function deductTokens(
 }
 
 /**
- * Validate deadline is within bounds
+ * Check user's token balance
  */
-function validateDeadline(unit: string, amount: number): boolean {
-  let totalHours: number;
+async function getTokenBalance(userId: string): Promise<number> {
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('tokens_earned')
+      .eq('id', userId)
+      .single();
 
+    if (error || !user) return 0;
+    return user.tokens_earned || 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
+/**
+ * Calculate expiration date from unit and amount
+ */
+function calculateExpiresAt(unit: string, amount: number): string {
+  const now = new Date();
+  let hours = amount;
+  
   switch (unit) {
-    case 'hours':
-      totalHours = amount;
-      break;
     case 'days':
-      totalHours = amount * 24;
+      hours = amount * 24;
       break;
     case 'weeks':
-      totalHours = amount * 24 * 7;
+      hours = amount * 24 * 7;
       break;
     default:
-      return false;
+      hours = amount;
   }
-
-  return totalHours >= BOUNTY_CONFIG.MIN_DEADLINE_HOURS && 
-         totalHours <= BOUNTY_CONFIG.MAX_DEADLINE_HOURS;
+  
+  // Clamp to valid range
+  hours = Math.max(BOUNTY_CONFIG.MIN_DEADLINE_HOURS, Math.min(hours, BOUNTY_CONFIG.MAX_DEADLINE_HOURS));
+  
+  now.setTime(now.getTime() + hours * 60 * 60 * 1000);
+  return now.toISOString();
 }
 
 /**
- * Calculate total of prize allocations
+ * Format bounty response for API
  */
-function calculatePrizeTotal(allocations: Array<{ submission_id: string; amount: number }>): number {
-  return allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+function formatBountyResponse(bounty: DiscoveryRequest) {
+  return {
+    id: bounty.id,
+    creator_id: bounty.creator_id,
+    title: bounty.title,
+    description: bounty.description,
+    location: bounty.location,
+    cuisine_type: bounty.cuisine_type,
+    occasion: bounty.occasion,
+    budget_range: bounty.budget_range,
+    dietary_restrictions: bounty.dietary_restrictions,
+    stake_amount: bounty.bounty_amount,
+    status: bounty.bounty_status || bounty.status || 'pending',
+    expires_at: bounty.expires_at,
+    response_count: bounty.response_count || 0,
+    view_count: bounty.view_count || 0,
+    best_answer_id: bounty.best_answer_id,
+    created_at: bounty.created_at,
+    updated_at: bounty.updated_at,
+    closed_at: bounty.closed_at
+  };
+}
+
+/**
+ * Check if bounty has expired and update status if needed (lazy pattern)
+ */
+async function checkAndUpdateExpiredBounty(
+  bountyId: string, 
+  currentStatus: string, 
+  expiresAt: string
+): Promise<string> {
+  // Only check 'open' or 'pending' bounties
+  if (currentStatus !== 'open' && currentStatus !== 'pending') {
+    return currentStatus;
+  }
+  
+  const now = new Date();
+  const expiry = new Date(expiresAt);
+  
+  if (now > expiry) {
+    // Bounty has expired - update status
+    const { error } = await supabase
+      .from('discovery_requests')
+      .update({ 
+        bounty_status: 'expired',
+        status: 'expired',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bountyId);
+    
+    if (error) {
+      console.error(`❌ Failed to update expired bounty ${bountyId}:`, error);
+      return currentStatus;
+    }
+    
+    console.log(`⏰ Bounty ${bountyId} marked as expired (lazy update)`);
+    return 'expired';
+  }
+  
+  return currentStatus;
 }
 
 // =============================================================================
-// API ROUTES
+// ROUTES
 // =============================================================================
 
 /**
- * POST /api/bounty/create
- * Create a new bounty request (requires wallet-tier auth)
+ * GET /api/bounty/list
+ * Get all active bounties with pagination
  */
-router.post('/create', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/list', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const {
+      page = '1',
+      limit = '20',
+      status = 'open',
+      sort = 'created_at',
+      order = 'desc',
+      location,
+      cuisine_type,
+      min_stake,
+      max_stake
+    } = req.query;
+
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = Math.min(parseInt(limit as string) || 20, 100);
+    const offset = (pageNum - 1) * limitNum;
+
+    console.log(`📋 GET bounty list: status=${status}, page=${pageNum}, limit=${limitNum}`);
+
+    // Build query
+    let query = supabase
+      .from('discovery_requests')
+      .select(`
+        *,
+        creator:creator_id (
+          id,
+          username,
+          display_name,
+          avatar_url
+        )
+      `, { count: 'exact' });
+
+    // Status filter
+    if (status && status !== 'all') {
+      query = query.or(`bounty_status.eq.${status},status.eq.${status}`);
+    }
+
+    // Location filter
+    if (location) {
+      query = query.ilike('location', `%${location}%`);
+    }
+
+    // Cuisine filter
+    if (cuisine_type) {
+      query = query.eq('cuisine_type', cuisine_type);
+    }
+
+    // Stake range filter
+    if (min_stake) {
+      query = query.gte('bounty_amount', parseFloat(min_stake as string));
+    }
+    if (max_stake) {
+      query = query.lte('bounty_amount', parseFloat(max_stake as string));
+    }
+
+    // Sorting
+    const validSorts = ['created_at', 'bounty_amount', 'expires_at', 'response_count'];
+    const sortField = validSorts.includes(sort as string) ? sort as string : 'created_at';
+    const sortOrder = order === 'asc' ? true : false;
+    query = query.order(sortField, { ascending: sortOrder });
+
+    // Pagination
+    query = query.range(offset, offset + limitNum - 1);
+
+    const { data: bounties, error, count } = await query;
+
+    if (error) {
+      console.error('❌ Error fetching bounties:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch bounties'
+      });
+    }
+
+    // Lazy expiration check for each bounty
+    const processedBounties = await Promise.all(
+      (bounties || []).map(async (bounty: any) => {
+        const effectiveStatus = await checkAndUpdateExpiredBounty(
+          bounty.id,
+          bounty.bounty_status || bounty.status,
+          bounty.expires_at
+        );
+        return {
+          ...formatBountyResponse(bounty as DiscoveryRequest),
+          status: effectiveStatus,
+          creator: bounty.creator
+        };
+      })
+    );
+
+    // Filter out expired if we were looking for 'open' 
+    const filteredBounties = status === 'open' 
+      ? processedBounties.filter(b => b.status === 'open')
+      : processedBounties;
+
+    res.json({
+      success: true,
+      bounties: filteredBounties,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: count || 0,
+        pages: Math.ceil((count || 0) / limitNum)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error in bounty list:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch bounties'
+    });
+  }
+});
+
+/**
+ * GET /api/bounty/my-requests
+ * Get bounties created by the authenticated user
+ */
+router.get('/my-requests', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.id;
 
@@ -177,12 +474,143 @@ router.post('/create', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Check wallet tier
-    if (req.user.accountTier !== 'wallet_full') {
-      return res.status(403).json({
+    const { status } = req.query;
+
+    console.log(`📋 GET my bounties for user ${userId}`);
+
+    let query = supabase
+      .from('discovery_requests')
+      .select('*')
+      .eq('creator_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (status && status !== 'all') {
+      query = query.or(`bounty_status.eq.${status},status.eq.${status}`);
+    }
+
+    const { data: bounties, error } = await query;
+
+    if (error) {
+      console.error('❌ Error fetching user bounties:', error);
+      return res.status(500).json({
         success: false,
-        error: 'Wallet connection required to create bounties',
-        requires_upgrade: true
+        error: 'Failed to fetch your bounties'
+      });
+    }
+
+    // Lazy expiration check
+    const processedBounties = await Promise.all(
+      (bounties || []).map(async (bounty: any) => {
+        const effectiveStatus = await checkAndUpdateExpiredBounty(
+          bounty.id,
+          bounty.bounty_status || bounty.status,
+          bounty.expires_at
+        );
+        return {
+          ...formatBountyResponse(bounty as DiscoveryRequest),
+          status: effectiveStatus
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      bounties: processedBounties
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching user bounties:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch your bounties'
+    });
+  }
+});
+
+/**
+ * GET /api/bounty/my-submissions
+ * Get submissions the authenticated user has made to bounties
+ */
+router.get('/my-submissions', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    console.log(`📋 GET my submissions for user ${userId}`);
+
+    const { data: submissions, error } = await supabase
+      .from('discovery_responses')
+      .select(`
+        id,
+        response_text,
+        recommendation_id,
+        is_best_answer,
+        created_at,
+        request:request_id (
+          id,
+          title,
+          bounty_amount,
+          bounty_status,
+          status,
+          expires_at,
+          creator:creator_id (
+            id,
+            username,
+            display_name
+          )
+        ),
+        recommendation:recommendation_id (
+          id,
+          title,
+          restaurant:restaurant_id (
+            id,
+            name
+          )
+        )
+      `)
+      .eq('responder_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching user submissions:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch your submissions'
+      });
+    }
+
+    res.json({
+      success: true,
+      submissions: submissions || []
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching user submissions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch your submissions'
+    });
+  }
+});
+
+/**
+ * POST /api/bounty/create
+ * Create a new bounty (requires auth + sufficient tokens)
+ */
+router.post('/create', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
       });
     }
 
@@ -196,129 +624,91 @@ router.post('/create', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    const {
-      title,
-      description,
-      location_city,
-      location_country,
-      cuisine_type,
-      tags,
-      stake_amount,
-      deadline_unit,
-      deadline_amount
-    } = validation.data;
+    const data = validation.data;
+    console.log(`🎯 POST create bounty by user ${userId}: "${data.title}" for ${data.stake_amount} BOCA`);
 
-    console.log(`💰 POST create bounty by user ${userId}: ${stake_amount} BOCA`);
-
-    // Validate deadline
-    if (!validateDeadline(deadline_unit, deadline_amount)) {
+    // Check user has sufficient tokens
+    const balance = await getTokenBalance(userId);
+    if (balance < data.stake_amount) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid deadline',
-        message: `Deadline must be between ${BOUNTY_CONFIG.MIN_DEADLINE_HOURS} hour and ${BOUNTY_CONFIG.MAX_DEADLINE_HOURS} hours (12 weeks)`
+        error: `Insufficient tokens. You have ${balance} BOCA, need ${data.stake_amount} BOCA`
       });
     }
 
-    // Check user has sufficient balance
-    const { data: user } = await supabase
-      .from('users')
-      .select('tokens_earned')
-      .eq('id', userId)
-      .single();
-
-    if (!user || user.tokens_earned < stake_amount) {
-      return res.status(400).json({
-        success: false,
-        error: 'Insufficient token balance',
-        required: stake_amount,
-        available: user?.tokens_earned || 0
-      });
+    // Calculate expiration
+    let expiresAt: string;
+    if (data.expires_at) {
+      expiresAt = data.expires_at;
+    } else if (data.deadline_unit && data.deadline_amount) {
+      expiresAt = calculateExpiresAt(data.deadline_unit, data.deadline_amount);
+    } else {
+      // Default: 7 days
+      expiresAt = calculateExpiresAt('days', 7);
     }
 
-    // Calculate deadline timestamp
-    const { data: deadlineTimestamp, error: deadlineError } = await supabase
-      .rpc('calculate_bounty_deadline', {
-        p_deadline_unit: deadline_unit,
-        p_deadline_amount: deadline_amount
-      });
-
-    if (deadlineError) {
-      console.error('❌ Error calculating deadline:', deadlineError);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to calculate deadline'
-      });
-    }
-
-    // Deduct stake from user balance
-    const deductSuccess = await deductTokens(userId, stake_amount, 'Bounty stake');
+    // Deduct tokens from creator
+    const deductSuccess = await deductTokens(userId, data.stake_amount, `Bounty stake for "${data.title}"`);
     if (!deductSuccess) {
       return res.status(500).json({
         success: false,
-        error: 'Failed to deduct stake amount'
+        error: 'Failed to stake tokens'
       });
     }
 
     // Create bounty
-    const { data: bounty, error: bountyError } = await supabase
-      .from('bounty_requests')
+    const { data: bounty, error: createError } = await supabase
+      .from('discovery_requests')
       .insert({
-        requester_user_id: userId,
-        title,
-        description,
-        location_city,
-        location_country,
-        cuisine_type,
-        tags,
-        stake_amount_boca: stake_amount,
-        remaining_amount_boca: stake_amount,
-        platform_fee_percent: BOUNTY_CONFIG.PLATFORM_FEE,
-        deadline_unit,
-        deadline_amount,
-        deadline_at: deadlineTimestamp,
-        status: 'open'
+        creator_id: userId,
+        title: data.title,
+        description: data.description,
+        location: data.location,
+        cuisine_type: data.cuisine_type,
+        occasion: data.occasion,
+        budget_range: data.budget_range,
+        dietary_restrictions: data.dietary_restrictions,
+        bounty_amount: data.stake_amount,
+        bounty_status: 'open',
+        status: 'open',
+        expires_at: expiresAt,
+        response_count: 0,
+        view_count: 0
       })
       .select()
       .single();
 
-    if (bountyError) {
-      console.error('❌ Error creating bounty:', bountyError);
-      
-      // Refund stake
-      await supabase
-        .from('users')
-        .update({ tokens_earned: user.tokens_earned })
-        .eq('id', userId);
-
+    if (createError || !bounty) {
+      console.error('❌ Error creating bounty:', createError);
+      // Refund tokens
+      await addTokens(userId, data.stake_amount, 'Bounty creation failed - refund');
       return res.status(500).json({
         success: false,
         error: 'Failed to create bounty'
       });
     }
 
-    // Record stake transaction
-    await supabase
-      .from('bounty_transactions')
-      .insert({
-        bounty_id: bounty.id,
-        transaction_type: 'stake',
-        from_user_id: userId,
-        amount_boca: stake_amount,
-        notes: 'Bounty created - stake deposited'
-      });
+    // Log transaction
+    try {
+      await supabase
+        .from('bounty_transactions')
+        .insert({
+          bounty_id: bounty.id,
+          transaction_type: 'stake',
+          from_user_id: userId,
+          to_user_id: null,
+          amount_boca: data.stake_amount,
+          notes: `Bounty created: "${data.title}"`
+        });
+    } catch (txError) {
+      console.warn('⚠️ Could not log bounty transaction:', txError);
+    }
 
     console.log(`✅ Bounty created: ${bounty.id}`);
 
     res.status(201).json({
       success: true,
-      message: 'Bounty created successfully',
-      bounty: {
-        id: bounty.id,
-        title: bounty.title,
-        stake_amount: bounty.stake_amount_boca,
-        deadline: bounty.deadline_at,
-        status: bounty.status
-      }
+      bounty: formatBountyResponse(bounty as DiscoveryRequest)
     });
 
   } catch (error) {
@@ -331,129 +721,20 @@ router.post('/create', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * GET /api/bounty/list
- * Get list of active bounties (public)
+ * GET /api/bounty/:id
+ * Get bounty details by ID
  */
-router.get('/list', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-    const offset = parseInt(req.query.offset as string) || 0;
-    const status = req.query.status as string || 'open';
-    const location_city = req.query.city as string;
-    const location_country = req.query.country as string;
-    const cuisine_type = req.query.cuisine as string;
+    const bountyId = req.params.id;
 
-    console.log(`📊 GET bounty list (status: ${status})`);
-
-    let query = supabase
-      .from('bounty_requests')
-      .select(`
-        id,
-        title,
-        description,
-        location_city,
-        location_country,
-        cuisine_type,
-        tags,
-        stake_amount_boca,
-        deadline_unit,
-        deadline_amount,
-        deadline_at,
-        status,
-        submission_count,
-        created_at,
-        requester:requester_user_id (
-          id,
-          username,
-          display_name,
-          avatar_url
-        )
-      `, { count: 'exact' })
-      .eq('status', status)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    // Apply filters
-    if (location_city) {
-      query = query.ilike('location_city', `%${location_city}%`);
-    }
-    if (location_country) {
-      query = query.ilike('location_country', `%${location_country}%`);
-    }
-    if (cuisine_type) {
-      query = query.eq('cuisine_type', cuisine_type);
-    }
-
-    const { data: bounties, error, count } = await query;
-
-    if (error) {
-      console.error('❌ Error fetching bounties:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to fetch bounties'
-      });
-    }
-
-    res.json({
-      success: true,
-      bounties: (bounties || []).map(b => ({
-        id: b.id,
-        title: b.title,
-        description: b.description,
-        location: {
-          city: b.location_city,
-          country: b.location_country
-        },
-        cuisine_type: b.cuisine_type,
-        tags: b.tags,
-        stake_amount: b.stake_amount_boca,
-        deadline: {
-          unit: b.deadline_unit,
-          amount: b.deadline_amount,
-          timestamp: b.deadline_at
-        },
-        status: b.status,
-        submission_count: b.submission_count,
-        requester: {
-          id: b.requester.id,
-          username: b.requester.username,
-          display_name: b.requester.display_name,
-          avatar_url: b.requester.avatar_url
-        },
-        created_at: b.created_at
-      })),
-      pagination: {
-        limit,
-        offset,
-        total: count || 0,
-        has_more: (offset + limit) < (count || 0)
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error fetching bounty list:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch bounty list'
-    });
-  }
-});
-
-/**
- * GET /api/bounty/:bountyId
- * Get detailed bounty information (public)
- */
-router.get('/:bountyId', async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { bountyId } = req.params;
-
-    console.log(`📊 GET bounty details: ${bountyId}`);
+    console.log(`📋 GET bounty details: ${bountyId}`);
 
     const { data: bounty, error } = await supabase
-      .from('bounty_requests')
+      .from('discovery_requests')
       .select(`
         *,
-        requester:requester_user_id (
+        creator:creator_id (
           id,
           username,
           display_name,
@@ -470,15 +751,24 @@ router.get('/:bountyId', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Get submissions count and details
-    const { data: submissions } = await supabase
-      .from('bounty_submissions')
+    // Lazy expiration check
+    const effectiveStatus = await checkAndUpdateExpiredBounty(
+      bounty.id,
+      bounty.bounty_status || bounty.status,
+      bounty.expires_at
+    );
+
+    // Get responses with recommendation and restaurant details
+    const { data: responses } = await supabase
+      .from('discovery_responses')
       .select(`
         id,
-        is_winner,
-        prize_amount_boca,
+        response_text,
+        recommendation_id,
+        upvotes_count,
+        is_best_answer,
         created_at,
-        submitter:submitter_user_id (
+        responder:responder_id (
           id,
           username,
           display_name,
@@ -486,46 +776,35 @@ router.get('/:bountyId', async (req: AuthenticatedRequest, res: Response) => {
         ),
         recommendation:recommendation_id (
           id,
-          title
+          title,
+          restaurant_id,
+          restaurant:restaurant_id (
+            id,
+            name,
+            cuisine_type,
+            address
+          )
         )
       `)
-      .eq('bounty_id', bountyId)
-      .order('created_at', { ascending: false });
+      .eq('request_id', bountyId)
+      .order('created_at', { ascending: true }); // Oldest first for first-responder visibility
+
+    // Increment view count
+    await supabase
+      .from('discovery_requests')
+      .update({ 
+        view_count: (bounty.view_count || 0) + 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bountyId);
 
     res.json({
       success: true,
       bounty: {
-        id: bounty.id,
-        title: bounty.title,
-        description: bounty.description,
-        location: {
-          city: bounty.location_city,
-          country: bounty.location_country
-        },
-        cuisine_type: bounty.cuisine_type,
-        tags: bounty.tags,
-        stake_amount: bounty.stake_amount_boca,
-        remaining_amount: bounty.remaining_amount_boca,
-        platform_fee_percent: bounty.platform_fee_percent,
-        deadline: {
-          unit: bounty.deadline_unit,
-          amount: bounty.deadline_amount,
-          timestamp: bounty.deadline_at
-        },
-        status: bounty.status,
-        submission_count: bounty.submission_count,
-        winner_count: bounty.winner_count,
-        total_distributed: bounty.total_distributed_boca,
-        total_burned: bounty.total_burned_boca,
-        requester: {
-          id: bounty.requester.id,
-          username: bounty.requester.username,
-          display_name: bounty.requester.display_name,
-          avatar_url: bounty.requester.avatar_url
-        },
-        submissions: submissions || [],
-        created_at: bounty.created_at,
-        completed_at: bounty.completed_at
+        ...formatBountyResponse(bounty as DiscoveryRequest),
+        status: effectiveStatus,
+        creator: bounty.creator,
+        responses: responses || []
       }
     });
 
@@ -540,7 +819,7 @@ router.get('/:bountyId', async (req: AuthenticatedRequest, res: Response) => {
 
 /**
  * POST /api/bounty/submit
- * Submit a solution to a bounty (requires auth)
+ * Submit a solution/response to a bounty (requires auth)
  */
 router.post('/submit', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -569,8 +848,8 @@ router.post('/submit', async (req: AuthenticatedRequest, res: Response) => {
 
     // Check bounty exists and is open
     const { data: bounty, error: bountyError } = await supabase
-      .from('bounty_requests')
-      .select('id, status, deadline_at, requester_user_id')
+      .from('discovery_requests')
+      .select('id, status, bounty_status, expires_at, creator_id')
       .eq('id', bounty_id)
       .single();
 
@@ -581,23 +860,22 @@ router.post('/submit', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    if (bounty.status !== 'open') {
+    // Check and update expiration status first
+    const effectiveStatus = await checkAndUpdateExpiredBounty(
+      bounty.id,
+      bounty.bounty_status || bounty.status,
+      bounty.expires_at
+    );
+
+    if (effectiveStatus !== 'open') {
       return res.status(400).json({
         success: false,
-        error: `Bounty is not accepting submissions (status: ${bounty.status})`
+        error: `Bounty is not accepting submissions (status: ${effectiveStatus})`
       });
     }
 
-    // Check deadline hasn't passed
-    if (new Date(bounty.deadline_at) < new Date()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Bounty deadline has passed'
-      });
-    }
-
-    // Check user isn't the bounty requester
-    if (bounty.requester_user_id === userId) {
+    // Check user isn't the bounty creator
+    if (bounty.creator_id === userId) {
       return res.status(400).json({
         success: false,
         error: 'Cannot submit solutions to your own bounty'
@@ -607,7 +885,7 @@ router.post('/submit', async (req: AuthenticatedRequest, res: Response) => {
     // Check recommendation exists and belongs to user
     const { data: recommendation, error: recError } = await supabase
       .from('recommendations')
-      .select('id, author_id')
+      .select('id, author_id, restaurant_id')
       .eq('id', recommendation_id)
       .single();
 
@@ -625,47 +903,86 @@ router.post('/submit', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Check if this recommendation already submitted to this bounty
-    const { data: existingSubmission } = await supabase
-      .from('bounty_submissions')
+    // Check if user already submitted to this bounty (any recommendation)
+    const { data: existingUserResponse } = await supabase
+      .from('discovery_responses')
       .select('id')
-      .eq('bounty_id', bounty_id)
+      .eq('request_id', bounty_id)
+      .eq('responder_id', userId)
+      .maybeSingle();
+
+    if (existingUserResponse) {
+      return res.status(400).json({
+        success: false,
+        error: 'You have already submitted a response to this bounty'
+      });
+    }
+
+    // Check if this specific recommendation already submitted
+    const { data: existingRecResponse } = await supabase
+      .from('discovery_responses')
+      .select('id')
+      .eq('request_id', bounty_id)
       .eq('recommendation_id', recommendation_id)
       .maybeSingle();
 
-    if (existingSubmission) {
+    if (existingRecResponse) {
       return res.status(400).json({
         success: false,
         error: 'This recommendation has already been submitted to this bounty'
       });
     }
 
-    // Create submission
-    const { data: submission, error: submissionError } = await supabase
-      .from('bounty_submissions')
+    // Create response/submission
+    const { data: response, error: responseError } = await supabase
+      .from('discovery_responses')
       .insert({
-        bounty_id,
-        submitter_user_id: userId,
+        request_id: bounty_id,
+        responder_id: userId,
         recommendation_id,
-        explanation
+        response_text: explanation || 'Recommendation submitted as response',
+        upvotes_count: 0,
+        is_best_answer: false
       })
       .select()
       .single();
 
-    if (submissionError) {
-      console.error('❌ Error creating submission:', submissionError);
+    if (responseError) {
+      console.error('❌ Error creating response:', responseError);
       return res.status(500).json({
         success: false,
         error: 'Failed to submit solution'
       });
     }
 
-    console.log(`✅ Submission created: ${submission.id}`);
+    // Increment response count
+    await supabase
+      .from('discovery_requests')
+      .update({ 
+        response_count: supabase.rpc ? undefined : 1, // Will use raw SQL below
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bounty_id);
+
+    // Increment response count properly
+    await supabase.rpc('increment_response_count', { request_id: bounty_id }).catch(() => {
+      // Fallback: direct update
+      supabase
+        .from('discovery_requests')
+        .update({ response_count: (bounty as any).response_count ? (bounty as any).response_count + 1 : 1 })
+        .eq('id', bounty_id);
+    });
+
+    console.log(`✅ Response submitted: ${response.id}`);
 
     res.status(201).json({
       success: true,
-      message: 'Solution submitted successfully',
-      submission_id: submission.id
+      submission: {
+        id: response.id,
+        bounty_id,
+        recommendation_id,
+        created_at: response.created_at
+      }
     });
 
   } catch (error) {
@@ -678,10 +995,15 @@ router.post('/submit', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * POST /api/bounty/award-prizes
- * Award prizes to winning submissions (only bounty requester)
+ * POST /api/bounty/award
+ * Award bounty to winning restaurant (first responder gets prize)
+ * 
+ * NEW LOGIC: "Restaurant Wins, First Responder Paid"
+ * - Creator selects restaurant_id (the winning restaurant)
+ * - System finds first response that recommended that restaurant
+ * - 90% of stake goes to first responder, 10% burned
  */
-router.post('/award-prizes', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/award', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.id;
 
@@ -692,24 +1014,24 @@ router.post('/award-prizes', async (req: AuthenticatedRequest, res: Response) =>
       });
     }
 
-    // Validate request body
-    const validation = awardPrizesSchema.safeParse(req.body);
+    // Validate request
+    const validation = awardBountySchema.safeParse(req.body);
     if (!validation.success) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid prize allocation data',
+        error: 'Invalid award data. Required: bounty_id, restaurant_id',
         details: validation.error.errors
       });
     }
 
-    const { bounty_id, prize_allocations } = validation.data;
+    const { bounty_id, restaurant_id } = validation.data;
 
-    console.log(`🏆 POST award prizes for bounty ${bounty_id} by user ${userId}`);
+    console.log(`🏆 POST award bounty ${bounty_id} to restaurant ${restaurant_id} by user ${userId}`);
 
-    // Check bounty exists and user is requester
+    // Check bounty exists and user is creator
     const { data: bounty, error: bountyError } = await supabase
-      .from('bounty_requests')
-      .select('id, requester_user_id, stake_amount_boca, status')
+      .from('discovery_requests')
+      .select('id, creator_id, bounty_amount, status, bounty_status, best_answer_id')
       .eq('id', bounty_id)
       .single();
 
@@ -720,90 +1042,332 @@ router.post('/award-prizes', async (req: AuthenticatedRequest, res: Response) =>
       });
     }
 
-    if (bounty.requester_user_id !== userId) {
+    if (bounty.creator_id !== userId) {
       return res.status(403).json({
         success: false,
-        error: 'Only bounty requester can award prizes'
+        error: 'Only bounty creator can award prizes'
       });
     }
 
-    if (bounty.status !== 'open') {
+    const currentStatus = bounty.bounty_status || bounty.status;
+    if (currentStatus !== 'open' && currentStatus !== 'pending') {
       return res.status(400).json({
         success: false,
-        error: `Cannot award prizes for bounty with status: ${bounty.status}`
+        error: `Cannot award prizes for bounty with status: ${currentStatus}`
       });
     }
 
-    // Validate total allocation equals stake
-    const totalAllocated = calculatePrizeTotal(prize_allocations);
-    if (Math.abs(totalAllocated - bounty.stake_amount_boca) > 0.000001) {
+    if (bounty.best_answer_id) {
       return res.status(400).json({
         success: false,
-        error: 'Prize allocation must equal stake amount',
-        required: bounty.stake_amount_boca,
-        provided: totalAllocated
+        error: 'Bounty has already been awarded'
       });
     }
 
-    // Update bounty status to selecting_winners
-    await supabase
-      .from('bounty_requests')
-      .update({ status: 'selecting_winners', updated_at: new Date().toISOString() })
-      .eq('id', bounty_id);
+    // Find all responses - check both old (recommendation_id) and new (restaurant_recommendations) formats
+    const { data: responses, error: responsesError } = await supabase
+      .from('discovery_responses')
+      .select(`
+        id,
+        responder_id,
+        recommendation_id,
+        restaurant_recommendations,
+        created_at,
+        recommendation:recommendation_id (
+          id,
+          restaurant_id
+        )
+      `)
+      .eq('request_id', bounty_id)
+      .order('created_at', { ascending: true }); // Oldest first
 
-    // Award prizes using database function
-    const { data: result, error: awardError } = await supabase
-      .rpc('award_bounty_prizes', {
-        p_bounty_id: bounty_id,
-        p_prize_allocations: prize_allocations
+        if (responsesError) {
+          console.error('❌ Error fetching responses:', responsesError);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to fetch responses'
+          });
+        }
+
+    // Find first response with matching restaurant_id
+    // Check both old format (recommendation.restaurant_id) and new format (restaurant_recommendations array)
+    const restaurantIdNum = typeof restaurant_id === 'string' ? parseInt(restaurant_id, 10) : restaurant_id;
+
+    const winningResponse = (responses || []).find((r: any) => {
+      // Check old format: recommendation table link
+      if (r.recommendation?.restaurant_id === restaurantIdNum) {
+        return true;
+      }
+  
+      // Check new format: restaurant_recommendations JSONB array
+      if (r.restaurant_recommendations && Array.isArray(r.restaurant_recommendations)) {
+        return r.restaurant_recommendations.some((rec: any) => 
+          rec.restaurant_id === restaurantIdNum || 
+          parseInt(rec.restaurant_id, 10) === restaurantIdNum
+        );
+      }
+  
+      return false;
+    });
+
+    if (!winningResponse) {
+      return res.status(400).json({
+        success: false,
+        error: 'No responses found for this restaurant. Select a restaurant that was actually recommended.'
       });
+    }
 
-    if (awardError || !result || result.length === 0) {
-      console.error('❌ Error awarding prizes:', awardError);
-      
-      // Revert status
-      await supabase
-        .from('bounty_requests')
-        .update({ status: 'open', updated_at: new Date().toISOString() })
-        .eq('id', bounty_id);
+    console.log(`🎯 First responder for restaurant ${restaurant_id}: response ${winningResponse.id} by user ${winningResponse.responder_id}`);
 
+    // Calculate prize after platform fee
+    const platformFee = bounty.bounty_amount * (BOUNTY_CONFIG.PLATFORM_FEE / 100);
+    const prizeAmount = bounty.bounty_amount - platformFee;
+
+    // Award tokens to winner (first responder)
+    const awardSuccess = await addTokens(
+      winningResponse.responder_id,
+      prizeAmount,
+      `Bounty prize - first to recommend winning restaurant (bounty: ${bounty_id})`
+    );
+
+    if (!awardSuccess) {
       return res.status(500).json({
         success: false,
-        error: result?.[0]?.error_message || 'Failed to award prizes'
+        error: 'Failed to award prize tokens'
       });
     }
 
-    const prizeResult = result[0];
+    // Update bounty status and best answer
+    const { error: updateError } = await supabase
+      .from('discovery_requests')
+      .update({
+        status: 'closed',
+        bounty_status: 'awarded',
+        best_answer_id: winningResponse.id,
+        closed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bounty_id);
 
-    if (!prizeResult.success) {
-      return res.status(400).json({
-        success: false,
-        error: prizeResult.error_message
-      });
+    if (updateError) {
+      console.error('❌ Error updating bounty status:', updateError);
+      // Note: Tokens already awarded, so we don't roll back
     }
 
-    console.log(`✅ Prizes awarded for bounty ${bounty_id}`);
+    // Mark response as best answer
+    await supabase
+      .from('discovery_responses')
+      .update({ is_best_answer: true })
+      .eq('id', winningResponse.id);
+
+    // Record transaction
+    try {
+      await supabase
+        .from('bounty_transactions')
+        .insert({
+          bounty_id: bounty_id,
+          transaction_type: 'award',
+          from_user_id: userId,
+          to_user_id: winningResponse.responder_id,
+          amount_boca: prizeAmount,
+          notes: `First responder prize for restaurant ${restaurant_id} (${BOUNTY_CONFIG.PLATFORM_FEE}% fee burned: ${platformFee.toFixed(2)} BOCA)`
+        });
+
+      // Also record the burn
+      await supabase
+        .from('bounty_transactions')
+        .insert({
+          bounty_id: bounty_id,
+          transaction_type: 'burn',
+          from_user_id: userId,
+          to_user_id: null,
+          amount_boca: platformFee,
+          notes: `Platform fee burned (${BOUNTY_CONFIG.PLATFORM_FEE}%)`
+        });
+    } catch (txError) {
+      console.warn('⚠️ Could not log bounty transaction:', txError);
+    }
+
+    console.log(`✅ Bounty ${bounty_id} awarded: ${prizeAmount.toFixed(2)} BOCA to user ${winningResponse.responder_id} (first responder)`);
 
     res.json({
       success: true,
-      message: 'Prizes awarded successfully',
-      total_awarded: prizeResult.total_awarded,
-      total_burned: prizeResult.total_burned,
-      winner_count: prizeResult.winner_count
+      message: 'Bounty awarded to first responder',
+      winning_response_id: winningResponse.id,
+      winner_user_id: winningResponse.responder_id,
+      restaurant_id: restaurant_id,
+      prize_amount: prizeAmount,
+      platform_fee_burned: platformFee,
+      tip_suggestion: 'You can now tip other helpful responses using POST /api/bounty/tip'
     });
 
   } catch (error) {
-    console.error('❌ Error awarding prizes:', error);
+    console.error('❌ Error awarding bounty:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to award prizes'
+      error: 'Failed to award bounty'
+    });
+  }
+});
+
+/**
+ * POST /api/bounty/tip
+ * Tip another response that was helpful (after bounty is awarded)
+ * Tips come from creator's wallet, 100% goes to responder (no burn)
+ */
+router.post('/tip', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    // Validate request
+    const validation = tipResponseSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid tip data. Minimum tip: ${BOUNTY_CONFIG.MIN_TIP} BOCA`,
+        details: validation.error.errors
+      });
+    }
+
+    const { bounty_id, response_id, amount } = validation.data;
+
+    console.log(`💝 POST tip ${amount} BOCA on response ${response_id} in bounty ${bounty_id} by user ${userId}`);
+
+    // Check bounty exists and user is creator
+    const { data: bounty, error: bountyError } = await supabase
+      .from('discovery_requests')
+      .select('id, creator_id, status, bounty_status, best_answer_id')
+      .eq('id', bounty_id)
+      .single();
+
+    if (bountyError || !bounty) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bounty not found'
+      });
+    }
+
+    if (bounty.creator_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Only bounty creator can tip responses'
+      });
+    }
+
+    const currentStatus = bounty.bounty_status || bounty.status;
+    // Bounty must be closed/awarded before tipping other responses
+    if (currentStatus !== 'closed' && currentStatus !== 'awarded') {
+      return res.status(400).json({
+        success: false,
+        error: 'Must award the main bounty before tipping other responses'
+      });
+    }
+
+    // Check response exists and belongs to this bounty
+    const { data: response, error: responseError } = await supabase
+      .from('discovery_responses')
+      .select('id, responder_id, is_best_answer')
+      .eq('id', response_id)
+      .eq('request_id', bounty_id)
+      .single();
+
+    if (responseError || !response) {
+      return res.status(404).json({
+        success: false,
+        error: 'Response not found for this bounty'
+      });
+    }
+
+    // Can't tip the winner (they already got the prize)
+    if (response.is_best_answer) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot tip the winning response - they already received the main prize'
+      });
+    }
+
+    // Can't tip yourself
+    if (response.responder_id === userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot tip your own response'
+      });
+    }
+
+    // Check creator has sufficient balance
+    const balance = await getTokenBalance(userId);
+    if (balance < amount) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient tokens. You have ${balance.toFixed(2)} BOCA, need ${amount.toFixed(2)} BOCA`
+      });
+    }
+
+    // Deduct from creator
+    const deductSuccess = await deductTokens(userId, amount, `Tip for helpful response ${response_id}`);
+    if (!deductSuccess) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to deduct tip from your wallet'
+      });
+    }
+
+    // Credit to responder (100%, no burn on tips)
+    const creditSuccess = await addTokens(response.responder_id, amount, `Tip received for response ${response_id}`);
+    if (!creditSuccess) {
+      // Refund the creator
+      await addTokens(userId, amount, 'Tip failed - refund');
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send tip to responder'
+      });
+    }
+
+    // Record transaction
+    try {
+      await supabase
+        .from('bounty_transactions')
+        .insert({
+          bounty_id: bounty_id,
+          transaction_type: 'tip',
+          from_user_id: userId,
+          to_user_id: response.responder_id,
+          amount_boca: amount,
+          notes: `Tip for helpful response (response_id: ${response_id})`
+        });
+    } catch (txError) {
+      console.warn('⚠️ Could not log tip transaction:', txError);
+    }
+
+    console.log(`✅ Tip sent: ${amount.toFixed(2)} BOCA from ${userId} to ${response.responder_id}`);
+
+    res.json({
+      success: true,
+      message: 'Tip sent successfully',
+      tip_amount: amount,
+      recipient_user_id: response.responder_id,
+      response_id: response_id
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending tip:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to send tip'
     });
   }
 });
 
 /**
  * POST /api/bounty/refund
- * Request refund for expired bounty with no submissions (only requester)
+ * Request refund for expired bounty with no responses (only creator)
  */
 router.post('/refund', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -827,10 +1391,10 @@ router.post('/refund', async (req: AuthenticatedRequest, res: Response) => {
 
     console.log(`💸 POST refund request for bounty ${bounty_id} by user ${userId}`);
 
-    // Check bounty exists and user is requester
+    // Check bounty exists and user is creator
     const { data: bounty, error: bountyError } = await supabase
-      .from('bounty_requests')
-      .select('id, requester_user_id, status')
+      .from('discovery_requests')
+      .select('id, creator_id, bounty_amount, status, bounty_status, expires_at, response_count')
       .eq('id', bounty_id)
       .single();
 
@@ -841,42 +1405,85 @@ router.post('/refund', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    if (bounty.requester_user_id !== userId) {
+    if (bounty.creator_id !== userId) {
       return res.status(403).json({
         success: false,
-        error: 'Only bounty requester can request refund'
+        error: 'Only bounty creator can request refund'
       });
     }
 
-    // Process refund using database function
-    const { data: result, error: refundError } = await supabase
-      .rpc('refund_expired_bounty', {
-        p_bounty_id: bounty_id
-      });
+    // Check and update expiration status
+    const effectiveStatus = await checkAndUpdateExpiredBounty(
+      bounty.id,
+      bounty.bounty_status || bounty.status,
+      bounty.expires_at
+    );
 
-    if (refundError || !result || result.length === 0) {
-      console.error('❌ Error processing refund:', refundError);
+    // Must be expired
+    if (effectiveStatus !== 'expired') {
+      return res.status(400).json({
+        success: false,
+        error: `Bounty must be expired to request refund (current status: ${effectiveStatus})`
+      });
+    }
+
+    // Must have no responses
+    if ((bounty.response_count || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot refund bounty with responses. Please award to a response instead.'
+      });
+    }
+
+    // Process refund (full amount - no fee for expired bounties with no responses)
+    const refundAmount = bounty.bounty_amount;
+
+    const refundSuccess = await addTokens(
+      userId,
+      refundAmount,
+      `Refund for expired bounty ${bounty_id}`
+    );
+
+    if (!refundSuccess) {
       return res.status(500).json({
         success: false,
         error: 'Failed to process refund'
       });
     }
 
-    const refundResult = result[0];
+    // Update bounty status
+    await supabase
+      .from('discovery_requests')
+      .update({
+        status: 'refunded',
+        bounty_status: 'refunded',
+        closed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bounty_id);
 
-    if (!refundResult.success) {
-      return res.status(400).json({
-        success: false,
-        error: refundResult.error_message
-      });
+    // Record transaction
+    try {
+      await supabase
+        .from('bounty_transactions')
+        .insert({
+          bounty_id: bounty_id,
+          transaction_type: 'refund',
+          from_user_id: null,
+          to_user_id: userId,
+          amount_boca: refundAmount,
+          notes: 'Expired bounty with no responses - full refund'
+        });
+    } catch (txError) {
+      console.warn('⚠️ Could not log refund transaction:', txError);
     }
 
-    console.log(`✅ Refund processed for bounty ${bounty_id}`);
+    console.log(`✅ Bounty ${bounty_id} refunded: ${refundAmount} BOCA to user ${userId}`);
 
     res.json({
       success: true,
       message: 'Refund processed successfully',
-      refund_amount: refundResult.refund_amount
+      refund_amount: refundAmount
     });
 
   } catch (error) {
@@ -889,12 +1496,13 @@ router.post('/refund', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * GET /api/bounty/my-bounties
- * Get user's created bounties (requires auth)
+ * DELETE /api/bounty/:id
+ * Cancel a bounty (only if no responses and not expired)
  */
-router.get('/my-bounties', async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.id;
+    const bountyId = req.params.id;
 
     if (!userId) {
       return res.status(401).json({
@@ -903,128 +1511,100 @@ router.get('/my-bounties', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-    const offset = parseInt(req.query.offset as string) || 0;
+    console.log(`🗑️ DELETE bounty ${bountyId} by user ${userId}`);
 
-    console.log(`📊 GET my bounties for user: ${userId}`);
+    // Check bounty exists and user is creator
+    const { data: bounty, error: bountyError } = await supabase
+      .from('discovery_requests')
+      .select('id, creator_id, bounty_amount, status, bounty_status, response_count')
+      .eq('id', bountyId)
+      .single();
 
-    const { data: bounties, error, count } = await supabase
-      .from('bounty_requests')
-      .select(`
-        id,
-        title,
-        stake_amount_boca,
-        deadline_at,
-        status,
-        submission_count,
-        winner_count,
-        total_distributed_boca,
-        created_at
-      `, { count: 'exact' })
-      .eq('requester_user_id', userId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      console.error('❌ Error fetching user bounties:', error);
-      return res.status(500).json({
+    if (bountyError || !bounty) {
+      return res.status(404).json({
         success: false,
-        error: 'Failed to fetch bounties'
+        error: 'Bounty not found'
       });
     }
+
+    if (bounty.creator_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Only bounty creator can cancel'
+      });
+    }
+
+    const currentStatus = bounty.bounty_status || bounty.status;
+    if (currentStatus !== 'open' && currentStatus !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot cancel bounty with status: ${currentStatus}`
+      });
+    }
+
+    if ((bounty.response_count || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot cancel bounty that has responses'
+      });
+    }
+
+    // Refund tokens
+    const refundSuccess = await addTokens(
+      userId,
+      bounty.bounty_amount,
+      `Bounty cancelled - refund for ${bountyId}`
+    );
+
+    if (!refundSuccess) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to refund tokens'
+      });
+    }
+
+    // Update status to cancelled
+    await supabase
+      .from('discovery_requests')
+      .update({
+        status: 'cancelled',
+        bounty_status: 'cancelled',
+        closed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bountyId);
+
+    // Record transaction
+    try {
+      await supabase
+        .from('bounty_transactions')
+        .insert({
+          bounty_id: bountyId,
+          transaction_type: 'cancel',
+          from_user_id: null,
+          to_user_id: userId,
+          amount_boca: bounty.bounty_amount,
+          notes: 'Bounty cancelled by creator - full refund'
+        });
+    } catch (txError) {
+      console.warn('⚠️ Could not log cancel transaction:', txError);
+    }
+
+    console.log(`✅ Bounty ${bountyId} cancelled, ${bounty.bounty_amount} BOCA refunded`);
 
     res.json({
       success: true,
-      bounties: bounties || [],
-      pagination: {
-        limit,
-        offset,
-        total: count || 0,
-        has_more: (offset + limit) < (count || 0)
-      }
+      message: 'Bounty cancelled and tokens refunded',
+      refund_amount: bounty.bounty_amount
     });
 
   } catch (error) {
-    console.error('❌ Error fetching user bounties:', error);
+    console.error('❌ Error cancelling bounty:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch bounties'
+      error: 'Failed to cancel bounty'
     });
   }
 });
-
-/**
- * GET /api/bounty/my-submissions
- * Get user's submitted solutions (requires auth)
- */
-router.get('/my-submissions', async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required'
-      });
-    }
-
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-    const offset = parseInt(req.query.offset as string) || 0;
-
-    console.log(`📊 GET my submissions for user: ${userId}`);
-
-    const { data: submissions, error, count } = await supabase
-      .from('bounty_submissions')
-      .select(`
-        id,
-        is_winner,
-        prize_amount_boca,
-        created_at,
-        bounty:bounty_id (
-          id,
-          title,
-          stake_amount_boca,
-          status
-        ),
-        recommendation:recommendation_id (
-          id,
-          title
-        )
-      `, { count: 'exact' })
-      .eq('submitter_user_id', userId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      console.error('❌ Error fetching user submissions:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to fetch submissions'
-      });
-    }
-
-    res.json({
-      success: true,
-      submissions: submissions || [],
-      pagination: {
-        limit,
-        offset,
-        total: count || 0,
-        has_more: (offset + limit) < (count || 0)
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error fetching user submissions:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch submissions'
-    });
-  }
-});
-
-// =============================================================================
-// EXPORT
-// =============================================================================
 
 export default router;

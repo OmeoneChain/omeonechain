@@ -175,37 +175,36 @@
   },
 
   "singleScreen": {
-    "restaurantLabel": "Restaurant",
-    "title": "New Recommendation",
-    "subtitle": "Rate it, add details, and publish",
-    "publishHint": "Tip: Some bonuses are unlocked through validation and community engagement",
-    "restaurant": {
-      "change": "Change"
-    },
-    "sections": {
-      "photos": "Photos",
-      "dishes": "Individual Dishes",
-      "aspects": "Restaurant Aspects",
-      "context": "Visit Context",
-      "labels": "Labels",
-      "comments": "Comments"
-    },
-    "sectionSubtitle": {
-      "comments": "Add optional comments about your experience"
-    },
-
-    "optional": "optional",
-
-    "publish": {
-      "button": "Publish & earn {tokens} tokens",
-      "publishing": "Publishing...",
-      "bonusEarned": "Bonus earned for extra details!",
-      "disabledReason": {
-        "noRestaurant": "Select a restaurant to publish",
-        "noRating": "Add a rating to publish"
-      }
+  "title": "Criar uma Recomendação",
+  "subtitle": "Avalie, adicione detalhes e publique",
+  "restaurantLabel": "Restaurante",
+  "optional": "opcional",
+  "publishHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
+  "restaurant": {
+    "change": "Alterar"
+  },
+  "publish": {
+    "bonusHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
+    "publishing": "Publicando...",
+    "button": "Publicar e ganhar {tokens} tokens",
+    "bonusEarned": "Bônus disponível após validação.",
+    "disabledReason": {
+      "noRestaurant": "Selecione um restaurante para publicar",
+      "noRating": "Adicione uma avaliação para publicar"
     }
   },
+  "sections": {
+    "photos": "Fotos",
+    "dishes": "Pratos Individuais",
+    "aspects": "Aspectos do Restaurante",
+    "context": "Contexto da Visita",
+    "labels": "Etiquetas",
+    "comments": "Comentários"
+  },
+  "sectionSubtitle": {
+    "comments": "Adicione comentários opcionais sobre sua experiência"
+  }
+},
 
   "photos": {
     "tagging": {
@@ -287,7 +286,12 @@
       "found": "Location: {address}",
       "unavailable": "Location unavailable",
       "ready": "Location services ready",
-      "retry": "Retry location"
+      "retry": "Retry location",
+      "addPhoto": "Add Photo",
+      "tapOrDrag": "Tap or drag & drop",
+      "processing": "Processing...",
+      "takePhoto": "Take Photo",
+      "fromGallery": "From Gallery"
     },
     "errors": {
       "couldNotGetAddress": "Could not get address",

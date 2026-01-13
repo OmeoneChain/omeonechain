@@ -1,5 +1,5 @@
-// IOTA Rebased Testnet Configuration - UPDATED November 12, 2025
-// BocaBoca Token System v0.8 - Complete 9-module deployment
+// IOTA Rebased Testnet Configuration - UPDATED January 2026
+// BocaBoca Token System v1.1 - Phone-first auth, no escrow
 
 export const IOTA_TESTNET_CONFIG = {
   // Network Configuration
@@ -25,7 +25,8 @@ export const IOTA_TESTNET_CONFIG = {
     queryEvents: 'iota_queryEvents',
   },
   
-  // 🚀 LIVE DEPLOYED CONTRACTS - November 12, 2025 (9 modules operational!)
+  // 🚀 LIVE DEPLOYED CONTRACTS - Updated January 2026
+  // Note: escrow and email_escrow contracts are DEPRECATED (kept for reference)
   contracts: {
     // ========== LAYER 1: BASE INFRASTRUCTURE ==========
     
@@ -54,7 +55,7 @@ export const IOTA_TESTNET_CONFIG = {
       }
     },
     
-    // User Status - Tier system (replaces old reputation contract)
+    // User Status - Tier system (v1.1 - updated rate limits)
     user_status: {
       packageId: '0x36b7e8497d3210ab5697700f866654d8e8179f7d0b6c31a8195452344a9394f1',
       module: 'user_status',
@@ -71,20 +72,21 @@ export const IOTA_TESTNET_CONFIG = {
         add_connection: 'add_connection',
         get_spam_status: 'get_spam_status'
       },
+      // UPDATED v1.1: Rate limits increased, escrow removed
       tiers: {
         new: {
           name: 'New',
           minDays: 0,
           maxDays: 6,
           engagementWeight: 0.5,
-          rateLimit: 5,
-          escrowRequired: true
+          rateLimit: 10,              // UPDATED: was 5
+          escrowRequired: false       // UPDATED: was true (escrow removed)
         },
         established: {
           name: 'Established',
           minDays: 7,
           engagementWeight: 1.0,
-          rateLimit: 5,
+          rateLimit: 10,              // UPDATED: was 5
           escrowRequired: false
         },
         trusted: {
@@ -92,25 +94,29 @@ export const IOTA_TESTNET_CONFIG = {
           minDays: 30,
           minValidatedRecs: 3,
           engagementWeight: 1.5,
-          rateLimit: 5,
+          rateLimit: 10,              // UPDATED: was 5
           escrowRequired: false,
           governanceVoting: true
         }
       },
+      // UPDATED v1.1: Higher limits for better UX
       rateLimits: {
-        standard: 5,        // recommendations per day
-        boost: 10,          // on registration day or wallet upgrade day
-        penalty: 3,         // when spam flagged
+        standard: 10,       // UPDATED: was 5 - recommendations per day
+        boost: 20,          // UPDATED: was 10 - registration day only
+        penalty: 3,         // unchanged - when spam flagged
         resetHour: 0        // UTC midnight
       }
     },
     
-    // ========== LAYER 2: CORE MECHANICS ==========
+    // ========== LAYER 2: DEPRECATED CONTRACTS ==========
+    // Note: These contracts exist on testnet but are no longer used in v1.1
+    // Phone verification replaces escrow as spam prevention mechanism
     
-    // Escrow - 7-day hold for New tier users
+    // Escrow - DEPRECATED (kept for testnet reference only)
     escrow: {
       packageId: '0x0b8aca5827456ac537829f01637a93a79fb9d3401ac513c028c4a25f75d6d21e',
       module: 'escrow',
+      status: 'DEPRECATED', // v1.1: No longer used - phone auth provides spam resistance
       functions: {
         create_escrow: 'create_escrow',
         release_escrow: 'release_escrow',
@@ -120,18 +126,17 @@ export const IOTA_TESTNET_CONFIG = {
         check_release_eligibility: 'check_release_eligibility'
       },
       config: {
-        holdDuration: 7,              // days
+        holdDuration: 7,              // days (no longer enforced)
         reporterRewardPercent: 10,    // 10% to spam reporter
         burnPercent: 90               // 90% burned on forfeiture
       }
     },
     
-    // ========== LAYER 3: EXTENDED FEATURES ==========
-    
-    // Email Escrow - Additional escrow for email verification (NEW module)
+    // Email Escrow - DEPRECATED (email auth disabled)
     email_escrow: {
       packageId: '0x9fba0f28e326d8bbfdbcbb6ee03f07a41a8a903bde063c08839424edb53590db',
       module: 'email_escrow',
+      status: 'DEPRECATED', // v1.1: Email auth disabled, phone-first model
       functions: {
         create_email_escrow: 'create_email_escrow',
         verify_email: 'verify_email',
@@ -144,7 +149,7 @@ export const IOTA_TESTNET_CONFIG = {
       }
     },
     
-    // ========== LAYER 4: ADVANCED SYSTEMS ==========
+    // ========== LAYER 3: ACTIVE CONTRACTS ==========
     
     // Rewards - Token reward distribution and calculation
     rewards: {
@@ -176,7 +181,7 @@ export const IOTA_TESTNET_CONFIG = {
       }
     },
     
-    // ========== LAYER 5: PLATFORM FEATURES ==========
+    // ========== LAYER 4: PLATFORM FEATURES ==========
     
     // Recommendation - Core content creation with unified engagement
     recommendation: {
@@ -200,7 +205,7 @@ export const IOTA_TESTNET_CONFIG = {
       }
     },
     
-    // ========== LAYER 6: COMMUNITY APPS ==========
+    // ========== LAYER 5: COMMUNITY APPS ==========
     
     // Lottery - Weekly engagement-based drawing
     lottery: {
@@ -267,7 +272,7 @@ export const IOTA_TESTNET_CONFIG = {
       }
     },
     
-    // Bounty System - User-pledged rewards (NEW module)
+    // Bounty System - User-pledged rewards
     bounty: {
       packageId: '0xd297c8d6cbccba453fdf96870c5e2e94d87a71a3ec473465e52e9f8c542b9d54',
       module: 'bounty',
@@ -288,13 +293,13 @@ export const IOTA_TESTNET_CONFIG = {
       }
     },
     
-    // ========== NOT UPDATED YET ==========
+    // ========== LAYER 6: GOVERNANCE (LEGACY) ==========
     
     // Governance - Needs simplification, keeping old contract
     governance: {
       packageId: '0x7429a0ec403c1ea8cc33637c946983047404f13e2e2ae801cbfe5df6b067b39a',
       module: 'governance',
-      status: 'legacy', // Marked as legacy, needs v0.8 update
+      status: 'legacy', // Marked as legacy, needs v1.1 update
       functions: {
         create_proposal: 'create_proposal',
         vote: 'vote',
@@ -302,7 +307,7 @@ export const IOTA_TESTNET_CONFIG = {
         get_proposal: 'get_proposal',
         get_voting_power: 'get_voting_power'
       },
-      note: 'This contract needs simplification for v0.8. Current version is complex staking-based governance. Need simplified tier-based governance for Trusted users.'
+      note: 'This contract needs simplification for v1.1. Current version is complex staking-based governance. Need simplified tier-based governance for Trusted users.'
     }
   },
   
@@ -321,7 +326,7 @@ export const IOTA_TESTNET_CONFIG = {
     }
   },
   
-  // Tier System Configuration (replaces trust score)
+  // Tier System Configuration (v1.1 - no escrow)
   tierSystem: {
     tiers: ['new', 'established', 'trusted'],
     requirements: {
@@ -334,17 +339,18 @@ export const IOTA_TESTNET_CONFIG = {
       established: 1.0,
       trusted: 1.5
     },
+    // UPDATED v1.1: Removed escrow from New tier benefits
     benefits: {
-      new: ['Basic participation', '7-day escrow on rewards'],
-      established: ['Immediate rewards', 'Standard engagement weight'],
-      trusted: ['Enhanced engagement weight', 'Governance voting', 'Priority features']
+      new: ['Basic participation', 'Immediate rewards (0.5x weight)', '20 recs on registration day'],
+      established: ['Immediate rewards (1.0x weight)', 'Standard engagement weight'],
+      trusted: ['Enhanced engagement weight (1.5x)', 'Governance voting', 'Priority features']
     }
   },
   
-  // Reward Economics
+  // Reward Economics (UPDATED v1.1)
   rewardEconomics: {
     daily: {
-      recommendations: 5,           // per user
+      recommendations: 10,          // UPDATED: was 5 - per user
       estimatedUsers: 1000,         // Year 1 estimate
       avgRewardPerRec: 0.375       // BOCA (weighted average)
     },
@@ -507,19 +513,22 @@ export class IOTATestnetClient {
       chainId,
       latestCheckpoint: parseInt(latestCheckpoint),
       isHealthy: contractsHealthy,
-      contractsDeployed: 9, // Updated to 9 modules
+      contractsDeployed: 10, // Total modules on testnet
+      activeContracts: 8,    // Active in v1.1 (excludes escrow, email_escrow)
       timestamp: new Date().toISOString(),
       contracts: {
+        // Active
         token: IOTA_TESTNET_CONFIG.contracts.token.packageId,
         user_status: IOTA_TESTNET_CONFIG.contracts.user_status.packageId,
-        escrow: IOTA_TESTNET_CONFIG.contracts.escrow.packageId,
-        email_escrow: IOTA_TESTNET_CONFIG.contracts.email_escrow.packageId,
         rewards: IOTA_TESTNET_CONFIG.contracts.rewards.packageId,
         recommendation: IOTA_TESTNET_CONFIG.contracts.recommendation.packageId,
         lottery: IOTA_TESTNET_CONFIG.contracts.lottery.packageId,
         photo_contest: IOTA_TESTNET_CONFIG.contracts.photo_contest.packageId,
         bounty: IOTA_TESTNET_CONFIG.contracts.bounty.packageId,
-        governance: IOTA_TESTNET_CONFIG.contracts.governance.packageId + ' (legacy)'
+        governance: IOTA_TESTNET_CONFIG.contracts.governance.packageId + ' (legacy)',
+        // Deprecated
+        escrow: IOTA_TESTNET_CONFIG.contracts.escrow.packageId + ' (DEPRECATED)',
+        email_escrow: IOTA_TESTNET_CONFIG.contracts.email_escrow.packageId + ' (DEPRECATED)'
       }
     };
   }
@@ -530,15 +539,16 @@ export const testnetClient = new IOTATestnetClient();
 
 // Test function with contract validation
 export async function testIOTAConnection(): Promise<void> {
-  console.log('🔗 Testing IOTA Rebased testnet connection with BocaBoca v0.8 contracts...');
+  console.log('🔗 Testing IOTA Rebased testnet connection with BocaBoca v1.1 contracts...');
   
   try {
     const status = await testnetClient.getNetworkStatus();
     console.log('✅ Connection successful!');
     console.log('📊 Network Status:', status);
-    console.log('🚀 Smart Contracts (9 modules):', status.contracts);
+    console.log('🚀 Active Smart Contracts (8 modules):', status.contracts);
     console.log('💰 BOCA Token: 6 decimal precision');
-    console.log('👥 Tier System: New/Established/Trusted');
+    console.log('👥 Tier System: New/Established/Trusted (no escrow)');
+    console.log('📱 Auth Model: Phone-first (mobile) / Wallet (web)');
   } catch (error) {
     console.error('❌ Connection failed:', error);
   }

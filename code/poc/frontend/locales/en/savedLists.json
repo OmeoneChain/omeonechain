@@ -1,0 +1,253 @@
+{
+  "title": "My Saved Lists",
+  "subtitle": "Organize your favorite restaurants",
+  "pageTitle": "My Saved Lists",
+  "pageDescription": "Organize your favorite places, bookmarks, and guides",
+  "createNew": "Create New List",
+  "createNewList": "Create New List",
+  "createFirstList": "Create Your First List",
+  
+  "tabs": {
+    "all": "All Saved Lists",
+    "places": "Personal Lists",
+    "guides": "Curated Lists"
+  },
+  
+  "emptyState": {
+    "title": "No saved lists yet",
+    "description": "Start organizing your favorite restaurants by creating your first list!"
+  },
+  
+  "empty": {
+    "all": "No saved lists yet",
+    "places": "No personal lists yet",
+    "guides": "No curated lists yet",
+    "description": "Create your first list to start organizing your favorite restaurants and discoveries."
+  },
+  
+  "error": {
+    "title": "Error loading lists",
+    "tryAgain": "Try again"
+  },
+  
+  "listTypes": {
+    "places": "Places to Try",
+    "bookmarks": "Bookmarks",
+    "collection": "Collection",
+    "list": "List"
+  },
+  
+  "privacy": {
+    "public": "Public",
+    "private": "Private"
+  },
+  
+  "time": {
+    "justNow": "Just now",
+    "hoursAgo": "{hours}h ago",
+    "yesterday": "Yesterday",
+    "daysAgo": "{days}d ago"
+  },
+  
+  "restaurantCount": "{count, plural, =0 {No restaurants} =1 {1 restaurant} other {# restaurants}}",
+  "byYou": "By you",
+  "viewList": "View List",
+  "linkCopied": "Link copied to clipboard!",
+  
+  "actions": {
+    "edit": "Edit",
+    "share": "Share",
+    "delete": "Delete",
+    "addRestaurant": "Add Restaurant"
+  },
+  
+  "deleteConfirm": "Delete \"{name}\"? This cannot be undone.",
+  
+  "detail": {
+    "backToLists": "Back to My Saved Lists",
+    "restaurants": "Restaurants",
+    "created": "Created",
+    "updated": "Updated",
+    "editList": "Edit List",
+    "publishCuratedList": "Publish Curated List",
+    "noRestaurants": {
+      "title": "No restaurants yet",
+      "description": "Start adding your favorite spots to this list!",
+      "addButton": "Add Restaurants"
+    },
+    "listNotFound": {
+      "title": "List not found",
+      "description": "Failed to fetch list"
+    },
+    "loading": "Loading your list..."
+  },
+  
+  "edit": {
+    "title": "Edit List",
+    "fields": {
+      "icon": {
+        "label": "List Icon",
+        "hint": "Click to change icon"
+      },
+      "name": {
+        "label": "List Name",
+        "placeholder": "Enter list name..."
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Add a description for your list..."
+      },
+      "notes": {
+        "label": "Notes (Draft)",
+        "placeholder": "Add notes for your curated guide...",
+        "hint": "These notes will be included when you publish as a curated list."
+      }
+    },
+    "restaurants": {
+      "title": "Restaurants ({count})",
+      "addButton": "Add",
+      "removeButton": "Remove",
+      "empty": "No restaurants added yet. Start building your list!",
+      "search": {
+        "title": "Search Restaurant",
+        "placeholder": "Search for a restaurant to add...",
+        "hint": "Search by name or location"
+      }
+    },
+    "actions": {
+      "save": "Save Changes",
+      "saving": "Saving..."
+    },
+    "validation": {
+      "nameRequired": "List name is required"
+    },
+    "errors": {
+      "updateFailed": "Failed to update list. Please try again.",
+      "removeFailed": "Failed to remove restaurant. Please try again.",
+      "addFailed": "Failed to add restaurant. Please try again."
+    }
+  },
+  
+  "form": {
+    "title": "Create New List",
+    "fields": {
+      "name": {
+        "label": "List Name",
+        "placeholder": "e.g., Best Pizza in Town, Date Night Spots..."
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "What's this list about?"
+      }
+    },
+    "actions": {
+      "create": "Create List",
+      "creating": "Creating..."
+    },
+    "validation": {
+      "nameRequired": "Please enter a name for your list"
+    },
+    "errors": {
+      "createFailed": "Failed to create list. Please try again."
+    }
+  },
+  
+  "modal": {
+    "title": {
+      "create": "Create New List",
+      "restaurant": "Save Restaurant to List",
+      "recommendation": "Save Recommendation to List",
+      "guide": "Save Guide to List"
+    },
+    "loading": "Loading your lists...",
+    "itemCount": "{count, plural, =0 {No items} =1 {1 item} other {# items}}",
+    "alreadySaved": "Saved",
+    "empty": {
+      "title": "No lists yet",
+      "description": "Create your first list to start saving items!"
+    },
+    "fields": {
+      "nameRequired": "List Name *",
+      "namePlaceholder": "e.g., Date Night Spots",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "What's this list for?"
+    },
+    "actions": {
+      "createNew": "Create New List",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "create": "Create List",
+      "creating": "Creating..."
+    },
+    "toast": {
+      "saved": "Saved to list!",
+      "saveFailed": "Failed to save. Please try again.",
+      "loadFailed": "Failed to load lists. Please try again.",
+      "createdAndSaved": "Created \"{name}\" and saved!",
+      "saveToNewFailed": "List created but failed to save item. Please try again."
+    }
+  },
+  
+  "publish": {
+    "title": "Publish Curated List",
+    "success": "\"{title}\" has been published successfully!",
+    "footerNote": "Your guide will be visible to the community",
+    "infoBanner": {
+      "title": "Share your recommendations",
+      "description": "Publishing your list makes it a public food guide that others can discover, save, and follow. You can edit or unpublish it anytime."
+    },
+    "fields": {
+      "title": {
+        "label": "Guide Title",
+        "placeholder": "Give your guide a catchy title..."
+      },
+      "description": {
+        "label": "Description",
+        "placeholder": "Tell people what makes this guide special...",
+        "hintPrefilled": "Pre-filled from your list notes",
+        "hintEmpty": "Add a description to help people discover your guide"
+      },
+      "category": {
+        "label": "Category",
+        "options": {
+          "restaurants": "Restaurants",
+          "cafes": "Cafés",
+          "bars": "Bars",
+          "quickBites": "Quick Bites",
+          "fineDining": "Fine Dining",
+          "localFavorites": "Local Favorites"
+        }
+      },
+      "city": {
+        "label": "City"
+      },
+      "bestFor": {
+        "label": "Best For",
+        "placeholder": "e.g., Date nights, Business lunch, Family..."
+      },
+      "tags": {
+        "label": "Tags",
+        "placeholder": "e.g., Italian, Outdoor seating, Budget-friendly...",
+        "hint": "Separate tags with commas"
+      }
+    },
+    "preview": {
+      "title": "Preview",
+      "restaurantsIncluded": "Restaurants included",
+      "restaurantCount": "{count, plural, =1 {1 restaurant} other {# restaurants}}",
+      "moreRestaurants": "...and {count} more"
+    },
+    "actions": {
+      "publish": "Publish Guide",
+      "publishing": "Publishing..."
+    },
+    "validation": {
+      "titleRequired": "Please enter a title for your guide",
+      "emptyList": "Add at least one restaurant before publishing"
+    },
+    "errors": {
+      "notLoggedIn": "Please log in to publish guides",
+      "publishFailed": "Failed to publish guide. Please try again."
+    }
+  }
+}

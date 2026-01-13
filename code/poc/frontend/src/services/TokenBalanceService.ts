@@ -26,6 +26,7 @@ export class TokenBalanceService {
   private config: TokenBalanceConfig;
   private cache = new Map<string, TokenBalanceResult>();
   private refreshTimers = new Map<string, NodeJS.Timeout>();
+  private pendingRequests = new Map<string, Promise<TokenBalanceResult>>(); 
   private listeners = new Set<(balance: number) => void>();
   
   // CRITICAL: Backend stores as BOCA (not base units)
@@ -59,12 +60,29 @@ export class TokenBalanceService {
       return cached;
     }
 
+    const pending = this.pendingRequests.get(cacheKey);
+    if (pending) {
+      console.log('⏳ Request already in-flight, waiting...');
+      return pending;
+    }
+
     // If mock mode is enabled, return mock data
     if (this.config.enableMock) {
       console.log('🔧 Mock mode enabled, returning mock balance');
       return this.createMockResult(userId);
     }
 
+    const requestPromise = this._fetchBalance(userId, cacheKey);
+    this.pendingRequests.set(cacheKey, requestPromise);
+    
+    try {
+      return await requestPromise;
+    } finally {
+      this.pendingRequests.delete(cacheKey);
+    }
+  }
+
+  private async _fetchBalance(userId: string, cacheKey: string): Promise<TokenBalanceResult> {
     let retryCount = 0;
     while (retryCount < this.config.maxRetries) {
       try {

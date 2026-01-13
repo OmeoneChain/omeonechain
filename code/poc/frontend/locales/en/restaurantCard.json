@@ -1,0 +1,30 @@
+{
+  "trust": {
+    "fromNetwork": "from your network",
+    "similarTastes": "similar tastes recommend",
+    "fromCommunity": "community recommendations",
+    "beFirst": "Be the first!",
+    "tooltip": "{count, plural, =1 {1 person you trust recommends this place} other {# people you trust recommend this place}}"
+  },
+  "trustScore": {
+    "label": "Trust Score",
+    "excellent": "Excellent",
+    "veryGood": "Very Good",
+    "good": "Good",
+    "average": "Average",
+    "tooltipFull": "Based on {count} recommendations from the community",
+    "tooltipShort": "Based on {count} recommendations"
+  },
+  "badges": {
+    "verified": "Verified"
+  },
+  "stats": {
+    "recommendations": "{count} recommendations"
+  },
+  "topRecommendation": {
+    "by": "by {author}"
+  },
+  "actions": {
+    "viewRecommendations": "View Recommendations"
+  }
+}

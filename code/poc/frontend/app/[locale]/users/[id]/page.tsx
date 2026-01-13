@@ -1,5 +1,6 @@
 // File: code/poc/frontend/app/users/[id]/page.tsx
 // Updated to use the enhanced UserProfile component with profile editing
+// Dark mode support added
 
 'use client';
 
@@ -19,7 +20,7 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
   const { user: currentUser } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#1F1E2A]">
       {/* Header */}
       <CleanHeader currentPath={`/users/${userId}`} />
       

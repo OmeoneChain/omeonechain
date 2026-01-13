@@ -7,12 +7,13 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 
 interface CommentInputProps {
-  recommendationId: string;
+  recommendationId?: string;
   parentCommentId?: string;
   placeholder?: string;
   autoFocus?: boolean;
   onSubmit: (content: string) => Promise<void>;
   onCancel?: () => void;
+  isLoading?: boolean;
   currentUser?: {
     avatar?: string;
     display_name?: string;
@@ -28,6 +29,7 @@ const CommentInput: React.FC<CommentInputProps> = ({
   autoFocus = false,
   onSubmit,
   onCancel,
+  isLoading = false,
   currentUser,
   replyingTo
 }) => {
@@ -106,12 +108,12 @@ const CommentInput: React.FC<CommentInputProps> = ({
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex gap-3 ${isReply ? 'ml-8 pl-4 border-l-2 border-gray-200' : ''}`}
+      className={`flex gap-3 ${isReply ? 'ml-8 pl-4 border-l-2 border-gray-200 dark:border-[#3D3C4A]' : ''}`}
     >
       {/* User Avatar */}
       {currentUser && (
         <div className="flex-shrink-0">
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-[#353444]">
             {currentUser.avatar ? (
               <Image
                 src={currentUser.avatar}
@@ -121,7 +123,7 @@ const CommentInput: React.FC<CommentInputProps> = ({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-coral text-white text-sm font-medium">
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#FF644A] to-[#E65441] text-white text-sm font-medium">
                 {(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}
               </div>
             )}
@@ -134,16 +136,16 @@ const CommentInput: React.FC<CommentInputProps> = ({
         <div className="relative">
           {/* Reply indicator */}
           {replyingTo && (
-            <div className="mb-2 text-sm text-gray-600 flex items-center gap-2">
+            <div className="mb-2 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
               <span>
                 {t('comments.labels.replyingTo', { name: '' })}
-                <span className="font-medium text-coral">@{replyingTo}</span>
+                <span className="font-medium text-[#FF644A]">@{replyingTo}</span>
               </span>
               {onCancel && (
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <X size={14} />
                 </button>
@@ -159,17 +161,17 @@ const CommentInput: React.FC<CommentInputProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={inputPlaceholder}
             rows={1}
-            className="comment-input"
-            disabled={isSubmitting}
+            className="w-full px-4 py-3 bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#4D4C5A] rounded-lg resize-none text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF644A] focus:border-[#FF644A] transition-all"
+            disabled={isSubmitting || isLoading}
           />
           
           {/* Character count and submit */}
           <div className="mt-2 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className={`text-xs ${charCount > maxChars * 0.9 ? 'text-red-500' : 'text-gray-500'}`}>
+              <span className={`text-xs ${charCount > maxChars * 0.9 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
                 {charCount}/{maxChars}
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-400 dark:text-gray-500">
                 {t('comments.hint.submitShortcut')}
               </span>
             </div>
@@ -179,7 +181,7 @@ const CommentInput: React.FC<CommentInputProps> = ({
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors"
+                  className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium transition-colors"
                   disabled={isSubmitting}
                 >
                   {t('comments.actions.cancel')}
@@ -188,17 +190,17 @@ const CommentInput: React.FC<CommentInputProps> = ({
               
               <motion.button
                 type="submit"
-                disabled={!content.trim() || isSubmitting}
+                disabled={!content.trim() || isSubmitting || isLoading}
                 className={`px-4 py-1.5 rounded-lg font-medium text-sm flex items-center gap-2 transition-all ${
-                  content.trim() && !isSubmitting
-                    ? 'bg-coral text-white hover:bg-coral-dark'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  content.trim() && !isSubmitting && !isLoading
+                    ? 'bg-[#FF644A] text-white hover:bg-[#E65441]'
+                    : 'bg-gray-200 dark:bg-[#4D4C5A] text-gray-400 dark:text-gray-500 cursor-not-allowed'
                 }`}
-                whileTap={content.trim() && !isSubmitting ? { scale: 0.95 } : {}}
+                whileTap={content.trim() && !isSubmitting && !isLoading ? { scale: 0.95 } : {}}
               >
-                {isSubmitting ? (
+                {isSubmitting || isLoading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                     <span>{t('comments.actions.posting')}</span>
                   </>
                 ) : (

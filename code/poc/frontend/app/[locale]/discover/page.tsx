@@ -1,9 +1,10 @@
 // File: code/poc/frontend/app/[locale]/discover/page.tsx
+// UPDATED: Added dark mode support throughout
 // UPDATED: Added ListSearch component to Curated Lists tab
-// UPDATED: Added Requests tab header with prominent Create Request button
+// UPDATED: Added RequestSearch component to Requests tab
+// UPDATED: Requests tab header with prominent Create Request button
 // UPDATED: Context-aware Quick Actions sidebar - primary button changes based on active tab
-// Search supports: list titles, locations, cuisines, tags, creator names, restaurant names
-// Brand colors applied - Warm Coral, Midnight Navy, Soft Cream
+// UPDATED: Sort discovery requests - Open first (newest), then by bounty, then answered/closed
 
 'use client';
 
@@ -15,6 +16,7 @@ import { useAuth, useAuthenticatedFetch } from '@/hooks/useAuth';
 import CleanHeader from '@/components/CleanHeader';
 import ListCard from '@/components/ListCard';
 import ListSearch from '@/components/discover/ListSearch';
+import RequestSearch, { RequestFilters } from '@/components/discover/RequestSearch';
 import CreateListFlow from '@/components/lists/CreateListFlow';
 import MapView from '@/components/discover/MapView';
 import RequestCard from '@/components/discover/RequestCard';
@@ -39,9 +41,18 @@ const DiscoverPage = () => {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // NEW: Search state for Curated Lists
+  // Search state for Curated Lists
   const [listSearchQuery, setListSearchQuery] = useState('');
   const [isSearchingLists, setIsSearchingLists] = useState(false);
+
+  // Search/filter state for Requests
+  const [requestFilters, setRequestFilters] = useState<RequestFilters>({
+    query: '',
+    status: 'all',
+    hasBounty: null,
+    budget: 'all',
+  });
+  const [isSearchingRequests, setIsSearchingRequests] = useState(false);
 
   const [showCreateListModal, setShowCreateListModal] = useState(false);
   const [showCreateRequestModal, setShowCreateRequestModal] = useState(false);
@@ -55,25 +66,21 @@ const DiscoverPage = () => {
     followers_count: number;
   } | null>(null);
 
-  // API_BASE_URL already includes /api, so don't add it again in fetch calls
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api';
 
-  // NEW: Filter function for searching lists
-  // Searches across: title, description, location, cuisine/category, tags, author name, restaurant names
+  // Filter function for searching lists
   const filterListsByQuery = useCallback((lists: any[], query: string): any[] => {
     if (!query.trim()) return lists;
     
     const searchTerms = query.toLowerCase().trim().split(/\s+/);
     
     return lists.filter(list => {
-      // Build searchable text from all relevant fields
       const searchableFields = [
         list.title || '',
         list.description || '',
-        list.best_for || '', // tags stored as comma-separated string
+        list.best_for || '',
         list.author?.display_name || '',
         list.author?.username || '',
-        // Search restaurant data within the list
         ...(list.restaurants || []).map((r: any) => [
           r.name || '',
           r.city || '',
@@ -83,28 +90,87 @@ const DiscoverPage = () => {
         ].join(' ')),
       ].join(' ').toLowerCase();
       
-      // All search terms must match somewhere in the searchable text
       return searchTerms.every(term => searchableFields.includes(term));
     });
   }, []);
 
-  // NEW: Memoized filtered lists based on search query
+  // Memoized filtered lists based on search query
   const filteredLists = useMemo(() => {
     return filterListsByQuery(curatedLists, listSearchQuery);
   }, [curatedLists, listSearchQuery, filterListsByQuery]);
 
-  // NEW: Search handler
+  // Filter function for requests
+  const filterRequests = useCallback((requests: any[], filters: RequestFilters): any[] => {
+    return requests.filter(req => {
+      // Text search across multiple fields
+      if (filters.query.trim()) {
+        const searchTerms = filters.query.toLowerCase().trim().split(/\s+/);
+        const searchableText = [
+          req.title || '',
+          req.description || '',
+          req.location || '',
+          req.cuisine_type || '',
+          req.occasion || '',
+          req.creator?.display_name || '',
+          req.creator?.username || '',
+        ].join(' ').toLowerCase();
+        
+        if (!searchTerms.every(term => searchableText.includes(term))) {
+          return false;
+        }
+      }
+
+      // Status filter
+      if (filters.status !== 'all') {
+        const reqStatus = req.status?.toLowerCase();
+        if (filters.status === 'open' && reqStatus !== 'open') return false;
+        if (filters.status === 'answered' && reqStatus !== 'answered') return false;
+        if (filters.status === 'closed' && reqStatus !== 'closed' && reqStatus !== 'expired') return false;
+      }
+
+      // Bounty filter
+      if (filters.hasBounty === true) {
+        const bountyAmount = req.stake_amount || req.bounty_amount || 0;
+        if (bountyAmount <= 0) return false;
+      }
+      if (filters.hasBounty === false) {
+        const bountyAmount = req.stake_amount || req.bounty_amount || 0;
+        if (bountyAmount > 0) return false;
+      }
+
+      // Budget filter
+      if (filters.budget !== 'all') {
+        const reqBudget = req.budget || req.price_range || '';
+        if (reqBudget !== filters.budget) return false;
+      }
+
+      return true;
+    });
+  }, []);
+
+  // Memoized filtered requests based on filters
+  const filteredRequests = useMemo(() => {
+    return filterRequests(discoveryRequests, requestFilters);
+  }, [discoveryRequests, requestFilters, filterRequests]);
+
+  // Search handler for lists
   const handleListSearch = useCallback((query: string) => {
     setIsSearchingLists(true);
     setListSearchQuery(query);
-    // Simulate slight delay for UX (remove if doing real server-side search)
     setTimeout(() => setIsSearchingLists(false), 150);
   }, []);
 
-  // NEW: Clear search handler
+  // Clear search handler for lists
   const handleClearListSearch = useCallback(() => {
     setListSearchQuery('');
     setIsSearchingLists(false);
+  }, []);
+
+  // Filter handler for requests
+  const handleRequestFilterChange = useCallback((filters: RequestFilters) => {
+    setIsSearchingRequests(true);
+    setRequestFilters(filters);
+    setTimeout(() => setIsSearchingRequests(false), 150);
   }, []);
 
   const handleCreateRecommendation = () => {
@@ -294,10 +360,42 @@ const DiscoverPage = () => {
     }
   };
 
+  // Helper function to sort discovery requests
+  // Priority: Open first (newest), then by bounty amount, then answered/closed
+  const sortDiscoveryRequests = (requests: any[]): any[] => {
+    return [...requests].sort((a, b) => {
+      // Status priority: open > answered > closed/expired
+      const statusPriority: Record<string, number> = { 
+        'open': 0, 
+        'answered': 1, 
+        'closed': 2, 
+        'expired': 2 
+      };
+      const aPriority = statusPriority[a.status?.toLowerCase()] ?? 2;
+      const bPriority = statusPriority[b.status?.toLowerCase()] ?? 2;
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // Within same status, sort by bounty amount (higher first)
+      const aBounty = a.stake_amount || a.bounty_amount || 0;
+      const bBounty = b.stake_amount || b.bounty_amount || 0;
+      if (aBounty !== bBounty) {
+        return bBounty - aBounty;
+      }
+      
+      // Then by created_at (newest first)
+      const aDate = new Date(a.created_at || 0).getTime();
+      const bDate = new Date(b.created_at || 0).getTime();
+      return bDate - aDate;
+    });
+  };
+
   const fetchDiscoveryRequests = async () => {
     try {
       console.log('Fetching discovery requests from API...');
-      const response = await authenticatedFetch(`${API_BASE_URL}/discovery/requests?limit=20&status=open`);
+      const response = await authenticatedFetch(`${API_BASE_URL}/discovery/requests?limit=20&status=all`);
       
       if (!response.ok) {
         throw new Error(`API returned ${response.status}`);
@@ -307,8 +405,10 @@ const DiscoverPage = () => {
       console.log('Discovery requests response:', data);
       
       if (data.success && data.requests) {
-        setDiscoveryRequests(data.requests);
-        console.log(`Loaded ${data.requests.length} discovery requests`);
+        // Sort requests: Open first (newest), then by bounty, then other statuses
+        const sortedRequests = sortDiscoveryRequests(data.requests);
+        setDiscoveryRequests(sortedRequests);
+        console.log(`Loaded ${sortedRequests.length} discovery requests (sorted: open first, then by bounty)`);
       } else {
         console.log('No requests in API response');
         setDiscoveryRequests([]);
@@ -376,7 +476,7 @@ const DiscoverPage = () => {
       }
 
       console.log('Fetching lists from API...');
-      const response = await authenticatedFetch(`${API_BASE_URL}/lists?limit=50`); // Increased limit for better search
+      const response = await authenticatedFetch(`${API_BASE_URL}/lists?limit=50`);
       
       if (!response.ok) {
         throw new Error(`API returned ${response.status}`);
@@ -499,9 +599,7 @@ const DiscoverPage = () => {
     return avatar.startsWith('http') || avatar.startsWith('/') || avatar.startsWith('data:');
   };
 
-  // =========================================================================
-  // CONTEXT-AWARE QUICK ACTIONS - Primary button changes based on active tab
-  // =========================================================================
+  // Context-aware Quick Actions
   const quickActions = useMemo(() => {
     const actions = [
       {
@@ -524,7 +622,6 @@ const DiscoverPage = () => {
       },
     ];
 
-    // Sort to put primary action first
     return [...actions].sort((a, b) => {
       if (a.primary) return -1;
       if (b.primary) return 1;
@@ -532,23 +629,30 @@ const DiscoverPage = () => {
     });
   }, [activeTab, t]);
 
+  // Check if any request filters are active
+  const hasActiveRequestFilters = requestFilters.query.trim() !== '' || 
+    requestFilters.status !== 'all' || 
+    requestFilters.hasBounty !== null || 
+    requestFilters.budget !== 'all';
+
+  // Loading State
   if (isLoading || isLoadingData) {
     return (
-      <div className="min-h-screen bg-cream">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <CleanHeader />
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-64 mb-6"></div>
-            <div className="h-12 bg-gray-200 rounded w-full mb-8"></div>
+            <div className="h-8 bg-gray-200 dark:bg-[#353444] rounded w-64 mb-6"></div>
+            <div className="h-12 bg-gray-200 dark:bg-[#353444] rounded w-full mb-8"></div>
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-3 space-y-4">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="h-40 bg-gray-200 rounded"></div>
+                  <div key={i} className="h-40 bg-gray-200 dark:bg-[#353444] rounded"></div>
                 ))}
               </div>
               <div className="space-y-4">
                 {[1, 2].map(i => (
-                  <div key={i} className="h-32 bg-gray-200 rounded"></div>
+                  <div key={i} className="h-32 bg-gray-200 dark:bg-[#353444] rounded"></div>
                 ))}
               </div>
             </div>
@@ -558,15 +662,16 @@ const DiscoverPage = () => {
     );
   }
 
+  // Error State
   if (error && curatedLists.length === 0 && trendingRecommendations.length === 0) {
     return (
-      <div className="min-h-screen bg-cream">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <CleanHeader />
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center py-12">
-            <h2 className="text-xl font-semibold text-navy mb-2">{t('loading.error.title')}</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <button onClick={fetchData} className="btn-primary">
+            <h2 className="text-xl font-semibold text-[#1F1E2A] dark:text-white mb-2">{t('loading.error.title')}</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+            <button onClick={fetchData} className="px-6 py-2 bg-[#FF644A] hover:bg-[#E65441] text-white rounded-lg transition-colors">
               {t('loading.error.retry')}
             </button>
           </div>
@@ -576,15 +681,16 @@ const DiscoverPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       <CleanHeader />
       <div className="max-w-7xl mx-auto px-4 py-6">
         
+        {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-navy mb-2">
+          <h1 className="text-3xl font-bold text-[#1F1E2A] dark:text-white mb-2">
             {t('page.title')}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             {t('page.subtitle')}
           </p>
         </div>
@@ -599,8 +705,8 @@ const DiscoverPage = () => {
                 onClick={() => setActiveTab('map')}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                   activeTab === 'map'
-                    ? 'bg-coral text-white'
-                    : 'text-gray-600 hover:text-navy hover:bg-white'
+                    ? 'bg-[#FF644A] text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-[#1F1E2A] dark:hover:text-white hover:bg-white dark:hover:bg-[#2D2C3A]'
                 }`}
               >
                 {t('tabs.map')}
@@ -609,8 +715,8 @@ const DiscoverPage = () => {
                 onClick={() => setActiveTab('curated')}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                   activeTab === 'curated'
-                    ? 'bg-coral text-white'
-                    : 'text-gray-600 hover:text-navy hover:bg-white'
+                    ? 'bg-[#FF644A] text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-[#1F1E2A] dark:hover:text-white hover:bg-white dark:hover:bg-[#2D2C3A]'
                 }`}
               >
                 {t('tabs.curated')}
@@ -619,8 +725,8 @@ const DiscoverPage = () => {
                 onClick={() => setActiveTab('requests')}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                   activeTab === 'requests'
-                    ? 'bg-coral text-white'
-                    : 'text-gray-600 hover:text-navy hover:bg-white'
+                    ? 'bg-[#FF644A] text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-[#1F1E2A] dark:hover:text-white hover:bg-white dark:hover:bg-[#2D2C3A]'
                 }`}
               >
                 {t('tabs.requests')}
@@ -634,19 +740,19 @@ const DiscoverPage = () => {
             
             {/* Map Tab */}
             {activeTab === 'map' && (
-              <div className="bg-white rounded-xl p-4 border border-stone-200">
+              <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 border border-gray-200 dark:border-[#3D3C4A]">
                 {/* Map/List Toggle */}
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-[#1F1E2A]">
+                  <h2 className="text-lg font-semibold text-[#1F1E2A] dark:text-white">
                     {t('tabs.mapSection.title', { defaultValue: 'Nearby Restaurants' })}
                   </h2>
-                  <div className="flex bg-white rounded-lg p-1 shadow-sm border border-stone-200">
+                  <div className="flex bg-white dark:bg-[#353444] rounded-lg p-1 shadow-sm border border-gray-200 dark:border-[#3D3C4A]">
                     <button
                       onClick={() => setMapViewMode('map')}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                         mapViewMode === 'map'
                           ? 'bg-[#FF644A] text-white'
-                          : 'text-stone-600 hover:text-[#1F1E2A]'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-[#1F1E2A] dark:hover:text-white'
                       }`}
                     >
                       <MapIcon className="w-4 h-4" />
@@ -657,7 +763,7 @@ const DiscoverPage = () => {
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                         mapViewMode === 'list'
                         ? 'bg-[#FF644A] text-white'
-                        : 'text-stone-600 hover:text-[#1F1E2A]'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-[#1F1E2A] dark:hover:text-white'
                       }`}
                     >
                       <List className="w-4 h-4" />
@@ -666,7 +772,7 @@ const DiscoverPage = () => {
                   </div>
                 </div>
 
-                {/* MapView with conditional map/list display */}
+                {/* MapView */}
                 <MapView 
                   onRestaurantClick={handleRestaurantClick}
                   onCreateRecommendation={(restaurantId, restaurantName) => {
@@ -680,10 +786,10 @@ const DiscoverPage = () => {
               </div>
             )}
 
-            {/* Curated Lists Tab - UPDATED with Search */}
+            {/* Curated Lists Tab */}
             {activeTab === 'curated' && (
               <div className="space-y-6">
-                {/* Search Bar - Always visible at top */}
+                {/* Search Bar */}
                 <ListSearch
                   onSearch={handleListSearch}
                   onClear={handleClearListSearch}
@@ -709,41 +815,41 @@ const DiscoverPage = () => {
                   ))
                 ) : listSearchQuery ? (
                   // No results for search
-                  <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+                  <div className="text-center py-12 bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A]">
                     <div className="mb-4">
-                      <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
-                      <h3 className="text-lg font-medium text-navy mb-2">
+                      <h3 className="text-lg font-medium text-[#1F1E2A] dark:text-white mb-2">
                         {t('lists.search.noResults.title')}
                       </h3>
-                      <p className="text-gray-600 mb-4">
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">
                         {t('lists.search.noResults.description', { query: listSearchQuery })}
                       </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                       <button 
                         onClick={handleClearListSearch} 
-                        className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        className="px-6 py-2 border border-gray-300 dark:border-[#3D3C4A] text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
                       >
                         {t('lists.search.noResults.clearSearch')}
                       </button>
-                      <button onClick={handleCreateList} className="btn-primary">
+                      <button onClick={handleCreateList} className="px-6 py-2 bg-[#FF644A] hover:bg-[#E65441] text-white rounded-lg transition-colors">
                         {t('lists.search.noResults.createList')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   // No lists at all (empty state)
-                  <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+                  <div className="text-center py-12 bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A]">
                     <div className="mb-4">
-                      <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
-                      <h3 className="text-lg font-medium text-navy mb-2">{t('lists.empty.title')}</h3>
-                      <p className="text-gray-600 mb-4">{t('lists.empty.description')}</p>
+                      <h3 className="text-lg font-medium text-[#1F1E2A] dark:text-white mb-2">{t('lists.empty.title')}</h3>
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">{t('lists.empty.description')}</p>
                     </div>
-                    <button onClick={handleCreateList} className="btn-primary">
+                    <button onClick={handleCreateList} className="px-6 py-2 bg-[#FF644A] hover:bg-[#E65441] text-white rounded-lg transition-colors">
                       {t('lists.empty.cta')}
                     </button>
                   </div>
@@ -751,18 +857,16 @@ const DiscoverPage = () => {
               </div>
             )}
 
-            {/* ================================================================= */}
-            {/* REQUESTS TAB - UPDATED with header and prominent Create button */}
-            {/* ================================================================= */}
+            {/* Requests Tab */}
             {activeTab === 'requests' && (
               <div className="space-y-6">
-                {/* Requests Header - ALWAYS VISIBLE */}
+                {/* Requests Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-[#1F1E2A]">
+                    <h2 className="text-xl font-semibold text-[#1F1E2A] dark:text-white">
                       {t('requests.title')}
                     </h2>
-                    <p className="text-sm text-stone-500 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       {t('requests.subtitle')}
                     </p>
                   </div>
@@ -777,14 +881,22 @@ const DiscoverPage = () => {
                   </button>
                 </div>
 
+                {/* Request Search & Filters */}
+                <RequestSearch
+                  onFilterChange={handleRequestFilterChange}
+                  resultCount={hasActiveRequestFilters ? filteredRequests.length : undefined}
+                  totalCount={discoveryRequests.length}
+                  isSearching={isSearchingRequests}
+                />
+
                 {/* Request Cards or Empty State */}
-                {discoveryRequests.length > 0 ? (
+                {filteredRequests.length > 0 ? (
                   <div className={`grid gap-4 ${
-                    discoveryRequests.length === 1 
+                    filteredRequests.length === 1 
                       ? 'grid-cols-1' 
                       : 'grid-cols-1 md:grid-cols-2'
                   }`}>
-                    {discoveryRequests.map((request) => (
+                    {filteredRequests.map((request) => (
                       <RequestCard
                         key={request.id}
                         request={request}
@@ -794,18 +906,39 @@ const DiscoverPage = () => {
                       />
                     ))}
                   </div>
+                ) : hasActiveRequestFilters ? (
+                  /* No results for filters */
+                  <div className="text-center py-12 bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A]">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-[#353444] flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-[#1F1E2A] dark:text-white mb-2">
+                      {t('requestSearch.noResults')}
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">
+                      {t('requests.search.noResults.description')}
+                    </p>
+                    <button
+                      onClick={() => setRequestFilters({ query: '', status: 'all', hasBounty: null, budget: 'all' })}
+                      className="px-4 py-2 text-[#FF644A] hover:text-[#E65441] font-medium"
+                    >
+                      {t('requestSearch.clearAll')}
+                    </button>
+                  </div>
                 ) : (
                   /* Empty State - No requests at all */
-                  <div className="text-center py-16 bg-white rounded-xl border border-stone-200">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#FFF4E1] flex items-center justify-center">
+                  <div className="text-center py-16 bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A]">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#FFF4E1] dark:bg-[#FF644A]/20 flex items-center justify-center">
                       <svg className="w-10 h-10 text-[#FF644A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-semibold text-[#1F1E2A] mb-2">
+                    <h3 className="text-xl font-semibold text-[#1F1E2A] dark:text-white mb-2">
                       {t('requests.empty.title')}
                     </h3>
-                    <p className="text-stone-500 mb-6 max-w-md mx-auto">
+                    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
                       {t('requests.empty.description')}
                     </p>
                     <button
@@ -823,14 +956,12 @@ const DiscoverPage = () => {
             )}
           </div>
 
-          {/* Sidebar - Reordered: Quick Actions → Trending Now → Dining Memory */}
+          {/* Sidebar */}
           <div className="space-y-6">
             
-            {/* ================================================================= */}
-            {/* QUICK ACTIONS - Context-aware primary button based on active tab */}
-            {/* ================================================================= */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-navy mb-4">{t('sidebar.quickActions.title')}</h3>
+            {/* Quick Actions */}
+            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] p-4">
+              <h3 className="font-semibold text-[#1F1E2A] dark:text-white mb-4">{t('sidebar.quickActions.title')}</h3>
               <div className="space-y-3">
                 {quickActions.map((action) => (
                   <button
@@ -839,7 +970,7 @@ const DiscoverPage = () => {
                     className={`w-full px-4 py-2.5 font-medium rounded-lg transition-colors text-center ${
                       action.primary
                         ? 'bg-[#FF644A] hover:bg-[#E65441] text-white'
-                        : 'border-2 border-stone-200 hover:border-[#FF644A] hover:text-[#FF644A] text-[#1F1E2A]'
+                        : 'border-2 border-gray-200 dark:border-[#3D3C4A] hover:border-[#FF644A] hover:text-[#FF644A] text-[#1F1E2A] dark:text-white'
                     }`}
                   >
                     {action.label}
@@ -847,27 +978,27 @@ const DiscoverPage = () => {
                 ))}
                 <button 
                   onClick={handleViewHistory}
-                  className="w-full px-4 py-2 text-stone-600 hover:text-[#FF644A] font-medium transition-colors text-center"
+                  className="w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-[#FF644A] font-medium transition-colors text-center"
                 >
                   {t('sidebar.quickActions.viewHistory')}
                 </button>
               </div>
             </div>
 
-            {/* 2. Trending Now - Social proof and discovery */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-navy mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* Trending Now */}
+            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] p-4">
+              <h3 className="font-semibold text-[#1F1E2A] dark:text-white mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#FF644A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
                 {t('sidebar.trending.title')}
               </h3>
               <div className="space-y-3">
                 {trendingRecommendations.slice(0, 3).map((rec) => (
-                  <div key={rec.id} className="border border-gray-100 rounded-lg p-3 hover:bg-gray-50 transition-colors cursor-pointer">
+                  <div key={rec.id} className="border border-gray-100 dark:border-[#3D3C4A] rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors cursor-pointer">
                     <div className="flex items-start gap-3">
-                      {/* Enhanced Avatar - supports emoji, image URL, or initial fallback */}
-                      <div className="w-10 h-10 bg-gradient-to-br from-coral to-[#E65441] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {/* Avatar */}
+                      <div className="w-10 h-10 bg-gradient-to-br from-[#FF644A] to-[#E65441] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
                         {isImageUrl(rec.author.avatar) ? (
                           <img 
                             src={rec.author.avatar} 
@@ -883,9 +1014,9 @@ const DiscoverPage = () => {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-navy text-sm line-clamp-1">{rec.title}</h4>
-                        <p className="text-xs text-gray-500 mb-1">{rec.restaurant.name}</p>
-                        <p className="text-xs text-gray-400">
+                        <h4 className="font-medium text-[#1F1E2A] dark:text-white text-sm line-clamp-1">{rec.title}</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{rec.restaurant.name}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
                           {rec.created_at ? calculateTimeAgo(rec.created_at) : t('timeAgo.recent')}
                         </p>
                       </div>
@@ -893,30 +1024,30 @@ const DiscoverPage = () => {
                   </div>
                 ))}
                 {trendingRecommendations.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">{t('sidebar.trending.empty')}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">{t('sidebar.trending.empty')}</p>
                 )}
               </div>
             </div>
 
-            {/* 3. Your Dining Memory - Personal connection (logged-in users only) */}
+            {/* Dining Memory (logged-in users only) */}
             {user && (
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-stone-100">
-                <h3 className="font-semibold text-stone-900 mb-4 flex items-center gap-2">
+              <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-[#3D3C4A]">
+                <h3 className="font-semibold text-[#1F1E2A] dark:text-white mb-4 flex items-center gap-2">
                   <span>🧠</span>
                   {t("sidebar.diningMemory.title")}
                 </h3>
                 <div className="space-y-2 text-sm">
-                  <p className="text-stone-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     {t("sidebar.diningMemory.recentRecommendations", {
                       count: userStats?.recommendations_count || 0,
                     })}
                   </p>
-                  <p className="text-stone-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     {t("sidebar.diningMemory.savedLists", {
                       count: bookmarkedLists.size,
                     })}
                   </p>
-                  <p className="text-stone-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     {t("sidebar.diningMemory.following", {
                       count: userStats?.following_count || 0,
                     })}
@@ -925,15 +1056,13 @@ const DiscoverPage = () => {
                 {(userStats?.recommendations_count || 0) > 0 && (
                   <Link
                     href={`/${locale}/profile`}
-                    className="mt-4 block text-center text-sm text-coral-500 hover:text-coral-600 font-medium"
+                    className="mt-4 block text-center text-sm text-[#FF644A] hover:text-[#E65441] font-medium"
                   >
                     {t("sidebar.diningMemory.viewAll")}
                   </Link>
                 )}
               </div>
             )}
-
-            {/* Community Stats - REMOVED */}
           </div>
         </div>
       </div>

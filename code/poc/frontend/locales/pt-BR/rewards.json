@@ -16,9 +16,14 @@
       "title": "Como Ganhar Tokens BOCA",
       "subtitle": "Guia completo de todas as oportunidades de ganhos no BocaBoca"
     },
+    "upgradeWallet": {
+      "title": "Desbloqueie Recompensas Completas",
+      "description": "Usuários com carteira ganham {walletAmount} BOCA por recomendação vs {emailAmount} BOCA para usuários de email",
+      "cta": "Atualizar Agora"
+    },
     "welcome": {
       "title": "Recompensas de Boas-vindas",
-      "subtitle": "Bônus único de até 50 BOCA",
+      "subtitle": "Bônus único de até {total} BOCA",
       "follow3": "Seguir 3 usuários",
       "create5": "Criar 5 recomendações",
       "engage10": "Interagir com 10 posts de 3+ autores"
@@ -48,7 +53,7 @@
       "establishedDays": "7+ dias",
       "trusted": "Confiável",
       "trustedDays": "30+ dias + 3 validadas",
-      "example": "Exemplo: Usuário Estabelecido (1.0×) salva sua rec → Você ganha 1.0 BOCA"
+      "example": "Exemplo: Um salvamento de um usuário Confiável (1.5×) te dá {base} × {multiplier} = {result} BOCA"
     },
     "social": {
       "title": "Amplificação Social",
@@ -60,22 +65,22 @@
     "contests": {
       "title": "Concursos Semanais",
       "subtitle": "Prêmios adicionais toda semana",
+      "first": "1º Lugar",
+      "second": "2º Lugar",
+      "third": "3º Lugar",
       "lottery": {
         "title": "Loteria Semanal",
-        "pool": "Premiação Total",
+        "pool": "Premiação de {amount} BOCA",
         "eligible": "Top 20-100 contribuidores elegíveis",
-        "spotlights": "destaque recs"
+        "spotlights": "{count} destaque recs"
       },
       "photo": {
         "title": "Concurso de Fotos",
         "subtitle": "Melhores fotos de comida ganham prêmios",
-        "participation": "Bônus de participação",
+        "participation": "Todos participantes ganham {amount} BOCA",
         "homepage": "destaque na página inicial",
         "banner": "destaque em banner"
-      },
-      "first": "1º Lugar",
-      "second": "2º Lugar",
-      "third": "3º Lugar"
+      }
     },
     "bounties": {
       "title": "Pedidos de Descoberta",
@@ -83,7 +88,7 @@
       "create": "Criar pedido (mínimo)",
       "win": "Ganhar pedido",
       "ofPledge": "da promessa",
-      "fee": "10% taxa da plataforma queimada"
+      "fee": "{percent}% taxa da plataforma queimada"
     },
     "curation": {
       "title": "Curadoria",
@@ -131,6 +136,8 @@
       "nextLottery": "Próxima Loteria",
       "prizePool": "Premiação Total",
       "activeBounties": "Pedidos Ativos",
+      "discoveryRequests": "Pedidos de Descoberta",
+      "viewRequests": "Ver Pedidos →",
       "loading": "Carregando..."
     },
     "howItWorks": {
@@ -271,6 +278,38 @@
   "bounties": {
     "title": "Pedidos de Descoberta",
     "description": "Usuários financiam pedidos de descoberta. Responda-os e ganhe tokens BOCA.",
+    "howItWorks": {
+      "title": "Como Funciona",
+      "step1": {
+        "title": "1. Pedido Publicado",
+        "description": "Usuário cria um pedido com promessa em BOCA"
+      },
+      "step2": {
+        "title": "2. Envie Respostas",
+        "description": "Comunidade envia recomendações"
+      },
+      "step3": {
+        "title": "3. Vencedor Leva 90%",
+        "description": "Solicitante escolhe vencedor, 10% queimados"
+      }
+    },
+    "rewards": {
+      "title": "Estrutura de Recompensas",
+      "minStake": "Stake mínimo para criar pedido",
+      "winnerReceives": "Vencedor recebe",
+      "ofStake": "do stake",
+      "platformFee": "Taxa da plataforma",
+      "burned": "queimado"
+    },
+    "discover": {
+      "title": "Explorar Pedidos de Descoberta",
+      "description": "Pedidos de Descoberta são recompensas da comunidade onde usuários apostam tokens BOCA por recomendações de restaurantes. Ajude outros a encontrar boa comida e ganhe recompensas!",
+      "bullet1": "Veja pedidos ativos aguardando respostas",
+      "bullet2": "Vencedores recebem 90% do valor apostado",
+      "bullet3": "Construa reputação dando ótimas recomendações",
+      "viewRequests": "Ver Pedidos Ativos",
+      "createRequest": "Criar um Pedido"
+    },
     "active": {
       "title": "Pedidos Ativos",
       "submissions": "{count} respostas",
@@ -292,21 +331,6 @@
     "selectWinner": "Selecionar Vencedor",
     "yourBounties": "Seus Pedidos",
     "yourSubmissions": "Suas Respostas",
-    "howItWorks": {
-      "title": "Como Funciona",
-      "step1": {
-        "title": "1. Pedido Publicado",
-        "description": "Usuário cria um pedido com promessa em BOCA"
-      },
-      "step2": {
-        "title": "2. Envie Respostas",
-        "description": "Comunidade envia recomendações"
-      },
-      "step3": {
-        "title": "3. Vencedor Leva 90%",
-        "description": "Solicitante escolhe vencedor, 10% queimados"
-      }
-    },
     "createNew": {
       "title": "Criar Novo Pedido",
       "description": "Descreva o que você está procurando",
@@ -324,7 +348,9 @@
       "completed": "Concluído",
       "expired": "Expirado"
     },
-    "walletRequired": "🔐 Conecte sua carteira para criar ou enviar pedidos"
+    "walletRequired": "🔐 Conecte sua carteira para criar pedidos e receber recompensas.",
+    "loginRequired": "Faça login para criar pedidos e responder recompensas.",
+    "signUp": "Cadastrar"
   },
   
   "earnings": {

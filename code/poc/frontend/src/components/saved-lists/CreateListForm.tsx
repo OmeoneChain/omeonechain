@@ -32,8 +32,8 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
       const newList = await savedListsService.createList({
         name: name.trim(),
         description: description.trim() || undefined,
-        icon: 'folder-heart', // Default icon
-        listType: 'places'    // Always 'places' for user-created lists
+        icon: 'folder-heart',
+        listType: 'places'
       });
 
       onCreated(newList);
@@ -55,29 +55,33 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
   const isButtonDisabled = isSubmitting || !isFormValid;
 
   return (
-    <form onSubmit={handleSubmit} className="create-list-form">
-      <div className="form-header">
-        <h3>{t('savedLists.form.title')}</h3>
+    <form onSubmit={handleSubmit} className="bg-white dark:bg-[#2D2C3A] border border-gray-100 dark:border-[#3D3C4A] rounded-xl p-5">
+      {/* Form Header */}
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="m-0 text-base font-semibold text-[#1F1E2A] dark:text-white">
+          {t('savedLists.form.title')}
+        </h3>
         <button 
           type="button" 
           onClick={onCancel}
-          className="close-button"
+          className="bg-transparent border-none cursor-pointer p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-[#353444] hover:text-[#1F1E2A] dark:hover:text-white transition-all"
           aria-label={t('common.close')}
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
+      {/* Error Message */}
       {error && (
-        <div className="error-message">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 p-3 rounded-lg mb-4 text-sm">
           {error}
         </div>
       )}
 
       {/* List Name */}
-      <div className="form-group">
-        <label htmlFor="list-name">
-          {t('savedLists.form.fields.name.label')} <span className="required">*</span>
+      <div className="mb-5">
+        <label htmlFor="list-name" className="block font-medium text-sm mb-2 text-[#1F1E2A] dark:text-white">
+          {t('savedLists.form.fields.name.label')} <span className="text-[#E65441]">*</span>
         </label>
         <input
           id="list-name"
@@ -88,13 +92,14 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
           maxLength={100}
           autoFocus
           required
+          className="w-full p-3 border border-gray-200 dark:border-[#3D3C4A] rounded-lg text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-[#E65441] focus:ring-[3px] focus:ring-[#E65441]/10 transition-all"
         />
       </div>
 
       {/* Description */}
-      <div className="form-group">
-        <label htmlFor="list-description">
-          {t('savedLists.form.fields.description.label')} <span className="optional">({t('common.optional')})</span>
+      <div className="mb-5">
+        <label htmlFor="list-description" className="block font-medium text-sm mb-2 text-[#1F1E2A] dark:text-white">
+          {t('savedLists.form.fields.description.label')} <span className="text-gray-400 dark:text-gray-500 font-normal">({t('common.optional')})</span>
         </label>
         <textarea
           id="list-description"
@@ -103,178 +108,28 @@ export default function CreateListForm({ onCreated, onCancel }: CreateListFormPr
           placeholder={t('savedLists.form.fields.description.placeholder')}
           maxLength={500}
           rows={2}
+          className="w-full p-3 border border-gray-200 dark:border-[#3D3C4A] rounded-lg text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-[#E65441] focus:ring-[3px] focus:ring-[#E65441]/10 transition-all resize-y min-h-[60px]"
         />
       </div>
 
-      {/* No List Type selector - defaults to 'places' */}
-
-      <div className="form-actions">
+      {/* Form Actions */}
+      <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-[#3D3C4A]">
         <button 
           type="button" 
           onClick={onCancel}
-          className="button-secondary"
+          className="px-5 py-2.5 border border-gray-300 dark:border-[#3D3C4A] rounded-lg bg-white dark:bg-[#353444] font-medium text-sm text-gray-600 dark:text-gray-300 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-[#404050] hover:border-gray-400 dark:hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isSubmitting}
         >
           {t('common.cancel')}
         </button>
         <button 
           type="submit"
-          className="button-primary"
+          className="px-5 py-2.5 border-none rounded-lg bg-[#FF644A] text-white font-medium text-sm cursor-pointer transition-all hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isButtonDisabled}
         >
           {isSubmitting ? t('savedLists.form.actions.creating') : t('savedLists.form.actions.create')}
         </button>
       </div>
-
-      <style jsx>{`
-        .create-list-form {
-          background: white;
-          border: 1px solid #f3f4f6;
-          border-radius: 0.75rem;
-          padding: 1.25rem;
-        }
-
-        .form-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.25rem;
-        }
-
-        .form-header h3 {
-          margin: 0;
-          font-size: 1rem;
-          font-weight: 600;
-          color: #1F1E2A;
-        }
-
-        .close-button {
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 0.375rem;
-          border-radius: 0.375rem;
-          color: #9ca3af;
-          transition: all 0.2s;
-        }
-
-        .close-button:hover {
-          background: #f3f4f6;
-          color: #1F1E2A;
-        }
-
-        .error-message {
-          background: #FEF2F2;
-          border: 1px solid #FECACA;
-          color: #DC2626;
-          padding: 0.75rem;
-          border-radius: 0.5rem;
-          margin-bottom: 1rem;
-          font-size: 0.875rem;
-        }
-
-        .form-group {
-          margin-bottom: 1.25rem;
-        }
-
-        .form-group label {
-          display: block;
-          font-weight: 500;
-          font-size: 0.875rem;
-          margin-bottom: 0.5rem;
-          color: #1F1E2A;
-        }
-
-        .required {
-          color: #E65441;
-        }
-
-        .optional {
-          color: #9ca3af;
-          font-weight: 400;
-        }
-
-        .form-group input,
-        .form-group textarea {
-          width: 100%;
-          padding: 0.75rem;
-          border: 1px solid #e5e7eb;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          font-family: inherit;
-          transition: all 0.2s;
-          background: white;
-        }
-
-        .form-group input::placeholder,
-        .form-group textarea::placeholder {
-          color: #9ca3af;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus {
-          outline: none;
-          border-color: #E65441;
-          box-shadow: 0 0 0 3px rgba(230, 84, 65, 0.1);
-        }
-
-        .form-group textarea {
-          resize: vertical;
-          min-height: 60px;
-        }
-
-        .form-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          margin-top: 1.5rem;
-          padding-top: 1rem;
-          border-top: 1px solid #f3f4f6;
-        }
-
-        .button-secondary {
-          padding: 0.625rem 1.25rem;
-          border: 1px solid #d1d5db;
-          border-radius: 0.5rem;
-          background: white;
-          font-weight: 500;
-          font-size: 0.875rem;
-          color: #4b5563;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .button-secondary:hover:not(:disabled) {
-          background: #f9fafb;
-          border-color: #9ca3af;
-        }
-
-        .button-secondary:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .button-primary {
-          padding: 0.625rem 1.25rem;
-          border: none;
-          border-radius: 0.5rem;
-          background: #FF644A;
-          color: white;
-          font-weight: 500;
-          font-size: 0.875rem;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .button-primary:hover:not(:disabled) {
-          background: #E65441;
-        }
-
-        .button-primary:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-      `}</style>
     </form>
   );
 }

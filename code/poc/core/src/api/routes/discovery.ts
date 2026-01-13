@@ -69,7 +69,7 @@ const createRequestSchema = z.object({
 });
 
 const createResponseSchema = z.object({
-  response_text: z.string().min(20).max(2000),
+  response_text: z.string().max(2000).optional().default(''),
   restaurant_recommendations: z.array(z.object({
     restaurant_id: z.number(),
     notes: z.string().optional(),
@@ -167,6 +167,7 @@ router.get('/requests', optionalAuth, async (req: express.Request, res: express.
         budget_range,
         dietary_restrictions,
         bounty_amount,
+        bounty_status,
         status,
         response_count,
         view_count,
@@ -175,16 +176,16 @@ router.get('/requests', optionalAuth, async (req: express.Request, res: express.
         expires_at,
         creator_id
       `)
+      .order('status', { ascending: true })  // 'open' comes before 'expired' alphabetically
       .order('created_at', { ascending: false })
       .limit(limit);
 
     // Apply filters
     if (status && status !== 'all') {
       query = query.eq('status', status);
-    } else {
-      // Default to open requests if no status specified
-      query = query.eq('status', 'open');
     }
+    // Show all statuses, but prioritize open requests
+    // Order: open first, then by created_at
 
     if (location) {
       query = query.ilike('location', `%${location}%`);
@@ -201,6 +202,10 @@ router.get('/requests', optionalAuth, async (req: express.Request, res: express.
     if (search) {
       query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
     }
+
+    query = query
+      .order('status', { ascending: true })   // 'closed'/'expired' sorts after 'open'
+      .order('created_at', { ascending: false });  // newest first within each status
 
     const { data: requests, error } = await query;
 
@@ -495,7 +500,10 @@ router.post('/requests/:id/responses', authenticate, async (req: express.Request
     const currentUser = req.user as { id: string; address: string };
 
     console.log(`📋 POST /api/discovery/requests/${requestId}/responses - Submit response`);
-    console.log('Response body:', req.body);
+    console.log('Raw request body:', req.body);
+    console.log('Body type:', typeof req.body);
+    console.log('restaurant_recommendations:', req.body.restaurant_recommendations);
+    console.log('restaurant_recommendations type:', typeof req.body.restaurant_recommendations);
 
     const validation = createResponseSchema.safeParse(req.body);
     if (!validation.success) {

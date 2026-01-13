@@ -1,10 +1,10 @@
 // File path: /code/poc/frontend/src/services/IOTAService.ts
-// UPDATED: Integration with BocaBoca v1.0 contracts (9 modules)
+// UPDATED: Integration with BocaBoca v1.1 contracts
 // CRITICAL: Updated for 6 decimal precision
-// PATCHED: v0.8 → v1.0 (January 2026)
-//   - Tier mapping: 1/2/3 (was 0/1/2)
-//   - All reward amounts: 10× increase
-//   - Escrow check: tier === 1 (was tier === 0)
+// PATCHED: v1.0 → v1.1 (January 2026)
+//   - Rate limits: 5 → 10/day standard, 20 on registration day
+//   - Escrow: REMOVED (all users get immediate rewards)
+//   - Phone-first auth model (email auth disabled)
 
 import IOTA_TESTNET_CONFIG, { testnetClient } from '../config/testnet-config';
 import { createMockTestnetClient, MockTestnetClient } from '../config/mock-testnet-client';
@@ -52,7 +52,7 @@ export interface UserStatus {
   rateLimit: number;
   rateLimitUsed: number;
   spamFlagged: boolean;
-  escrowRequired: boolean;
+  escrowRequired: boolean; // v1.1: Always false (escrow removed)
 }
 
 export interface EscrowStatus {
@@ -96,6 +96,11 @@ export interface ContractCallOptions {
   gasBudget?: number;
 }
 
+// v1.1 Rate limit constants
+const DAILY_RATE_LIMIT = 10;      // Standard daily limit (was 5)
+const FIRST_DAY_BOOST = 20;       // Registration day limit (was 10)
+const SPAM_RATE_LIMIT = 3;        // Reduced limit for spam-flagged
+
 export class IOTAService {
   private rpcUrl: string;
   private networkId: string;
@@ -110,7 +115,7 @@ export class IOTAService {
   private readonly TOKEN_DECIMALS = 6;
   private readonly TOKEN_MULTIPLIER = 1_000_000; // 10^6
 
-  // ========== v1.0 REWARD CONSTANTS (10× from v0.8) ==========
+  // ========== v1.1 REWARD CONSTANTS ==========
   // All amounts in base units (6 decimals, so 1 BOCA = 1,000,000)
 
   // ----- CONTENT CREATION REWARDS -----
@@ -168,7 +173,7 @@ export class IOTAService {
   private readonly CONTEST_SECOND_PRIZE = 50_000_000;
   /** Third place: 30 BOCA */
   private readonly CONTEST_THIRD_PRIZE = 30_000_000;
-  /** Nomination participation: 0.5 BOCA (NEW in v1.0) */
+  /** Nomination participation: 0.5 BOCA */
   private readonly CONTEST_NOMINATION_REWARD = 500_000;
 
   // ----- TIER WEIGHTS (basis points for precision) -----
@@ -247,28 +252,36 @@ export class IOTAService {
   }
 
   /**
-   * Get network status with all 9 contract modules
+   * Get network status with contract modules
+   * v1.1: escrow and email_escrow are deprecated
    */
   async getNetworkStatus(): Promise<{
     isConnected: boolean;
     contractsDeployed: number;
+    activeContracts: number;
     latestCheckpoint: number;
     networkHealth: 'healthy' | 'degraded' | 'unhealthy';
     contracts: { [key: string]: string };
   }> {
     try {
-      const contractNames = [
-        'token', 'user_status', 'escrow', 'email_escrow',
-        'rewards', 'recommendation', 'lottery', 'photo_contest', 'bounty'
+      // Active contracts (v1.1 - excludes deprecated escrow contracts)
+      const activeContractNames = [
+        'token', 'user_status', 'rewards', 'recommendation', 
+        'lottery', 'photo_contest', 'bounty'
+      ];
+      
+      // All contracts (including deprecated)
+      const allContractNames = [
+        ...activeContractNames, 'escrow', 'email_escrow', 'governance'
       ];
       
       const contractTests = await Promise.allSettled(
-        contractNames.map(name => 
+        activeContractNames.map(name => 
           this.testContract(name, (this.CONTRACTS as any)[name].packageId)
         )
       );
 
-      const contractsDeployed = contractTests.filter(
+      const activeContracts = contractTests.filter(
         result => result.status === 'fulfilled' && result.value === true
       ).length;
 
@@ -280,24 +293,28 @@ export class IOTAService {
         console.warn('Could not get latest checkpoint:', error);
       }
 
-      const networkHealth = contractsDeployed >= 7 ? 'healthy' : 
-                           contractsDeployed >= 4 ? 'degraded' : 'unhealthy';
+      const networkHealth = activeContracts >= 5 ? 'healthy' : 
+                           activeContracts >= 3 ? 'degraded' : 'unhealthy';
 
       return {
-        isConnected: contractsDeployed > 0,
-        contractsDeployed,
+        isConnected: activeContracts > 0,
+        contractsDeployed: allContractNames.length,
+        activeContracts,
         latestCheckpoint,
         networkHealth,
         contracts: {
+          // Active
           token: this.CONTRACTS.token.packageId,
           user_status: this.CONTRACTS.user_status.packageId,
-          escrow: this.CONTRACTS.escrow.packageId,
-          email_escrow: this.CONTRACTS.email_escrow.packageId,
           rewards: this.CONTRACTS.rewards.packageId,
           recommendation: this.CONTRACTS.recommendation.packageId,
           lottery: this.CONTRACTS.lottery.packageId,
           photo_contest: this.CONTRACTS.photo_contest.packageId,
-          bounty: this.CONTRACTS.bounty.packageId
+          bounty: this.CONTRACTS.bounty.packageId,
+          // Deprecated
+          escrow: this.CONTRACTS.escrow.packageId + ' (DEPRECATED)',
+          email_escrow: this.CONTRACTS.email_escrow.packageId + ' (DEPRECATED)',
+          governance: this.CONTRACTS.governance.packageId + ' (legacy)'
         }
       };
     } catch (error) {
@@ -305,6 +322,7 @@ export class IOTAService {
       return {
         isConnected: false,
         contractsDeployed: 0,
+        activeContracts: 0,
         latestCheckpoint: 0,
         networkHealth: 'unhealthy',
         contracts: {}
@@ -316,6 +334,7 @@ export class IOTAService {
 
   /**
    * Get token balance with 6 decimal precision
+   * v1.1: escrowBalance always 0 (escrow removed)
    */
   async getTokenBalance(userAddress: string): Promise<TokenBalance> {
     try {
@@ -331,16 +350,13 @@ export class IOTAService {
         });
       }
 
-      // Get escrow balance
-      const escrowBalance = await this.getEscrowBalance(userAddress);
-      const availableBalance = totalBalance - escrowBalance;
-
+      // v1.1: Escrow removed - all balance is available
       return {
         address: userAddress,
         balance: totalBalance,
         displayBalance: this.formatTokenAmount(totalBalance),
-        escrowBalance,
-        availableBalance
+        escrowBalance: 0,              // v1.1: Always 0 (escrow removed)
+        availableBalance: totalBalance  // v1.1: All balance is available
       };
     } catch (error) {
       console.error('❌ Failed to get token balance:', error);
@@ -358,21 +374,12 @@ export class IOTAService {
 
   /**
    * Get escrow balance
+   * @deprecated v1.1: Escrow has been removed. This method always returns 0.
    */
   async getEscrowBalance(userAddress: string): Promise<number> {
-    try {
-      const escrowStatus = await this.executeContractQuery(
-        this.CONTRACTS.escrow.packageId,
-        this.CONTRACTS.escrow.module,
-        this.CONTRACTS.escrow.functions.get_escrow_status,
-        [userAddress]
-      );
-
-      return escrowStatus?.amount || 0;
-    } catch (error) {
-      console.warn('⚠️ Could not get escrow balance:', error);
-      return 0;
-    }
+    // v1.1: Escrow removed - always return 0
+    console.warn('⚠️ getEscrowBalance() is deprecated. Escrow has been removed in v1.1.');
+    return 0;
   }
 
   /**
@@ -404,6 +411,7 @@ export class IOTAService {
 
   /**
    * Get user status and tier information
+   * v1.1: Updated rate limits (10/day), escrow removed
    */
   async getUserStatus(userAddress: string): Promise<UserStatus> {
     try {
@@ -427,25 +435,25 @@ export class IOTAService {
         daysActive: tierInfo.daysActive || 0,
         validatedRecommendations: tierInfo.validatedRecommendations || 0,
         engagementWeight: this.getTierWeightDecimal(tierInfo.tier),
-        rateLimit: rateLimitInfo.dailyLimit || 5,
+        rateLimit: rateLimitInfo.dailyLimit || DAILY_RATE_LIMIT,  // UPDATED: was 5
         rateLimitUsed: rateLimitInfo.used || 0,
         spamFlagged: tierInfo.spamFlagged || false,
-        escrowRequired: tierInfo.tier === 1 // v1.0 FIX: New tier = 1 (was 0)
+        escrowRequired: false  // v1.1: Escrow removed for all tiers
       };
     } catch (error) {
       console.error('❌ Failed to get user status:', error);
       
-      // Return mock data
+      // Return mock data - UPDATED for v1.1
       return {
         userId: userAddress,
         tier: 'established',
         daysActive: 15,
         validatedRecommendations: 2,
         engagementWeight: 1.0,
-        rateLimit: 5,
+        rateLimit: DAILY_RATE_LIMIT,  // UPDATED: was 5
         rateLimitUsed: 2,
         spamFlagged: false,
-        escrowRequired: false
+        escrowRequired: false  // v1.1: Escrow removed
       };
     }
   }
@@ -470,10 +478,26 @@ export class IOTAService {
     }
   }
 
+  /**
+   * Get rate limit constants for display
+   */
+  getRateLimitConstants(): {
+    standard: number;
+    boost: number;
+    penalty: number;
+  } {
+    return {
+      standard: DAILY_RATE_LIMIT,
+      boost: FIRST_DAY_BOOST,
+      penalty: SPAM_RATE_LIMIT
+    };
+  }
+
   // ========== 📝 RECOMMENDATION OPERATIONS ==========
 
   /**
    * Create recommendation with unified engagement
+   * v1.1: Rate limit is now 10/day (was 5)
    */
   async createRecommendation(
     userAddress: string,
@@ -483,7 +507,7 @@ export class IOTAService {
       // Check rate limit first
       const userStatus = await this.getUserStatus(userAddress);
       if (userStatus.rateLimitUsed >= userStatus.rateLimit) {
-        throw new Error('Daily recommendation limit reached');
+        throw new Error(`Daily recommendation limit reached (${userStatus.rateLimit}/day)`);
       }
 
       // Check if this is first review of restaurant
@@ -631,7 +655,7 @@ export class IOTAService {
 
   /**
    * Mark a comment as helpful (author of recommendation can mark ONE comment)
-   * Commenter earns 2.0 BOCA bonus (v1.0)
+   * Commenter earns 2.0 BOCA bonus
    */
   async markCommentHelpful(
     commentId: string,
@@ -662,7 +686,6 @@ export class IOTAService {
         [commentId, recommendationId, authorAddress]
       );
 
-      // v1.0: 2.0 BOCA (was 0.2 BOCA in v0.8)
       const bonusAmount = this.HELPFUL_COMMENT_REWARD;
 
       console.log('✅ Comment marked as helpful');
@@ -759,7 +782,7 @@ export class IOTAService {
 
   /**
    * Boost recommendation (amplify without endorsement)
-   * Booster earns: 1.0 BOCA (v1.0)
+   * Booster earns: 1.0 BOCA
    * Does NOT affect taste profile
    */
   async boostRecommendation(
@@ -780,7 +803,6 @@ export class IOTAService {
         [recommendationId, boosterAddress]
       );
 
-      // v1.0: 1.0 BOCA (was 0.1 BOCA in v0.8)
       const boostReward = this.BOOST_REWARD;
 
       console.log('✅ Recommendation boosted');
@@ -802,9 +824,9 @@ export class IOTAService {
 
   /**
    * Reshare recommendation (full endorsement)
-   * Resharer earns: 2.0 BOCA (v1.0)
+   * Resharer earns: 2.0 BOCA
    * DOES affect taste profile (warning should be shown in UI)
-   * Original author earns: 1.0 BOCA attribution bonus (v1.0)
+   * Original author earns: 1.0 BOCA attribution bonus
    * Resharer earns: 20% of downstream engagement
    */
   async reshareRecommendation(
@@ -827,9 +849,7 @@ export class IOTAService {
         [recommendationId, resharerAddress]
       );
 
-      // v1.0: 2.0 BOCA reshare reward (was 0.2 BOCA in v0.8)
       const resharerReward = this.RESHARE_REWARD;
-      // v1.0: 1.0 BOCA attribution bonus (was 0.1 BOCA in v0.8)
       const attributionBonus = this.ATTRIBUTION_BONUS;
 
       console.log('✅ Recommendation reshared');
@@ -994,7 +1014,7 @@ export class IOTAService {
   }
 
   /**
-   * Get lottery prize amounts (v1.0)
+   * Get lottery prize amounts
    */
   getLotteryPrizes(): { first: number; second: number; third: number } {
     return {
@@ -1005,7 +1025,7 @@ export class IOTAService {
   }
 
   /**
-   * Get photo contest prize amounts (v1.0)
+   * Get photo contest prize amounts
    */
   getContestPrizes(): { first: number; second: number; third: number; nomination: number } {
     return {
@@ -1063,14 +1083,14 @@ export class IOTAService {
 
   /**
    * Map tier from contract (number) to TypeScript enum
-   * v1.0 FIX: Contract uses 1-indexed tiers (1=New, 2=Established, 3=Trusted)
+   * Contract uses 1-indexed tiers (1=New, 2=Established, 3=Trusted)
    */
   private mapTierFromContract(tier: number | string): UserTier {
     if (typeof tier === 'string') {
       return tier.toLowerCase() as UserTier;
     }
     
-    // v1.0: Contract uses 1/2/3 (was 0/1/2 in v0.8)
+    // Contract uses 1/2/3
     const tierMap: { [key: number]: UserTier } = {
       1: 'new',
       2: 'established',
@@ -1153,6 +1173,7 @@ export class IOTAService {
     referral: { complete: number; milestone: number };
     lottery: { first: number; second: number; third: number };
     contest: { first: number; second: number; third: number; nomination: number };
+    rateLimits: { standard: number; boost: number; penalty: number };
   } {
     return {
       creation: {
@@ -1190,6 +1211,11 @@ export class IOTAService {
         second: this.CONTEST_SECOND_PRIZE,
         third: this.CONTEST_THIRD_PRIZE,
         nomination: this.CONTEST_NOMINATION_REWARD
+      },
+      rateLimits: {
+        standard: DAILY_RATE_LIMIT,
+        boost: FIRST_DAY_BOOST,
+        penalty: SPAM_RATE_LIMIT
       }
     };
   }

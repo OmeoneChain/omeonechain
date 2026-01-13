@@ -1,21 +1,21 @@
 // File: code/poc/frontend/app/[locale]/rewards/page.tsx
 // Rewards hub page - Lottery, Photo Contest, Bounties
+// UPDATED: Dark mode support added
 // UPDATED: Full i18n support with useTranslations
 
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trophy, Camera, Target, Wallet, ArrowRight, TrendingUp, Clock, Users, AlertCircle, Gift, Star, MessageSquare, Share2, Bookmark  } from 'lucide-react';
+import { Trophy, Camera, Target, Wallet, ArrowRight, TrendingUp, Clock, Users, AlertCircle, Gift, Star, MessageSquare, Share2, Bookmark } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
 import lotteryApiService, { LotteryStandings } from '@/services/LotteryApiService';
 import photoContestApiService, { PhotoContestCurrent } from '@/services/PhotoContestApiService';
-import bountyApiService, { ActiveBounties } from '@/services/BountyApiService';
 import CleanHeader from '@/components/CleanHeader';
 
 // ============================================
-// WHITE PAPER v1.0 TOKEN AMOUNTS - ADD THIS
+// WHITE PAPER v1.0 TOKEN AMOUNTS
 // ============================================
 const REWARDS = {
   ONBOARDING: {
@@ -86,17 +86,13 @@ export default function RewardsPage() {
   
   // Photo contest data
   const [photoContestData, setPhotoContestData] = useState<PhotoContestCurrent | null>(null);
-  
-  // Bounties data
-  const [bountiesData, setBountiesData] = useState<ActiveBounties | null>(null);
 
   useEffect(() => {
     loadData();
   }, [activeTab, isAuthenticated, user]);
 
   const loadData = async () => {
-    // Overview tab is static - no data to load
-    if (activeTab === 'overview') {
+    if (activeTab === 'overview' || activeTab === 'bounties') {
       setIsLoading(false);
       return;
     }
@@ -111,9 +107,6 @@ export default function RewardsPage() {
       } else if (activeTab === 'photo-contest') {
         const current = await photoContestApiService.getCurrentContest();
         setPhotoContestData(current);
-      } else if (activeTab === 'bounties') {
-        const active = await bountyApiService.getActiveBounties({ limit: 20 });
-        setBountiesData(active);
       }
     } catch (error) {
       console.error('Failed to load rewards data:', error);
@@ -135,15 +128,15 @@ export default function RewardsPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FFF4E1' }}>
+    <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       <CleanHeader />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2" style={{ color: '#1F1E2A' }}>
+          <h1 className="text-3xl font-bold mb-2 text-[#1F1E2A] dark:text-white">
             {t('page.title')}
           </h1>
-          <p className="text-lg" style={{ color: '#666' }}>
+          <p className="text-lg text-gray-600 dark:text-gray-400">
             {t('page.subtitle')}
           </p>
         </div>
@@ -152,93 +145,69 @@ export default function RewardsPage() {
           {/* Main Content */}
           <div className="flex-1">
             {/* Tab Navigation */}
-             <div className="flex gap-2 mb-6">
+            <div className="flex gap-2 mb-6">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeTab === 'overview' ? 'text-white' : ''
+                className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  activeTab === 'overview'
+                    ? 'bg-[#FF644A] text-white'
+                    : 'bg-white dark:bg-[#2D2C3A] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
-                style={{
-                  backgroundColor: activeTab === 'overview' ? '#FF644A' : 'white',
-                  color: activeTab === 'overview' ? 'white' : '#666',
-                  border: activeTab === 'overview' ? 'none' : '1px solid #E5E5E5'
-                }}
               >
-                <div className="flex items-center gap-2">
-                  <Gift size={18} />
-                  <span>{t('tabs.overview')}</span>
-                </div>
+                <Gift size={18} />
+                <span>{t('tabs.overview')}</span>
               </button>
-  
+
               <button
                 onClick={() => setActiveTab('lottery')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeTab === 'lottery' ? 'text-white' : ''
+                className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  activeTab === 'lottery'
+                    ? 'bg-[#FF644A] text-white'
+                    : 'bg-white dark:bg-[#2D2C3A] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
-                style={{
-                  backgroundColor: activeTab === 'lottery' ? '#FF644A' : 'white',
-                  color: activeTab === 'lottery' ? 'white' : '#666',
-                  border: activeTab === 'lottery' ? 'none' : '1px solid #E5E5E5'
-                }}
               >
-                <div className="flex items-center gap-2">
-                  <Trophy size={18} />
-                  <span>{t('tabs.lottery')}</span>
-                </div>
+                <Trophy size={18} />
+                <span>{t('tabs.lottery')}</span>
               </button>
               
               <button
                 onClick={() => setActiveTab('photo-contest')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeTab === 'photo-contest' ? 'text-white' : ''
+                className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  activeTab === 'photo-contest'
+                    ? 'bg-[#FF644A] text-white'
+                    : 'bg-white dark:bg-[#2D2C3A] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
-                style={{
-                  backgroundColor: activeTab === 'photo-contest' ? '#FF644A' : 'white',
-                  color: activeTab === 'photo-contest' ? 'white' : '#666',
-                  border: activeTab === 'photo-contest' ? 'none' : '1px solid #E5E5E5'
-                }}
               >
-                <div className="flex items-center gap-2">
-                  <Camera size={18} />
-                  <span>{t('tabs.photoContest')}</span>
-                </div>
+                <Camera size={18} />
+                <span>{t('tabs.photoContest')}</span>
               </button>
               
               <button
                 onClick={() => setActiveTab('bounties')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeTab === 'bounties' ? 'text-white' : ''
+                className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  activeTab === 'bounties'
+                    ? 'bg-[#FF644A] text-white'
+                    : 'bg-white dark:bg-[#2D2C3A] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
-                style={{
-                  backgroundColor: activeTab === 'bounties' ? '#FF644A' : 'white',
-                  color: activeTab === 'bounties' ? 'white' : '#666',
-                  border: activeTab === 'bounties' ? 'none' : '1px solid #E5E5E5'
-                }}
               >
-                <div className="flex items-center gap-2">
-                  <Target size={18} />
-                  <span>{t('tabs.bounties')}</span>
-                </div>
+                <Target size={18} />
+                <span>{t('tabs.bounties')}</span>
               </button>
             </div>
 
             {/* Tab Content */}
-            <div className="bg-white rounded-xl p-6" style={{ border: '1px solid #E5E5E5' }}>
+            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
               {/* Error State */}
               {error && (
-                <div 
-                  className="mb-6 p-4 rounded-lg flex items-center gap-3"
-                  style={{ backgroundColor: '#FFF4E1', border: '1px solid #FFD4CC' }}
-                >
-                  <AlertCircle size={20} style={{ color: '#E65441' }} />
+                <div className="mb-6 p-4 rounded-lg flex items-center gap-3 bg-[#FFF4E1] dark:bg-red-900/20 border border-[#FFD4CC] dark:border-red-800">
+                  <AlertCircle size={20} className="text-[#E65441] dark:text-red-400" />
                   <div>
-                    <div className="font-medium" style={{ color: '#1F1E2A' }}>{t('error.title')}</div>
-                    <div className="text-sm" style={{ color: '#666' }}>{error}</div>
+                    <div className="font-medium text-[#1F1E2A] dark:text-white">{t('error.title')}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{error}</div>
                   </div>
                   <button
                     onClick={loadData}
-                    className="ml-auto px-4 py-2 rounded text-sm font-medium hover:opacity-90"
-                    style={{ backgroundColor: '#FF644A', color: 'white' }}
+                    className="ml-auto px-4 py-2 rounded text-sm font-medium hover:opacity-90 bg-[#FF644A] text-white"
                   >
                     {t('error.retry')}
                   </button>
@@ -248,10 +217,7 @@ export default function RewardsPage() {
               {/* Loading State */}
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
-                  <div 
-                    className="animate-spin rounded-full h-8 w-8 border-b-2"
-                    style={{ borderColor: '#FF644A' }}
-                  ></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF644A]"></div>
                 </div>
               ) : (
                 <>
@@ -279,7 +245,6 @@ export default function RewardsPage() {
                   
                   {activeTab === 'bounties' && (
                     <BountiesContent 
-                      data={bountiesData}
                       isWalletUser={authMode === 'wallet'}
                       isAuthenticated={isAuthenticated}
                     />
@@ -294,7 +259,6 @@ export default function RewardsPage() {
             isAuthenticated={isAuthenticated}
             authMode={authMode}
             lotteryData={lotteryData}
-            bountiesData={bountiesData}
             formatDate={formatDate}
           />
         </div>
@@ -311,13 +275,11 @@ function Sidebar({
   isAuthenticated, 
   authMode, 
   lotteryData, 
-  bountiesData,
   formatDate 
 }: { 
   isAuthenticated: boolean;
   authMode: string | null;
   lotteryData: LotteryStandings | null;
-  bountiesData: ActiveBounties | null;
   formatDate: (date: string) => string;
 }) {
   const router = useRouter();
@@ -328,38 +290,32 @@ function Sidebar({
       {/* Wallet Status Card */}
       {isAuthenticated ? (
         authMode === 'wallet' ? (
-          <div 
-            className="bg-white rounded-xl p-6"
-            style={{ border: '1px solid #E5E5E5' }}
-          >
+          <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
             <div className="flex items-center gap-2 mb-4">
-              <div 
-                className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: '#E3F2FD' }}
-              >
-                <Wallet size={20} style={{ color: '#1976D2' }} />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+                <Wallet size={20} className="text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <div className="font-semibold" style={{ color: '#1F1E2A' }}>
+                <div className="font-semibold text-[#1F1E2A] dark:text-white">
                   {t('sidebar.wallet.connected.title')}
                 </div>
-                <div className="text-sm" style={{ color: '#999' }}>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   {t('sidebar.wallet.connected.subtitle')}
                 </div>
               </div>
             </div>
             
             {lotteryData?.user_stats && (
-              <div className="space-y-2 pt-4 border-t" style={{ borderColor: '#F5F5F5' }}>
+              <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-[#3D3C4A]">
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: '#666' }}>{t('sidebar.wallet.connected.lotteryTickets')}</span>
-                  <span className="font-semibold" style={{ color: '#1F1E2A' }}>
+                  <span className="text-gray-600 dark:text-gray-400">{t('sidebar.wallet.connected.lotteryTickets')}</span>
+                  <span className="font-semibold text-[#1F1E2A] dark:text-white">
                     {lotteryData.user_stats.ticket_count}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: '#666' }}>{t('sidebar.wallet.connected.engagementScore')}</span>
-                  <span className="font-semibold" style={{ color: '#1F1E2A' }}>
+                  <span className="text-gray-600 dark:text-gray-400">{t('sidebar.wallet.connected.engagementScore')}</span>
+                  <span className="font-semibold text-[#1F1E2A] dark:text-white">
                     {lotteryData.user_stats.engagement_score.toFixed(1)}
                   </span>
                 </div>
@@ -367,35 +323,28 @@ function Sidebar({
             )}
           </div>
         ) : (
-          <div 
-            className="bg-white rounded-xl p-6"
-            style={{ border: '2px solid #FF644A' }}
-          >
+          <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border-2 border-[#FF644A]">
             <div className="flex items-center gap-2 mb-4">
-              <div 
-                className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: '#FFE8E3' }}
-              >
-                <Wallet size={20} style={{ color: '#FF644A' }} />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#FFE8E3] dark:bg-[#FF644A]/20">
+                <Wallet size={20} className="text-[#FF644A]" />
               </div>
               <div>
-                <div className="font-semibold" style={{ color: '#1F1E2A' }}>
+                <div className="font-semibold text-[#1F1E2A] dark:text-white">
                   {t('sidebar.wallet.upgrade.title')}
                 </div>
-                <div className="text-sm" style={{ color: '#999' }}>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   {t('sidebar.wallet.upgrade.subtitle')}
                 </div>
               </div>
             </div>
             
-            <p className="text-sm mb-4" style={{ color: '#666' }}>
+            <p className="text-sm mb-4 text-gray-600 dark:text-gray-400">
               {t('sidebar.wallet.upgrade.description')}
             </p>
             
             <button
               onClick={() => router.push('/dashboard')}
-              className="w-full px-4 py-2 rounded-lg text-white font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-              style={{ backgroundColor: '#FF644A' }}
+              className="w-full px-4 py-2 rounded-lg text-white font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 bg-[#FF644A]"
             >
               <span>{t('sidebar.wallet.upgrade.cta')}</span>
               <ArrowRight size={16} />
@@ -403,22 +352,18 @@ function Sidebar({
           </div>
         )
       ) : (
-        <div 
-          className="bg-white rounded-xl p-6"
-          style={{ border: '1px solid #E5E5E5' }}
-        >
+        <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
           <div className="text-center mb-4">
-            <div className="font-semibold mb-2" style={{ color: '#1F1E2A' }}>
+            <div className="font-semibold mb-2 text-[#1F1E2A] dark:text-white">
               {t('sidebar.wallet.guest.title')}
             </div>
-            <p className="text-sm" style={{ color: '#666' }}>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {t('sidebar.wallet.guest.description')}
             </p>
           </div>
           <button
             onClick={() => router.push('/signup')}
-            className="w-full px-4 py-2 rounded-lg text-white font-medium hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: '#FF644A' }}
+            className="w-full px-4 py-2 rounded-lg text-white font-medium hover:opacity-90 transition-opacity bg-[#FF644A]"
           >
             {t('sidebar.wallet.guest.cta')}
           </button>
@@ -426,88 +371,77 @@ function Sidebar({
       )}
 
       {/* Quick Stats */}
-      <div 
-        className="bg-white rounded-xl p-6"
-        style={{ border: '1px solid #E5E5E5' }}
-      >
-        <h3 className="font-semibold mb-4" style={{ color: '#1F1E2A' }}>
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
+        <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
           {t('sidebar.quickStats.title')}
         </h3>
         
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div 
-              className="w-8 h-8 rounded flex items-center justify-center"
-              style={{ backgroundColor: '#FFE8E3' }}
-            >
-              <Trophy size={16} style={{ color: '#FF644A' }} />
+            <div className="w-8 h-8 rounded flex items-center justify-center bg-[#FFE8E3] dark:bg-[#FF644A]/20">
+              <Trophy size={16} className="text-[#FF644A]" />
             </div>
             <div className="flex-1">
-              <div className="text-sm" style={{ color: '#666' }}>{t('sidebar.quickStats.nextLottery')}</div>
-              <div className="text-sm font-semibold" style={{ color: '#1F1E2A' }}>
+              <div className="text-sm text-gray-600 dark:text-gray-400">{t('sidebar.quickStats.nextLottery')}</div>
+              <div className="text-sm font-semibold text-[#1F1E2A] dark:text-white">
                 {lotteryData ? formatDate(lotteryData.drawing.week_end) : t('sidebar.quickStats.loading')}
               </div>
             </div>
           </div>
           
           <div className="flex items-center gap-3">
-            <div 
-              className="w-8 h-8 rounded flex items-center justify-center"
-              style={{ backgroundColor: '#BFE2D9' }}
-            >
-              <Camera size={16} style={{ color: '#2D7A5F' }} />
+            <div className="w-8 h-8 rounded flex items-center justify-center bg-[#BFE2D9] dark:bg-[#BFE2D9]/20">
+              <Camera size={16} className="text-[#2D7A5F] dark:text-[#BFE2D9]" />
             </div>
             <div className="flex-1">
-              <div className="text-sm" style={{ color: '#666' }}>{t('sidebar.quickStats.prizePool')}</div>
-              <div className="text-sm font-semibold" style={{ color: '#1F1E2A' }}>
+              <div className="text-sm text-gray-600 dark:text-gray-400">{t('sidebar.quickStats.prizePool')}</div>
+              <div className="text-sm font-semibold text-[#1F1E2A] dark:text-white">
                 {REWARDS.LOTTERY.POOL} BOCA
               </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-8 h-8 rounded flex items-center justify-center"
-              style={{ backgroundColor: '#E3F2FD' }}
-            >
-              <Users size={16} style={{ color: '#1976D2' }} />
+          <div 
+            className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#353444] -mx-2 px-2 py-1 rounded-lg transition-colors"
+            onClick={() => router.push('/discover?tab=requests')}
+          >
+            <div className="w-8 h-8 rounded flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+              <Target size={16} className="text-blue-600 dark:text-blue-400" />
             </div>
             <div className="flex-1">
-              <div className="text-sm" style={{ color: '#666' }}>{t('sidebar.quickStats.activeBounties')}</div>
-              <div className="text-sm font-semibold" style={{ color: '#1F1E2A' }}>
-                {bountiesData?.bounties?.length || 0}
+              <div className="text-sm text-gray-600 dark:text-gray-400">{t('sidebar.quickStats.discoveryRequests')}</div>
+              <div className="text-sm font-semibold text-[#FF644A]">
+                {t('sidebar.quickStats.viewRequests')}
               </div>
             </div>
+            <ArrowRight size={14} className="text-gray-400 dark:text-gray-500" />
           </div>
         </div>
       </div>
 
       {/* How It Works */}
-      <div 
-        className="bg-white rounded-xl p-6"
-        style={{ border: '1px solid #E5E5E5' }}
-      >
-        <h3 className="font-semibold mb-4" style={{ color: '#1F1E2A' }}>
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
+        <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
           {t('sidebar.howItWorks.title')}
         </h3>
         
-        <div className="space-y-4 text-sm" style={{ color: '#666' }}>
+        <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
           <div>
-            <div className="font-medium mb-1" style={{ color: '#1F1E2A' }}>
+            <div className="font-medium mb-1 text-[#1F1E2A] dark:text-white">
               {t('sidebar.howItWorks.lottery.title')}
             </div>
             <p>{t('sidebar.howItWorks.lottery.description')}</p>
           </div>
           
           <div>
-            <div className="font-medium mb-1" style={{ color: '#1F1E2A' }}>
+            <div className="font-medium mb-1 text-[#1F1E2A] dark:text-white">
               {t('sidebar.howItWorks.photoContest.title')}
             </div>
             <p>{t('sidebar.howItWorks.photoContest.description')}</p>
           </div>
           
           <div>
-            <div className="font-medium mb-1" style={{ color: '#1F1E2A' }}>
+            <div className="font-medium mb-1 text-[#1F1E2A] dark:text-white">
               {t('sidebar.howItWorks.bounties.title')}
             </div>
             <p>{t('sidebar.howItWorks.bounties.description')}</p>
@@ -519,7 +453,7 @@ function Sidebar({
 }
 
 // ============================================
-// OVERVIEW TAB COMPONENT - FULLY TRANSLATED
+// OVERVIEW TAB COMPONENT
 // ============================================
 const OverviewContent = ({ user }: { user?: any }) => {
   const t = useTranslations('rewards');
@@ -529,10 +463,10 @@ const OverviewContent = ({ user }: { user?: any }) => {
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-[#1F1E2A] mb-2">
+        <h2 className="text-2xl font-bold text-[#1F1E2A] dark:text-white mb-2">
           {t('overview.header.title')}
         </h2>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           {t('overview.header.subtitle')}
         </p>
       </div>
@@ -558,111 +492,111 @@ const OverviewContent = ({ user }: { user?: any }) => {
       )}
 
       {/* Welcome Rewards */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-            <Gift className="w-5 h-5 text-green-600" />
+          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+            <Gift className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
           <div>
-            <h3 className="font-bold text-[#1F1E2A]">{t('overview.welcome.title')}</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.welcome.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {t('overview.welcome.subtitle', { total: REWARDS.ONBOARDING.TOTAL })}
             </p>
           </div>
         </div>
         <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.welcome.follow3')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.welcome.follow3')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.ONBOARDING.FOLLOW_3} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.welcome.create5')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.welcome.create5')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.ONBOARDING.CREATE_5_RECS} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.welcome.engage10')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.welcome.engage10')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.ONBOARDING.ENGAGE_10} BOCA</span>
           </div>
         </div>
       </div>
 
       {/* Content Creation */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-[#FFF4E1] rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-[#FFF4E1] dark:bg-[#FF644A]/20 rounded-lg flex items-center justify-center">
             <Star className="w-5 h-5 text-[#FF644A]" />
           </div>
           <div>
-            <h3 className="font-bold text-[#1F1E2A]">{t('overview.content.title')}</h3>
-            <p className="text-sm text-gray-500">{t('overview.content.subtitle')}</p>
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.content.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.content.subtitle')}</p>
           </div>
         </div>
         <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.content.createWallet')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.content.createWallet')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.CONTENT.CREATE_REC_WALLET} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.content.createEmail')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.content.createEmail')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.CONTENT.CREATE_REC_EMAIL} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-[#FF644A]/10 rounded-lg border border-[#FF644A]/20">
-            <span className="text-gray-700 font-medium">{t('overview.content.validationBonus')}</span>
+          <div className="flex justify-between items-center p-3 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 rounded-lg border border-[#FF644A]/20 dark:border-[#FF644A]/30">
+            <span className="text-gray-700 dark:text-gray-300 font-medium">{t('overview.content.validationBonus')}</span>
             <span className="font-bold text-[#FF644A]">+{REWARDS.CONTENT.VALIDATION_BONUS} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-[#FF644A]/10 rounded-lg border border-[#FF644A]/20">
-            <span className="text-gray-700 font-medium">{t('overview.content.firstReviewer')}</span>
+          <div className="flex justify-between items-center p-3 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 rounded-lg border border-[#FF644A]/20 dark:border-[#FF644A]/30">
+            <span className="text-gray-700 dark:text-gray-300 font-medium">{t('overview.content.firstReviewer')}</span>
             <span className="font-bold text-[#FF644A]">+{REWARDS.CONTENT.FIRST_REVIEWER} BOCA</span>
           </div>
         </div>
       </div>
 
       {/* Engagement Received */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-blue-600" />
+          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+            <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h3 className="font-bold text-[#1F1E2A]">{t('overview.engagement.title')}</h3>
-            <p className="text-sm text-gray-500">{t('overview.engagement.subtitle')}</p>
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.engagement.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.engagement.subtitle')}</p>
           </div>
         </div>
         <div className="grid gap-3 mb-4">
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.engagement.save')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.engagement.save')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.ENGAGEMENT.SAVE} BOCA × {t('overview.engagement.tier')}</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.engagement.comment')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.engagement.comment')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.ENGAGEMENT.COMMENT} BOCA × {t('overview.engagement.tier')}</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.engagement.helpful')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.engagement.helpful')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.ENGAGEMENT.HELPFUL} BOCA</span>
           </div>
         </div>
         {/* Tier Weight Explainer */}
-        <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-          <h4 className="font-medium text-blue-800 mb-2">{t('overview.tiers.title')}</h4>
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-100 dark:border-blue-800">
+          <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">{t('overview.tiers.title')}</h4>
           <div className="grid grid-cols-3 gap-2 text-sm">
-            <div className="text-center p-2 bg-white rounded">
-              <div className="font-bold text-blue-600">{TIER_WEIGHTS.NEW.weight}×</div>
-              <div className="text-gray-600">{t('overview.tiers.new')}</div>
-              <div className="text-xs text-gray-400">{t('overview.tiers.newDays')}</div>
+            <div className="text-center p-2 bg-white dark:bg-[#2D2C3A] rounded">
+              <div className="font-bold text-blue-600 dark:text-blue-400">{TIER_WEIGHTS.NEW.weight}×</div>
+              <div className="text-gray-600 dark:text-gray-400">{t('overview.tiers.new')}</div>
+              <div className="text-xs text-gray-400 dark:text-gray-500">{t('overview.tiers.newDays')}</div>
             </div>
-            <div className="text-center p-2 bg-white rounded">
-              <div className="font-bold text-blue-600">{TIER_WEIGHTS.ESTABLISHED.weight}×</div>
-              <div className="text-gray-600">{t('overview.tiers.established')}</div>
-              <div className="text-xs text-gray-400">{t('overview.tiers.establishedDays')}</div>
+            <div className="text-center p-2 bg-white dark:bg-[#2D2C3A] rounded">
+              <div className="font-bold text-blue-600 dark:text-blue-400">{TIER_WEIGHTS.ESTABLISHED.weight}×</div>
+              <div className="text-gray-600 dark:text-gray-400">{t('overview.tiers.established')}</div>
+              <div className="text-xs text-gray-400 dark:text-gray-500">{t('overview.tiers.establishedDays')}</div>
             </div>
-            <div className="text-center p-2 bg-white rounded">
-              <div className="font-bold text-blue-600">{TIER_WEIGHTS.TRUSTED.weight}×</div>
-              <div className="text-gray-600">{t('overview.tiers.trusted')}</div>
-              <div className="text-xs text-gray-400">{t('overview.tiers.trustedDays')}</div>
+            <div className="text-center p-2 bg-white dark:bg-[#2D2C3A] rounded">
+              <div className="font-bold text-blue-600 dark:text-blue-400">{TIER_WEIGHTS.TRUSTED.weight}×</div>
+              <div className="text-gray-600 dark:text-gray-400">{t('overview.tiers.trusted')}</div>
+              <div className="text-xs text-gray-400 dark:text-gray-500">{t('overview.tiers.trustedDays')}</div>
             </div>
           </div>
-          <p className="text-xs text-blue-700 mt-2">
+          <p className="text-xs text-blue-700 dark:text-blue-400 mt-2">
             {t('overview.tiers.example', { 
               base: REWARDS.ENGAGEMENT.SAVE, 
               multiplier: TIER_WEIGHTS.TRUSTED.weight,
@@ -673,85 +607,85 @@ const OverviewContent = ({ user }: { user?: any }) => {
       </div>
 
       {/* Social Amplification */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-[#FFF4E1] rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-[#FFF4E1] dark:bg-[#FF644A]/20 rounded-lg flex items-center justify-center">
             <Share2 className="w-5 h-5 text-[#FF644A]" />
           </div>
           <div>
-            <h3 className="font-bold text-[#1F1E2A]">{t('overview.social.title')}</h3>
-            <p className="text-sm text-gray-500">{t('overview.social.subtitle')}</p>
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.social.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.social.subtitle')}</p>
           </div>
         </div>
         <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.social.boost')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.social.boost')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.SOCIAL.BOOST} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.social.reshare')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.social.reshare')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.SOCIAL.RESHARE} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.social.attribution')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.social.attribution')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.SOCIAL.ATTRIBUTION} BOCA</span>
           </div>
         </div>
       </div>
 
       {/* Weekly Contests */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-            <Trophy className="w-5 h-5 text-yellow-600" />
+          <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
+            <Trophy className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
           </div>
           <div>
-            <h3 className="font-bold text-[#1F1E2A]">{t('overview.contests.title')}</h3>
-            <p className="text-sm text-gray-500">{t('overview.contests.subtitle')}</p>
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.contests.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.contests.subtitle')}</p>
           </div>
         </div>
         <div className="grid md:grid-cols-2 gap-4">
           {/* Lottery Card */}
-          <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
-            <h4 className="font-bold text-purple-800 mb-2">🎰 {t('overview.contests.lottery.title')}</h4>
-            <p className="text-sm text-purple-700 mb-3">
+          <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg border border-purple-200 dark:border-purple-700">
+            <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-2">🎰 {t('overview.contests.lottery.title')}</h4>
+            <p className="text-sm text-purple-700 dark:text-purple-400 mb-3">
               {t('overview.contests.lottery.pool', { amount: REWARDS.LOTTERY.POOL })}
             </p>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span>🥇 {t('overview.contests.first')}</span>
-                <span className="font-bold">{REWARDS.LOTTERY.FIRST} BOCA + {t('overview.contests.lottery.spotlights', { count: 3 })}</span>
+                <span className="text-purple-700 dark:text-purple-400">🥇 {t('overview.contests.first')}</span>
+                <span className="font-bold text-purple-800 dark:text-purple-300">{REWARDS.LOTTERY.FIRST} BOCA + {t('overview.contests.lottery.spotlights', { count: 3 })}</span>
               </div>
               <div className="flex justify-between">
-                <span>🥈 {t('overview.contests.second')}</span>
-                <span className="font-bold">{REWARDS.LOTTERY.SECOND} BOCA + {t('overview.contests.lottery.spotlights', { count: 2 })}</span>
+                <span className="text-purple-700 dark:text-purple-400">🥈 {t('overview.contests.second')}</span>
+                <span className="font-bold text-purple-800 dark:text-purple-300">{REWARDS.LOTTERY.SECOND} BOCA + {t('overview.contests.lottery.spotlights', { count: 2 })}</span>
               </div>
               <div className="flex justify-between">
-                <span>🥉 {t('overview.contests.third')}</span>
-                <span className="font-bold">{REWARDS.LOTTERY.THIRD} BOCA + {t('overview.contests.lottery.spotlights', { count: 1 })}</span>
+                <span className="text-purple-700 dark:text-purple-400">🥉 {t('overview.contests.third')}</span>
+                <span className="font-bold text-purple-800 dark:text-purple-300">{REWARDS.LOTTERY.THIRD} BOCA + {t('overview.contests.lottery.spotlights', { count: 1 })}</span>
               </div>
             </div>
-            <p className="text-xs text-purple-600 mt-2">{t('overview.contests.lottery.eligible')}</p>
+            <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">{t('overview.contests.lottery.eligible')}</p>
           </div>
           {/* Photo Contest Card */}
-          <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border border-amber-200">
-            <h4 className="font-bold text-amber-800 mb-2">📸 {t('overview.contests.photo.title')}</h4>
-            <p className="text-sm text-amber-700 mb-3">{t('overview.contests.photo.subtitle')}</p>
+          <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/20 rounded-lg border border-amber-200 dark:border-amber-700">
+            <h4 className="font-bold text-amber-800 dark:text-amber-300 mb-2">📸 {t('overview.contests.photo.title')}</h4>
+            <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">{t('overview.contests.photo.subtitle')}</p>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span>🥇 {t('overview.contests.first')}</span>
-                <span className="font-bold">{REWARDS.PHOTO_CONTEST.FIRST} BOCA + {t('overview.contests.photo.homepage')}</span>
+                <span className="text-amber-700 dark:text-amber-400">🥇 {t('overview.contests.first')}</span>
+                <span className="font-bold text-amber-800 dark:text-amber-300">{REWARDS.PHOTO_CONTEST.FIRST} BOCA + {t('overview.contests.photo.homepage')}</span>
               </div>
               <div className="flex justify-between">
-                <span>🥈 {t('overview.contests.second')}</span>
-                <span className="font-bold">{REWARDS.PHOTO_CONTEST.SECOND} BOCA + {t('overview.contests.photo.banner')}</span>
+                <span className="text-amber-700 dark:text-amber-400">🥈 {t('overview.contests.second')}</span>
+                <span className="font-bold text-amber-800 dark:text-amber-300">{REWARDS.PHOTO_CONTEST.SECOND} BOCA + {t('overview.contests.photo.banner')}</span>
               </div>
               <div className="flex justify-between">
-                <span>🥉 {t('overview.contests.third')}</span>
-                <span className="font-bold">{REWARDS.PHOTO_CONTEST.THIRD} BOCA + {t('overview.contests.photo.banner')}</span>
+                <span className="text-amber-700 dark:text-amber-400">🥉 {t('overview.contests.third')}</span>
+                <span className="font-bold text-amber-800 dark:text-amber-300">{REWARDS.PHOTO_CONTEST.THIRD} BOCA + {t('overview.contests.photo.banner')}</span>
               </div>
             </div>
-            <p className="text-xs text-amber-600 mt-2">
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
               {t('overview.contests.photo.participation', { amount: REWARDS.PHOTO_CONTEST.PARTICIPATION })}
             </p>
           </div>
@@ -759,53 +693,53 @@ const OverviewContent = ({ user }: { user?: any }) => {
       </div>
 
       {/* Bounties */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-            <Target className="w-5 h-5 text-green-600" />
+          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+            <Target className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
           <div>
-            <h3 className="font-bold text-[#1F1E2A]">{t('overview.bounties.title')}</h3>
-            <p className="text-sm text-gray-500">{t('overview.bounties.subtitle')}</p>
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.bounties.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.bounties.subtitle')}</p>
           </div>
         </div>
         <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.bounties.create')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.bounties.create')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.BOUNTY.MINIMUM} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.bounties.win')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.bounties.win')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.BOUNTY.WINNER_PERCENT}% {t('overview.bounties.ofPledge')}</span>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {t('overview.bounties.fee', { percent: REWARDS.BOUNTY.BURN_PERCENT })}
           </p>
         </div>
       </div>
 
       {/* Curation */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-            <Bookmark className="w-5 h-5 text-blue-600" />
+          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+            <Bookmark className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h3 className="font-bold text-[#1F1E2A]">{t('overview.curation.title')}</h3>
-            <p className="text-sm text-gray-500">{t('overview.curation.subtitle')}</p>
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.curation.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.curation.subtitle')}</p>
           </div>
         </div>
         <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.curation.createList')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.curation.createList')}</span>
             <span className="font-bold text-[#FF644A]">{REWARDS.CURATION.CREATE_LIST} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.curation.list10')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.curation.list10')}</span>
             <span className="font-bold text-[#FF644A]">+{REWARDS.CURATION.LIST_10_SAVES} BOCA</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <span className="text-gray-700">{t('overview.curation.list50')}</span>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('overview.curation.list50')}</span>
             <span className="font-bold text-[#FF644A]">+{REWARDS.CURATION.LIST_50_SAVES} BOCA</span>
           </div>
         </div>
@@ -832,35 +766,32 @@ function LotteryContent({
   const t = useTranslations('rewards');
 
   if (!data) {
-    return <div style={{ color: '#666' }}>{t('lottery.noData')}</div>;
+    return <div className="text-gray-600 dark:text-gray-400">{t('lottery.noData')}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2" style={{ color: '#1F1E2A' }}>
+        <h2 className="text-2xl font-bold mb-2 text-[#1F1E2A] dark:text-white">
           {t('lottery.title')}
         </h2>
-        <p style={{ color: '#666' }}>
+        <p className="text-gray-600 dark:text-gray-400">
           {t('lottery.description')}
         </p>
       </div>
 
       {/* Prize Pool */}
-      <div 
-        className="rounded-lg p-6"
-        style={{ backgroundColor: '#FFE8E3', border: '1px solid #FFD4CC' }}
-      >
+      <div className="rounded-lg p-6 bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm mb-1" style={{ color: '#E65441' }}>{t('lottery.prizePool.title')}</div>
-            <div className="text-3xl font-bold" style={{ color: '#FF644A' }}>
+            <div className="text-sm mb-1 text-[#E65441] dark:text-[#FF644A]">{t('lottery.prizePool.title')}</div>
+            <div className="text-3xl font-bold text-[#FF644A]">
               {REWARDS.LOTTERY.POOL} BOCA
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm mb-1" style={{ color: '#E65441' }}>{t('lottery.prizePool.nextDrawing')}</div>
-            <div className="font-semibold" style={{ color: '#FF644A' }}>
+            <div className="text-sm mb-1 text-[#E65441] dark:text-[#FF644A]">{t('lottery.prizePool.nextDrawing')}</div>
+            <div className="font-semibold text-[#FF644A]">
               {formatDate(data.drawing.week_end)}
             </div>
           </div>
@@ -869,56 +800,50 @@ function LotteryContent({
 
       {/* Prize Breakdown */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg p-4 text-center" style={{ border: '1px solid #E5E5E5' }}>
+        <div className="bg-white dark:bg-[#353444] rounded-lg p-4 text-center border border-gray-200 dark:border-[#3D3C4A]">
           <div className="text-2xl mb-1">🥇</div>
-          <div className="font-bold" style={{ color: '#1F1E2A' }}>
+          <div className="font-bold text-[#1F1E2A] dark:text-white">
             {REWARDS.LOTTERY.FIRST} BOCA
           </div>
-          <div className="text-sm" style={{ color: '#999' }}>{t('lottery.prizes.first')}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('lottery.prizes.first')}</div>
         </div>
-        <div className="bg-white rounded-lg p-4 text-center" style={{ border: '1px solid #E5E5E5' }}>
+        <div className="bg-white dark:bg-[#353444] rounded-lg p-4 text-center border border-gray-200 dark:border-[#3D3C4A]">
           <div className="text-2xl mb-1">🥈</div>
-          <div className="font-bold" style={{ color: '#1F1E2A' }}>
+          <div className="font-bold text-[#1F1E2A] dark:text-white">
             {REWARDS.LOTTERY.SECOND} BOCA
           </div>
-          <div className="text-sm" style={{ color: '#999' }}>{t('lottery.prizes.second')}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('lottery.prizes.second')}</div>
         </div>
-        <div className="bg-white rounded-lg p-4 text-center" style={{ border: '1px solid #E5E5E5' }}>
+        <div className="bg-white dark:bg-[#353444] rounded-lg p-4 text-center border border-gray-200 dark:border-[#3D3C4A]">
           <div className="text-2xl mb-1">🥉</div>
-          <div className="font-bold" style={{ color: '#1F1E2A' }}>
+          <div className="font-bold text-[#1F1E2A] dark:text-white">
             {REWARDS.LOTTERY.THIRD} BOCA
           </div>
-          <div className="text-sm" style={{ color: '#999' }}>{t('lottery.prizes.third')}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('lottery.prizes.third')}</div>
         </div>
       </div>
 
       {/* Participants Info */}
-      <div 
-        className="rounded-lg p-4 flex items-center justify-between"
-        style={{ backgroundColor: '#E3F2FD', border: '1px solid #BBDEFB' }}
-      >
+      <div className="rounded-lg p-4 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
         <div className="flex items-center gap-3">
-          <Users size={24} style={{ color: '#1976D2' }} />
+          <Users size={24} className="text-blue-600 dark:text-blue-400" />
           <div>
-            <div className="font-semibold" style={{ color: '#1F1E2A' }}>
+            <div className="font-semibold text-[#1F1E2A] dark:text-white">
               {t('lottery.participants.title', { count: data.drawing.total_participants })}
             </div>
-            <div className="text-sm" style={{ color: '#666' }}>
+            <div className="text-sm text-gray-600 dark:text-gray-400">
               {t('lottery.participants.eligible', { max: data.drawing.max_participants })}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Leaderboard - Fetch from API */}
+      {/* Leaderboard */}
       <LeaderboardSection drawingId={data.drawing.id} />
 
       {!isWalletUser && isAuthenticated && (
-        <div 
-          className="rounded-lg p-4 text-center"
-          style={{ backgroundColor: '#FFF4E1', border: '1px solid #FFD4CC' }}
-        >
-          <p style={{ color: '#666' }}>
+        <div className="rounded-lg p-4 text-center bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFD4CC] dark:border-[#FF644A]/30">
+          <p className="text-gray-600 dark:text-gray-400">
             {t('lottery.walletRequired')}
           </p>
         </div>
@@ -928,7 +853,7 @@ function LotteryContent({
 }
 
 // ==========================================
-// LEADERBOARD SECTION (Separate component for cleaner code)
+// LEADERBOARD SECTION
 // ==========================================
 
 function LeaderboardSection({ drawingId }: { drawingId: string }) {
@@ -943,7 +868,7 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
   const loadLeaderboard = async () => {
     try {
       setIsLoading(true);
-      const data = await lotteryApiService.getLeaderboard(100); // Get top 100
+      const data = await lotteryApiService.getLeaderboard(100);
       setLeaderboard(data);
     } catch (error) {
       console.error('Failed to load leaderboard:', error);
@@ -955,10 +880,7 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <div 
-          className="animate-spin rounded-full h-6 w-6 border-b-2"
-          style={{ borderColor: '#FF644A' }}
-        ></div>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#FF644A]"></div>
       </div>
     );
   }
@@ -970,19 +892,16 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold" style={{ color: '#1F1E2A' }}>
+        <h3 className="font-semibold text-[#1F1E2A] dark:text-white">
           {t('lottery.leaderboard.title')}
         </h3>
-        <div className="text-sm" style={{ color: '#999' }}>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           {t('lottery.leaderboard.topParticipants', { count: Math.min(100, leaderboard.length) })}
         </div>
       </div>
       
       {/* Table Header */}
-      <div 
-        className="grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium rounded-t-lg"
-        style={{ backgroundColor: '#FFF4E1', color: '#666' }}
-      >
+      <div className="grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium rounded-t-lg bg-[#FFF4E1] dark:bg-[#353444] text-gray-600 dark:text-gray-400">
         <div className="col-span-1">{t('lottery.leaderboard.columns.rank')}</div>
         <div className="col-span-4">{t('lottery.leaderboard.columns.user')}</div>
         <div className="col-span-3 text-right">{t('lottery.leaderboard.columns.engagement')}</div>
@@ -995,20 +914,19 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
         {leaderboard.slice(0, 20).map((entry, index) => (
           <div 
             key={entry.user.id}
-            className="grid grid-cols-12 gap-4 items-center p-4 rounded-lg transition-colors hover:bg-gray-50"
-            style={{ 
-              backgroundColor: index < 3 ? '#FFF4E1' : 'white',
-              border: '1px solid #E5E5E5'
-            }}
+            className={`grid grid-cols-12 gap-4 items-center p-4 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] ${
+              index < 3 ? 'bg-[#FFF4E1] dark:bg-[#FF644A]/10' : 'bg-white dark:bg-[#2D2C3A]'
+            }`}
           >
             {/* Rank */}
             <div className="col-span-1">
               <div 
-                className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
-                style={{ 
-                  backgroundColor: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : '#E5E5E5',
-                  color: index < 3 ? 'white' : '#666'
-                }}
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                  index === 0 ? 'bg-yellow-400 text-white' : 
+                  index === 1 ? 'bg-gray-400 text-white' : 
+                  index === 2 ? 'bg-amber-600 text-white' : 
+                  'bg-gray-200 dark:bg-[#3D3C4A] text-gray-600 dark:text-gray-400'
+                }`}
               >
                 {entry.rank}
               </div>
@@ -1016,11 +934,11 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
             
             {/* User */}
             <div className="col-span-4">
-              <div className="font-medium" style={{ color: '#1F1E2A' }}>
+              <div className="font-medium text-[#1F1E2A] dark:text-white">
                 {entry.user.username || `User #${entry.user.id.slice(0, 8)}`}
               </div>
               {entry.user.display_name && (
-                <div className="text-xs" style={{ color: '#999' }}>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
                   {entry.user.display_name}
                 </div>
               )}
@@ -1028,18 +946,15 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
             
             {/* Engagement */}
             <div className="col-span-3 text-right">
-              <div className="font-medium" style={{ color: '#1F1E2A' }}>
+              <div className="font-medium text-[#1F1E2A] dark:text-white">
                 {entry.engagement_score.toFixed(1)}
               </div>
-              <div className="text-xs" style={{ color: '#999' }}>{t('lottery.leaderboard.points')}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{t('lottery.leaderboard.points')}</div>
             </div>
             
             {/* Tickets */}
             <div className="col-span-2 text-right">
-              <div 
-                className="inline-block px-2 py-1 rounded text-sm font-semibold"
-                style={{ backgroundColor: '#FFE8E3', color: '#FF644A' }}
-              >
+              <div className="inline-block px-2 py-1 rounded text-sm font-semibold bg-[#FFE8E3] dark:bg-[#FF644A]/20 text-[#FF644A]">
                 {entry.ticket_count}
               </div>
             </div>
@@ -1047,17 +962,11 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
             {/* Status */}
             <div className="col-span-2 text-right">
               {entry.rank <= 100 ? (
-                <span 
-                  className="inline-block px-2 py-1 rounded text-xs font-medium"
-                  style={{ backgroundColor: '#BFE2D9', color: '#2D7A5F' }}
-                >
+                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#2D7A5F] dark:text-[#BFE2D9]">
                   {t('lottery.leaderboard.eligible')}
                 </span>
               ) : (
-                <span 
-                  className="inline-block px-2 py-1 rounded text-xs"
-                  style={{ backgroundColor: '#F5F5F5', color: '#999' }}
-                >
+                <span className="inline-block px-2 py-1 rounded text-xs bg-gray-100 dark:bg-[#3D3C4A] text-gray-500 dark:text-gray-400">
                   {t('lottery.leaderboard.notEligible')}
                 </span>
               )}
@@ -1067,10 +976,7 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
       </div>
       
       {leaderboard.length > 20 && (
-        <button
-          className="w-full mt-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-gray-50"
-          style={{ borderColor: '#E5E5E5', color: '#666' }}
-        >
+        <button className="w-full mt-4 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-[#3D3C4A] text-gray-600 dark:text-gray-400 transition-colors hover:bg-gray-50 dark:hover:bg-[#353444]">
           {t('lottery.leaderboard.viewFull', { count: leaderboard.length })}
         </button>
       )}
@@ -1096,10 +1002,9 @@ function PhotoContestContent({
   const t = useTranslations('rewards');
 
   if (!data) {
-    return <div style={{ color: '#666' }}>{t('photoContest.noData')}</div>;
+    return <div className="text-gray-600 dark:text-gray-400">{t('photoContest.noData')}</div>;
   }
 
-  // Helper function to calculate time remaining
   const getTimeRemaining = (targetDate: string) => {
     const now = new Date();
     const target = new Date(targetDate);
@@ -1111,7 +1016,6 @@ function PhotoContestContent({
     };
   };
 
-  // Calculate time remaining based on current phase
   const getTargetDate = () => {
     switch (data.round.status) {
       case 'nominations':
@@ -1141,37 +1045,32 @@ function PhotoContestContent({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2" style={{ color: '#1F1E2A' }}>
+        <h2 className="text-2xl font-bold mb-2 text-[#1F1E2A] dark:text-white">
           {t('photoContest.title')}
         </h2>
-        <p style={{ color: '#666' }}>
+        <p className="text-gray-600 dark:text-gray-400">
           {t('photoContest.description')}
         </p>
       </div>
 
       {/* Current Phase */}
-      <div 
-        className="rounded-lg p-4"
-        style={{ 
-          backgroundColor: data.round.status === 'voting' ? '#E3F2FD' : '#FFE8E3',
-          border: `1px solid ${data.round.status === 'voting' ? '#BBDEFB' : '#FFD4CC'}`
-        }}
-      >
+      <div className={`rounded-lg p-4 border ${
+        data.round.status === 'voting' 
+          ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
+          : 'bg-[#FFE8E3] dark:bg-[#FF644A]/20 border-[#FFD4CC] dark:border-[#FF644A]/30'
+      }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div 
-              className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: 'white' }}
-            >
-              {data.round.status === 'nominations' && <Camera size={20} style={{ color: '#FF644A' }} />}
-              {data.round.status === 'voting' && <Users size={20} style={{ color: '#1976D2' }} />}
-              {data.round.status === 'completed' && <Trophy size={20} style={{ color: '#FF644A' }} />}
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-[#2D2C3A]">
+              {data.round.status === 'nominations' && <Camera size={20} className="text-[#FF644A]" />}
+              {data.round.status === 'voting' && <Users size={20} className="text-blue-600 dark:text-blue-400" />}
+              {data.round.status === 'completed' && <Trophy size={20} className="text-[#FF644A]" />}
             </div>
             <div>
-              <div className="font-semibold" style={{ color: '#1F1E2A' }}>
+              <div className="font-semibold text-[#1F1E2A] dark:text-white">
                 {getPhaseLabel(data.round.status)}
               </div>
-              <div className="text-sm" style={{ color: '#666' }}>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
                 {t('photoContest.phase.stats', { 
                   nominations: data.round.total_nominations, 
                   finalists: data.round.total_finalists 
@@ -1180,8 +1079,8 @@ function PhotoContestContent({
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm" style={{ color: '#999' }}>{t('photoContest.timeLeft')}</div>
-            <div className="font-semibold" style={{ color: '#1F1E2A' }}>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('photoContest.timeLeft')}</div>
+            <div className="font-semibold text-[#1F1E2A] dark:text-white">
               {timeRemaining.days}d {timeRemaining.hours}h
             </div>
           </div>
@@ -1189,24 +1088,21 @@ function PhotoContestContent({
       </div>
 
       {/* Prizes */}
-      <div 
-        className="rounded-lg p-6"
-        style={{ backgroundColor: '#FFE8E3', border: '1px solid #FFD4CC' }}
-      >
+      <div className="rounded-lg p-6 bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30">
         <div className="text-center">
-          <div className="text-sm mb-2" style={{ color: '#E65441' }}>{t('photoContest.prizes.title')}</div>
+          <div className="text-sm mb-2 text-[#E65441] dark:text-[#FF644A]">{t('photoContest.prizes.title')}</div>
           <div className="flex items-center justify-center gap-6">
             <div>
-              <div className="text-2xl font-bold" style={{ color: '#FF644A' }}>{REWARDS.PHOTO_CONTEST.FIRST} BOCA</div>
-              <div className="text-sm" style={{ color: '#999' }}>{t('photoContest.prizes.first')}</div>
+              <div className="text-2xl font-bold text-[#FF644A]">{REWARDS.PHOTO_CONTEST.FIRST} BOCA</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('photoContest.prizes.first')}</div>
             </div>
             <div>
-              <div className="text-xl font-bold" style={{ color: '#FF644A' }}>{REWARDS.PHOTO_CONTEST.SECOND} BOCA</div>
-              <div className="text-sm" style={{ color: '#999' }}>{t('photoContest.prizes.second')}</div>
+              <div className="text-xl font-bold text-[#FF644A]">{REWARDS.PHOTO_CONTEST.SECOND} BOCA</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('photoContest.prizes.second')}</div>
             </div>
             <div>
-              <div className="text-lg font-bold" style={{ color: '#FF644A' }}>{REWARDS.PHOTO_CONTEST.THIRD} BOCA</div>
-              <div className="text-sm" style={{ color: '#999' }}>{t('photoContest.prizes.third')}</div>
+              <div className="text-lg font-bold text-[#FF644A]">{REWARDS.PHOTO_CONTEST.THIRD} BOCA</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('photoContest.prizes.third')}</div>
             </div>
           </div>
         </div>
@@ -1215,44 +1111,36 @@ function PhotoContestContent({
       {/* Contest Timeline */}
       <div className="grid grid-cols-4 gap-4">
         <div className="text-center">
-          <div 
-            className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2"
-            style={{ backgroundColor: data.round.status === 'nominations' ? '#FF644A' : '#FFE8E3' }}
-          >
-            <Camera size={20} style={{ color: data.round.status === 'nominations' ? 'white' : '#FF644A' }} />
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${
+            data.round.status === 'nominations' ? 'bg-[#FF644A]' : 'bg-[#FFE8E3] dark:bg-[#FF644A]/20'
+          }`}>
+            <Camera size={20} className={data.round.status === 'nominations' ? 'text-white' : 'text-[#FF644A]'} />
           </div>
-          <div className="font-medium text-sm" style={{ color: '#1F1E2A' }}>{t('photoContest.timeline.monWed')}</div>
-          <div className="text-xs" style={{ color: '#999' }}>{t('photoContest.timeline.nominations')}</div>
+          <div className="font-medium text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.monWed')}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.nominations')}</div>
         </div>
         <div className="text-center">
-          <div 
-            className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2"
-            style={{ backgroundColor: '#E3F2FD' }}
-          >
-            <TrendingUp size={20} style={{ color: '#1976D2' }} />
+          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 bg-blue-100 dark:bg-blue-900/30">
+            <TrendingUp size={20} className="text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="font-medium text-sm" style={{ color: '#1F1E2A' }}>{t('photoContest.timeline.thursday')}</div>
-          <div className="text-xs" style={{ color: '#999' }}>{t('photoContest.timeline.finalists')}</div>
+          <div className="font-medium text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.thursday')}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.finalists')}</div>
         </div>
         <div className="text-center">
-          <div 
-            className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2"
-            style={{ backgroundColor: data.round.status === 'voting' ? '#1976D2' : '#BFE2D9' }}
-          >
-            <Users size={20} style={{ color: data.round.status === 'voting' ? 'white' : '#2D7A5F' }} />
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${
+            data.round.status === 'voting' ? 'bg-blue-600 dark:bg-blue-500' : 'bg-[#BFE2D9] dark:bg-[#BFE2D9]/20'
+          }`}>
+            <Users size={20} className={data.round.status === 'voting' ? 'text-white' : 'text-[#2D7A5F] dark:text-[#BFE2D9]'} />
           </div>
-          <div className="font-medium text-sm" style={{ color: '#1F1E2A' }}>{t('photoContest.timeline.thuSat')}</div>
-          <div className="text-xs" style={{ color: '#999' }}>{t('photoContest.timeline.voting')}</div>
+          <div className="font-medium text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.thuSat')}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.voting')}</div>
         </div>
         <div className="text-center">
-          <div 
-            className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2"
-            style={{ backgroundColor: '#FFE8E3' }}
-          >
-            <Trophy size={20} style={{ color: '#FF644A' }} />
+          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 bg-[#FFE8E3] dark:bg-[#FF644A]/20">
+            <Trophy size={20} className="text-[#FF644A]" />
           </div>
-          <div className="font-medium text-sm" style={{ color: '#1F1E2A' }}>{t('photoContest.timeline.sunday')}</div>
-          <div className="text-xs" style={{ color: '#999' }}>{t('photoContest.timeline.winners')}</div>
+          <div className="font-medium text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.sunday')}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.winners')}</div>
         </div>
       </div>
 
@@ -1264,8 +1152,8 @@ function PhotoContestContent({
 
       {/* How to Participate */}
       <div className="space-y-3">
-        <h3 className="font-semibold" style={{ color: '#1F1E2A' }}>{t('photoContest.howToParticipate.title')}</h3>
-        <div className="space-y-2 text-sm" style={{ color: '#666' }}>
+        <h3 className="font-semibold text-[#1F1E2A] dark:text-white">{t('photoContest.howToParticipate.title')}</h3>
+        <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <div className="flex items-start gap-2">
             <span>1.</span>
             <span>{t('photoContest.howToParticipate.step1')}</span>
@@ -1290,11 +1178,8 @@ function PhotoContestContent({
       </div>
 
       {!isWalletUser && isAuthenticated && (
-        <div 
-          className="rounded-lg p-4 text-center"
-          style={{ backgroundColor: '#FFF4E1', border: '1px solid #FFD4CC' }}
-        >
-          <p style={{ color: '#666' }}>
+        <div className="rounded-lg p-4 text-center bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFD4CC] dark:border-[#FF644A]/30">
+          <p className="text-gray-600 dark:text-gray-400">
             {t('photoContest.walletRequired')}
           </p>
         </div>
@@ -1304,7 +1189,7 @@ function PhotoContestContent({
 }
 
 // ==========================================
-// FINALISTS GRID (Separate component)
+// FINALISTS GRID
 // ==========================================
 
 function FinalistsGrid({ roundId, isWalletUser }: { roundId: string; isWalletUser: boolean }) {
@@ -1334,7 +1219,6 @@ function FinalistsGrid({ roundId, isWalletUser }: { roundId: string; isWalletUse
     try {
       await photoContestApiService.vote(nominationId);
       setUserVote(nominationId);
-      // Reload finalists to get updated vote counts
       await loadFinalists();
     } catch (error) {
       console.error('Failed to vote:', error);
@@ -1345,10 +1229,7 @@ function FinalistsGrid({ roundId, isWalletUser }: { roundId: string; isWalletUse
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <div 
-          className="animate-spin rounded-full h-6 w-6 border-b-2"
-          style={{ borderColor: '#FF644A' }}
-        ></div>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#FF644A]"></div>
       </div>
     );
   }
@@ -1359,65 +1240,60 @@ function FinalistsGrid({ roundId, isWalletUser }: { roundId: string; isWalletUse
 
   return (
     <div>
-      <h3 className="font-semibold mb-4" style={{ color: '#1F1E2A' }}>
+      <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
         {t('photoContest.finalists.title')}
       </h3>
       <div className="grid grid-cols-3 gap-4">
         {finalists.slice(0, 10).map((finalist) => (
           <div 
             key={finalist.id}
-            className="rounded-lg overflow-hidden"
-            style={{ border: '1px solid #E5E5E5' }}
+            className="rounded-lg overflow-hidden border border-gray-200 dark:border-[#3D3C4A] bg-white dark:bg-[#2D2C3A]"
           >
             {/* Photo */}
             <div 
-              className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center"
+              className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-[#353444] dark:to-[#2D2C3A] flex items-center justify-center"
               style={{
                 backgroundImage: finalist.photo_url ? `url(${finalist.photo_url})` : 'none',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               }}
             >
-              {!finalist.photo_url && <Camera size={48} style={{ color: '#999' }} />}
+              {!finalist.photo_url && <Camera size={48} className="text-gray-400 dark:text-gray-600" />}
             </div>
             
             {/* Info */}
             <div className="p-3">
-              <div className="font-medium mb-1" style={{ color: '#1F1E2A' }}>
+              <div className="font-medium mb-1 text-[#1F1E2A] dark:text-white">
                 {finalist.restaurant_name}
               </div>
-              <div className="text-sm mb-2" style={{ color: '#999' }}>
+              <div className="text-sm mb-2 text-gray-500 dark:text-gray-400">
                 by @{finalist.username || 'anonymous'}
               </div>
               
               {/* Vote count and button */}
               <div className="flex items-center justify-between">
-                <span className="text-sm" style={{ color: '#666' }}>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   {t('photoContest.finalists.votes', { count: finalist.vote_count })}
                 </span>
                 {isWalletUser ? (
                   userVote === finalist.nomination_id ? (
-                    <span 
-                      className="px-3 py-1 rounded text-sm font-medium"
-                      style={{ backgroundColor: '#BFE2D9', color: '#2D7A5F' }}
-                    >
+                    <span className="px-3 py-1 rounded text-sm font-medium bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#2D7A5F] dark:text-[#BFE2D9]">
                       {t('photoContest.finalists.voted')}
                     </span>
                   ) : userVote ? (
-                    <span className="text-xs" style={{ color: '#999' }}>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {t('photoContest.finalists.alreadyVoted')}
                     </span>
                   ) : (
                     <button
                       onClick={() => handleVote(finalist.nomination_id)}
-                      className="px-3 py-1 rounded text-sm font-medium text-white hover:opacity-90 transition-opacity"
-                      style={{ backgroundColor: '#FF644A' }}
+                      className="px-3 py-1 rounded text-sm font-medium text-white hover:opacity-90 transition-opacity bg-[#FF644A]"
                     >
                       {t('photoContest.finalists.vote')}
                     </button>
                   )
                 ) : (
-                  <span className="text-xs" style={{ color: '#999' }}>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     {t('photoContest.finalists.loginToVote')}
                   </span>
                 )}
@@ -1429,10 +1305,7 @@ function FinalistsGrid({ roundId, isWalletUser }: { roundId: string; isWalletUse
       
       {finalists.length > 10 && (
         <div className="mt-4 text-center">
-          <button
-            className="text-sm font-medium hover:opacity-70 transition-opacity"
-            style={{ color: '#FF644A' }}
-          >
+          <button className="text-sm font-medium hover:opacity-70 transition-opacity text-[#FF644A]">
             {t('photoContest.finalists.viewAll', { count: finalists.length })}
           </button>
         </div>
@@ -1457,14 +1330,13 @@ function PastWinnersSection() {
   const loadWinners = async () => {
     try {
       setIsLoading(true);
-      const data = await photoContestApiService.getHistory(3, 0); // Get last 3 weeks
+      const data = await photoContestApiService.getHistory(3, 0);
       
-      // Extract winners from history
       const recentWinners = data.rounds
         .filter((round: any) => round.winners && round.winners.length > 0)
         .flatMap((round: any) => 
           round.winners
-            .filter((w: any) => w.place === 1) // Only show first place winners
+            .filter((w: any) => w.place === 1)
             .map((w: any) => ({
               week: `${new Date(round.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
               username: w.username,
@@ -1486,10 +1358,7 @@ function PastWinnersSection() {
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <div 
-          className="animate-spin rounded-full h-6 w-6 border-b-2"
-          style={{ borderColor: '#FF644A' }}
-        ></div>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#FF644A]"></div>
       </div>
     );
   }
@@ -1500,51 +1369,44 @@ function PastWinnersSection() {
 
   return (
     <div>
-      <h3 className="font-semibold mb-4" style={{ color: '#1F1E2A' }}>
+      <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
         {t('photoContest.pastWinners.title')}
       </h3>
       <div className="grid grid-cols-3 gap-4">
         {winners.map((winner, index) => (
           <div 
             key={index}
-            className="rounded-lg overflow-hidden"
-            style={{ border: '1px solid #E5E5E5' }}
+            className="rounded-lg overflow-hidden border border-gray-200 dark:border-[#3D3C4A] bg-white dark:bg-[#2D2C3A]"
           >
             {/* Photo with trophy overlay */}
             <div 
-              className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center"
+              className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-[#353444] dark:to-[#2D2C3A] flex items-center justify-center"
               style={{
                 backgroundImage: winner.photo_url ? `url(${winner.photo_url})` : 'none',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               }}
             >
-              {!winner.photo_url && <Camera size={48} style={{ color: '#999' }} />}
-              <div 
-                className="absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: '#FFD700' }}
-              >
-                <Trophy size={16} style={{ color: 'white' }} />
+              {!winner.photo_url && <Camera size={48} className="text-gray-400 dark:text-gray-600" />}
+              <div className="absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center bg-yellow-400">
+                <Trophy size={16} className="text-white" />
               </div>
             </div>
             
             {/* Info */}
             <div className="p-3">
-              <div className="text-sm mb-1" style={{ color: '#999' }}>
+              <div className="text-sm mb-1 text-gray-500 dark:text-gray-400">
                 {winner.week}
               </div>
-              <div className="font-medium mb-1" style={{ color: '#1F1E2A' }}>
+              <div className="font-medium mb-1 text-[#1F1E2A] dark:text-white">
                 @{winner.username}
               </div>
               {winner.restaurant_name && (
-                <div className="text-xs mb-1" style={{ color: '#666' }}>
+                <div className="text-xs mb-1 text-gray-600 dark:text-gray-400">
                   {winner.restaurant_name}
                 </div>
               )}
-              <div 
-                className="text-sm font-semibold"
-                style={{ color: '#FF644A' }}
-              >
+              <div className="text-sm font-semibold text-[#FF644A]">
                 {winner.prize}
               </div>
             </div>
@@ -1553,10 +1415,7 @@ function PastWinnersSection() {
       </div>
       
       <div className="mt-4 text-center">
-        <button
-          className="text-sm font-medium hover:opacity-70 transition-opacity"
-          style={{ color: '#FF644A' }}
-        >
+        <button className="text-sm font-medium hover:opacity-70 transition-opacity text-[#FF644A]">
           {t('photoContest.pastWinners.viewAll')}
         </button>
       </div>
@@ -1569,149 +1428,147 @@ function PastWinnersSection() {
 // ==========================================
 
 function BountiesContent({ 
-  data, 
   isWalletUser, 
   isAuthenticated 
 }: { 
-  data: ActiveBounties | null; 
   isWalletUser: boolean; 
   isAuthenticated: boolean;
 }) {
   const t = useTranslations('rewards');
+  const router = useRouter();
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2" style={{ color: '#1F1E2A' }}>
+        <h2 className="text-2xl font-bold mb-2 text-[#1F1E2A] dark:text-white">
           {t('bounties.title')}
         </h2>
-        <p style={{ color: '#666' }}>
+        <p className="text-gray-600 dark:text-gray-400">
           {t('bounties.description')}
         </p>
       </div>
 
       {/* How Bounties Work */}
-      <div 
-        className="rounded-lg p-6"
-        style={{ backgroundColor: '#E3F2FD', border: '1px solid #BBDEFB' }}
-      >
-        <h3 className="font-semibold mb-4" style={{ color: '#1F1E2A' }}>{t('bounties.howItWorks.title')}</h3>
+      <div className="rounded-lg p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+        <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">{t('bounties.howItWorks.title')}</h3>
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
-            <div className="font-medium mb-2" style={{ color: '#1976D2' }}>
+            <div className="font-medium mb-2 text-blue-600 dark:text-blue-400">
               {t('bounties.howItWorks.step1.title')}
             </div>
-            <p style={{ color: '#666' }}>
+            <p className="text-gray-600 dark:text-gray-400">
               {t('bounties.howItWorks.step1.description')}
             </p>
           </div>
           <div>
-            <div className="font-medium mb-2" style={{ color: '#1976D2' }}>
+            <div className="font-medium mb-2 text-blue-600 dark:text-blue-400">
               {t('bounties.howItWorks.step2.title')}
             </div>
-            <p style={{ color: '#666' }}>
+            <p className="text-gray-600 dark:text-gray-400">
               {t('bounties.howItWorks.step2.description')}
             </p>
           </div>
           <div>
-            <div className="font-medium mb-2" style={{ color: '#1976D2' }}>
+            <div className="font-medium mb-2 text-blue-600 dark:text-blue-400">
               {t('bounties.howItWorks.step3.title')}
             </div>
-            <p style={{ color: '#666' }}>
+            <p className="text-gray-600 dark:text-gray-400">
               {t('bounties.howItWorks.step3.description')}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Active Bounties */}
-      {data && data.bounties && data.bounties.length > 0 ? (
-        <div>
-          <h3 className="font-semibold mb-4" style={{ color: '#1F1E2A' }}>
-            {t('bounties.active.title')}
-          </h3>
-          <div className="space-y-3">
-            {data.bounties.map((bounty) => (
-              <div 
-                key={bounty.id}
-                className="p-4 rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                style={{ border: '1px solid #E5E5E5' }}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg">{bountyApiService.getCategoryEmoji(bounty.category)}</span>
-                      <div className="font-medium" style={{ color: '#1F1E2A' }}>
-                        {bounty.title}
-                      </div>
-                    </div>
-                    <div className="text-sm mb-2" style={{ color: '#666' }}>
-                      {bounty.description}
-                    </div>
-                    {bounty.location && (
-                      <div className="text-xs" style={{ color: '#999' }}>
-                        📍 {bounty.location.city}, {bounty.location.region}
-                      </div>
-                    )}
-                  </div>
-                  <div 
-                    className="px-3 py-1 rounded text-sm font-semibold ml-4"
-                    style={{ backgroundColor: '#FFE8E3', color: '#FF644A' }}
-                  >
-                    {bountyApiService.formatAmount(bounty.total_pledged)}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 text-xs" style={{ color: '#999' }}>
-                  <span>{t('bounties.active.submissions', { count: bounty.submission_count })}</span>
-                  <span>•</span>
-                  <span>{t('bounties.active.posted', { time: bountyApiService.getTimeAgo(bounty.created_at) })}</span>
-                  <span>•</span>
-                  <span 
-                    className="px-2 py-0.5 rounded"
-                    style={{ 
-                      backgroundColor: bountyApiService.getStatusColor(bounty.status) + '20',
-                      color: bountyApiService.getStatusColor(bounty.status)
-                    }}
-                  >
-                    {bounty.status}
-                  </span>
-                </div>
-              </div>
-            ))}
+      {/* Reward Structure */}
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+        <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
+          {t('bounties.rewards.title')}
+        </h3>
+        <div className="grid gap-3">
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('bounties.rewards.minStake')}</span>
+            <span className="font-bold text-[#FF644A]">{REWARDS.BOUNTY.MINIMUM} BOCA</span>
           </div>
-          
-          {data.pagination.has_more && (
-            <button
-              className="w-full mt-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-gray-50"
-              style={{ borderColor: '#E5E5E5', color: '#666' }}
-            >
-              {t('bounties.active.viewAll', { count: data.pagination.total })}
-            </button>
-          )}
+          <div className="flex justify-between items-center p-3 bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300 font-medium">{t('bounties.rewards.winnerReceives')}</span>
+            <span className="font-bold text-[#2D7A5F] dark:text-[#BFE2D9]">{REWARDS.BOUNTY.WINNER_PERCENT}% {t('bounties.rewards.ofStake')}</span>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
+            <span className="text-gray-700 dark:text-gray-300">{t('bounties.rewards.platformFee')}</span>
+            <span className="font-medium text-gray-600 dark:text-gray-400">{REWARDS.BOUNTY.BURN_PERCENT}% {t('bounties.rewards.burned')}</span>
+          </div>
         </div>
-      ) : (
-        <div 
-          className="text-center py-12 rounded-lg"
-          style={{ backgroundColor: '#FFF4E1', border: '1px solid #FFD4CC' }}
-        >
-          <Target size={48} style={{ color: '#FF644A', margin: '0 auto 16px' }} />
-          <div className="font-medium mb-2" style={{ color: '#1F1E2A' }}>
-            {t('bounties.empty.title')}
+      </div>
+
+      {/* Browse Discovery Requests CTA */}
+      <div className="rounded-xl p-6 bg-gradient-to-br from-[#FF644A]/5 to-[#FF644A]/10 dark:from-[#FF644A]/10 dark:to-[#FF644A]/20 border-2 border-[#FF644A]/20 dark:border-[#FF644A]/30">
+        <div className="flex items-start gap-4">
+          <div className="w-14 h-14 rounded-xl bg-[#FF644A] flex items-center justify-center flex-shrink-0">
+            <Target size={28} className="text-white" />
           </div>
-          <p className="text-sm" style={{ color: '#666' }}>
-            {t('bounties.empty.description')}
+          <div className="flex-1">
+            <h3 className="font-bold text-lg text-[#1F1E2A] dark:text-white mb-2">
+              {t('bounties.discover.title')}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {t('bounties.discover.description')}
+            </p>
+            <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
+              <li className="flex items-center gap-2">
+                <span className="text-[#FF644A]">•</span>
+                {t('bounties.discover.bullet1')}
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#FF644A]">•</span>
+                {t('bounties.discover.bullet2')}
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#FF644A]">•</span>
+                {t('bounties.discover.bullet3')}
+              </li>
+            </ul>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push('/discover?tab=requests')}
+                className="px-5 py-2.5 rounded-lg text-white font-medium hover:opacity-90 transition-opacity flex items-center gap-2 bg-[#FF644A]"
+              >
+                {t('bounties.discover.viewRequests')}
+                <ArrowRight size={16} />
+              </button>
+              {isAuthenticated && (
+                <button
+                  onClick={() => router.push('/discover?tab=requests&create=true')}
+                  className="px-5 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444]"
+                >
+                  {t('bounties.discover.createRequest')}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Wallet Required Notice */}
+      {!isWalletUser && isAuthenticated && (
+        <div className="rounded-lg p-4 text-center bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFD4CC] dark:border-[#FF644A]/30">
+          <p className="text-gray-600 dark:text-gray-400">
+            {t('bounties.walletRequired')}
           </p>
         </div>
       )}
 
-      {!isWalletUser && isAuthenticated && (
-        <div 
-          className="rounded-lg p-4 text-center"
-          style={{ backgroundColor: '#FFF4E1', border: '1px solid #FFD4CC' }}
-        >
-          <p style={{ color: '#666' }}>
-            {t('bounties.walletRequired')}
+      {/* Not Logged In Notice */}
+      {!isAuthenticated && (
+        <div className="rounded-lg p-4 text-center bg-gray-50 dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A]">
+          <p className="text-gray-600 dark:text-gray-400 mb-3">
+            {t('bounties.loginRequired')}
           </p>
+          <button
+            onClick={() => router.push('/signup')}
+            className="px-4 py-2 rounded-lg text-white font-medium hover:opacity-90 transition-opacity bg-[#FF644A]"
+          >
+            {t('bounties.signUp')}
+          </button>
         </div>
       )}
     </div>

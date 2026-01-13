@@ -924,27 +924,28 @@ const handleReshare = async (id: string, comment?: string) => {
     toast.success(t('toast.linkCopied'));
   };
 
+  // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-cream">
+      <div className="min-h-screen bg-cream dark:bg-[#1F1E2A]">
         <CleanHeader />
         <div className="max-w-2xl mx-auto px-4 py-8">
           <div className="animate-pulse space-y-6">
             {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white rounded-xl p-6 border border-gray-200">
+              <div key={i} className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
                 <div className="flex gap-3 mb-4">
-                  <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                  <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
                   <div className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-20"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
                   </div>
                 </div>
-                <div className="h-48 bg-gray-200 rounded mb-4"></div>
-                <div className="h-20 bg-gray-200 rounded mb-4"></div>
+                <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
                 <div className="flex gap-4">
-                  <div className="h-8 bg-gray-200 rounded w-16"></div>
-                  <div className="h-8 bg-gray-200 rounded w-16"></div>
-                  <div className="h-8 bg-gray-200 rounded w-16"></div>
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
                 </div>
               </div>
             ))}
@@ -962,23 +963,25 @@ const handleReshare = async (id: string, comment?: string) => {
   const listCount = feedItems.filter(i => i.type === 'list').length;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-cream dark:bg-[#1F1E2A]">
       <CleanHeader />
       
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Page Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-navy">{t('title')}</h1>
+            <h1 className="text-2xl font-bold text-navy dark:text-white">{t('title')}</h1>
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="p-2 text-gray-500 hover:text-coral transition-colors"
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-coral transition-colors"
               title={t('refresh')}
             >
               <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
+          {/* Create Menu */}
           <div className="relative">
             <button
               onClick={() => setShowCreateMenu(!showCreateMenu)}
@@ -994,14 +997,14 @@ const handleReshare = async (id: string, comment?: string) => {
                   initial={{ opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50"
+                  className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-2 z-50"
                 >
                   <button
                     onClick={() => {
                       router.push('/create');
                       setShowCreateMenu(false);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
                   >
                     <ChefHat className="w-4 h-4" />
                     {t('createMenu.recommendation')}
@@ -1011,7 +1014,7 @@ const handleReshare = async (id: string, comment?: string) => {
                       router.push('/lists/create');
                       setShowCreateMenu(false);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
                   >
                     <Coffee className="w-4 h-4" />
                     {t('createMenu.list')}
@@ -1022,29 +1025,31 @@ const handleReshare = async (id: string, comment?: string) => {
           </div>
         </div>
 
+        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Feed Column */}
           <div className="lg:col-span-8 space-y-6">
             {isLoadingFeed ? (
               [1, 2, 3].map(i => (
-                <div key={i} className="bg-white rounded-xl p-6 border border-gray-200 animate-pulse">
+                <div key={i} className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A] animate-pulse">
                   <div className="flex gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
                     <div className="flex-1">
-                      <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-20"></div>
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
                     </div>
                   </div>
-                  <div className="h-48 bg-gray-200 rounded mb-4"></div>
-                  <div className="h-20 bg-gray-200 rounded mb-4"></div>
+                  <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                  <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
                 </div>
               ))
             ) : feedItems.length === 0 ? (
               <div className="text-center py-12">
-                <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-navy mb-2">
+                <Users className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-navy dark:text-white mb-2">
                   {t('empty.title')}
                 </h3>
-                <p className="text-gray-500 mb-6">
+                <p className="text-gray-500 dark:text-gray-400 mb-6">
                   {t('empty.description')}
                 </p>
                 <button
@@ -1140,26 +1145,27 @@ const handleReshare = async (id: string, comment?: string) => {
 
           {/* Sidebar */}
           <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="font-semibold text-navy mb-4">{t('quickActions.title')}</h3>
+            {/* Quick Actions */}
+            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+              <h3 className="font-semibold text-navy dark:text-white mb-4">{t('quickActions.title')}</h3>
               <div className="space-y-2">
                 <button
                   onClick={() => router.push('/create')}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] hover:bg-[#FFD4CC] text-coral rounded-lg transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
                 >
                   <ChefHat className="w-5 h-5" />
                   <span className="font-medium">{t('quickActions.createRecommendation')}</span>
                 </button>
                 <button
                   onClick={() => router.push('/lists/create')}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] hover:bg-[#FFD4CC] text-coral rounded-lg transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
                 >
                   <Coffee className="w-5 h-5" />
                   <span className="font-medium">{t('quickActions.createList')}</span>
                 </button>
                 <button
                   onClick={() => router.push('/discover')}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-[#353444] hover:bg-gray-100 dark:hover:bg-[#404050] text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1169,18 +1175,20 @@ const handleReshare = async (id: string, comment?: string) => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            {/* Trending Now */}
+            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-navy">{t('trending.title')}</h3>
+                <h3 className="font-semibold text-navy dark:text-white">{t('trending.title')}</h3>
                 <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
               </div>
-              <div className="text-sm text-gray-500 text-center py-4">
+              <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
                 {t('trending.empty')}
               </div>
             </div>
 
+            {/* Your Dining Memory - Gradient card stays the same */}
             <div className="bg-gradient-to-br from-[#FFB3AB] to-[#FF644A] rounded-xl border border-coral p-6">
               <h3 className="font-semibold text-white mb-4">{t('diningMemory.title')}</h3>
               <div className="space-y-3">
@@ -1207,36 +1215,37 @@ const handleReshare = async (id: string, comment?: string) => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="font-semibold text-navy mb-4">{t('communityStats.title')}</h3>
+            {/* Community Stats */}
+            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+              <h3 className="font-semibold text-navy dark:text-white mb-4">{t('communityStats.title')}</h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FFE8E4] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-[#FFE8E4] dark:bg-[#FF644A]/20 flex items-center justify-center">
                     <Users className="w-5 h-5 text-coral" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">{t('communityStats.activeMembers')}</p>
-                    <p className="font-semibold text-navy">{t('communityStats.growingDaily')}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.activeMembers')}</p>
+                    <p className="font-semibold text-navy dark:text-white">{t('communityStats.growingDaily')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <ChefHat className="w-5 h-5 text-green-600" />
+                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <ChefHat className="w-5 h-5 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">{t('communityStats.recommendations')}</p>
-                    <p className="font-semibold text-navy">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.recommendations')}</p>
+                    <p className="font-semibold text-navy dark:text-white">
                       {t('communityStats.inFeed', { count: recommendationCount })}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FFE8E4] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-[#FFE8E4] dark:bg-[#FF644A]/20 flex items-center justify-center">
                     <Coffee className="w-5 h-5 text-coral" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">{t('communityStats.curatedLists')}</p>
-                    <p className="font-semibold text-navy">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.curatedLists')}</p>
+                    <p className="font-semibold text-navy dark:text-white">
                       {t('communityStats.available', { count: listCount })}
                     </p>
                   </div>

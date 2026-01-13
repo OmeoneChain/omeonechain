@@ -1,11 +1,12 @@
-/// BocaBoca User Status Module v1.0
+/// BocaBoca User Status Module v1.1
 /// Manages user tiers, reputation weights, and spam prevention
 /// 
-/// CHANGES FROM v0.8:
-/// - ESTABLISHED_AGE_DAYS: 30 → 7
-/// - TRUSTED_AGE_DAYS: 100 → 30  
-/// - TRUSTED_MIN_RECOMMENDATIONS: 50 → 3
-/// - Removed TRUSTED_MIN_AVG_ENGAGEMENT requirement
+/// CHANGES FROM v1.0:
+/// - DAILY_RATE_LIMIT: 5 → 10
+/// - FIRST_DAY_BOOST: 10 → 20 (registration day only)
+/// - Removed wallet upgrade day logic (no longer relevant with phone-first auth)
+/// - Removed escrow logic (all verified users earn tokens immediately)
+/// - Cleaned up escrow-related functions and constants
 
 module user_status::user_status {
     use iota::object::{Self, UID, ID};
@@ -15,7 +16,7 @@ module user_status::user_status {
     use iota::event;
 
     // ============================================
-    // CONSTANTS - v1.0 White Paper Specifications
+    // CONSTANTS - v1.1 White Paper Specifications
     // ============================================
     
     /// Tier identifiers (used in frontend mapping)
@@ -23,25 +24,21 @@ module user_status::user_status {
     const TIER_ESTABLISHED: u8 = 2;
     const TIER_TRUSTED: u8 = 3;
 
-    /// Tier thresholds - UPDATED FOR v1.0
+    /// Tier thresholds
     const NEW_AGE_DAYS: u64 = 0;                    // 0-6 days = New tier
-    const ESTABLISHED_AGE_DAYS: u64 = 7;           // ≥7 days = Established (was 30)
-    const TRUSTED_AGE_DAYS: u64 = 30;              // ≥30 days = Trusted eligible (was 100)
-    const TRUSTED_MIN_RECOMMENDATIONS: u64 = 3;    // ≥3 validated recs required (was 50)
+    const ESTABLISHED_AGE_DAYS: u64 = 7;            // ≥7 days = Established
+    const TRUSTED_AGE_DAYS: u64 = 30;               // ≥30 days = Trusted eligible
+    const TRUSTED_MIN_RECOMMENDATIONS: u64 = 3;     // ≥3 validated recs required
     
     /// Engagement weights by tier (basis points: 10000 = 1.0x)
     const WEIGHT_NEW: u64 = 5000;          // 0.5x
     const WEIGHT_ESTABLISHED: u64 = 10000; // 1.0x
     const WEIGHT_TRUSTED: u64 = 15000;     // 1.5x
 
-    /// Rate limits
-    const DAILY_RATE_LIMIT: u64 = 5;       // Standard daily limit
-    const FIRST_DAY_BOOST: u64 = 10;       // Registration/upgrade day limit
+    /// Rate limits - UPDATED FOR v1.1
+    const DAILY_RATE_LIMIT: u64 = 10;      // Standard daily limit (was 5)
+    const FIRST_DAY_BOOST: u64 = 20;       // Registration day limit (was 10)
     const SPAM_RATE_LIMIT: u64 = 3;        // Reduced limit for spam-flagged
-
-    /// Escrow periods (milliseconds)
-    const ESCROW_PERIOD_NEW: u64 = 604_800_000;  // 7 days in ms
-    const ESCROW_PERIOD_NONE: u64 = 0;
 
     /// Spam penalty durations (days)
     const SPAM_PENALTY_FIRST: u64 = 30;
@@ -87,8 +84,6 @@ module user_status::user_status {
         last_rec_day: u64,
         /// Is registration day (for first-day boost)
         is_registration_day: bool,
-        /// Is wallet upgrade day (for upgrade boost)
-        is_upgrade_day: bool,
         /// Total engagement points received
         total_engagement_points: u64,
     }
@@ -164,7 +159,6 @@ module user_status::user_status {
             daily_rec_count: 0,
             last_rec_day: now / MS_PER_DAY,
             is_registration_day: true,
-            is_upgrade_day: false,
             total_engagement_points: 0,
         };
 
@@ -189,7 +183,7 @@ module user_status::user_status {
         let age_days = (now - user_status.created_at) / MS_PER_DAY;
         let old_tier = user_status.current_tier;
         
-        // Calculate new tier based on v1.0 requirements
+        // Calculate new tier based on v1.1 requirements
         let new_tier = calculate_tier(
             age_days,
             user_status.validated_recommendations
@@ -205,8 +199,6 @@ module user_status::user_status {
                 new_tier: new_tier,
             });
         }
-
-        // user_status.last_active = now;
     }
 
     /// Check if user can create a recommendation (rate limiting)
@@ -247,7 +239,7 @@ module user_status::user_status {
     public entry fun record_recommendation(
         user_status: &mut UserStatus,
         clock: &Clock,
-        ctx: &mut TxContext
+        _ctx: &mut TxContext
     ) {
         let now = clock::timestamp_ms(clock);
         let today = now / MS_PER_DAY;
@@ -257,9 +249,8 @@ module user_status::user_status {
             user_status.daily_rec_count = 0;
             user_status.last_rec_day = today;
             
-            // Clear registration/upgrade day flags
+            // Clear registration day flag after first day
             user_status.is_registration_day = false;
-            user_status.is_upgrade_day = false;
         };
 
         let limit = get_daily_limit(user_status, today);
@@ -268,7 +259,6 @@ module user_status::user_status {
         assert!(user_status.daily_rec_count < limit, E_RATE_LIMIT_EXCEEDED);
         
         user_status.daily_rec_count = user_status.daily_rec_count + 1;
-        // user_status.last_active = now;
 
         // Emit event if approaching limit
         if (user_status.daily_rec_count >= limit - 1) {
@@ -314,16 +304,6 @@ module user_status::user_status {
         _ctx: &mut TxContext
     ) {
         user_status.total_engagement_points = user_status.total_engagement_points + points;
-        user_status.last_active = clock::timestamp_ms(clock);
-    }
-
-    /// Mark wallet upgrade day (enables 10-rec boost)
-    public entry fun mark_wallet_upgrade(
-        user_status: &mut UserStatus,
-        clock: &Clock,
-        _ctx: &mut TxContext
-    ) {
-        user_status.is_upgrade_day = true;
         user_status.last_active = clock::timestamp_ms(clock);
     }
 
@@ -407,20 +387,6 @@ module user_status::user_status {
         get_tier_weight(user_status) / 100  // Returns 50, 100, or 150
     }
 
-    /// Check if user requires escrow
-    public fun requires_escrow(user_status: &UserStatus): bool {
-        user_status.current_tier == TIER_NEW
-    }
-
-    /// Get escrow period for user (in ms)
-    public fun get_escrow_period(user_status: &UserStatus): u64 {
-        if (user_status.current_tier == TIER_NEW) {
-            ESCROW_PERIOD_NEW
-        } else {
-            ESCROW_PERIOD_NONE
-        }
-    }
-
     /// Get user stats
     public fun get_stats(user_status: &UserStatus): (u8, u64, u64, u8) {
         (
@@ -453,12 +419,22 @@ module user_status::user_status {
         }
     }
 
+    /// Get the daily rate limit for display purposes
+    public fun get_daily_rate_limit(): u64 {
+        DAILY_RATE_LIMIT
+    }
+
+    /// Get the registration day boost limit for display purposes
+    public fun get_first_day_boost(): u64 {
+        FIRST_DAY_BOOST
+    }
+
     // ============================================
     // INTERNAL FUNCTIONS
     // ============================================
 
     /// Calculate tier based on age and validated recommendations
-    /// v1.0 Requirements:
+    /// v1.1 Requirements:
     /// - New (1): 0-6 days active
     /// - Established (2): ≥7 days active
     /// - Trusted (3): ≥30 days + 3 validated recommendations
@@ -483,15 +459,15 @@ module user_status::user_status {
         }
     }
 
-    /// Get daily limit based on user status and day
+    /// Get daily limit based on user status
     fun get_daily_limit(user_status: &UserStatus, _today: u64): u64 {
         // Check for spam restriction
         if (user_status.spam_strikes > 0 && user_status.spam_restriction_until > 0) {
             return SPAM_RATE_LIMIT
         };
         
-        // Check for first-day boost
-        if (user_status.is_registration_day || user_status.is_upgrade_day) {
+        // Check for registration day boost
+        if (user_status.is_registration_day) {
             return FIRST_DAY_BOOST
         };
         
@@ -516,7 +492,6 @@ module user_status::user_status {
             daily_rec_count: 0,
             last_rec_day: 0,
             is_registration_day: true,
-            is_upgrade_day: false,
             total_engagement_points: 0,
         }
     }

@@ -2,7 +2,7 @@
 // SINGLE SCREEN VERSION - matches RecommendationCreationFlow pattern
 // Uses RestaurantAutocomplete component for restaurant search
 // UPDATED: Added reordering functionality (up/down arrows + drag-and-drop)
-// Mobile-first: Arrow buttons as primary, drag-and-drop as desktop enhancement
+// UPDATED: Dark mode support added
 
 'use client';
 
@@ -19,7 +19,7 @@ import { useAuth } from '../../../hooks/useAuth';
 // ============================================
 
 interface Restaurant {
-  id: number | string;  // Allow both number and string IDs
+  id: number | string;
   name: string;
   address?: string;
   city?: string;
@@ -51,7 +51,6 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  // Only 'public' or 'private' to match backend schema
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [selectedRestaurants, setSelectedRestaurants] = useState<Restaurant[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,7 +95,7 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
   }, []);
 
   // ============================================
-  // DRAG-AND-DROP HANDLERS (Desktop Enhancement)
+  // DRAG-AND-DROP HANDLERS
   // ============================================
 
   const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, index: number) => {
@@ -104,7 +103,6 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', index.toString());
     
-    // Add a slight delay to show the dragging state
     setTimeout(() => {
       const element = e.target as HTMLElement;
       element.style.opacity = '0.5';
@@ -173,7 +171,6 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
   // ============================================
 
   const handleRestaurantSelect = useCallback((restaurant: Restaurant) => {
-    // Avoid duplicates - use String() for comparison since IDs might be string or number
     if (selectedRestaurants.some(r => String(r.id) === String(restaurant.id))) {
       toast.error(t('lists.createFlow.toast.alreadyAdded') || 'Restaurant already added');
       return;
@@ -188,7 +185,6 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
   }, []);
 
   const handleClose = useCallback(() => {
-    // Reset form
     setTitle('');
     setDescription('');
     setVisibility('public');
@@ -219,8 +215,6 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
 
-      // Ensure restaurant IDs are numbers (backend expects array of numbers)
-      // The array order determines sort_order in the database
       const restaurantIds = selectedRestaurants
         .map(r => {
           const id = typeof r.id === 'string' ? parseInt(r.id, 10) : r.id;
@@ -237,8 +231,8 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
       const requestBody = {
         title: title.trim(),
         description: description.trim() || null,
-        visibility: visibility,  // Already only 'public' or 'private'
-        restaurant_ids: restaurantIds,  // Array order = ranking order
+        visibility: visibility,
+        restaurant_ids: restaurantIds,
       };
 
       console.log('📋 Creating list with:', requestBody);
@@ -283,40 +277,41 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
 
   if (!isOpen) return null;
 
-  // Only 2 visibility options to match backend ('public' and 'private')
   const visibilityOptions = [
     { 
       value: 'public' as const, 
       icon: Globe, 
-      label: t('lists.createFlow.form.visibility.public') || 'Public'
+      label: t('lists.createFlow.form.visibility.public') || 'Public',
+      description: t('lists.createFlow.form.visibility.publicDesc') || 'Anyone can see'
     },
     { 
       value: 'private' as const, 
       icon: Lock, 
-      label: t('lists.createFlow.form.visibility.private') || 'Private'
+      label: t('lists.createFlow.form.visibility.private') || 'Private',
+      description: t('lists.createFlow.form.visibility.privateDesc') || 'Only you'
     },
   ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-2xl shadow-2xl dark:shadow-[0_4px_30px_rgba(0,0,0,0.5)] w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-[#3D3C4A]">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#FF644A]/10 rounded-xl">
+            <div className="p-2 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 rounded-xl">
               <ListPlus className="h-6 w-6 text-[#FF644A]" />
             </div>
-            <h2 className="text-xl font-bold text-[#1F1E2A]">
+            <h2 className="text-xl font-bold text-[#1F1E2A] dark:text-white">
               {t('lists.createFlow.title') || 'Create a Curated List'}
             </h2>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-[#353444] rounded-xl transition-colors"
             aria-label={t('lists.createFlow.aria.close') || 'Close'}
           >
-            <X className="h-5 w-5 text-gray-500" />
+            <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
@@ -325,7 +320,7 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
           
           {/* Title */}
           <div>
-            <label className="block text-sm font-semibold text-[#1F1E2A] mb-2">
+            <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-2">
               {t('lists.createFlow.form.titleLabel') || 'List title'} <span className="text-[#FF644A]">*</span>
             </label>
             <input
@@ -334,18 +329,18 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t('lists.createFlow.form.titlePlaceholder') || 'e.g., Best Tacos in Town'}
               maxLength={100}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
             />
-            <p className="text-xs text-gray-400 mt-1 text-right">
-              {title.length}/100 {t('lists.createFlow.form.characters') || 'characters'}
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 text-right">
+              {title.length}/100
             </p>
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-semibold text-[#1F1E2A] mb-2">
+            <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-2">
               {t('lists.createFlow.form.descriptionLabel') || 'Description'}
-              <span className="text-xs text-gray-400 ml-2">({t('lists.createFlow.form.optional') || 'optional'})</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500 ml-2 font-normal">({t('lists.createFlow.form.optional') || 'optional'})</span>
             </label>
             <textarea
               value={description}
@@ -353,13 +348,13 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
               placeholder={t('lists.createFlow.form.descriptionPlaceholder') || "What's this list about?"}
               rows={3}
               maxLength={500}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all resize-none"
+              className="w-full px-4 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all resize-none"
             />
           </div>
 
           {/* Visibility */}
           <div>
-            <label className="block text-sm font-semibold text-[#1F1E2A] mb-2">
+            <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-2">
               {t('lists.createFlow.form.visibilityLabel') || 'Who can see this list?'}
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -374,11 +369,14 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
                     className={`p-4 rounded-xl text-center transition-all ${
                       isSelected
                         ? 'bg-[#FF644A] text-white shadow-md'
-                        : 'bg-gray-50 hover:bg-gray-100 text-[#1F1E2A] border border-gray-200'
+                        : 'bg-gray-50 dark:bg-[#353444] hover:bg-gray-100 dark:hover:bg-[#404050] text-[#1F1E2A] dark:text-white border border-gray-200 dark:border-[#3D3C4A]'
                     }`}
                   >
-                    <Icon className={`h-5 w-5 mx-auto mb-2 ${isSelected ? 'text-white' : 'text-gray-500'}`} />
+                    <Icon className={`h-5 w-5 mx-auto mb-2 ${isSelected ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
                     <span className="text-xs font-medium block">{option.label}</span>
+                    <span className={`text-[10px] block mt-0.5 ${isSelected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {option.description}
+                    </span>
                   </button>
                 );
               })}
@@ -387,7 +385,7 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
 
           {/* Restaurant Search */}
           <div>
-            <label className="block text-sm font-semibold text-[#1F1E2A] mb-2">
+            <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-2">
               {t('lists.createFlow.search.label') || 'Search for restaurants to add'} <span className="text-[#FF644A]">*</span>
             </label>
             <RestaurantAutocomplete
@@ -401,11 +399,11 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
           {selectedRestaurants.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-semibold text-[#1F1E2A]">
+                <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white">
                   {t('lists.createFlow.selected.title') || 'Selected restaurants'} ({selectedRestaurants.length})
                 </label>
                 {selectedRestaurants.length > 1 && (
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
                     {t('lists.createFlow.selected.reorderHint') || 'Use arrows to reorder'}
                   </span>
                 )}
@@ -431,15 +429,15 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
                       className={`
                         flex items-center justify-between p-3 rounded-xl transition-all
                         ${isDragging ? 'opacity-50 scale-[0.98]' : ''}
-                        ${isDragOver ? 'bg-[#FF644A]/20 border-2 border-dashed border-[#FF644A]' : 'bg-[#FFF4E1]'}
-                        ${!isDragging && !isDragOver ? 'hover:bg-[#FFE8D4]' : ''}
+                        ${isDragOver ? 'bg-[#FF644A]/20 border-2 border-dashed border-[#FF644A]' : 'bg-[#FFF4E1] dark:bg-[#353444]'}
+                        ${!isDragging && !isDragOver ? 'hover:bg-[#FFE8D4] dark:hover:bg-[#404050]' : ''}
                         cursor-grab active:cursor-grabbing
                       `}
                     >
                       {/* Left side: Drag handle + Number + Info */}
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         {/* Drag handle (visible on desktop) */}
-                        <div className="hidden sm:flex items-center text-gray-400 hover:text-gray-600 cursor-grab">
+                        <div className="hidden sm:flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab">
                           <GripVertical className="h-4 w-4" />
                         </div>
                         
@@ -450,9 +448,9 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
                         
                         {/* Restaurant info */}
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-[#1F1E2A] text-sm truncate">{restaurant.name}</p>
+                          <p className="font-medium text-[#1F1E2A] dark:text-white text-sm truncate">{restaurant.name}</p>
                           {(restaurant.cuisine || restaurant.category) && (
-                            <p className="text-xs text-gray-500 truncate">{restaurant.cuisine || restaurant.category}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{restaurant.cuisine || restaurant.category}</p>
                           )}
                         </div>
                       </div>
@@ -470,8 +468,8 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
                           className={`
                             p-2 rounded-lg transition-all touch-manipulation
                             ${isFirst 
-                              ? 'text-gray-300 cursor-not-allowed' 
-                              : 'text-gray-500 hover:bg-[#FF644A]/20 hover:text-[#FF644A] active:bg-[#FF644A]/30'
+                              ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' 
+                              : 'text-gray-500 dark:text-gray-400 hover:bg-[#FF644A]/20 hover:text-[#FF644A] active:bg-[#FF644A]/30'
                             }
                           `}
                           aria-label={t('lists.createFlow.selected.moveUp') || 'Move up'}
@@ -490,8 +488,8 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
                           className={`
                             p-2 rounded-lg transition-all touch-manipulation
                             ${isLast 
-                              ? 'text-gray-300 cursor-not-allowed' 
-                              : 'text-gray-500 hover:bg-[#FF644A]/20 hover:text-[#FF644A] active:bg-[#FF644A]/30'
+                              ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' 
+                              : 'text-gray-500 dark:text-gray-400 hover:bg-[#FF644A]/20 hover:text-[#FF644A] active:bg-[#FF644A]/30'
                             }
                           `}
                           aria-label={t('lists.createFlow.selected.moveDown') || 'Move down'}
@@ -500,7 +498,7 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
                         </button>
                         
                         {/* Divider */}
-                        <div className="w-px h-6 bg-gray-200 mx-1" />
+                        <div className="w-px h-6 bg-gray-200 dark:bg-[#3D3C4A] mx-1" />
                         
                         {/* Remove button */}
                         <button
@@ -509,10 +507,10 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
                             e.stopPropagation();
                             handleRemoveRestaurant(restaurant.id);
                           }}
-                          className="p-2 hover:bg-red-100 active:bg-red-200 rounded-lg transition-colors touch-manipulation"
+                          className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 active:bg-red-200 dark:active:bg-red-900/50 rounded-lg transition-colors touch-manipulation"
                           aria-label={t('lists.createFlow.selected.remove') || 'Remove'}
                         >
-                          <X className="h-4 w-4 text-red-500" />
+                          <X className="h-4 w-4 text-red-500 dark:text-red-400" />
                         </button>
                       </div>
                     </div>
@@ -522,7 +520,7 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
               
               {/* Reordering tip for longer lists */}
               {selectedRestaurants.length >= 3 && (
-                <p className="text-xs text-gray-400 mt-2 text-center hidden sm:block">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center hidden sm:block">
                   {t('lists.createFlow.selected.dragHint') || 'Tip: Drag items to reorder on desktop'}
                 </p>
               )}
@@ -531,9 +529,9 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
 
           {/* Empty state hint */}
           {selectedRestaurants.length === 0 && (
-            <div className="text-center py-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-              <Plus className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">
+            <div className="text-center py-6 bg-gray-50 dark:bg-[#353444] rounded-xl border-2 border-dashed border-gray-200 dark:border-[#3D3C4A]">
+              <Plus className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {t('lists.createFlow.search.hint') || 'Search and add restaurants to your list'}
               </p>
             </div>
@@ -541,11 +539,11 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
         </div>
 
         {/* Footer with action buttons */}
-        <div className="p-6 border-t border-gray-100 bg-gray-50">
+        <div className="p-6 border-t border-gray-100 dark:border-[#3D3C4A] bg-gray-50 dark:bg-[#252432]">
           <div className="flex gap-3">
             <button
               onClick={handleClose}
-              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-[#1F1E2A] font-medium hover:bg-gray-100 transition-colors"
+              className="flex-1 px-4 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-[#1F1E2A] dark:text-white font-medium bg-white dark:bg-[#353444] hover:bg-gray-100 dark:hover:bg-[#404050] transition-colors"
             >
               {t('lists.createFlow.buttons.cancel') || 'Cancel'}
             </button>
@@ -570,7 +568,7 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
           
           {/* Validation hint */}
           {!canCreate && !isSubmitting && (
-            <p className="text-xs text-center text-gray-400 mt-3">
+            <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-3">
               {title.trim().length < 3 
                 ? (t('lists.createFlow.errors.titleRequired') || 'Please enter a title (at least 3 characters)')
                 : selectedRestaurants.length === 0

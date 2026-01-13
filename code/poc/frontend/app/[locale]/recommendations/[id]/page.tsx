@@ -1,5 +1,6 @@
 // File: code/poc/frontend/app/recommendations/[id]/page.tsx
 // Recommendation detail page with full BocaBoca branding
+// UPDATED: Dark mode support added
 
 'use client';
 
@@ -281,10 +282,10 @@ export default function RecommendationDetailPage({
     return (
       <>
         <CleanHeader />
-        <div className="min-h-screen bg-[#FAF6F0] flex items-center justify-center">
+        <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A] flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF644A] mx-auto mb-4"></div>
-            <p className="text-[#9B9B9B]">Loading recommendation...</p>
+            <p className="text-gray-500 dark:text-gray-400">Loading recommendation...</p>
           </div>
         </div>
       </>
@@ -295,15 +296,15 @@ export default function RecommendationDetailPage({
     return (
       <>
         <CleanHeader />
-        <div className="min-h-screen bg-[#FAF6F0] flex items-center justify-center">
+        <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A] flex items-center justify-center">
           <div className="text-center max-w-md px-4">
-            <div className="w-16 h-16 bg-[#E65441]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-[#E65441]/10 dark:bg-[#E65441]/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <MessageCircle size={32} className="text-[#E65441]" />
             </div>
-            <h1 className="text-2xl font-semibold text-[#1F1E2A] mb-2">
+            <h1 className="text-2xl font-semibold text-[#1F1E2A] dark:text-white mb-2">
               {error === 'Recommendation not found' ? 'Not Found' : 'Oops!'}
             </h1>
-            <p className="text-[#9B9B9B] mb-6">
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
               {error || 'This recommendation could not be found.'}
             </p>
             <button
@@ -323,21 +324,21 @@ export default function RecommendationDetailPage({
     <>
       <CleanHeader />
       
-      <div className="min-h-screen bg-[#FAF6F0]">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <div className="max-w-4xl mx-auto px-4 py-6">
           {/* Back Button */}
           <button
             onClick={() => router.back()}
-            className="inline-flex items-center gap-2 text-[#9B9B9B] hover:text-[#FF644A] transition-colors mb-6"
+            className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#FF644A] transition-colors mb-6"
           >
             <ArrowLeft size={20} />
             <span>Back</span>
           </button>
 
           {/* Main Content Card */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+          <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] overflow-hidden mb-6">
             {/* Author Header */}
-            <div className="p-6 border-b border-gray-100">
+            <div className="p-6 border-b border-gray-100 dark:border-[#3D3C4A]">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   {recommendation.author ? (
@@ -358,11 +359,11 @@ export default function RecommendationDetailPage({
                       <div>
                         <Link 
                           href={`/users/${recommendation.author.id}`}
-                          className="font-semibold text-[#1F1E2A] hover:text-[#FF644A]"
+                          className="font-semibold text-[#1F1E2A] dark:text-white hover:text-[#FF644A] dark:hover:text-[#FF644A]"
                         >
                           {recommendation.author.display_name}
                         </Link>
-                        <p className="text-sm text-[#9B9B9B]">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           @{recommendation.author.username} · {formatTimeAgo(recommendation.created_at)}
                         </p>
                       </div>
@@ -373,15 +374,15 @@ export default function RecommendationDetailPage({
                         U
                       </div>
                       <div>
-                        <p className="font-semibold text-[#1F1E2A]">Unknown User</p>
-                        <p className="text-sm text-[#9B9B9B]">
+                        <p className="font-semibold text-[#1F1E2A] dark:text-white">Unknown User</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           {formatTimeAgo(recommendation.created_at)}
                         </p>
                       </div>
                     </>
                   )}
                 </div>
-                <button className="p-2 text-[#9B9B9B] hover:text-[#1F1E2A] rounded-lg hover:bg-gray-50">
+                <button className="p-2 text-gray-500 dark:text-gray-400 hover:text-[#1F1E2A] dark:hover:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-[#353444]">
                   <MoreVertical size={20} />
                 </button>
               </div>
@@ -389,15 +390,15 @@ export default function RecommendationDetailPage({
 
             {/* Restaurant Info */}
             {recommendation.restaurant && (
-              <div className="px-6 py-4 bg-[#FAF6F0] border-b border-gray-100">
+              <div className="px-6 py-4 bg-[#FFF4E1] dark:bg-[#353444] border-b border-gray-100 dark:border-[#3D3C4A]">
                 <Link 
                   href={`/restaurants/${recommendation.restaurant.id}`}
                   className="block hover:opacity-80 transition-opacity"
                 >
-                  <h2 className="text-xl font-semibold text-[#1F1E2A] mb-2">
+                  <h2 className="text-xl font-semibold text-[#1F1E2A] dark:text-white mb-2">
                     {recommendation.restaurant.name}
                   </h2>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-[#9B9B9B]">
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                     <span className="flex items-center gap-1">
                       {recommendation.restaurant.cuisine_type}
                     </span>
@@ -416,11 +417,11 @@ export default function RecommendationDetailPage({
 
             {/* Recommendation Content */}
             <div className="p-6">
-              <h3 className="text-xl font-semibold text-[#1F1E2A] mb-4">
+              <h3 className="text-xl font-semibold text-[#1F1E2A] dark:text-white mb-4">
                 {recommendation.title}
               </h3>
               
-              <div className="prose max-w-none text-[#1F1E2A] mb-6">
+              <div className="prose dark:prose-invert max-w-none text-[#1F1E2A] dark:text-gray-200 mb-6">
                 {recommendation.content.split('\n').map((paragraph, i) => (
                   <p key={i} className="mb-4 last:mb-0 leading-relaxed">
                     {paragraph}
@@ -443,23 +444,23 @@ export default function RecommendationDetailPage({
               )}
 
               {/* Trust Score */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#BFE2D9] rounded-lg">
-                <Star size={16} className="text-[#2D7A5F]" />
-                <span className="font-semibold text-[#2D7A5F]">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 rounded-lg">
+                <Star size={16} className="text-[#2D7A5F] dark:text-[#BFE2D9]" />
+                <span className="font-semibold text-[#2D7A5F] dark:text-[#BFE2D9]">
                   {recommendation.trust_score.toFixed(1)} Trust Score
                 </span>
               </div>
             </div>
 
             {/* Action Bar */}
-            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-[#3D3C4A] flex items-center justify-between">
               <div className="flex items-center gap-6">
                 <button
                   onClick={handleLike}
                   className={`flex items-center gap-2 transition-colors ${
                     recommendation.is_liked 
                       ? 'text-[#FF644A]' 
-                      : 'text-[#9B9B9B] hover:text-[#FF644A]'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-[#FF644A]'
                   }`}
                 >
                   <Heart 
@@ -471,14 +472,14 @@ export default function RecommendationDetailPage({
                   </span>
                 </button>
 
-                <div className="flex items-center gap-2 text-[#9B9B9B]">
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
                   <MessageCircle size={20} />
                   <span className="text-sm font-medium">
                     {recommendation.comments_count}
                   </span>
                 </div>
 
-                <button className="flex items-center gap-2 text-[#9B9B9B] hover:text-[#FF644A] transition-colors">
+                <button className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#FF644A] transition-colors">
                   <Share2 size={20} />
                   <span className="text-sm font-medium">
                     {recommendation.reshares_count}
@@ -490,8 +491,8 @@ export default function RecommendationDetailPage({
                 onClick={handleBookmark}
                 className={`p-2 rounded-lg transition-colors ${
                   recommendation.is_bookmarked
-                    ? 'text-[#FF644A] bg-[#FF644A]/10'
-                    : 'text-[#9B9B9B] hover:text-[#FF644A] hover:bg-gray-50'
+                    ? 'text-[#FF644A] bg-[#FF644A]/10 dark:bg-[#FF644A]/20'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-[#FF644A] hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
               >
                 <Bookmark 
@@ -503,8 +504,8 @@ export default function RecommendationDetailPage({
           </div>
 
           {/* Comments Section */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-[#1F1E2A] mb-6">
+          <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] p-6">
+            <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white mb-6">
               Comments ({comments.length})
             </h3>
 
@@ -528,7 +529,7 @@ export default function RecommendationDetailPage({
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
                       placeholder="Add a comment..."
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#FF644A] focus:border-[#FF644A] outline-none resize-none"
+                      className="w-full px-4 py-3 bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] rounded-lg text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-[#FF644A] outline-none resize-none"
                       rows={3}
                     />
                     <div className="mt-2 flex justify-end">
@@ -544,8 +545,8 @@ export default function RecommendationDetailPage({
                 </div>
               </form>
             ) : (
-              <div className="mb-6 p-4 bg-[#FAF6F0] rounded-lg text-center">
-                <p className="text-[#9B9B9B] mb-3">
+              <div className="mb-6 p-4 bg-[#FFF4E1] dark:bg-[#353444] rounded-lg text-center">
+                <p className="text-gray-500 dark:text-gray-400 mb-3">
                   Sign in to join the conversation
                 </p>
                 <button
@@ -561,9 +562,9 @@ export default function RecommendationDetailPage({
             <div className="space-y-6">
               {comments.length === 0 ? (
                 <div className="text-center py-8">
-                  <MessageCircle size={32} className="mx-auto mb-2 text-[#9B9B9B]" />
-                  <p className="text-[#9B9B9B]">No comments yet</p>
-                  <p className="text-sm text-[#9B9B9B] mt-1">
+                  <MessageCircle size={32} className="mx-auto mb-2 text-gray-400 dark:text-gray-500" />
+                  <p className="text-gray-500 dark:text-gray-400">No comments yet</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
                     Be the first to share your thoughts!
                   </p>
                 </div>
@@ -586,27 +587,27 @@ export default function RecommendationDetailPage({
                           )}
                         </Link>
                         <div className="flex-1">
-                          <div className="bg-[#FAF6F0] rounded-lg p-4">
+                          <div className="bg-[#FFF4E1] dark:bg-[#353444] rounded-lg p-4">
                             <div className="flex items-center gap-2 mb-2">
                               <Link
                                 href={`/users/${comment.author.id}`}
-                                className="font-semibold text-[#1F1E2A] hover:text-[#FF644A]"
+                                className="font-semibold text-[#1F1E2A] dark:text-white hover:text-[#FF644A] dark:hover:text-[#FF644A]"
                               >
                                 {comment.author.display_name || comment.author.name || comment.author.username}
                               </Link>
-                              <span className="text-xs text-[#9B9B9B]">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
                                 {formatTimeAgo(comment.created_at)}
                               </span>
                             </div>
-                            <p className="text-[#1F1E2A] leading-relaxed">
+                            <p className="text-[#1F1E2A] dark:text-gray-200 leading-relaxed">
                               {comment.content}
                             </p>
                           </div>
                           <div className="flex items-center gap-4 mt-2 ml-4">
-                            <button className="text-sm text-[#9B9B9B] hover:text-[#FF644A] transition-colors">
+                            <button className="text-sm text-gray-500 dark:text-gray-400 hover:text-[#FF644A] transition-colors">
                               Reply
                             </button>
-                            <button className="flex items-center gap-1 text-sm text-[#9B9B9B] hover:text-[#FF644A] transition-colors">
+                            <button className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-[#FF644A] transition-colors">
                               <Heart size={14} />
                               {comment.likes_count > 0 && (
                                 <span>{comment.likes_count}</span>
@@ -621,14 +622,14 @@ export default function RecommendationDetailPage({
                           U
                         </div>
                         <div className="flex-1">
-                          <div className="bg-[#FAF6F0] rounded-lg p-4">
+                          <div className="bg-[#FFF4E1] dark:bg-[#353444] rounded-lg p-4">
                             <div className="flex items-center gap-2 mb-2">
-                              <span className="font-semibold text-[#1F1E2A]">Unknown User</span>
-                              <span className="text-xs text-[#9B9B9B]">
+                              <span className="font-semibold text-[#1F1E2A] dark:text-white">Unknown User</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
                                 {formatTimeAgo(comment.created_at)}
                               </span>
                             </div>
-                            <p className="text-[#1F1E2A] leading-relaxed">
+                            <p className="text-[#1F1E2A] dark:text-gray-200 leading-relaxed">
                               {comment.content}
                             </p>
                           </div>

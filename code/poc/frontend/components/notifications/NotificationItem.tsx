@@ -1,5 +1,6 @@
 // File: code/poc/frontend/components/notifications/NotificationItem.tsx
 // Component for rendering individual notification items
+// UPDATED: Dark mode support throughout
 
 'use client';
 
@@ -62,7 +63,7 @@ export function NotificationItem({
       case 'mention':
         return <AtSign {...iconProps} className={`${iconProps.className} text-orange-500`} />;
       default:
-        return <MessageCircle {...iconProps} className={`${iconProps.className} text-gray-500`} />;
+        return <MessageCircle {...iconProps} className={`${iconProps.className} text-gray-500 dark:text-gray-400`} />;
     }
   };
 
@@ -133,8 +134,11 @@ export function NotificationItem({
       href={getLink()}
       onClick={handleClick}
       className={`
-        block p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors
-        ${!notification.read ? 'bg-blue-50' : 'bg-white'}
+        block border-b border-gray-100 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors
+        ${!notification.read 
+          ? 'bg-blue-50 dark:bg-blue-900/20' 
+          : 'bg-white dark:bg-[#2D2C3A]'
+        }
         ${compact ? 'p-3' : 'p-4'}
       `}
     >
@@ -149,7 +153,7 @@ export function NotificationItem({
             />
           ) : (
             <div className={`
-              rounded-full bg-gradient-to-br from-trust-500 to-trust-600 
+              rounded-full bg-gradient-to-br from-[#FF644A] to-[#E65441] 
               flex items-center justify-center text-white font-semibold
               ${compact ? 'w-8 h-8 text-sm' : 'w-10 h-10'}
             `}>
@@ -165,45 +169,45 @@ export function NotificationItem({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className={`text-gray-900 ${compact ? 'text-sm' : ''}`}>
+          <p className={`text-gray-900 dark:text-white ${compact ? 'text-sm' : ''}`}>
             <span className="font-semibold">{actorName}</span>
             {getGroupedActorsText() && (
-              <span className="text-gray-600">
+              <span className="text-gray-600 dark:text-gray-400">
                 {' '}{getGroupedActorsText()}
               </span>
             )}
             {' '}
-            <span className="text-gray-700">
+            <span className="text-gray-700 dark:text-gray-300">
               {notification.message || getDefaultMessage()}
             </span>
           </p>
 
           {/* Preview content */}
           {notification.content.comment_preview && (
-            <p className={`text-gray-600 mt-1 line-clamp-2 ${compact ? 'text-xs' : 'text-sm'}`}>
+            <p className={`text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 ${compact ? 'text-xs' : 'text-sm'}`}>
               "{notification.content.comment_preview}"
             </p>
           )}
           {notification.content.reply_preview && (
-            <p className={`text-gray-600 mt-1 line-clamp-2 ${compact ? 'text-xs' : 'text-sm'}`}>
+            <p className={`text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 ${compact ? 'text-xs' : 'text-sm'}`}>
               "{notification.content.reply_preview}"
             </p>
           )}
           {notification.content.recommendation_title && (
-            <p className={`text-gray-600 mt-1 ${compact ? 'text-xs' : 'text-sm'}`}>
+            <p className={`text-gray-600 dark:text-gray-400 mt-1 ${compact ? 'text-xs' : 'text-sm'}`}>
               {t('content.onRecommendation', { title: notification.content.recommendation_title })}
             </p>
           )}
 
           {/* Timestamp */}
-          <p className={`text-gray-400 mt-1 ${compact ? 'text-xs' : 'text-xs'}`}>
+          <p className={`text-gray-400 dark:text-gray-500 mt-1 ${compact ? 'text-xs' : 'text-xs'}`}>
             {getTimeAgo(notification.created_at)}
           </p>
         </div>
 
         {/* Unread indicator */}
         {!notification.read && (
-          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
+          <div className="w-2 h-2 bg-[#FF644A] rounded-full flex-shrink-0 mt-2"></div>
         )}
       </div>
     </Link>
