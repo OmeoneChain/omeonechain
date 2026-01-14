@@ -17,6 +17,9 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import WalletConnect from '@/components/auth/WalletConnect';
 import { useAuth } from '@/hooks/useAuth';
 import { NotificationBell } from './notifications/NotificationBell';
+import { useCapacitor } from '@/hooks/useCapacitor';
+import { MobileHeader } from '@/components/mobile/MobileHeader';
+import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import tokenBalanceService from '@/services/TokenBalanceService';
 import { useLocale, useTranslations } from 'next-intl';
 import { switchLocale } from '@/navigation';
@@ -114,6 +117,18 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations();
+
+  // Mobile detection - return mobile components when in Capacitor
+  const { isCapacitor } = useCapacitor();
+  
+  if (isCapacitor) {
+    return (
+      <>
+        <MobileHeader className={className} />
+        <BottomNavigation />
+      </>
+    );
+  }
   
   const { 
     isAuthenticated, 

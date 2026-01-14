@@ -86,6 +86,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
       });
       return () => unsubscribe();
     }
+    return undefined;
   }, [isAuthenticated, user?.id]);
 
   const handleLogout = () => {
@@ -96,7 +97,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
 
   const getDisplayName = () => {
     if (!user) return 'User';
-    return user.display_name || user.displayName || user.username || user.name || 'User';
+    return user.display_name || user.display_name || user.username || user.name || 'User';
   };
 
   const getInitial = () => {

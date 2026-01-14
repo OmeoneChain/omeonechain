@@ -1,0 +1,17 @@
+// Add these imports at the top of CleanHeader.tsx after existing imports:
+import { useCapacitor } from '@/hooks/useCapacitor';
+import { MobileHeader } from '@/components/mobile/MobileHeader';
+import { BottomNavigation } from '@/components/mobile/BottomNavigation';
+
+// Add this at the very beginning of the CleanHeader function, before any other code:
+  const { isCapacitor } = useCapacitor();
+  
+  // On mobile (Capacitor), use mobile-specific components
+  if (isCapacitor) {
+    return (
+      <>
+        <MobileHeader className={className} />
+        <BottomNavigation />
+      </>
+    );
+  }
