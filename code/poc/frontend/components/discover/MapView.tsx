@@ -77,7 +77,7 @@ interface MapRestaurant {
 
 interface MapViewProps {
   userId?: string;
-  onRestaurantClick?: (restaurantId: string) => void;
+  onRestaurantClick?: (restaurantId: number) => void;
   onCreateRecommendation?: (restaurantId: string, restaurantName: string) => void;
   initialCenter?: { lat: number; lng: number };
   initialZoom?: number;

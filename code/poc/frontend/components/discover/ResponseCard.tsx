@@ -43,6 +43,9 @@ interface Recommendation {
 }
 
 interface DiscoveryResponse {
+  upvotes: number;
+  is_best_answer: boolean;
+  user_has_upvoted?: boolean;
   id: string;
   comment: string | null;
   created_at: string;
@@ -58,6 +61,9 @@ interface ResponseCardProps {
   canTip: boolean;
   onTip: (response: DiscoveryResponse) => void;
   winningRestaurantId: string | null;
+  onUpvote: (responseId: string) => Promise<void>;
+  onMarkBestAnswer: (responseId: string) => Promise<void>;
+  isAuthenticated: boolean;
 }
 
 const ResponseCard: React.FC<ResponseCardProps> = ({ 

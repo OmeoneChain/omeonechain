@@ -95,3 +95,7 @@ export default async function RootLayout({
     </html>
   )
 }
+// Required for static export - defines all valid locales
+export function generateStaticParams() {
+  return [{ locale: 'pt-BR' }, { locale: 'en' }];
+}

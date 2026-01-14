@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Users, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { socialApi, type User } from '../../../src/services/api';
+import { socialApi, type User } from '@/services/api';
 
 interface FollowersPageClientProps {
   userId: string;

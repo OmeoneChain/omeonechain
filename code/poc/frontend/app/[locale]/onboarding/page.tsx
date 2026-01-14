@@ -146,7 +146,7 @@ export default function OnboardingPage() {
   const skipStep = () => {
     const currentStepInfo = STEPS[progress.currentStep];
     
-    if (currentStepInfo.required) {
+    if (currentStepInfo?.required) {
       toast.error('This step is required to continue');
       return;
     }
@@ -170,7 +170,7 @@ export default function OnboardingPage() {
     try {
       await updateUser({
         profileCompletion: 35, // Username completed
-        onboarding_completed: true
+        // onboarding_completed: true
       });
       
       toast.success('Welcome to BocaBoca! 🎉');
@@ -189,7 +189,7 @@ export default function OnboardingPage() {
       
       await updateUser({
         profileCompletion: Math.min(completionScore, 100),
-        onboarding_completed: true
+        // onboarding_completed: true
       });
       
       toast.success('Welcome to BocaBoca! 🎉', {
@@ -361,7 +361,7 @@ export default function OnboardingPage() {
 
               <div className="flex-1" />
 
-              {!STEPS[progress.currentStep].required && progress.canSkipToFeed && (
+              {!STEPS[progress.currentStep]?.required && progress.canSkipToFeed && (
                 <button
                   onClick={skipStep}
                   className="text-sm text-gray-500 hover:text-gray-700 transition-colors mr-4"

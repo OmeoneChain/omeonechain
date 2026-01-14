@@ -195,7 +195,7 @@ export interface RecommendationValidation {
   photos: {
     minCount: 0;
     maxCount: 5;
-    maxSizeBytes: 5 * 1024 * 1024; // 5MB
+    maxSizeBytes: 5242880; // 5MB
     allowedTypes: ['image/jpeg', 'image/png', 'image/webp'];
   };
 }

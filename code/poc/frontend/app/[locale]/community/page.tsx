@@ -32,7 +32,7 @@ interface User {
 }
 
 interface DiscoverUser extends User {
-  is_following?: boolean;
+  // is_following inherited from User
 }
 
 // ============================================
@@ -470,7 +470,7 @@ export default function CommunityPage() {
     setIsLoadingDiscover(true);
     try {
       const response = await socialApi.discoverUsers(20, undefined, 'followers_count');
-      if (response.success && response.users) {
+      if (response.users) {
         // Filter out users already being followed
         const notFollowing = response.users.filter((u: DiscoverUser) => !u.is_following);
         setDiscoverUsers(notFollowing);
@@ -489,7 +489,7 @@ export default function CommunityPage() {
     setIsLoadingFollowing(true);
     try {
       const response = await socialApi.getFollowing(currentUser.id);
-      if (response.success && response.following) {
+      if (response.following) {
         setFollowingUsers(response.following);
       }
     } catch (error) {
@@ -512,7 +512,7 @@ export default function CommunityPage() {
       setShowSearchDropdown(true);
       try {
         const response = await socialApi.searchUsers(searchQuery.trim());
-        if (response.success && response.users) {
+        if (response.users) {
           setSearchResults(response.users);
         }
       } catch (error) {

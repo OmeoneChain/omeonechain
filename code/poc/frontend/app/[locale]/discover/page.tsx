@@ -999,14 +999,14 @@ const DiscoverPage = () => {
                     <div className="flex items-start gap-3">
                       {/* Avatar */}
                       <div className="w-10 h-10 bg-gradient-to-br from-[#FF644A] to-[#E65441] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        {isImageUrl(rec.author.avatar) ? (
+                        {isImageUrl(rec.author.avatar_url ?? undefined) ? (
                           <img 
-                            src={rec.author.avatar} 
+                            src={rec.author.avatar_url ?? undefined} 
                             alt={rec.author.display_name}
                             className="w-full h-full object-cover"
                           />
-                        ) : rec.author.avatar ? (
-                          <span className="text-lg">{rec.author.avatar}</span>
+                        ) : rec.author.avatar_url ? (
+                          <span className="text-lg">{rec.author.avatar_url}</span>
                         ) : (
                           <span className="text-white font-semibold text-sm">
                             {rec.author.display_name.charAt(0)}

@@ -157,10 +157,10 @@ const StatusBadge: React.FC<{ status: string; type?: 'request' | 'bounty'; t: an
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold",
-      config.bg, config.text
+      config?.bg, config?.text
     )}>
-      {config.icon}
-      {t(config.labelKey) || status}
+      {config?.icon}
+      {t(config?.labelKey ?? "") || status}
     </span>
   );
 };
@@ -220,7 +220,7 @@ export default function RequestDetailPage() {
   }, [request]);
   
   // Check if bounty can be awarded - accepts both 'open' and 'pending' as valid statuses
-  const isBountyAwaitingAward = effectiveBountyStatus === 'pending' || effectiveBountyStatus === 'open';
+  const isBountyAwaitingAward = effectiveBountyStatus === 'pending' ;
   
   // Debug logging for award button visibility
   useEffect(() => {

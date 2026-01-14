@@ -490,7 +490,7 @@ export default function CuratedListDetailPage() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-[#FF644A] text-white font-semibold">
-                        {(list.creator.display_name || list.creator.username || 'U')[0].toUpperCase()}
+                        {((list.creator?.display_name || list.creator?.username || 'U')[0] || 'U').toUpperCase()}
                       </div>
                     )}
                   </div>

@@ -61,7 +61,7 @@ const CreatePage: React.FC = () => {
   if (!mounted) {
     return (
       <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
-        <CleanHeader currentPath="/create" />
+        <CleanHeader />
         <div className="py-12 px-4">
           <div className="max-w-2xl mx-auto text-center">
             <h1 className="text-3xl font-bold mb-4 text-[#1F1E2A] dark:text-white">
@@ -79,7 +79,7 @@ const CreatePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       {/* Header with navigation */}
-      <CleanHeader currentPath="/create" />
+      <CleanHeader />
       
       {/* Main content */}
       <div className="py-8 px-4 sm:px-6">

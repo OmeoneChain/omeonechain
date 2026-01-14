@@ -335,7 +335,7 @@ const MainFeed: React.FC = () => {
         const listData: CuratedList = {
           id: item.id,
           title: item.title,
-          content: item.content || item.description || '',
+          description: item.content || item.description || '',
           author: {
             id: item.creator?.id || 'unknown',
             name: item.creator?.display_name || item.creator?.username || t('foodExpert'),

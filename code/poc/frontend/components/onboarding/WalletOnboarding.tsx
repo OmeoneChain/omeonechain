@@ -314,6 +314,7 @@ const WalletOnboarding: React.FC<WalletOnboardingProps> = ({
                 {/* Help Link */}
                 <div className="text-center">
                   
+<a
                     href="https://metamask.io/faqs/"
                     target="_blank"
                     rel="noopener noreferrer"
