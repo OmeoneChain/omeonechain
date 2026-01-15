@@ -1,5 +1,6 @@
 // File: code/poc/frontend/app/layout.tsx
 // Updated with next-intl for internationalization support
+// FIXED: Added viewport-fit=cover for iOS safe areas in Capacitor
 
 import '../globals.css'
 import { Inter } from 'next/font/google'
@@ -8,12 +9,22 @@ import { AuthProvider } from '@/hooks/useAuth'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getLocale } from 'next-intl/server'
 import { ThemeProvider } from '@/components/ThemeProvider';
+import type { Viewport } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
   title: 'BocaBoca',
   description: 'Trust-Based Recommendations Network',
+}
+
+// Add viewport configuration for iOS safe areas
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover', // This enables env(safe-area-inset-*) to work
 }
 
 export default async function RootLayout({
@@ -34,8 +45,7 @@ export default async function RootLayout({
           <AuthProvider>
             {/* Each page will handle its own header through CleanHeader */}
             {children}
-            
-            {/* Keep the Toaster for notifications - ENHANCED styling for better UX */}
+            {/* Keep the Toaster for notifications */}
             <Toaster 
               position="top-right"
               reverseOrder={false}
@@ -43,7 +53,6 @@ export default async function RootLayout({
               containerClassName=""
               containerStyle={{}}
               toastOptions={{
-                // Default styling for all toasts
                 duration: 4000,
                 style: {
                   background: '#363636',
@@ -95,6 +104,7 @@ export default async function RootLayout({
     </html>
   )
 }
+
 // Required for static export - defines all valid locales
 export function generateStaticParams() {
   return [{ locale: 'pt-BR' }, { locale: 'en' }];
