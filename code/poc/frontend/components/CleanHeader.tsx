@@ -4,6 +4,7 @@
 // ADDED: Dark mode toggle in user dropdown
 // UPDATED: Dark mode for language dropdown
 // REMOVED: Non-functional global search bar
+// FIXED: Moved all hooks before conditional returns to fix React Error #300
 
 'use client';
 
@@ -114,21 +115,13 @@ const LanguageSwitcher = () => {
 // MAIN HEADER COMPONENT
 // ============================================
 export function CleanHeader({ className = '' }: CleanHeaderProps) {
+  // ============================================
+  // ALL HOOKS MUST BE CALLED FIRST - Before any conditional returns
+  // ============================================
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations();
-
-  // Mobile detection - return mobile components when in Capacitor
   const { isCapacitor } = useCapacitor();
-  
-  if (isCapacitor) {
-    return (
-      <>
-        <MobileHeader className={className} />
-        <BottomNavigation />
-      </>
-    );
-  }
   
   const { 
     isAuthenticated, 
@@ -154,6 +147,7 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
 
   // Initialize theme on mount
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const stored = localStorage.getItem('bocaboca-theme') as 'light' | 'dark' | null;
     if (stored) {
       setTheme(stored);
@@ -203,6 +197,20 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
       return () => unsubscribe();
     }
   }, [isAuthenticated, user?.id, pathname]);
+
+  // ============================================
+  // CONDITIONAL RETURNS - After all hooks
+  // ============================================
+  
+  // Mobile detection - return mobile components when in Capacitor
+  if (isCapacitor) {
+    return (
+      <>
+        <MobileHeader className={className} />
+        <BottomNavigation />
+      </>
+    );
+  }
 
   const handleConnectWallet = () => {
     if (isAuthenticated && authMode === 'email') {
