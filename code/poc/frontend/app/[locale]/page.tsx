@@ -1,21 +1,7 @@
 // app/[locale]/page.tsx - Landing page with OAuth callback support and full i18n
 // Updated with BocaBoca branding and harmonized messaging from One-Pager v1.0 and Litepaper v1.0
 // Dark mode support added
-//
-// =============================================================================
-// DARK MODE PATTERNS USED IN THIS FILE:
-// =============================================================================
-// Page background:      bg-[#FFF4E1] dark:bg-[#1F1E2A]
-// Card/Surface:         bg-white dark:bg-[#2D2C3A]
-// Semi-transparent:     bg-white/60 dark:bg-[#2D2C3A]/60
-// Section backgrounds:  bg-white/40 dark:bg-[#2D2C3A]/40
-// Primary text:         text-[#1F1E2A] dark:text-gray-100
-// Secondary text:       text-[#666666] dark:text-gray-400
-// Muted text:           text-[#999999] dark:text-gray-500
-// Borders:              border-[#E5E5E5] dark:border-[#3D3C4A]
-// Footer:               bg-white dark:bg-[#2D2C3A]
-// Accent backgrounds:   Lighter in light mode, /20 opacity in dark mode
-// =============================================================================
+// FIXED: Removed problematic debug console.logs that caused React Error #300 in Capacitor WebView
 
 "use client"
 
@@ -37,26 +23,23 @@ const LandingPage: React.FC = () => {
   const router = useRouter();
   const t = useTranslations('landing');
 
+  // FIXED: Simple mount effect without translation calls
   useEffect(() => {
-    console.log('CLIENT: Testing t function:', t('hero.title'));
-    console.log('CLIENT: Problem title:', t('problem.trustCollapsed.title'));
     setMounted(true);
-  }, [t]);
+  }, []);
 
-  // Handle OAuth callback
+  // Handle OAuth callback - only runs after mounted
   useEffect(() => {
     if (!mounted) return;
+    
+    // Only process if there's actually OAuth data in the URL
+    const hash = window.location.hash;
+    if (!hash || (!hash.includes('auth_token') && !hash.includes('auth_success') && !hash.includes('auth_error'))) {
+      // No OAuth data, skip processing
+      return;
+    }
 
-    console.log('🔍 Checking for OAuth callback...');
-    console.log('🔍 Full URL:', window.location.href);
-    console.log('🔍 Hash:', window.location.hash);
-    console.log('🔍 Search:', window.location.search);
-
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    console.log('🔍 Auth token in hash:', params.get('auth_token') ? 'EXISTS' : 'MISSING');
-    console.log('🔍 Auth success in hash:', params.get('auth_success'));
-    console.log('🔍 Auth error in hash:', params.get('auth_error'));
+    console.log('🔍 OAuth callback detected, processing...');
 
     const result = AuthService.handleOAuthCallback();
 
@@ -67,18 +50,10 @@ const LandingPage: React.FC = () => {
       const userData = result.user || JSON.parse(localStorage.getItem('user') || '{}');
       const isNewUser = result.isNewUser || userData.onboarding_completed === false;
 
-      console.log('📊 User status:', {
-        isNewUser,
-        onboardingCompleted: userData.onboarding_completed,
-        profileCompletion: userData.profileCompletion
-      });
-
       setTimeout(() => {
         if (isNewUser) {
-          console.log('🎯 New user - redirecting to /onboarding');
           window.location.href = '/onboarding';
         } else {
-          console.log('🚀 Returning user - redirecting to /feed');
           window.location.href = '/feed';
         }
       }, 500);
@@ -111,8 +86,6 @@ const LandingPage: React.FC = () => {
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-[#1F1E2A] dark:text-gray-100">
                 {t('hero.title')}
               </h1>
-
-              {/* HERO SUBTITLE (Option A2) */}
               <p className="text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed px-4 text-[#666666] dark:text-gray-400">
                 {t.rich('hero.subtitle', {
                   br: () => <br className="hidden sm:block" />
@@ -141,8 +114,6 @@ const LandingPage: React.FC = () => {
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-[#1F1E2A] dark:text-gray-100">
               {t('hero.title')}
             </h1>
-
-            {/* HERO SUBTITLE (Option A2) */}
             <p className="text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed px-4 text-[#666666] dark:text-gray-400">
               {t.rich('hero.subtitle', {
                 br: () => <br className="hidden sm:block" />
@@ -150,7 +121,7 @@ const LandingPage: React.FC = () => {
             </p>
           </motion.div>
 
-          {/* Quote Banner - Gradient stays the same, looks good in both modes */}
+          {/* Quote Banner */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -190,24 +161,17 @@ const LandingPage: React.FC = () => {
 
             <div className="text-center sm:text-left">
               <p className="text-sm mb-3 text-[#666666] dark:text-gray-400">{t('comparison.youGet')}</p>
-
-              {/* Mini 3-box "What People Think" design */}
               <div className="flex flex-wrap justify-center sm:justify-start gap-2">
-                {/* Your Network - highlighted */}
                 <div className="px-3 py-2 rounded-lg text-center min-w-[90px] bg-[#FFE8E3] dark:bg-[#FF644A]/20 border-2 border-[#FF644A]">
                   <Users size={14} className="mx-auto mb-1 text-[#FF644A]" />
                   <div className="text-xl font-bold text-[#FF644A]">8.3</div>
                   <div className="text-xs whitespace-nowrap text-[#FF644A]">Your Network</div>
                 </div>
-
-                {/* Similar Taste */}
                 <div className="px-3 py-2 rounded-lg text-center min-w-[90px] bg-[#F5F5F5] dark:bg-[#353444] border border-[#E5E5E5] dark:border-[#3D3C4A]">
                   <Star size={14} className="mx-auto mb-1 text-[#666666] dark:text-gray-400" />
                   <div className="text-xl font-bold text-[#1F1E2A] dark:text-gray-100">8.5</div>
                   <div className="text-xs whitespace-nowrap text-[#666666] dark:text-gray-400">Similar Taste</div>
                 </div>
-
-                {/* All Reviews */}
                 <div className="px-3 py-2 rounded-lg text-center min-w-[90px] bg-[#F5F5F5] dark:bg-[#353444] border border-[#E5E5E5] dark:border-[#3D3C4A]">
                   <TrendingUp size={14} className="mx-auto mb-1 text-[#666666] dark:text-gray-400" />
                   <div className="text-xl font-bold text-[#1F1E2A] dark:text-gray-100">7.2</div>
@@ -219,7 +183,7 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Problem Section - REORDERED: Trust Collapsed → Lost in Scroll → Ratings Lost Meaning */}
+      {/* Problem Section */}
       <section className="py-12 sm:py-16 px-4 sm:px-6 bg-white/40 dark:bg-[#2D2C3A]/40">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 sm:mb-12">
@@ -232,7 +196,6 @@ const LandingPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-            {/* Card 1: Trust Collapsed */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -252,7 +215,6 @@ const LandingPage: React.FC = () => {
               </p>
             </motion.div>
 
-            {/* Card 2: Lost in Scroll */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -270,7 +232,6 @@ const LandingPage: React.FC = () => {
               </p>
             </motion.div>
 
-            {/* Card 3: Ratings Lost Meaning */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -291,7 +252,7 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Solution Section - Three Pillars */}
+      {/* Solution Section */}
       <section className="py-12 sm:py-16 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 sm:mb-12">
@@ -599,12 +560,9 @@ const LandingPage: React.FC = () => {
                 <a href="#" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
                   {t('footer.discord')}
                 </a>
-
-                {/* Updated to BocaBocaX */}
                 <a href="https://twitter.com/BocaBocaX" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
                   {t('footer.twitter')}
                 </a>
-
                 <a href="#" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
                   {t('footer.github')}
                 </a>
