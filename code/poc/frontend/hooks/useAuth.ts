@@ -1,42 +1,39 @@
 // File: code/poc/frontend/hooks/useAuth.ts
-// FIXED VERSION: Corrected API endpoints and consistent backend URL usage
+// FIXED VERSION: Added SSR safety to prevent React hydration errors
 
 'use client';
 
-import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 
-// Types for authentication - Enhanced with progressive features + profile management
+// Types for authentication
 export type AuthMode = 'guest' | 'email' | 'wallet';
 
 export interface User {
   id: string;
-  address?: string; // Optional for email users
-  email?: string; // New field for email users
+  address?: string;
+  email?: string;
   username?: string;
   display_name?: string;
   avatar_url?: string;
   verification_status?: 'basic' | 'verified' | 'expert';
   created_at?: string;
-  // Progressive Web3 fields
   auth_mode?: AuthMode;
   tokens_earned?: number;
   trust_score?: number;
-  pending_tokens?: number; // For email users who haven't connected wallet
-  // Profile management fields
+  pending_tokens?: number;
   profileCompletion?: number;
   bio?: string;
   location_city?: string;
   location_country?: string;
-  authMode?: AuthMode; // Alternative naming for compatibility
-  name?: string; // Alternative naming for compatibility
-  avatar?: string; // Alternative naming for compatibility
+  authMode?: AuthMode;
+  name?: string;
+  avatar?: string;
   reputation?: number;
   trustScore?: number;
   tokensEarned?: number;
   stakingBalance?: number;
   createdAt?: string;
-  // Additional fields from backend
   walletAddress?: string;
   reputation_score?: number;
   staking_balance?: number;
@@ -47,13 +44,11 @@ export interface AuthState {
   isLoading: boolean;
   user: User | null;
   token: string | null;
-  // Progressive Web3 state
   authMode: AuthMode;
   pendingTokens: number;
   canEarnTokens: boolean;
 }
 
-// Initial auth state
 const initialAuthState: AuthState = {
   isAuthenticated: false,
   isLoading: true,
@@ -64,55 +59,39 @@ const initialAuthState: AuthState = {
   canEarnTokens: false,
 };
 
-// FIXED: Use consistent backend URL throughout
 const BACKEND_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
 
-// Profile completion calculation helper
 const calculateProfileCompletion = (user: User): number => {
   let score = 0;
-  
-  // Basic information (40 points)
   if (user.username && user.username !== user.id) score += 10;
   if (user.display_name && user.display_name !== user.username) score += 10;
   if (user.bio && user.bio.length > 10) score += 10;
   if (user.avatar_url && !user.avatar_url.includes('dicebear')) score += 10;
-  
-  // Location (20 points)
   if (user.location_city) score += 10;
   if (user.location_country) score += 10;
-  
-  // Social activity (30 points)
   if ((user.trust_score || user.trustScore || 0) > 0) score += 15;
   if ((user.tokens_earned || user.tokensEarned || 0) > 0) score += 15;
-  
-  // Verification (10 points)
   if ((user.auth_mode || user.authMode) === 'wallet') score += 10;
-  
   return Math.min(score, 100);
 };
 
-// Auth context type - Enhanced with progressive features + profile management
 interface AuthContextType extends AuthState {
   login: (token: string, user: User) => void;
   logout: () => void;
   refreshAuth: () => Promise<void>;
   isCheckingAuth: boolean;
-  // Progressive Web3 methods
   loginWithEmail: (email: string, name?: string) => Promise<void>;
   upgradeToWallet: () => Promise<void>;
   addPendingTokens: (amount: number) => void;
   showUpgradePrompt: () => void;
   connectWallet: (onSuccess?: () => void) => Promise<void>;
-  // Profile management methods
   updateUser: (updates: Partial<User>) => void;
   updateProfile: (profileData: any) => Promise<void>;
   refreshProfileCompletion: () => void;
 }
 
-// Create auth context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -121,13 +100,76 @@ export const useAuth = () => {
   return context;
 };
 
-// FIXED: Real API functions with consistent backend URL throughout
+// Storage utilities with SSR safety
+const AuthStorage = {
+  saveToken: (token: string): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('omeone_auth_token', token);
+    }
+  },
+  getToken: (): string | null => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('omeone_auth_token');
+    }
+    return null;
+  },
+  removeToken: (): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('omeone_auth_token');
+    }
+  },
+  saveUser: (user: User): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('omeone_user', JSON.stringify(user));
+    }
+  },
+  getUser: (): User | null => {
+    if (typeof window !== 'undefined') {
+      const userData = localStorage.getItem('omeone_user');
+      if (userData) {
+        try {
+          return JSON.parse(userData);
+        } catch (error) {
+          localStorage.removeItem('omeone_user');
+        }
+      }
+    }
+    return null;
+  },
+  removeUser: (): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('omeone_user');
+    }
+  },
+  savePendingTokens: (amount: number): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('omeone_pending_tokens', amount.toString());
+    }
+  },
+  getPendingTokens: (): number => {
+    if (typeof window !== 'undefined') {
+      const pending = localStorage.getItem('omeone_pending_tokens');
+      return pending ? parseFloat(pending) || 0 : 0;
+    }
+    return 0;
+  },
+  removePendingTokens: (): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('omeone_pending_tokens');
+    }
+  },
+  clear: (): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('omeone_auth_token');
+      localStorage.removeItem('omeone_user');
+      localStorage.removeItem('omeone_pending_tokens');
+    }
+  }
+};
+
+// API functions
 const authAPI = {
-  // Get current user from backend - FIXED: Consistent URL and better debugging
   getCurrentUser: async (token: string): Promise<User> => {
-    console.log('🔍 Getting current user from backend...');
-    console.log('Token being sent:', token?.substring(0, 20) + '...');
-    
     const response = await fetch(`${BACKEND_URL}/api/auth/me`, {
       method: 'GET',
       headers: {
@@ -135,32 +177,18 @@ const authAPI = {
         'Content-Type': 'application/json',
       },
     });
-
-    console.log('Auth response status:', response.status);
-    console.log('Auth response headers:', Object.fromEntries(response.headers.entries()));
-
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Auth error response:', errorData);
-      throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: Failed to get user`);
+      throw new Error(`HTTP ${response.status}: Failed to get user`);
     }
-
     const data = await response.json();
-    console.log('✅ User data received from backend:', data);
-    
     if (!data.success || !data.user) {
       throw new Error('Invalid user data received');
     }
-
     const user = data.user;
-    
-    // Ensure profile completion is calculated
     if (!user.profileCompletion) {
       user.profileCompletion = calculateProfileCompletion(user);
     }
-
-    // Add compatibility fields and debug what we're setting
-    const processedUser = {
+    return {
       ...user,
       name: user.display_name || user.username || user.name,
       avatar: user.avatar_url || user.avatar,
@@ -171,51 +199,7 @@ const authAPI = {
       stakingBalance: user.staking_balance || user.stakingBalance || 0,
       createdAt: user.created_at || user.createdAt
     };
-
-    console.log('Processed user for display:', {
-      id: processedUser.id,
-      username: processedUser.username,
-      display_name: processedUser.display_name,
-      name: processedUser.name,
-      finalDisplayName: processedUser.display_name || processedUser.username || processedUser.name
-    });
-
-    return processedUser;
   },
-
-  // Refresh token and get updated user data - FIXED: Consistent URL
-  refreshToken: async (token: string): Promise<{ token: string; user: User }> => {
-    console.log('🔄 Refreshing auth token...');
-    
-    const response = await fetch(`${BACKEND_URL}/api/auth/verify`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Token refresh failed');
-    }
-
-    const data = await response.json();
-    
-    if (!data.success || !data.valid) {
-      throw new Error('Invalid or expired token');
-    }
-
-    // Get fresh user data
-    const user = await authAPI.getCurrentUser(token);
-    
-    return {
-      token,
-      user
-    };
-  },
-
-  // New: Email signup
   createEmailUser: async (email: string, name?: string): Promise<User> => {
     await new Promise(resolve => setTimeout(resolve, 800));
     const user: User = {
@@ -223,7 +207,7 @@ const authAPI = {
       email,
       display_name: name || email.split('@')[0],
       username: email.split('@')[0],
-      name: name || email.split('@')[0], // Compatibility
+      name: name || email.split('@')[0],
       verification_status: 'basic',
       auth_mode: 'email',
       authMode: 'email',
@@ -235,22 +219,10 @@ const authAPI = {
       created_at: new Date().toISOString(),
       createdAt: new Date().toISOString()
     };
-    
     user.profileCompletion = calculateProfileCompletion(user);
     return user;
   },
-
-  // New: Upgrade email user to wallet
-  upgradeUserToWallet: async (userId: string, address: string, token: string): Promise<User> => {
-    // This would call the real upgrade API when implemented
-    const user = await authAPI.getCurrentUser(token);
-    return user;
-  },
-
-  // FIXED: Update profile via real API with consistent backend URL
   updateProfile: async (token: string, profileData: any): Promise<User> => {
-    console.log('📝 Updating profile via API...', profileData);
-    
     const response = await fetch(`${BACKEND_URL}/api/auth/profile`, {
       method: 'PATCH',
       headers: {
@@ -259,140 +231,33 @@ const authAPI = {
       },
       body: JSON.stringify(profileData),
     });
-
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || errorData.message || `Failed to update profile: HTTP ${response.status}`);
+      throw new Error(`Failed to update profile: HTTP ${response.status}`);
     }
-
     const data = await response.json();
-    console.log('✅ Profile updated successfully:', data);
-    
     if (!data.success || !data.user) {
       throw new Error('Invalid response from profile update');
     }
-
     const user = data.user;
-    
-    // Ensure profile completion is calculated
     if (!user.profileCompletion) {
       user.profileCompletion = calculateProfileCompletion(user);
     }
-
-    // Add compatibility fields
     return {
       ...user,
       name: user.display_name || user.username || user.name,
       avatar: user.avatar_url || user.avatar,
       authMode: 'wallet' as AuthMode,
-      reputation: user.reputation_score || user.reputation || 0,
-      trustScore: user.trust_score || user.trustScore || 0,
-      tokensEarned: user.tokens_earned || user.tokensEarned || 0,
-      stakingBalance: user.staking_balance || user.stakingBalance || 0,
-      createdAt: user.created_at || user.createdAt
     };
   },
-
-  // Check username availability - FIXED: Consistent backend URL
-  checkUsernameAvailability: async (username: string): Promise<{ available: boolean; suggestions?: string[] }> => {
-    const response = await fetch(`${BACKEND_URL}/api/auth/profile/availability/${username}`);
-    
-    if (!response.ok) {
-      throw new Error('Failed to check username availability');
-    }
-    
-    const data = await response.json();
-    return {
-      available: data.available,
-      suggestions: data.suggestions
-    };
-  }
 };
 
-// Enhanced Storage utilities
-const AuthStorage = {
-  saveToken: (token: string): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('omeone_auth_token', token);
-    }
-  },
-
-  getToken: (): string | null => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('omeone_auth_token');
-    }
-    return null;
-  },
-
-  removeToken: (): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('omeone_auth_token');
-    }
-  },
-
-  saveUser: (user: User): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('omeone_user', JSON.stringify(user));
-    }
-  },
-
-  getUser: (): User | null => {
-    if (typeof window !== 'undefined') {
-      const userData = localStorage.getItem('omeone_user');
-      if (userData) {
-        try {
-          return JSON.parse(userData);
-        } catch (error) {
-          console.error('Failed to parse stored user data:', error);
-          localStorage.removeItem('omeone_user');
-        }
-      }
-    }
-    return null;
-  },
-
-  removeUser: (): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('omeone_user');
-    }
-  },
-
-  // New: Pending tokens management
-  savePendingTokens: (amount: number): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('omeone_pending_tokens', amount.toString());
-    }
-  },
-
-  getPendingTokens: (): number => {
-    if (typeof window !== 'undefined') {
-      const pending = localStorage.getItem('omeone_pending_tokens');
-      return pending ? parseFloat(pending) || 0 : 0;
-    }
-    return 0;
-  },
-
-  removePendingTokens: (): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('omeone_pending_tokens');
-    }
-  },
-
-  clear: (): void => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('omeone_auth_token');
-      localStorage.removeItem('omeone_user');
-      localStorage.removeItem('omeone_pending_tokens');
-    }
-  }
-};
-
-// Auth provider component - Enhanced with progressive features + profile management
+// Auth provider component - FIXED: SSR-safe initialization
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>(initialAuthState);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const initRef = useRef(false);
 
-  // Helper to determine auth mode
   const getAuthMode = (user: User | null): AuthMode => {
     if (!user) return 'guest';
     if (user.address || user.walletAddress) return 'wallet';
@@ -400,25 +265,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return 'guest';
   };
 
-  // Enhanced login function
   const login = useCallback((token: string, user: User) => {
     const authMode = getAuthMode(user);
-    
-    // Ensure profile completion is calculated
     if (!user.profileCompletion) {
       user.profileCompletion = calculateProfileCompletion(user);
     }
-    
-    // Save to storage
     AuthStorage.saveToken(token);
     AuthStorage.saveUser(user);
-    
-    // Clear pending tokens if upgrading to wallet
     if (authMode === 'wallet') {
       AuthStorage.removePendingTokens();
     }
-    
-    // Update state
     setAuthState({
       isAuthenticated: true,
       isLoading: false,
@@ -428,34 +284,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pendingTokens: authMode === 'email' ? (user.pending_tokens || 0) : 0,
       canEarnTokens: authMode === 'wallet',
     });
-
     toast.success(`Welcome back, ${user.display_name || user.username || user.name || 'User'}!`);
   }, []);
 
-  // Enhanced logout function - FIXED: Consistent backend URL
   const logout = useCallback(async () => {
     const token = AuthStorage.getToken();
-    
-    // Try to logout on backend
     if (token) {
       try {
         await fetch(`${BACKEND_URL}/api/auth/logout`, {
           method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Authorization': `Bearer ${token}` },
         });
       } catch (error) {
         console.warn('Backend logout failed:', error);
-        // Continue with local cleanup
       }
     }
-    
-    // Clear storage
     AuthStorage.clear();
-    
-    // Update state
     setAuthState({
       isAuthenticated: false,
       isLoading: false,
@@ -465,58 +309,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pendingTokens: 0,
       canEarnTokens: false,
     });
-
     toast.success('Successfully logged out');
   }, []);
 
-  // Profile management functions
   const updateUser = useCallback((updates: Partial<User>) => {
     if (!authState.user) return;
-    
     const updatedUser = { ...authState.user, ...updates };
     updatedUser.profileCompletion = calculateProfileCompletion(updatedUser);
-    
-    // Update storage
     AuthStorage.saveUser(updatedUser);
-    
-    // Update state
-    setAuthState(prev => ({
-      ...prev,
-      user: updatedUser
-    }));
+    setAuthState(prev => ({ ...prev, user: updatedUser }));
   }, [authState.user]);
 
   const updateProfile = useCallback(async (profileData: any) => {
-    try {
-      if (!authState.user || !authState.token) {
-        throw new Error('No user logged in');
-      }
-
-      // Make API call to update profile
-      const updatedUser = await authAPI.updateProfile(authState.token, profileData);
-      
-      // Update the user in state with the response data
-      const userUpdates = {
-        username: updatedUser.username,
-        display_name: updatedUser.display_name,
-        bio: updatedUser.bio,
-        location_city: updatedUser.location_city,
-        location_country: updatedUser.location_country,
-        avatar_url: updatedUser.avatar_url,
-        profileCompletion: updatedUser.profileCompletion,
-        // Update compatibility fields
-        name: updatedUser.display_name || updatedUser.username,
-        avatar: updatedUser.avatar_url
-      };
-
-      updateUser(userUpdates);
-      
-      toast.success('Profile updated successfully!');
-    } catch (error: any) {
-      console.error('Profile update error:', error);
-      toast.error(`Failed to update profile: ${error.message}`);
-      throw error;
+    if (!authState.user || !authState.token) {
+      throw new Error('No user logged in');
     }
+    const updatedUser = await authAPI.updateProfile(authState.token, profileData);
+    updateUser(updatedUser);
+    toast.success('Profile updated successfully!');
   }, [authState.user, authState.token, updateUser]);
 
   const refreshProfileCompletion = useCallback(() => {
@@ -526,17 +336,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [authState.user, updateUser]);
 
-  // New: Email login function
   const loginWithEmail = useCallback(async (email: string, name?: string) => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
     try {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-      
-      // Create email user (in production, this would call your API)
       const user = await authAPI.createEmailUser(email, name);
-      
-      // Save user without token
       AuthStorage.saveUser(user);
-      
       setAuthState({
         isAuthenticated: true,
         isLoading: false,
@@ -546,7 +350,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         pendingTokens: 0,
         canEarnTokens: false,
       });
-      
       toast.success('Account created! Connect a wallet to start earning tokens.');
     } catch (error: any) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
@@ -555,186 +358,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // New: Wallet connection function
   const connectWallet = useCallback(async (onSuccess?: () => void) => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
     try {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-      
-      // Dynamic import to avoid SSR issues
       const { WalletManager, AuthAPI, createAuthMessage } = await import('@/lib/auth');
-      
-      // Connect wallet
       const walletInfo = await WalletManager.connectMetaMask();
-      
-      // Get challenge
       const challengeResponse = await AuthAPI.getAuthChallenge(walletInfo.address);
       const authMessage = createAuthMessage(challengeResponse.challenge, walletInfo.address);
-      
-      // Sign message
       const signature = await WalletManager.signMessage(authMessage, walletInfo.address);
-      
-      // Verify and get token
-      const authResult = await AuthAPI.verifySignature(
-        walletInfo.address,
-        signature,
-        challengeResponse.challenge
-      );
-
-      if (authState.user && authState.authMode === 'email') {
-        // Upgrade existing email user to wallet
-        const upgradedUser = await authAPI.upgradeUserToWallet(
-          authState.user.id,
-          walletInfo.address,
-          authResult.token
-        );
-        
-        login(authResult.token, upgradedUser);
-        
-        toast.success(`Wallet connected! You've claimed ${authState.pendingTokens.toFixed(2)} TOK.`);
-      } else {
-        // New wallet user
-        login(authResult.token, authResult.user);
-        toast.success('Wallet connected successfully!');
-      }
-      
+      const authResult = await AuthAPI.verifySignature(walletInfo.address, signature, challengeResponse.challenge);
+      login(authResult.token, authResult.user);
+      toast.success('Wallet connected successfully!');
       onSuccess?.();
     } catch (error: any) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
       toast.error(`Wallet connection failed: ${error.message}`);
       throw error;
     }
-  }, [authState.user, authState.authMode, authState.pendingTokens, login]);
+  }, [login]);
 
-  // New: Upgrade to wallet function
   const upgradeToWallet = useCallback(async () => {
     return connectWallet();
   }, [connectWallet]);
 
-  // New: Add pending tokens function
   const addPendingTokens = useCallback((amount: number) => {
     if (authState.authMode === 'email') {
       const newTotal = authState.pendingTokens + amount;
       AuthStorage.savePendingTokens(newTotal);
-      
       setAuthState(prev => ({ ...prev, pendingTokens: newTotal }));
-      
-      toast.success(`+${amount.toFixed(2)} TOK earned! Connect wallet to claim.`, {
-        duration: 3000,
-      });
+      toast.success(`+${amount.toFixed(2)} TOK earned! Connect wallet to claim.`);
     }
   }, [authState.authMode, authState.pendingTokens]);
 
-  // New: Show upgrade prompt function - Using React.createElement instead of JSX
   const showUpgradePrompt = useCallback(() => {
     if (authState.authMode === 'email' && authState.pendingTokens > 0) {
-      toast.custom(
-        (t) => 
-          React.createElement('div', {
-            className: 'bg-white border border-orange-200 rounded-lg p-4 shadow-lg max-w-sm'
-          },
-            React.createElement('div', {
-              className: 'flex items-start gap-3'
-            },
-              React.createElement('div', {
-                className: 'w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0'
-              }, '🪙'),
-              React.createElement('div', {
-                className: 'flex-1'
-              },
-                React.createElement('p', {
-                  className: 'text-sm font-medium text-gray-900 mb-1'
-                }, `You've earned ${authState.pendingTokens.toFixed(2)} TOK!`),
-                React.createElement('p', {
-                  className: 'text-xs text-gray-600 mb-3'
-                }, 'Connect your wallet to claim your tokens and start earning more.'),
-                React.createElement('div', {
-                  className: 'flex gap-2'
-                },
-                  React.createElement('button', {
-                    onClick: () => {
-                      toast.dismiss(t.id);
-                      upgradeToWallet();
-                    },
-                    className: 'px-3 py-1.5 bg-orange-500 text-white text-xs rounded-md hover:bg-orange-600 transition-colors'
-                  }, 'Connect Wallet'),
-                  React.createElement('button', {
-                    onClick: () => toast.dismiss(t.id),
-                    className: 'px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700 transition-colors'
-                  }, 'Later')
-                )
-              )
-            )
-          ),
-        { duration: 8000, position: 'top-right' }
-      );
+      toast(`You've earned ${authState.pendingTokens.toFixed(2)} TOK! Connect wallet to claim.`);
     }
-  }, [authState.authMode, authState.pendingTokens, upgradeToWallet]);
+  }, [authState.authMode, authState.pendingTokens]);
 
-  // FIXED: Enhanced refresh authentication with correct backend URL and better debugging
+  // FIXED: SSR-safe refresh auth - only runs after mount
   const refreshAuth = useCallback(async () => {
-  // First, completely clear any stale state
-  const token = AuthStorage.getToken();
-  const storedUser = AuthStorage.getUser();
-  const pendingTokens = AuthStorage.getPendingTokens();
-  
-  console.log('🔄 Refresh auth called:', { 
-    hasToken: !!token, 
-    hasStoredUser: !!storedUser,
-    tokenPreview: token?.substring(0, 20) + '...'
-  });
-
-  // If token exists, validate it's not expired before using it
-  if (token) {
-    try {
-      // Decode JWT to check expiration (simple check, not cryptographically verified)
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const now = Math.floor(Date.now() / 1000);
-      
-      if (payload.exp && payload.exp < now) {
-        console.log('⏰ Token expired, clearing...');
-        AuthStorage.clear();
-        setAuthState(prev => ({ 
-          ...prev, 
-          isLoading: false,
-          isAuthenticated: false,
-          user: null,
-          token: null
-        }));
-        setIsCheckingAuth(false);
-        return;
-      }
-    } catch (decodeError) {
-      console.error('❌ Token decode failed:', decodeError);
-      AuthStorage.clear();
-      setAuthState(prev => ({ 
-        ...prev, 
-        isLoading: false,
-        isAuthenticated: false,
-        user: null,
-        token: null
-      }));
-      setIsCheckingAuth(false);
+    // Don't run on server
+    if (typeof window === 'undefined') {
       return;
     }
-  }
-  
-    // Debug stored user data
-    if (storedUser) {
-      console.log('Raw stored user data:', storedUser);
-      console.log('Display name options:', {
-        displayName: storedUser.displayName,
-        display_name: storedUser.display_name,
-        username: storedUser.username,
-        name: storedUser.name,
-        id: storedUser.id
-      });
-    }
-    
+
+    const token = AuthStorage.getToken();
+    const storedUser = AuthStorage.getUser();
+    const pendingTokens = AuthStorage.getPendingTokens();
+
+    console.log('🔄 Refresh auth called:', {
+      hasToken: !!token,
+      hasStoredUser: !!storedUser,
+      tokenPreview: token ? token.substring(0, 20) + '...' : 'none'
+    });
+
     if (!token && !storedUser) {
-      setAuthState(prev => ({ 
-        ...prev, 
+      setAuthState(prev => ({
+        ...prev,
         isLoading: false,
-        pendingTokens: pendingTokens 
+        pendingTokens: pendingTokens
       }));
       setIsCheckingAuth(false);
       return;
@@ -746,7 +429,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!storedUser.profileCompletion) {
         storedUser.profileCompletion = calculateProfileCompletion(storedUser);
       }
-      
       setAuthState({
         isAuthenticated: true,
         isLoading: false,
@@ -760,16 +442,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Handle wallet users (with token) - FIXED: Now uses consistent backend URL
+    // Handle wallet users (with token)
     if (token) {
       try {
-        console.log('🔄 Refreshing auth with real API...');
-        const user = await authAPI.getCurrentUser(token); // Now calls consistent backend URL
+        const user = await authAPI.getCurrentUser(token);
         const authMode = getAuthMode(user);
-        
-        console.log('✅ Got real user data from backend:', user);
-        console.log('Final display resolution:', user.display_name || user.username || user.name);
-        
         setAuthState({
           isAuthenticated: true,
           isLoading: false,
@@ -781,109 +458,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       } catch (error: any) {
         console.error('❌ Auth refresh failed:', error);
-        
-        // Try to refresh the token
-        try {
-          const refreshResult = await authAPI.refreshToken(token);
-          const authMode = getAuthMode(refreshResult.user);
-          
-          // Update storage
-          AuthStorage.saveToken(refreshResult.token);
-          AuthStorage.saveUser(refreshResult.user);
-          
-          setAuthState({
-            isAuthenticated: true,
-            isLoading: false,
-            user: refreshResult.user,
-            token: refreshResult.token,
-            authMode,
-            pendingTokens: authMode === 'email' ? pendingTokens : 0,
-            canEarnTokens: authMode === 'wallet',
-          });
-        } catch (refreshError) {
-          console.error('❌ Token refresh failed:', refreshError);
-          
-          // Clear invalid auth data
-          AuthStorage.clear();
-          setAuthState({
-            isAuthenticated: false,
-            isLoading: false,
-            user: null,
-            token: null,
-            authMode: 'guest',
-            pendingTokens: 0,
-            canEarnTokens: false,
-          });
-          
-          // Don't show error toast for expired tokens on page load
-          if (!window.location.pathname.includes('/login')) {
-            toast.error('Session expired. Please connect your wallet again.');
-          }
-        }
+        AuthStorage.clear();
+        setAuthState({
+          isAuthenticated: false,
+          isLoading: false,
+          user: null,
+          token: null,
+          authMode: 'guest',
+          pendingTokens: 0,
+          canEarnTokens: false,
+        });
       } finally {
         setIsCheckingAuth(false);
       }
     }
   }, []);
 
-  // Initialize auth state on mount
+  // FIXED: Only initialize auth after component mounts on client
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        await refreshAuth();
-      } catch (error) {
-        console.error('Auth initialization failed:', error);
-        setIsCheckingAuth(false);
-      }
-    };
+    setMounted(true);
+  }, []);
 
-    initializeAuth();
-  }, [refreshAuth]);
+  useEffect(() => {
+    if (mounted && !initRef.current) {
+      initRef.current = true;
+      refreshAuth();
+    }
+  }, [mounted, refreshAuth]);
 
+  // FIXED: Return loading state during SSR to prevent hydration mismatch
   const contextValue: AuthContextType = {
     ...authState,
+    // Override isLoading to be true until mounted
+    isLoading: !mounted || authState.isLoading,
     login,
     logout,
     refreshAuth,
-    isCheckingAuth,
-    // Progressive Web3 methods
+    isCheckingAuth: !mounted || isCheckingAuth,
     loginWithEmail,
     upgradeToWallet,
     addPendingTokens,
     showUpgradePrompt,
     connectWallet,
-    // Profile management methods
     updateUser,
     updateProfile,
     refreshProfileCompletion,
   };
 
-  return React.createElement(
-    AuthContext.Provider,
-    { value: contextValue },
-    children
-  );
+  return React.createElement(AuthContext.Provider, { value: contextValue }, children);
 };
 
-// Enhanced utility hooks
-
-// Hook for protected routes
+// Utility hooks
 export const useRequireAuth = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       toast.error('Please connect your wallet to access this feature');
     }
   }, [isAuthenticated, isLoading]);
-
   return { isAuthenticated, isLoading };
 };
 
-// Enhanced hook for conditional rendering based on auth state
 export const useAuthGuard = () => {
-  const { isAuthenticated, isLoading, user, authMode, canEarnTokens, showUpgradePrompt } = useAuth();
-
+  const { isAuthenticated, isLoading, user, authMode, canEarnTokens } = useAuth();
   const requireAuth = (action: string = 'perform this action') => {
     if (!isAuthenticated) {
       toast.error(`Please sign in to ${action}`);
@@ -891,46 +528,6 @@ export const useAuthGuard = () => {
     }
     return true;
   };
-  
-  const requireWallet = (action: string = 'earn tokens') => {
-    if (authMode !== 'wallet') {
-      toast.custom(
-        (t) =>
-          React.createElement('div', {
-            className: 'bg-white border border-blue-200 rounded-lg p-4 shadow-lg max-w-sm'
-          },
-            React.createElement('div', {
-              className: 'flex items-start gap-3'
-            },
-              React.createElement('div', {
-                className: 'w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0'
-              }, '🔗'),
-              React.createElement('div', {
-                className: 'flex-1'
-              },
-                React.createElement('p', {
-                  className: 'text-sm font-medium text-gray-900 mb-1'
-                }, 'Wallet Required'),
-                React.createElement('p', {
-                  className: 'text-xs text-gray-600 mb-3'
-                }, `Connect your wallet to ${action}`),
-                React.createElement('button', {
-                  onClick: () => {
-                    toast.dismiss(t.id);
-                    showUpgradePrompt();
-                  },
-                  className: 'px-3 py-1.5 bg-blue-500 text-white text-xs rounded-md hover:bg-blue-600 transition-colors'
-                }, 'Connect Wallet')
-              )
-            )
-          ),
-        { duration: 5000 }
-      );
-      return false;
-    }
-    return true;
-  };
-
   return {
     isAuthenticated,
     isLoading,
@@ -940,17 +537,13 @@ export const useAuthGuard = () => {
     isGuest: !isAuthenticated && !isLoading,
     canEarnTokens,
     requireAuth,
-    requireWallet,
   };
 };
 
-// Hook for getting authenticated API headers
 export const useAuthHeaders = () => {
   const { token } = useAuth();
-
   return useCallback(() => {
     if (!token) return {};
-    
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -958,29 +551,16 @@ export const useAuthHeaders = () => {
   }, [token]);
 };
 
-// Enhanced hook for making authenticated API calls
 export const useAuthenticatedFetch = () => {
   const getHeaders = useAuthHeaders();
   const { logout } = useAuth();
-
   return useCallback(async (url: string, options: RequestInit = {}) => {
-    const headers = {
-      ...getHeaders(),
-      ...options.headers,
-    };
-
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
-
-    // Handle authentication errors
+    const headers = { ...getHeaders(), ...options.headers };
+    const response = await fetch(url, { ...options, headers });
     if (response.status === 401) {
       logout();
-      toast.error('Session expired. Please reconnect your wallet.');
       throw new Error('Authentication expired');
     }
-
     return response;
   }, [getHeaders, logout]);
 };
