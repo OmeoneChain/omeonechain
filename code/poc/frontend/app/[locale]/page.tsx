@@ -2,6 +2,7 @@
 // Updated with BocaBoca branding and harmonized messaging from One-Pager v1.0 and Litepaper v1.0
 // Dark mode support added
 // FIXED: Removed problematic debug console.logs that caused React Error #300 in Capacitor WebView
+// ADDED: Redirect authenticated users to /feed
 
 "use client"
 
@@ -27,6 +28,13 @@ const LandingPage: React.FC = () => {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // NEW: Redirect authenticated users to feed
+  useEffect(() => {
+    if (mounted && !isLoading && isAuthenticated) {
+      router.push('/feed');
+    }
+  }, [mounted, isLoading, isAuthenticated, router]);
 
   // Handle OAuth callback - only runs after mounted
   useEffect(() => {
@@ -64,7 +72,8 @@ const LandingPage: React.FC = () => {
     }
   }, [mounted]);
 
-  if (isProcessingOAuth) {
+  // Show loading while checking auth or redirecting
+  if (isProcessingOAuth || (!isLoading && isAuthenticated)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <div className="text-center">

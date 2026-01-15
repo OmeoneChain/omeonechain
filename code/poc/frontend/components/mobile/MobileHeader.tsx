@@ -1,6 +1,7 @@
 // File: code/poc/frontend/components/mobile/MobileHeader.tsx
 // Mobile-optimized header for BocaBoca app
 // Layout: Avatar (left) | Logo (center) | Bell + Tokens (right)
+// FIXED: Translation fallbacks and iOS safe area handling
 
 'use client';
 
@@ -40,6 +41,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
 
   // Initialize theme on mount
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const stored = localStorage.getItem('bocaboca-theme') as 'light' | 'dark' | null;
     if (stored) {
       setTheme(stored);
@@ -97,7 +99,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
 
   const getDisplayName = () => {
     if (!user) return 'User';
-    return user.display_name || user.display_name || user.username || user.name || 'User';
+    return user.display_name || user.username || user.name || 'User';
   };
 
   const getInitial = () => {
@@ -106,14 +108,27 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
     return name[0]?.toUpperCase() || 'U';
   };
 
+  // Safe translation helper - returns fallback if key not found
+  const safeT = (key: string, fallback: string): string => {
+    try {
+      const result = t(key);
+      // If result equals the key, translation wasn't found
+      if (result === key || result.startsWith('header.') || result.startsWith('navigation.')) {
+        return fallback;
+      }
+      return result;
+    } catch {
+      return fallback;
+    }
+  };
+
   // Loading state
   if (isLoading) {
     return (
-      <header className={`bg-white dark:bg-[#1F1E2A] border-b border-gray-200 dark:border-[#3D3C4A] sticky top-0 z-40 ${className}`}>
-        <div 
-          className="flex justify-between items-center px-4 py-3"
-          style={{ paddingTop: 'env(safe-area-inset-top, 12px)' }}
-        >
+      <header className={`bg-white dark:bg-[#1F1E2A] sticky top-0 z-40 ${className}`}>
+        {/* Safe area spacer for iOS notch */}
+        <div className="bg-white dark:bg-[#1F1E2A] pt-[env(safe-area-inset-top)]" />
+        <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200 dark:border-[#3D3C4A]">
           <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-[#353444] animate-pulse" />
           <div className="w-9 h-9 rounded-lg bg-gray-200 dark:bg-[#353444] animate-pulse" />
           <div className="w-20 h-8 rounded-lg bg-gray-200 dark:bg-[#353444] animate-pulse" />
@@ -124,13 +139,12 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
 
   return (
     <>
-      <header 
-        className={`bg-white dark:bg-[#1F1E2A] border-b border-gray-200 dark:border-[#3D3C4A] sticky top-0 z-40 ${className}`}
-      >
-        <div 
-          className="flex justify-between items-center px-4 py-3"
-          style={{ paddingTop: 'env(safe-area-inset-top, 12px)' }}
-        >
+      <header className={`bg-white dark:bg-[#1F1E2A] sticky top-0 z-40 ${className}`}>
+        {/* Safe area spacer for iOS notch - this pushes content below the notch */}
+        <div className="bg-white dark:bg-[#1F1E2A] pt-[env(safe-area-inset-top)]" />
+        
+        {/* Actual header content */}
+        <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200 dark:border-[#3D3C4A]">
           {/* LEFT: Profile Avatar or Sign In */}
           <div className="flex items-center" style={{ minWidth: '80px' }}>
             {isAuthenticated ? (
@@ -151,16 +165,16 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
               </button>
             ) : (
               <Link
-                href="/auth"
+                href="/onboarding"
                 className="px-3 py-1.5 rounded-lg text-white text-sm font-medium bg-[#FF644A] active:opacity-70 transition-opacity"
               >
-                {t('header.signIn') || 'Entrar'}
+                Entrar
               </Link>
             )}
           </div>
 
           {/* CENTER: BocaBoca Logo */}
-          <Link href="/" className="flex items-center justify-center">
+          <Link href={isAuthenticated ? "/feed" : "/"} className="flex items-center justify-center">
             <Image
               src="/BocaBoca_Logo.png"
               alt="BocaBoca"
@@ -192,7 +206,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                       <div className="w-8 h-4 bg-[#FFD4CC] dark:bg-[#FF644A]/30 rounded animate-pulse" />
                     ) : (
                       <span className="text-[13px] font-semibold text-[#FF644A]">
-                        {tokenBalance.toFixed(2)}
+                        {tokenBalance.toFixed(1)}
                       </span>
                     )}
                   </Link>
@@ -219,13 +233,16 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
               onClick={() => setShowProfileMenu(false)}
             />
             
-            {/* Menu */}
+            {/* Menu - positioned below safe area */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="fixed left-4 right-4 top-20 z-50 bg-white dark:bg-[#2D2C3A] rounded-xl shadow-xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-gray-200 dark:border-[#3D3C4A] overflow-hidden"
-              style={{ maxWidth: '320px' }}
+              className="fixed left-4 right-4 z-50 bg-white dark:bg-[#2D2C3A] rounded-xl shadow-xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-gray-200 dark:border-[#3D3C4A] overflow-hidden"
+              style={{ 
+                maxWidth: '320px',
+                top: 'calc(env(safe-area-inset-top) + 60px)'
+              }}
             >
               {/* User Info */}
               <div className="px-4 py-3 border-b border-gray-100 dark:border-[#3D3C4A]">
@@ -243,7 +260,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                     }`}
                   >
-                    {authMode === 'wallet' ? '🔷 Wallet' : '📧 Email'}
+                    {authMode === 'wallet' ? '🔷 Carteira' : '📧 Email'}
                   </span>
                 </div>
               </div>
@@ -253,29 +270,29 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                 <Link
                   href="/dashboard"
                   onClick={() => setShowProfileMenu(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444] active:bg-gray-100 dark:active:bg-[#404050]"
+                  className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-[#404050]"
                 >
                   <Settings size={18} />
-                  <span>{t('navigation.dashboard') || 'Dashboard'}</span>
+                  <span>{safeT('navigation.dashboard', 'Dashboard')}</span>
                 </Link>
                 
                 <Link
                   href={`/users/${user?.id}`}
                   onClick={() => setShowProfileMenu(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444] active:bg-gray-100 dark:active:bg-[#404050]"
+                  className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-[#404050]"
                 >
                   <User size={18} />
-                  <span>{t('navigation.profile') || 'Perfil'}</span>
+                  <span>{safeT('navigation.profile', 'Perfil')}</span>
                 </Link>
 
                 {/* Theme Toggle */}
                 <button
                   onClick={toggleTheme}
-                  className="w-full flex items-center justify-between px-4 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444] active:bg-gray-100 dark:active:bg-[#404050]"
+                  className="w-full flex items-center justify-between px-4 py-3 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-[#404050]"
                 >
                   <span className="flex items-center gap-3">
                     {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
-                    {theme === 'dark' ? (t('header.darkMode') || 'Modo Escuro') : (t('header.lightMode') || 'Modo Claro')}
+                    {theme === 'dark' ? 'Modo Escuro' : 'Modo Claro'}
                   </span>
                   <div 
                     className={`w-10 h-6 rounded-full p-0.5 transition-colors ${
@@ -293,10 +310,10 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                 {/* Logout */}
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 border-t border-gray-100 dark:border-[#3D3C4A] hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 border-t border-gray-100 dark:border-[#3D3C4A] active:bg-red-100"
                 >
                   <LogOut size={18} />
-                  <span>{t('navigation.signOut') || 'Sair'}</span>
+                  <span>{safeT('navigation.signOut', 'Sair')}</span>
                 </button>
               </div>
             </motion.div>
