@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, Users, TrendingUp, UserPlus, ArrowLeft, Loader2 } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 // Mock user data for different categories
 const mockSearchResults = [
   {
