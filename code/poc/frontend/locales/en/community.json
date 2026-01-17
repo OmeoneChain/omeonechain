@@ -58,6 +58,42 @@
     "collaborativeLists": {
       "title": "Collaborative Lists",
       "description": "Create and share restaurant lists with friends. Perfect for planning trips or building the ultimate neighborhood guide together."
+    },
+    "findFriends": {
+    "title": "Find Friends from Contacts",
+    "description": "See which of your contacts are already on BocaBoca",
+    "loading": "Scanning your contacts...",
+    "loadingHint": "This may take a moment",
+    
+    "webOnly": {
+      "title": "Available on Mobile App",
+      "description": "Download the BocaBoca app to find friends from your contacts."
+    },
+    
+    "noPermission": {
+      "title": "Contact Access Required",
+      "description": "To find your friends, please allow BocaBoca to access your contacts in your device settings.",
+      "dismiss": "Maybe later"
+    },
+    
+    "error": {
+      "title": "Something went wrong",
+      "retry": "Try again"
+    },
+    
+    "errors": {
+      "generic": "An unexpected error occurred. Please try again."
+    },
+    
+    "results": {
+      "title": "Friends on BocaBoca",
+      "found": "Found {count} friends from {total} contacts",
+      "noMatches": "No matches found from {total} contacts",
+      "emptyState": "None of your contacts are on BocaBoca yet",
+      "emptyStateHint": "Invite them to join and earn rewards!",
+      "savedAs": "Saved as {name}",
+      "syncAgain": "Sync contacts again"
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 // File: code/poc/frontend/app/[locale]/community/page.tsx
 // UPDATED: Dark mode support added
 // UPDATED: BocaBoca Community Page with i18n translations
+// UPDATED: Added Find Friends from Contacts feature
 
 'use client';
 
@@ -12,6 +13,7 @@ import CleanHeader from '@/components/CleanHeader';
 import { socialApi } from '@/src/services/api';
 import Image from 'next/image';
 import Link from 'next/link';
+import FindFriendsSection from '@/components/community/FindFriendsSection';
 
 // ============================================
 // TYPES
@@ -707,6 +709,14 @@ export default function CommunityPage() {
             </div>
           )}
         </div>
+
+        {/* Find Friends from Contacts - NEW SECTION */}
+        {isAuthenticated && (
+          <FindFriendsSection
+            onFollow={handleFollow}
+            onUnfollow={handleUnfollow}
+          />
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6">

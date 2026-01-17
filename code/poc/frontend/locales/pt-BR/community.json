@@ -58,6 +58,42 @@
     "collaborativeLists": {
       "title": "Listas Colaborativas",
       "description": "Crie e compartilhe listas de restaurantes com amigos. Perfeito para planejar viagens ou montar o guia definitivo do seu bairro juntos."
+    },
+    "findFriends": {
+    "title": "Encontrar Amigos nos Contatos",
+    "description": "Veja quais dos seus contatos já estão no BocaBoca",
+    "loading": "Buscando nos seus contatos...",
+    "loadingHint": "Isso pode levar um momento",
+    
+    "webOnly": {
+      "title": "Disponível no App",
+      "description": "Baixe o app BocaBoca para encontrar amigos dos seus contatos."
+    },
+    
+    "noPermission": {
+      "title": "Acesso aos Contatos Necessário",
+      "description": "Para encontrar seus amigos, permita que o BocaBoca acesse seus contatos nas configurações do dispositivo.",
+      "dismiss": "Talvez depois"
+    },
+    
+    "error": {
+      "title": "Algo deu errado",
+      "retry": "Tentar novamente"
+    },
+    
+    "errors": {
+      "generic": "Ocorreu um erro inesperado. Por favor, tente novamente."
+    },
+    
+    "results": {
+      "title": "Amigos no BocaBoca",
+      "found": "Encontrados {count} amigos em {total} contatos",
+      "noMatches": "Nenhum resultado em {total} contatos",
+      "emptyState": "Nenhum dos seus contatos está no BocaBoca ainda",
+      "emptyStateHint": "Convide-os para participar e ganhe recompensas!",
+      "savedAs": "Salvo como {name}",
+      "syncAgain": "Sincronizar contatos novamente"
+      }
     }
   }
 }

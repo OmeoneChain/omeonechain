@@ -15,7 +15,49 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Primary Brand Colors
+        // ==========================================
+        // BocaBoca Brand Colors (Mobile Onboarding)
+        // ==========================================
+        coral: {
+          50: '#FFF5F3',
+          100: '#FFE8E4',
+          200: '#FFD5CC',
+          300: '#FFB5A8',
+          400: '#FF8A78',
+          500: '#FF644A',  // Primary brand color
+          600: '#E54E36',
+          700: '#C03C27',
+          800: '#9A3021',
+          900: '#7D291D',
+        },
+        navy: {
+          50: '#F4F4F6',
+          100: '#E8E8EC',
+          200: '#D1D1D9',
+          300: '#A9A9B8',
+          400: '#7B7B91',
+          500: '#5C5C72',
+          600: '#4A4A5C',
+          700: '#3D3D4D',
+          800: '#2D2D3A',
+          900: '#1F1E2A',  // Primary text color
+        },
+        cream: {
+          50: '#FFFDF9',
+          100: '#FFF9F0',
+          200: '#FFF4E1',  // Welcome screen background
+          300: '#FFEFD2',
+          400: '#FFE5B8',
+          500: '#FFD99E',
+          600: '#E5C28E',
+          700: '#CCAB7E',
+          800: '#B2946E',
+          900: '#997D5E',
+        },
+        
+        // ==========================================
+        // Existing Colors (Trust-based Design System)
+        // ==========================================
         trust: {
           50: '#eff6ff',
           100: '#dbeafe', 
@@ -119,21 +161,28 @@ module.exports = {
       spacing: {
         '18': '4.5rem',
         '88': '22rem',
-        '128': '32rem'
+        '128': '32rem',
+        // Safe area insets for iOS notch/home indicator
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)',
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        'xl': '1rem',
-        '2xl': '1.5rem',
-        '3xl': '2rem'
+        'xl': '1rem',      // 16px - used for cards
+        '2xl': '1.5rem',   // 24px
+        '3xl': '2rem'      // 32px
       },
       boxShadow: {
         'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
         'trust': '0 4px 12px rgba(59, 130, 246, 0.15)',
         'social': '0 4px 12px rgba(249, 115, 22, 0.15)',
-        'glow': '0 0 20px rgba(59, 130, 246, 0.3)'
+        'glow': '0 0 20px rgba(59, 130, 246, 0.3)',
+        // BocaBoca coral glow for primary buttons
+        'coral': '0 4px 14px rgba(255, 100, 74, 0.25)',
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',

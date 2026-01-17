@@ -1,6 +1,7 @@
 // File: code/poc/frontend/app/layout.tsx
 // Updated with next-intl for internationalization support
 // FIXED: Added viewport-fit=cover for iOS safe areas in Capacitor
+// ADDED: OnboardingProgressBanner for onboarding task navigation
 
 import '../globals.css'
 import { Inter } from 'next/font/google'
@@ -10,6 +11,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getLocale } from 'next-intl/server'
 import { ThemeProvider } from '@/components/ThemeProvider';
 import type { Viewport } from 'next'
+import OnboardingProgressBanner from '@/components/onboarding/OnboardingProgressBanner';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -45,6 +47,10 @@ export default async function RootLayout({
           <AuthProvider>
             {/* Each page will handle its own header through CleanHeader */}
             {children}
+            
+            {/* Floating onboarding progress banner - shows on key pages during onboarding */}
+            <OnboardingProgressBanner />
+            
             {/* Keep the Toaster for notifications */}
             <Toaster 
               position="top-right"
