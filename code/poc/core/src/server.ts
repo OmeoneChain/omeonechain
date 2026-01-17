@@ -53,6 +53,7 @@ import { getGooglePlacesCacheService } from './services/google-places-cache';
 import uploadRouter from './api/routes/upload';
 import rewardRoutes from './api/routes/rewards';
 import phoneAuthRoutes from './api/routes/phone-auth';
+import findByPhonesRouter from './api/routes/find-by-phones';
 
 // Add server identification
 console.log('🟢 REAL SERVER RUNNING - src/server.ts - TWO-TIER AUTH + USER PROFILE INTEGRATION');
@@ -303,6 +304,18 @@ app.use(express.json());
 // ENHANCED: Unified JWT authentication middleware - supports both email and wallet
 const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.log('🔍 DEBUG: authenticate called for:', req.method, req.path);
+  
+  // Skip authentication for public phone auth endpoints (new user signup/login)
+  const publicPaths = [
+    '/api/auth/phone/request-code',
+    '/api/auth/phone/verify', 
+    '/api/auth/phone/resend'
+  ];
+  
+  if (publicPaths.some(path => req.path === path || req.originalUrl.endsWith(path))) {
+    console.log('✅ DEBUG: Skipping auth for public path:', req.path);
+    return next();
+  }
   
   const authHeader = req.headers.authorization;
   console.log('🔍 DEBUG: authHeader raw:', authHeader);
@@ -1869,6 +1882,105 @@ router.get('/tokens/balance', authenticateToken, async (req, res) => {
   }
 });
 
+// ============================================
+// USERNAME AVAILABILITY ENDPOINT
+// ============================================
+
+// GET /api/users/check-username - Check if username is available
+// No authentication required (needed during signup)
+app.get('/api/users/check-username', async (req: Request, res: Response) => {
+  try {
+    const { username } = req.query;
+
+    // Validate input
+    if (!username || typeof username !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Username is required'
+      });
+    }
+
+    const usernameStr = username.trim().toLowerCase();
+
+    // Validate username format
+    const usernameRegex = /^[a-z0-9_]{3,20}$/;
+    if (!usernameRegex.test(usernameStr)) {
+      return res.status(400).json({
+        success: false,
+        available: false,
+        error: 'Username must be 3-20 characters, lowercase letters, numbers, and underscores only'
+      });
+    }
+
+    // Check reserved usernames
+    const reservedUsernames = [
+      'admin', 'administrator', 'bocaboca', 'support', 'help',
+      'system', 'root', 'moderator', 'mod', 'staff', 'official',
+      'api', 'www', 'app', 'mail', 'email', 'test', 'demo',
+      'null', 'undefined', 'anonymous', 'guest', 'user'
+    ];
+
+    if (reservedUsernames.includes(usernameStr)) {
+      return res.json({
+        success: true,
+        available: false,
+        reason: 'reserved'
+      });
+    }
+
+    // Check database for existing username
+    const { data: existingUser, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', usernameStr)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Username check error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to check username availability'
+      });
+    }
+
+    const available = !existingUser;
+
+    // Generate suggestions if not available
+    let suggestions: string[] = [];
+    if (!available) {
+      const baseUsername = usernameStr.replace(/\d+$/, ''); // Remove trailing numbers
+      suggestions = [
+        `${baseUsername}${Math.floor(Math.random() * 100)}`,
+        `${baseUsername}_${Math.floor(Math.random() * 100)}`,
+        `${baseUsername}${new Date().getFullYear() % 100}`,
+      ].slice(0, 3);
+    }
+
+    return res.json({
+      success: true,
+      available,
+      username: usernameStr,
+      suggestions: available ? undefined : suggestions
+    });
+
+  } catch (error) {
+    console.error('Username check error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// ============================================
+// USAGE EXAMPLE (Frontend):
+// ============================================
+// const response = await fetch(`${API_URL}/api/users/check-username?username=johndoe`);
+// const data = await response.json();
+// // { success: true, available: true, username: "johndoe" }
+// // OR
+// // { success: true, available: false, username: "johndoe", suggestions: ["johndoe42", "johndoe_23", "johndoe25"] }
+
 // =============================================================================
 // USER PROFILE INTEGRATION ENDPOINTS
 // =============================================================================
@@ -2027,6 +2139,8 @@ app.use('/api/recommendations', mapRecommendationsRouter);
 app.use('/api/upload', uploadRouter);
 
 app.use('/api/auth/phone', phoneAuthRoutes);
+
+app.use('/api/users', findByPhonesRouter);
 
 // =============================================================================
 // 🔥 CRITICAL FIX: MOUNT ROUTER TO APP

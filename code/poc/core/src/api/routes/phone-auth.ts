@@ -301,7 +301,7 @@ router.post('/verify', async (req: Request, res: Response) => {
     } else {
       // New user - create account
       isNewUser = true;
-      const username = `user_${fullPhoneNumber.slice(-6)}`;
+      const username = `user_${fullPhoneNumber.slice(-6)}_${Date.now().toString(36)}`;
       
       const { data: newUser, error: createError } = await supabase
         .from('users')

@@ -22,8 +22,11 @@ const router = Router();
 const PINATA_API_KEY = process.env.PINATA_API_KEY || '';
 const PINATA_SECRET_KEY = process.env.PINATA_SECRET_KEY || '';
 
-// Configure multer for memory storage
-const upload = multer({
+// Pinata gateway for public URLs
+const PINATA_GATEWAY = 'https://gateway.pinata.cloud/ipfs/';
+
+// Configure multer for memory storage (multiple photos)
+const uploadPhotos = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB max per file
@@ -38,11 +41,33 @@ const upload = multer({
   }
 });
 
+// Configure multer for avatar uploads (single file, smaller size)
+const uploadAvatar = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max for avatars
+    files: 1
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Avatar must be JPEG, PNG, WebP, or GIF'));
+    }
+  }
+});
+
 // ===========================================
 // PINATA UPLOAD
 // ===========================================
 
-async function uploadToPinata(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
+async function uploadToPinata(
+  buffer: Buffer, 
+  filename: string, 
+  mimeType: string,
+  metadata?: Record<string, string>
+): Promise<string> {
   const FormData = (await import('form-data')).default;
   const axios = (await import('axios')).default;
   
@@ -52,15 +77,16 @@ async function uploadToPinata(buffer: Buffer, filename: string, mimeType: string
     contentType: mimeType
   });
 
-  const metadata = JSON.stringify({
+  const pinataMetadata = JSON.stringify({
     name: filename,
     keyvalues: {
       platform: 'bocaboca',
-      type: 'photo',
-      uploadedAt: new Date().toISOString()
+      type: metadata?.type || 'photo',
+      uploadedAt: new Date().toISOString(),
+      ...metadata
     }
   });
-  formData.append('pinataMetadata', metadata);
+  formData.append('pinataMetadata', pinataMetadata);
 
   const pinataOptions = JSON.stringify({ cidVersion: 0 });
   formData.append('pinataOptions', pinataOptions);
@@ -99,7 +125,7 @@ async function uploadToPinata(buffer: Buffer, filename: string, mimeType: string
  * Request: multipart/form-data with 'photos' field containing image files
  * Response: { success: true, cids: ["Qm...", "Qm..."] }
  */
-router.post('/photos', upload.array('photos', 5), async (req: Request, res: Response) => {
+router.post('/photos', uploadPhotos.array('photos', 5), async (req: Request, res: Response) => {
   try {
     // Check if Pinata is configured
     if (!PINATA_API_KEY || !PINATA_SECRET_KEY) {
@@ -134,6 +160,7 @@ router.post('/photos', upload.array('photos', 5), async (req: Request, res: Resp
           return { 
             success: true, 
             cid,
+            url: `${PINATA_GATEWAY}${cid}`,
             originalName: file.originalname,
             size: file.size,
             mimeType: file.mimetype
@@ -166,6 +193,7 @@ router.post('/photos', upload.array('photos', 5), async (req: Request, res: Resp
     res.json({
       success: true,
       cids: successful.map(r => (r as any).cid),
+      urls: successful.map(r => (r as any).url),
       uploaded: successful.length,
       failed: failed.length,
       details: results
@@ -181,6 +209,75 @@ router.post('/photos', upload.array('photos', 5), async (req: Request, res: Resp
 });
 
 /**
+ * POST /api/upload/avatar
+ * 
+ * Upload a user avatar to IPFS via Pinata
+ * 
+ * Request: multipart/form-data with 'avatar' field containing single image file
+ * Optional query param: ?userId=xxx (for metadata tracking)
+ * Response: { success: true, cid: "Qm...", url: "https://..." }
+ */
+router.post('/avatar', uploadAvatar.single('avatar'), async (req: Request, res: Response) => {
+  try {
+    // Check if Pinata is configured
+    if (!PINATA_API_KEY || !PINATA_SECRET_KEY) {
+      console.error('🖼️ Avatar upload error: Pinata not configured');
+      return res.status(500).json({
+        success: false,
+        error: 'IPFS storage not configured. Set PINATA_API_KEY and PINATA_SECRET_KEY in environment.'
+      });
+    }
+
+    const file = req.file;
+    
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No avatar file provided'
+      });
+    }
+
+    // Get optional userId from query or body
+    const userId = req.query.userId || req.body?.userId || 'unknown';
+
+    console.log(`🖼️ Uploading avatar for user ${userId} to IPFS via Pinata...`);
+
+    const filename = `bocaboca-avatar-${userId}-${Date.now()}.${file.mimetype.split('/')[1] || 'jpg'}`;
+    
+    const startTime = Date.now();
+    const cid = await uploadToPinata(
+      file.buffer, 
+      filename, 
+      file.mimetype,
+      { 
+        type: 'avatar',
+        userId: String(userId)
+      }
+    );
+    const duration = Date.now() - startTime;
+
+    const avatarUrl = `${PINATA_GATEWAY}${cid}`;
+    
+    console.log(`🖼️ Avatar uploaded: ${cid} (${duration}ms) -> ${avatarUrl}`);
+
+    res.json({
+      success: true,
+      cid,
+      url: avatarUrl,
+      size: file.size,
+      mimeType: file.mimetype
+    });
+
+  } catch (error: any) {
+    console.error('🖼️ Avatar upload error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to upload avatar'
+    });
+  }
+});
+
+/**
  * GET /api/upload/status
  * 
  * Check if IPFS (Pinata) is configured
@@ -191,7 +288,8 @@ router.get('/status', (req: Request, res: Response) => {
   res.json({
     success: true,
     configured,
-    provider: configured ? 'pinata' : 'none'
+    provider: configured ? 'pinata' : 'none',
+    gateway: configured ? PINATA_GATEWAY : null
   });
 });
 
