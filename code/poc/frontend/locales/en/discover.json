@@ -103,6 +103,13 @@
 
   "legend": "Legend",
 
+  "locationModal": {
+    "title": "Choose Location",
+    "or": "or search a city"
+  },
+
+  "useMyLocation": "Use My Location",
+
   "listSearch": {
     "placeholder": "Search guides by name, location, cuisine, creator, or restaurant...",
     "badge": "Guides",

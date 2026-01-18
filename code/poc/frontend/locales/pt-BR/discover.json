@@ -101,6 +101,13 @@
   "geolocating": "Encontrando sua localização...",
 
   "legend": "Legenda",
+
+  "locationModal": {
+    "title": "Escolher Localização",
+    "or": "ou busque uma cidade"
+  },
+
+  "useMyLocation": "Usar Minha Localização",
   
   "listSearch": {
     "placeholder": "Buscar roteiros por nome, local, culinária, criador ou restaurante...",
