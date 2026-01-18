@@ -24,7 +24,7 @@ import { CleanHeader } from '@/components/CleanHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 
-const BACKEND_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
 interface Recommendation {
   id: string;
