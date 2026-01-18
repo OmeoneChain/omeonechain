@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Autocomplete } from '@react-google-maps/api';
 import { useTranslations } from 'next-intl';
+import { useCapacitor } from '@/hooks/useCapacitor';
 
 // =============================================================================
 // TYPES
@@ -131,7 +132,13 @@ const mapContainerStyle = {
   borderRadius: '12px',
 };
 
-const DEFAULT_CENTER = { lat: -15.7801, lng: -47.9292 };
+const mapContainerStyleMobile = {
+  width: '100%',
+  height: '350px',
+  borderRadius: '12px',
+};
+
+const DEFAULT_CENTER = { lat: -15.7801, lng: -47.9292 }; // Brasília
 const DEFAULT_ZOOM = 13;
 
 // =============================================================================
@@ -186,6 +193,7 @@ export default function MapView({
   showList = true,
 }: MapViewProps) {
   const t = useTranslations('discover');
+  const { isCapacitor } = useCapacitor();
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -209,13 +217,25 @@ export default function MapView({
   const [mapZoom, setMapZoom] = useState(initialZoom);
   const [selectedRestaurant, setSelectedRestaurant] = useState<MapRestaurant | null>(null);
 
-  // State - Autocomplete
-  const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+  // State - Restaurant Autocomplete with Session Token
+  const [restaurantAutocomplete, setRestaurantAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const [searchInputValue, setSearchInputValue] = useState('');
   const [autocompleteBounds, setAutocompleteBounds] = useState<google.maps.LatLngBounds | null>(null);
+  const [restaurantSessionToken, setRestaurantSessionToken] = useState<google.maps.places.AutocompleteSessionToken | null>(null);
+
+  // State - City Autocomplete with Session Token
+  const [cityAutocomplete, setCityAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+  const [citySearchInputValue, setCitySearchInputValue] = useState('');
+  const [citySessionToken, setCitySessionToken] = useState<google.maps.places.AutocompleteSessionToken | null>(null);
+  const [currentLocationName, setCurrentLocationName] = useState('Brasília, DF');
+
+  // State - Location Modal (for mobile)
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   // State - User Location
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isGeolocating, setIsGeolocating] = useState(false);
+  const [geolocateAttempted, setGeolocateAttempted] = useState(false);
 
   // State - UI
   const [isLoading, setIsLoading] = useState(false);
@@ -227,6 +247,81 @@ export default function MapView({
     priceRange: [],
     minTrustScore: 0,
   });
+
+  // Refs
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const cityInputRef = useRef<HTMLInputElement>(null);
+
+  // =============================================================================
+  // AUTO-GEOLOCATION ON MOUNT
+  // =============================================================================
+
+  useEffect(() => {
+    if (geolocateAttempted) return;
+    
+    setGeolocateAttempted(true);
+    
+    if (navigator.geolocation) {
+      setIsGeolocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userPos = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setMapCenter(userPos);
+          setUserLocation(userPos);
+          setIsGeolocating(false);
+          setCurrentLocationName(t('nearMe'));
+          console.log('[MapView] Auto-geolocated to:', userPos);
+        },
+        (error) => {
+          console.log('[MapView] Geolocation unavailable or denied, using default:', error.message);
+          setIsGeolocating(false);
+          // Keep default center (Brasília)
+        },
+        { 
+          timeout: 5000, 
+          maximumAge: 300000, // 5 minute cache
+          enableHighAccuracy: false 
+        }
+      );
+    }
+  }, [geolocateAttempted, t]);
+
+  // =============================================================================
+  // SESSION TOKEN MANAGEMENT (Cost Optimization)
+  // =============================================================================
+
+  const createRestaurantSessionToken = useCallback(() => {
+    if (isLoaded) {
+      const token = new google.maps.places.AutocompleteSessionToken();
+      setRestaurantSessionToken(token);
+      return token;
+    }
+    return null;
+  }, [isLoaded]);
+
+  const createCitySessionToken = useCallback(() => {
+    if (isLoaded) {
+      const token = new google.maps.places.AutocompleteSessionToken();
+      setCitySessionToken(token);
+      return token;
+    }
+    return null;
+  }, [isLoaded]);
+
+  const handleRestaurantSearchFocus = useCallback(() => {
+    if (!restaurantSessionToken) {
+      createRestaurantSessionToken();
+    }
+  }, [restaurantSessionToken, createRestaurantSessionToken]);
+
+  const handleCitySearchFocus = useCallback(() => {
+    if (!citySessionToken) {
+      createCitySessionToken();
+    }
+  }, [citySessionToken, createCitySessionToken]);
 
   // =============================================================================
   // DATA FETCHING
@@ -323,7 +418,7 @@ export default function MapView({
   }, []);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || isGeolocating) return;
 
     const loadData = async () => {
       setIsLoading(true);
@@ -338,10 +433,10 @@ export default function MapView({
     };
 
     loadData();
-  }, [isLoaded, fetchBocabocaData]);
+  }, [isLoaded, isGeolocating, fetchBocabocaData]);
 
   // =============================================================================
-  // AUTOCOMPLETE HANDLERS
+  // AUTOCOMPLETE BOUNDS
   // =============================================================================
 
   useEffect(() => {
@@ -355,14 +450,18 @@ export default function MapView({
     setAutocompleteBounds(bounds);
   }, [isLoaded, mapCenter]);
 
-  const onAutocompleteLoad = useCallback((autocompleteInstance: google.maps.places.Autocomplete) => {
-    setAutocomplete(autocompleteInstance);
+  // =============================================================================
+  // RESTAURANT AUTOCOMPLETE HANDLERS
+  // =============================================================================
+
+  const onRestaurantAutocompleteLoad = useCallback((autocompleteInstance: google.maps.places.Autocomplete) => {
+    setRestaurantAutocomplete(autocompleteInstance);
   }, []);
 
-  const onPlaceChanged = useCallback(() => {
-    if (!autocomplete) return;
+  const onRestaurantPlaceChanged = useCallback(() => {
+    if (!restaurantAutocomplete) return;
 
-    const place = autocomplete.getPlace();
+    const place = restaurantAutocomplete.getPlace();
     
     if (!place.geometry?.location) {
       console.warn('Place has no geometry');
@@ -420,7 +519,56 @@ export default function MapView({
     mapRef?.setZoom(16);
 
     setSearchInputValue('');
-  }, [autocomplete, bocabocaRestaurants, mapRestaurants, mapRef]);
+    
+    // Reset session token after place selection (cost optimization)
+    setRestaurantSessionToken(null);
+  }, [restaurantAutocomplete, bocabocaRestaurants, mapRestaurants, mapRef]);
+
+  // =============================================================================
+  // CITY AUTOCOMPLETE HANDLERS
+  // =============================================================================
+
+  const onCityAutocompleteLoad = useCallback((autocompleteInstance: google.maps.places.Autocomplete) => {
+    setCityAutocomplete(autocompleteInstance);
+  }, []);
+
+  const onCityPlaceChanged = useCallback(() => {
+    if (!cityAutocomplete) return;
+
+    const place = cityAutocomplete.getPlace();
+    
+    if (!place.geometry?.location) {
+      console.warn('City has no geometry');
+      return;
+    }
+
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+
+    // Update map center and location name
+    setMapCenter({ lat, lng });
+    mapRef?.panTo({ lat, lng });
+    mapRef?.setZoom(13);
+
+    // Update location name from the selected place
+    const locationName = place.formatted_address || place.name || 'Selected Location';
+    // Extract city name (usually first part before comma)
+    const shortName = locationName.split(',').slice(0, 2).join(',').trim();
+    setCurrentLocationName(shortName);
+
+    // Clear any selected restaurant when changing cities
+    setSelectedRestaurant(null);
+    setSelectedFromSearch(null);
+    
+    // Close the location modal on mobile
+    setShowLocationModal(false);
+    setCitySearchInputValue('');
+    
+    // Reset session token
+    setCitySessionToken(null);
+
+    console.log('[MapView] Changed city to:', shortName, { lat, lng });
+  }, [cityAutocomplete, mapRef]);
 
   // =============================================================================
   // FILTERING
@@ -479,6 +627,7 @@ export default function MapView({
 
   const handleNearMe = () => {
     if (navigator.geolocation) {
+      setIsGeolocating(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const newCenter = {
@@ -487,12 +636,17 @@ export default function MapView({
           };
           setMapCenter(newCenter);
           setUserLocation(newCenter);
+          setCurrentLocationName(t('nearMe'));
           mapRef?.panTo(newCenter);
           mapRef?.setZoom(14);
+          setIsGeolocating(false);
+          // Close modal on mobile after selecting location
+          setShowLocationModal(false);
         },
         (error) => {
           console.error('Geolocation error:', error);
           setError('Unable to get your location');
+          setIsGeolocating(false);
         }
       );
     }
@@ -501,6 +655,23 @@ export default function MapView({
   const handleClearSearch = () => {
     setSearchInputValue('');
     setSelectedFromSearch(null);
+    setRestaurantSessionToken(null);
+  };
+
+  const handleClearCitySearch = () => {
+    setCitySearchInputValue('');
+    setCitySessionToken(null);
+  };
+
+  const handleOpenLocationModal = () => {
+    setShowLocationModal(true);
+    // Focus the city input when opening
+    setTimeout(() => cityInputRef.current?.focus(), 100);
+  };
+
+  const handleCloseLocationModal = () => {
+    setShowLocationModal(false);
+    setCitySearchInputValue('');
   };
 
   const openDirections = (lat: number, lng: number) => {
@@ -544,24 +715,305 @@ export default function MapView({
 
   return (
     <div className="space-y-4">
-      {/* Search Bar with Google Places Autocomplete */}
+      {/* =========================================================================
+          MOBILE: Compact Location Chip + Location Modal
+          ========================================================================= */}
+      {isCapacitor ? (
+        <>
+          {/* Compact Location Chip */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={handleOpenLocationModal}
+              className="flex items-center gap-2 px-3 py-2 rounded-full bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] shadow-sm"
+            >
+              <svg 
+                className="h-4 w-4 text-[#FF644A]" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="font-medium text-sm text-[#1F1E2A] dark:text-white truncate max-w-[180px]">
+                {currentLocationName}
+              </span>
+              <svg 
+                className="h-4 w-4 text-gray-400" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Geolocating indicator */}
+            {isGeolocating && (
+              <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF644A]"></div>
+              </div>
+            )}
+          </div>
+
+          {/* Location Modal (Mobile Only) */}
+          {showLocationModal && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center">
+              {/* Backdrop */}
+              <div 
+                className="absolute inset-0 bg-black/50"
+                onClick={handleCloseLocationModal}
+              />
+              
+              {/* Modal Content */}
+              <div className="relative w-full max-w-lg bg-white dark:bg-[#2D2C3A] rounded-t-2xl shadow-xl animate-slide-up">
+                {/* Handle bar */}
+                <div className="flex justify-center pt-3 pb-2">
+                  <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                </div>
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 pb-3 border-b border-gray-100 dark:border-[#3D3C4A]">
+                  <h3 className="text-lg font-semibold text-[#1F1E2A] dark:text-white">
+                    {t('locationModal.title', { defaultValue: 'Choose Location' })}
+                  </h3>
+                  <button
+                    onClick={handleCloseLocationModal}
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#353444]"
+                  >
+                    <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Use My Location Button */}
+                <div className="p-4">
+                  <button
+                    onClick={handleNearMe}
+                    disabled={isGeolocating}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#FF644A] text-white rounded-xl font-medium hover:bg-[#E65441] transition-colors disabled:opacity-50"
+                  >
+                    {isGeolocating ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                        <span>{t('geolocating', { defaultValue: 'Locating...' })}</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>{t('useMyLocation', { defaultValue: 'Use My Location' })}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 px-4 py-2">
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-[#3D3C4A]" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {t('locationModal.or', { defaultValue: 'or search a city' })}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-[#3D3C4A]" />
+                </div>
+
+                {/* City Search */}
+                <div className="p-4 pt-2 pb-8">
+                  <Autocomplete
+                    onLoad={onCityAutocompleteLoad}
+                    onPlaceChanged={onCityPlaceChanged}
+                    options={{
+                      types: ['(cities)'],
+                      fields: ['place_id', 'name', 'geometry', 'formatted_address'],
+                      sessionToken: citySessionToken || undefined,
+                    }}
+                  >
+                    <div className="relative">
+                      <input
+                        ref={cityInputRef}
+                        type="text"
+                        placeholder={t('citySelector.searchPlaceholder', { defaultValue: 'Search any city worldwide...' })}
+                        value={citySearchInputValue}
+                        onChange={(e) => setCitySearchInputValue(e.target.value)}
+                        onFocus={handleCitySearchFocus}
+                        className="w-full pl-10 pr-10 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-gray-50 dark:bg-[#353444] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                      />
+                      <svg
+                        className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      {citySearchInputValue && (
+                        <button
+                          onClick={handleClearCitySearch}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </Autocomplete>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        /* =========================================================================
+           DESKTOP: Original Location Header with inline city selector
+           ========================================================================= */
+        <>
+          {/* Location Header - Shows current city with option to change */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setShowLocationModal(!showLocationModal)}
+              className="flex items-center gap-2 text-left group"
+            >
+              <svg 
+                className="h-5 w-5 text-[#FF644A]" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="font-medium text-[#1F1E2A] dark:text-white group-hover:text-[#FF644A] transition-colors">
+                {currentLocationName}
+              </span>
+              <svg 
+                className={`h-4 w-4 text-gray-400 transition-transform ${showLocationModal ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Near Me button */}
+            {!isGeolocating && (
+              <button
+                onClick={handleNearMe}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-lg hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors bg-white dark:bg-[#2D2C3A]"
+                title={t('nearMe')}
+              >
+                <svg className="h-4 w-4 text-[#FF644A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-[#1F1E2A] dark:text-white">{t('nearMe')}</span>
+              </button>
+            )}
+            {isGeolocating && (
+              <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF644A]"></div>
+                <span>{t('geolocating', { defaultValue: 'Locating...' })}</span>
+              </div>
+            )}
+          </div>
+
+          {/* City Selector Dropdown (Desktop) */}
+          {showLocationModal && (
+            <div className="bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl shadow-lg overflow-hidden">
+              <div className="p-3">
+                <Autocomplete
+                  onLoad={onCityAutocompleteLoad}
+                  onPlaceChanged={onCityPlaceChanged}
+                  options={{
+                    types: ['(cities)'],
+                    fields: ['place_id', 'name', 'geometry', 'formatted_address'],
+                    sessionToken: citySessionToken || undefined,
+                  }}
+                >
+                  <div className="relative">
+                    <input
+                      ref={cityInputRef}
+                      type="text"
+                      placeholder={t('citySelector.searchPlaceholder', { defaultValue: 'Search any city worldwide...' })}
+                      value={citySearchInputValue}
+                      onChange={(e) => setCitySearchInputValue(e.target.value)}
+                      onFocus={handleCitySearchFocus}
+                      className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-[#3D3C4A] rounded-lg bg-gray-50 dark:bg-[#353444] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF644A] focus:border-transparent text-sm"
+                      autoFocus
+                    />
+                    <svg
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    {citySearchInputValue && (
+                      <button
+                        onClick={handleClearCitySearch}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </Autocomplete>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  {t('citySelector.hint', { defaultValue: 'Search for any city to explore restaurants there' })}
+                </p>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Search Bar with Google Places Autocomplete for Restaurants */}
       <div className="relative">
         <Autocomplete
-          onLoad={onAutocompleteLoad}
-          onPlaceChanged={onPlaceChanged}
+          onLoad={onRestaurantAutocompleteLoad}
+          onPlaceChanged={onRestaurantPlaceChanged}
           options={{
             types: ['restaurant', 'food', 'cafe', 'bar'],
             fields: ['place_id', 'name', 'geometry', 'formatted_address', 'vicinity', 'opening_hours', 'photos'],
             bounds: autocompleteBounds || undefined,
             strictBounds: false,
+            sessionToken: restaurantSessionToken || undefined,
           }}
         >
           <div className="relative">
             <input
+              ref={searchInputRef}
               type="text"
               placeholder={t('search.placeholder')}
               value={searchInputValue}
               onChange={(e) => setSearchInputValue(e.target.value)}
+              onFocus={handleRestaurantSearchFocus}
               className="w-full pl-10 pr-10 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
             />
             <svg
@@ -593,87 +1045,100 @@ export default function MapView({
 
       {/* Controls Row */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        {/* Legend items */}
-        <div className="flex items-center gap-1 flex-wrap">
-          {(['my_network', 'similar_tastes', 'community', 'unrated'] as TierType[]).map((tier) => (
-            <button
-              key={tier}
-              onClick={() => handleTierClick(tier)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm transition-all ${
-                selectedTier === tier
-                  ? 'ring-2 ring-[#FF644A] ring-offset-1 bg-white dark:bg-[#353444] dark:ring-offset-[#2D2C3A]'
-                  : selectedTier && selectedTier !== tier
-                  ? 'opacity-40 bg-white dark:bg-[#353444]'
-                  : 'bg-white dark:bg-[#353444] hover:bg-gray-50 dark:hover:bg-[#404050]'
-              }`}
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-full border border-white dark:border-[#3D3C4A] shadow-sm"
-                style={{ backgroundColor: TIER_COLORS[tier] }}
-              />
-              <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">
-                {t(`tiers.${tier === 'my_network' ? 'myNetwork' : tier === 'similar_tastes' ? 'similarTastes' : tier}`)}
-              </span>
-            </button>
-          ))}
-        </div>
+        {/* Desktop: Show legend inline */}
+        {!isCapacitor && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {(['my_network', 'similar_tastes', 'community', 'unrated'] as TierType[]).map((tier) => (
+              <button
+                key={tier}
+                onClick={() => handleTierClick(tier)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm transition-all ${
+                  selectedTier === tier
+                    ? 'ring-2 ring-[#FF644A] ring-offset-1 bg-white dark:bg-[#353444] dark:ring-offset-[#2D2C3A]'
+                    : selectedTier && selectedTier !== tier
+                    ? 'opacity-40 bg-white dark:bg-[#353444]'
+                    : 'bg-white dark:bg-[#353444] hover:bg-gray-50 dark:hover:bg-[#404050]'
+                }`}
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full border border-white dark:border-[#3D3C4A] shadow-sm"
+                  style={{ backgroundColor: TIER_COLORS[tier] }}
+                />
+                <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">
+                  {t(`tiers.${tier === 'my_network' ? 'myNetwork' : tier === 'similar_tastes' ? 'similarTastes' : tier}`)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
-        {/* Right side controls */}
-        <div className="flex items-center gap-2">
-          {/* Near Me Button */}
-          <button
-            onClick={handleNearMe}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-lg hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors bg-white dark:bg-[#2D2C3A]"
-          >
-            <svg className="h-4 w-4 text-[#FF644A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-            <span className="text-sm text-[#1F1E2A] dark:text-white">{t('nearMe')}</span>
-          </button>
+        {/* Mobile: Just show filters button (legend is inside filters panel) */}
+        {isCapacitor && <div />}
 
-          {/* Filters Button */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
-              showFilters 
-                ? 'bg-[#FF644A] text-white border-[#FF644A]' 
-                : 'border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444] bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white'
-            }`}
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-              />
-            </svg>
-            <span className="text-sm">{t('filters.title')}</span>
-            {activeFilterCount > 0 && (
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                showFilters ? 'bg-white text-[#FF644A]' : 'bg-[#FF644A] text-white'
-              }`}>
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
-        </div>
+        {/* Filters Button */}
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
+            showFilters 
+              ? 'bg-[#FF644A] text-white border-[#FF644A]' 
+              : 'border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444] bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white'
+          }`}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+            />
+          </svg>
+          <span className="text-sm">{t('filters.title')}</span>
+          {activeFilterCount > 0 && (
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+              showFilters ? 'bg-white text-[#FF644A]' : 'bg-[#FF644A] text-white'
+            }`}>
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Filters Panel */}
       {showFilters && (
         <div className="bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl p-4 space-y-4">
+          
+          {/* Mobile Only: Tier Legend inside Filters */}
+          {isCapacitor && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('filters.sourceType', { defaultValue: 'Source Type' })}
+              </label>
+              <div className="flex items-center gap-1 flex-wrap">
+                {(['my_network', 'similar_tastes', 'community', 'unrated'] as TierType[]).map((tier) => (
+                  <button
+                    key={tier}
+                    onClick={() => handleTierClick(tier)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm transition-all ${
+                      selectedTier === tier
+                        ? 'ring-2 ring-[#FF644A] ring-offset-1 bg-gray-50 dark:bg-[#404050] dark:ring-offset-[#2D2C3A]'
+                        : selectedTier && selectedTier !== tier
+                        ? 'opacity-40'
+                        : 'bg-gray-100 dark:bg-[#353444] hover:bg-gray-50 dark:hover:bg-[#404050]'
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-white dark:border-[#3D3C4A] shadow-sm"
+                      style={{ backgroundColor: TIER_COLORS[tier] }}
+                    />
+                    <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">
+                      {t(`tiers.${tier === 'my_network' ? 'myNetwork' : tier === 'similar_tastes' ? 'similarTastes' : tier}`)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Cuisine Filter */}
           {availableCuisines.length > 0 && (
             <div>
@@ -752,7 +1217,7 @@ export default function MapView({
       {/* Map */}
       {showMap && (
         <GoogleMap
-          mapContainerStyle={mapContainerStyle}
+          mapContainerStyle={isCapacitor ? mapContainerStyleMobile : mapContainerStyle}
           center={mapCenter}
           zoom={mapZoom}
           onLoad={onMapLoad}
@@ -768,7 +1233,23 @@ export default function MapView({
             fullscreenControl: true,
           }}
         >
-          {/* Markers */}
+          {/* User Location Marker */}
+          {userLocation && (
+            <Marker
+              position={userLocation}
+              icon={{
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: '#4285F4',
+                fillOpacity: 1,
+                strokeColor: '#FFFFFF',
+                strokeWeight: 3,
+                scale: 8,
+              }}
+              zIndex={10}
+            />
+          )}
+
+          {/* Restaurant Markers */}
           {filteredRestaurants.map((restaurant) => (
             <Marker
               key={restaurant.id}
@@ -779,7 +1260,7 @@ export default function MapView({
             />
           ))}
 
-          {/* Info Window - Updated with social trust indicators instead of numerical ratings */}
+          {/* Info Window */}
           {selectedRestaurant && (
             <InfoWindow
               position={{
@@ -789,6 +1270,17 @@ export default function MapView({
               onCloseClick={() => setSelectedRestaurant(null)}
             >
               <div className="max-w-xs p-1">
+                {/* Restaurant Photo if available */}
+                {selectedRestaurant.photo_url && (
+                  <div className="mb-2 -mx-1 -mt-1">
+                    <img 
+                      src={selectedRestaurant.photo_url} 
+                      alt={selectedRestaurant.name}
+                      className="w-full h-24 object-cover rounded-t-lg"
+                    />
+                  </div>
+                )}
+
                 {/* Restaurant Name & Tier Badge */}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <h3 className="font-semibold text-gray-900 text-base leading-tight">
@@ -810,7 +1302,7 @@ export default function MapView({
                   <p className="text-sm text-gray-500 mb-2">{selectedRestaurant.address}</p>
                 )}
 
-                {/* Social Trust Indicator - replaces numerical rating */}
+                {/* Social Trust Indicator */}
                 <div className="flex items-center gap-3 mb-3 text-sm flex-wrap">
                   {selectedRestaurant.tier !== 'unrated' && selectedRestaurant.bocaboca_data && (
                     <div className="flex items-center gap-1.5">
@@ -899,8 +1391,8 @@ export default function MapView({
         </GoogleMap>
       )}
 
-      {/* Restaurant List */}
-      {showList && (
+      {/* Restaurant List - Hidden on mobile */}
+      {!isCapacitor && showList && (
         <div className="bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl overflow-hidden">
           <div className="p-3 border-b border-gray-100 dark:border-[#3D3C4A] bg-gray-50 dark:bg-[#353444]">
             <h3 className="font-medium text-gray-700 dark:text-gray-300">
@@ -1041,9 +1533,16 @@ export default function MapView({
       )}
 
       {/* Loading Overlay */}
-      {isLoading && (
+      {(isLoading || isGeolocating) && (
         <div className="absolute inset-0 bg-white/50 dark:bg-[#1F1E2A]/50 flex items-center justify-center rounded-xl">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF644A]"></div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF644A]"></div>
+            {isGeolocating && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {t('geolocating', { defaultValue: 'Finding your location...' })}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -1053,6 +1552,21 @@ export default function MapView({
           {error}
         </div>
       )}
+
+      {/* CSS for modal animation */}
+      <style jsx>{`
+        @keyframes slide-up {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

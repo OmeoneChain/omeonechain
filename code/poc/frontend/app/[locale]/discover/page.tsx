@@ -5,6 +5,12 @@
 // UPDATED: Requests tab header with prominent Create Request button
 // UPDATED: Context-aware Quick Actions sidebar - primary button changes based on active tab
 // UPDATED: Sort discovery requests - Open first (newest), then by bounty, then answered/closed
+// UPDATED: Mobile-specific layout - hide Quick Actions and Dining Memory on native mobile (Capacitor)
+// 
+// TAB TRANSLATION KEYS (update in locales/*/discover.json):
+//   - tabs.map: "Mapa" (PT-BR) / "Map" (EN) - keeping as-is for now
+//   - tabs.curated: "Roteiros" (PT-BR) / "Guides" (EN)
+//   - tabs.requests: "Peça Dicas" (PT-BR) / "Questions" (EN)
 
 'use client';
 
@@ -13,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations, useLocale } from 'next-intl';
 import { useAuth, useAuthenticatedFetch } from '@/hooks/useAuth';
+import { useCapacitor } from '@/hooks/useCapacitor';
 import CleanHeader from '@/components/CleanHeader';
 import ListCard from '@/components/ListCard';
 import ListSearch from '@/components/discover/ListSearch';
@@ -31,6 +38,9 @@ const DiscoverPage = () => {
   const { user, isLoading } = useAuth();
   const authenticatedFetch = useAuthenticatedFetch();
   const router = useRouter();
+  
+  // Detect native mobile environment (Capacitor)
+  const { isCapacitor } = useCapacitor();
   
   const [activeTab, setActiveTab] = useState('map');
   const [mapViewMode, setMapViewMode] = useState<'map' | 'list'>('map');
@@ -599,7 +609,7 @@ const DiscoverPage = () => {
     return avatar.startsWith('http') || avatar.startsWith('/') || avatar.startsWith('data:');
   };
 
-  // Context-aware Quick Actions
+  // Context-aware Quick Actions (only used on web/desktop)
   const quickActions = useMemo(() => {
     const actions = [
       {
@@ -685,19 +695,21 @@ const DiscoverPage = () => {
       <CleanHeader />
       <div className="max-w-7xl mx-auto px-4 py-6">
         
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1F1E2A] dark:text-white mb-2">
-            {t('page.title')}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {t('page.subtitle')}
-          </p>
-        </div>
+        {/* Page Header - Hidden on native mobile for cleaner look */}
+        {!isCapacitor && (
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-[#1F1E2A] dark:text-white mb-2">
+              {t('page.title')}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              {t('page.subtitle')}
+            </p>
+          </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className={`grid gap-8 ${isCapacitor ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-4'}`}>
           {/* Main Content */}
-          <div className="lg:col-span-3">
+          <div className={isCapacitor ? '' : 'lg:col-span-3'}>
             
             {/* Tabs */}
             <div className="flex space-x-1 mb-6">
@@ -959,33 +971,35 @@ const DiscoverPage = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             
-            {/* Quick Actions */}
-            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] p-4">
-              <h3 className="font-semibold text-[#1F1E2A] dark:text-white mb-4">{t('sidebar.quickActions.title')}</h3>
-              <div className="space-y-3">
-                {quickActions.map((action) => (
-                  <button
-                    key={action.key}
-                    onClick={action.onClick}
-                    className={`w-full px-4 py-2.5 font-medium rounded-lg transition-colors text-center ${
-                      action.primary
-                        ? 'bg-[#FF644A] hover:bg-[#E65441] text-white'
-                        : 'border-2 border-gray-200 dark:border-[#3D3C4A] hover:border-[#FF644A] hover:text-[#FF644A] text-[#1F1E2A] dark:text-white'
-                    }`}
+            {/* Quick Actions - Hidden on native mobile (accessible via bottom nav) */}
+            {!isCapacitor && (
+              <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] p-4">
+                <h3 className="font-semibold text-[#1F1E2A] dark:text-white mb-4">{t('sidebar.quickActions.title')}</h3>
+                <div className="space-y-3">
+                  {quickActions.map((action) => (
+                    <button
+                      key={action.key}
+                      onClick={action.onClick}
+                      className={`w-full px-4 py-2.5 font-medium rounded-lg transition-colors text-center ${
+                        action.primary
+                          ? 'bg-[#FF644A] hover:bg-[#E65441] text-white'
+                          : 'border-2 border-gray-200 dark:border-[#3D3C4A] hover:border-[#FF644A] hover:text-[#FF644A] text-[#1F1E2A] dark:text-white'
+                      }`}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                  <button 
+                    onClick={handleViewHistory}
+                    className="w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-[#FF644A] font-medium transition-colors text-center"
                   >
-                    {action.label}
+                    {t('sidebar.quickActions.viewHistory')}
                   </button>
-                ))}
-                <button 
-                  onClick={handleViewHistory}
-                  className="w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-[#FF644A] font-medium transition-colors text-center"
-                >
-                  {t('sidebar.quickActions.viewHistory')}
-                </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Trending Now */}
+            {/* Trending Now - Always visible (including mobile) */}
             <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] p-4">
               <h3 className="font-semibold text-[#1F1E2A] dark:text-white mb-4 flex items-center gap-2">
                 <svg className="w-5 h-5 text-[#FF644A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -995,7 +1009,11 @@ const DiscoverPage = () => {
               </h3>
               <div className="space-y-3">
                 {trendingRecommendations.slice(0, 3).map((rec) => (
-                  <div key={rec.id} className="border border-gray-100 dark:border-[#3D3C4A] rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors cursor-pointer">
+                  <Link 
+                    key={rec.id} 
+                    href={`/recommendations/${rec.id}`}
+                    className="block border border-gray-100 dark:border-[#3D3C4A] rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
+                  >
                     <div className="flex items-start gap-3">
                       {/* Avatar */}
                       <div className="w-10 h-10 bg-gradient-to-br from-[#FF644A] to-[#E65441] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -1021,7 +1039,7 @@ const DiscoverPage = () => {
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
                 {trendingRecommendations.length === 0 && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">{t('sidebar.trending.empty')}</p>
@@ -1029,8 +1047,8 @@ const DiscoverPage = () => {
               </div>
             </div>
 
-            {/* Dining Memory (logged-in users only) */}
-            {user && (
+            {/* Dining Memory - Hidden on native mobile */}
+            {!isCapacitor && user && (
               <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-[#3D3C4A]">
                 <h3 className="font-semibold text-[#1F1E2A] dark:text-white mb-4 flex items-center gap-2">
                   <span>🧠</span>

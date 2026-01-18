@@ -18,8 +18,8 @@
   },
 
   "tabs": {
-    "curated": "Curated Lists",
-    "requests": "Requests",
+    "curated": "Guides",
+    "requests": "Questions",
     "map": "Map",
     "mapSection": {
       "title": "Nearby Restaurants",
@@ -94,10 +94,19 @@
     "retry": "Try Again"
   },
 
+  "citySelector": {
+    "searchPlaceholder": "Search any city worldwide...",
+    "hint": "Search for any city to explore restaurants there"
+  },
+
+  "geolocating": "Finding your location...",
+
+  "legend": "Legend",
+
   "listSearch": {
-    "placeholder": "Search lists by name, location, cuisine, creator, or restaurant...",
-    "badge": "Lists",
-    "scopeHint": "Search across list titles, locations, cuisines, tags, creators, and restaurants",
+    "placeholder": "Search guides by name, location, cuisine, creator, or restaurant...",
+    "badge": "Guides",
+    "scopeHint": "Search across guide titles, locations, cuisines, tags, creators, and restaurants",
     "clear": "Clear search",
     "quickFiltersTitle": "Quick searches",
     "quickFilters": {
@@ -108,21 +117,21 @@
       "vegetarian": "Vegetarian",
       "cocktails": "Cocktails"
     },
-    "noResults": "No lists found for \"{query}\"",
-    "resultsCount": "{count} {count, plural, =1 {list found} other {lists found}} for \"{query}\"",
+    "noResults": "No guides found for \"{query}\"",
+    "resultsCount": "{count} {count, plural, =1 {guide found} other {guides found}} for \"{query}\"",
     "clearSearch": "Clear search"
   },
 
   "requestSearch": {
-    "placeholder": "Search requests by title, location, cuisine, occasion...",
+    "placeholder": "Search questions by title, location, cuisine, occasion...",
     "clear": "Clear search",
     "clearAll": "Clear all filters",
     "clearSearch": "Clear search",
     "filters": "Filters",
-    "badge": "Requests",
-    "scopeHint": "Search across request titles, descriptions, locations, cuisines, and occasions",
-    "noResults": "No requests match your filters",
-    "resultsCount": "Showing {count} of {total} requests",
+    "badge": "Questions",
+    "scopeHint": "Search across question titles, descriptions, locations, cuisines, and occasions",
+    "noResults": "No questions match your filters",
+    "resultsCount": "Showing {count} of {total} questions",
     "statusLabel": "Status",
     "status": {
       "all": "All",
@@ -144,29 +153,29 @@
 
   "lists": {
     "empty": {
-      "title": "No curated lists yet",
-      "description": "Be the first to create a curated list of great restaurants!",
-      "cta": "Create First List"
+      "title": "No guides yet",
+      "description": "Be the first to create a guide of great restaurants!",
+      "cta": "Create First Guide"
     },
     "search": {
       "noResults": {
-        "title": "No lists found",
-        "description": "We couldn't find any lists matching \"{query}\". Try a different search or create your own list.",
+        "title": "No guides found",
+        "description": "We couldn't find any guides matching \"{query}\". Try a different search or create your own guide.",
         "clearSearch": "Clear search",
-        "createList": "Create a List"
+        "createList": "Create a Guide"
       }
     }
   },
 
   "requests": {
-    "title": "Community Requests",
+    "title": "Community Questions",
     "subtitle": "Help others find the perfect place to eat",
-    "createButton": "Create Request",
-    "noFilterResults": "No requests match your filters",
+    "createButton": "Ask a Question",
+    "noFilterResults": "No questions match your filters",
     "tryDifferentFilters": "Try adjusting your search or filters",
     "clearFilters": "Clear all filters",
     "empty": {
-      "title": "No requests yet",
+      "title": "No questions yet",
       "description": "Be the first to ask the community for restaurant recommendations!",
       "cta": "Ask for Recommendations"
     },
@@ -190,9 +199,9 @@
       "loading": "Loading...",
       "minStake": "Minimum stake is {amount} BOCA",
       "insufficientBalance": "Insufficient balance ({balance} BOCA available)",
-      "loginRequired": "Please log in to create a request",
+      "loginRequired": "Please log in to ask a question",
       "balanceError": "Unable to load token balance",
-      "successMessage": "Request created! {amount} BOCA staked"
+      "successMessage": "Question posted! {amount} BOCA staked"
     },
     "fields": {
       "title": {
@@ -229,12 +238,12 @@
       },
       "urgency": {
         "label": "How soon do you need recommendations?",
-        "expiresLabel": "Request will expire:"
+        "expiresLabel": "Question will expire:"
       }
     },
     "urgency": {
       "label": "How soon do you need recommendations?",
-      "expiresLabel": "Request will expire:",
+      "expiresLabel": "Question will expire:",
       "6h": "6 hours",
       "24h": "24 hours",
       "3d": "3 days",
@@ -270,34 +279,34 @@
       "titleRequired": "Please enter what you're looking for",
       "titleTooShort": "Please provide more detail (at least 10 characters)",
       "locationRequired": "Location is required",
-      "loginRequired": "Please log in to create a request"
+      "loginRequired": "Please log in to ask a question"
     },
     "tip": "The more specific you are, the better recommendations you'll receive. Include details like preferred neighborhoods, price range, or any must-haves.",
     "actions": {
       "cancel": "Cancel",
-      "submit": "Post Request ({amount} BOCA)",
+      "submit": "Post Question ({amount} BOCA)",
       "creating": "Creating..."
     },
-    "success": "Your request has been posted! You'll be notified when you receive recommendations.",
-    "error": "Failed to create request. Please try again."
+    "success": "Your question has been posted! You'll be notified when you receive recommendations.",
+    "error": "Failed to post question. Please try again."
   },
 
   "listCard": {
-    "badge": "Curated",
+    "badge": "Guide",
     "by": "by",
     "verified": "Verified",
     "friend": "Friend",
     "friendOfFriend": "Friend of Friend",
     "restaurants": "restaurants",
     "restaurant": "restaurant",
-    "viewList": "View List",
+    "viewList": "View Guide",
     "likes": "likes",
     "saves": "saves",
     "like": "Like",
     "save": "Save",
     "share": "Share",
     "report": "Report",
-    "reportList": "Report this list",
+    "reportList": "Report this guide",
     "moreRestaurants": "+{count} more"
   },
 
@@ -310,22 +319,22 @@
     "quickActions": {
       "title": "Quick Actions",
       "createRecommendation": "Create Recommendation",
-      "createList": "Create List",
+      "createList": "Create Guide",
       "askRecommendations": "Ask for Recommendations",
       "viewHistory": "View My History"
     },
     "diningMemory": {
       "title": "Your Dining Memory",
       "recentRecommendations": "Recent recommendations: {count}",
-      "savedLists": "Saved lists: {count}",
+      "savedLists": "Saved guides: {count}",
       "following": "Following: {count} experts",
       "viewAll": "View All History"
     },
     "communityStats": {
       "title": "Community Stats",
       "totalRecommendations": "Total recommendations: {count}",
-      "curatedLists": "Curated lists: {count}",
-      "openRequests": "Open requests: {count}",
+      "curatedLists": "Guides: {count}",
+      "openRequests": "Open questions: {count}",
       "activeExperts": "Active experts: {count}"
     }
   },
@@ -340,23 +349,23 @@
 
   "toast": {
     "loginRequired": "Please log in to {action}",
-    "listCreated": "List created successfully!",
-    "requestCreated": "Request created successfully!",
-    "likeFailed": "Failed to like list",
-    "bookmarkFailed": "Failed to save list",
-    "bookmarkAdded": "Request saved",
+    "listCreated": "Guide created successfully!",
+    "requestCreated": "Question posted successfully!",
+    "likeFailed": "Failed to like guide",
+    "bookmarkFailed": "Failed to save guide",
+    "bookmarkAdded": "Question saved",
     "bookmarkRemoved": "Bookmark removed",
-    "bookmarkRequestFailed": "Failed to save request",
+    "bookmarkRequestFailed": "Failed to save question",
     "shareCopied": "Share link copied!",
     "reportSubmitted": "Report submitted. Thank you!"
   },
 
   "actions": {
-    "createList": "create a list",
-    "createRequest": "create a request",
-    "likeLists": "like lists",
-    "bookmarkLists": "save lists",
-    "bookmarkRequests": "save requests"
+    "createList": "create a guide",
+    "createRequest": "ask a question",
+    "likeLists": "like guides",
+    "bookmarkLists": "save guides",
+    "bookmarkRequests": "save questions"
   },
 
   "timeAgo": {
@@ -463,10 +472,10 @@
     "sendTip": "Send Tip"
   },
   "detail": {
-    "loading": "Loading request...",
+    "loading": "Loading question...",
     "error": {
-      "title": "Error Loading Request",
-      "notFound": "This request was not found or may have been deleted."
+      "title": "Error Loading Question",
+      "notFound": "This question was not found or may have been deleted."
     },
     "errors": {
       "restaurantProcessFailed": "Could not process restaurants. Please try selecting a different restaurant.",
@@ -474,7 +483,7 @@
     },
     "backToDiscover": "Back to Discover",
     "back": "Back",
-    "requestLabel": "Discovery Request",
+    "requestLabel": "Community Question",
     "expired": "Expired",
     "expiresIn": "Expires {time}",
     "postedAgo": "Posted {time}",
@@ -485,7 +494,7 @@
     "responseTooShort": "Response must be at least 20 characters",
     "responseSuccess": "Response submitted successfully",
     "loginToBookmark": "Please log in to bookmark",
-    "bookmarked": "Request bookmarked",
+    "bookmarked": "Question bookmarked",
     "unbookmarked": "Bookmark removed",
     "reputation": "Reputation: {score}",
     "addResponse": "Add Your Response",
@@ -505,7 +514,7 @@
     "helpful": "Helpful",
     "noResponses": "No responses yet. Be the first to help!",
     "beFirst": "Be the First to Respond",
-    "alreadyResponded": "You've already shared a recommendation for this request.",
+    "alreadyResponded": "You've already shared a recommendation for this question.",
     "recommendRestaurants": "Recommend Restaurants",
     "searchRestaurantPlaceholder": "Search for a restaurant to recommend...",
     "searchRestaurantHelp": "Search and select restaurants you want to recommend",
