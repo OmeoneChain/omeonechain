@@ -1,0 +1,65 @@
+{
+  "pageTitle": "Minhas Recompensas",
+  "pageDescription": "Acompanhe seus ganhos e atividades em BOCA",
+  
+  "balance": {
+    "title": "Seu Saldo BOCA",
+    "keepEarning": "Continue ativo para ganhar mais!"
+  },
+  
+  "walletUpgrade": {
+    "title": "Desbloqueie Mais com uma Carteira",
+    "description": "Conecte uma carteira para acessar recursos on-chain, NFTs e votação de governança.",
+    "button": "Conectar Carteira"
+  },
+  
+  "recentActivity": {
+    "title": "Atividade Recente",
+    "empty": "Nenhuma recompensa ainda. Comece a ganhar criando recomendações!",
+    "showMore": "Ver Mais"
+  },
+  
+  "actions": {
+    "recommendation": "Criou uma recomendação",
+    "recommendation_email": "Criou uma recomendação",
+    "upvote_received": "Sua publicação recebeu um voto",
+    "first_reviewer": "Primeiro a avaliar um restaurante!",
+    "comment_received": "Alguém comentou na sua publicação",
+    "list_creation": "Criou uma lista salva",
+    "reshare_attribution": "Sua recomendação foi compartilhada",
+    "share": "Compartilhou conteúdo",
+    "save_received": "Alguém salvou sua recomendação",
+    "validation_bonus": "Recomendação validada pela comunidade",
+    "default": "Ganhou recompensa"
+  },
+  
+  "waysToEarn": {
+    "title": "Formas de Ganhar",
+    "seeAll": "Ver Todas as Recompensas",
+    "options": {
+      "recommendations": "Criar recomendações",
+      "comments": "Escrever comentários úteis",
+      "share": "Compartilhar com amigos",
+      "firstReviewer": "Ser o primeiro a avaliar"
+    }
+  },
+  
+  "comingSoon": {
+    "title": "Em Breve",
+    "lottery": {
+      "title": "Loteria Semanal",
+      "description": "Ganhe até 25 BOCA"
+    },
+    "photoContest": {
+      "title": "Concurso de Fotos",
+      "description": "Melhores fotos de comida"
+    }
+  },
+  
+  "time": {
+    "justNow": "Agora mesmo",
+    "minutesAgo": "{minutes}min atrás",
+    "hoursAgo": "{hours}h atrás",
+    "daysAgo": "{days}d atrás"
+  }
+}

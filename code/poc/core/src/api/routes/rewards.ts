@@ -14,10 +14,20 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getRewardService, RewardAction } from '../../services/reward-service';
 import { getIOTAClient } from '../../blockchain/iota-client';
 import { formatBoca } from '../../blockchain/contracts';
+import { createClient } from '@supabase/supabase-js';  // <-- ADD THIS LINE
 
 const router = Router();
 const rewardService = getRewardService();
 const iotaClient = getIOTAClient();
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase configuration for rewards routes');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // =============================================================================
 // MIDDLEWARE
@@ -571,6 +581,66 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch reward stats',
+    });
+  }
+});
+
+/**
+ * GET /api/rewards/history
+ * Get reward event history for the authenticated user
+ */
+router.get('/history', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const limit = Math.min(parseInt(req.query.limit as string) || 5, 50);
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    console.log(`📊 GET /rewards/history for user: ${userId} (limit: ${limit}, offset: ${offset})`);
+
+    const { data: events, error: eventsError } = await supabase
+      .from('reward_events')
+      .select('id, action, amount, metadata, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (eventsError) {
+      console.error('❌ Error fetching reward history:', eventsError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch reward history'
+      });
+    }
+
+    const { count: totalCount } = await supabase
+      .from('reward_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        events: (events || []).map(event => ({
+          id: event.id,
+          action: event.action,
+          amount: event.amount / 1000000,
+          amountFormatted: formatBoca(event.amount),
+          metadata: event.metadata,
+          created_at: event.created_at
+        })),
+        total_count: totalCount || 0,
+        pagination: {
+          limit,
+          offset,
+          has_more: (offset + limit) < (totalCount || 0)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('[RewardRoutes] GET /history error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch reward history'
     });
   }
 });

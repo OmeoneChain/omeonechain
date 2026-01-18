@@ -7,7 +7,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Plus, Users, Gift } from 'lucide-react';
+import { Home, Search, Plus, Users, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavTab {
@@ -42,9 +42,9 @@ const tabs: NavTab[] = [
     href: '/community',
   },
   { 
-    id: 'rewards', 
-    icon: Gift, 
-    href: '/rewards',
+    id: 'lists',
+    icon: ClipboardList,
+    href: '/saved-lists',
   },
 ];
 

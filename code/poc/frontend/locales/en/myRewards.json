@@ -1,0 +1,65 @@
+{
+  "pageTitle": "My Rewards",
+  "pageDescription": "Track your BOCA earnings and activity",
+  
+  "balance": {
+    "title": "Your BOCA Balance",
+    "keepEarning": "Keep earning by staying active!"
+  },
+  
+  "walletUpgrade": {
+    "title": "Unlock More with a Wallet",
+    "description": "Connect a wallet to access on-chain features, NFTs, and governance voting.",
+    "button": "Connect Wallet"
+  },
+  
+  "recentActivity": {
+    "title": "Recent Activity",
+    "empty": "No rewards yet. Start earning by creating recommendations!",
+    "showMore": "Show More"
+  },
+  
+  "actions": {
+    "recommendation": "Created a recommendation",
+    "recommendation_email": "Created a recommendation",
+    "upvote_received": "Your post was upvoted",
+    "first_reviewer": "First to review a restaurant!",
+    "comment_received": "Someone commented on your post",
+    "list_creation": "Created a saved list",
+    "reshare_attribution": "Your recommendation was reshared",
+    "share": "Shared content",
+    "save_received": "Someone saved your recommendation",
+    "validation_bonus": "Recommendation validated by community",
+    "default": "Earned reward"
+  },
+  
+  "waysToEarn": {
+    "title": "Ways to Earn",
+    "seeAll": "See All Rewards",
+    "options": {
+      "recommendations": "Create recommendations",
+      "comments": "Write helpful comments",
+      "share": "Share with friends",
+      "firstReviewer": "Be the first reviewer"
+    }
+  },
+  
+  "comingSoon": {
+    "title": "Coming Soon",
+    "lottery": {
+      "title": "Weekly Lottery",
+      "description": "Win up to 25 BOCA"
+    },
+    "photoContest": {
+      "title": "Photo Contest",
+      "description": "Best food photos"
+    }
+  },
+  
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{minutes}m ago",
+    "hoursAgo": "{hours}h ago",
+    "daysAgo": "{days}d ago"
+  }
+}

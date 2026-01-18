@@ -196,9 +196,8 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                 <NotificationBell />
                 
                 {/* Token Balance (wallet users only) */}
-                {authMode === 'wallet' && (
                   <Link
-                    href="/rewards"
+                    href="/my-rewards"
                     className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FFE8E3] dark:bg-[#FF644A]/20 active:opacity-70 transition-opacity"
                   >
                     <Gift size={13} className="text-[#FF644A]" />
@@ -210,7 +209,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                       </span>
                     )}
                   </Link>
-                )}
+                )
               </>
             ) : (
               // Placeholder for alignment when not authenticated
