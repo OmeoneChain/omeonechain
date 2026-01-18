@@ -2,6 +2,6 @@
   "/[locale]/create/page": "app/[locale]/create/page.js",
   "/[locale]/rewards/page": "app/[locale]/rewards/page.js",
   "/[locale]/saved-lists/page": "app/[locale]/saved-lists/page.js",
-  "/[locale]/discover/page": "app/[locale]/discover/page.js",
-  "/[locale]/saved-lists/[id]/page": "app/[locale]/saved-lists/[id]/page.js"
+  "/[locale]/saved-lists/[id]/page": "app/[locale]/saved-lists/[id]/page.js",
+  "/[locale]/discover/page": "app/[locale]/discover/page.js"
 }

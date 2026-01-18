@@ -263,8 +263,16 @@ export default function MapView({
     
     if (navigator.geolocation) {
       setIsGeolocating(true);
+      
+      // Set a hard timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('[MapView] Geolocation timeout, using default location');
+        setIsGeolocating(false);
+      }, 3000); // 3 second max wait
+      
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          clearTimeout(timeoutId);
           const userPos = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
@@ -276,16 +284,20 @@ export default function MapView({
           console.log('[MapView] Auto-geolocated to:', userPos);
         },
         (error) => {
+          clearTimeout(timeoutId);
           console.log('[MapView] Geolocation unavailable or denied, using default:', error.message);
           setIsGeolocating(false);
           // Keep default center (Brasília)
         },
         { 
-          timeout: 5000, 
+          timeout: 3000, // Reduced from 5000
           maximumAge: 300000, // 5 minute cache
           enableHighAccuracy: false 
         }
       );
+    } else {
+      // No geolocation support, don't block
+      setIsGeolocating(false);
     }
   }, [geolocateAttempted, t]);
 
@@ -628,8 +640,17 @@ export default function MapView({
   const handleNearMe = () => {
     if (navigator.geolocation) {
       setIsGeolocating(true);
+      
+      // Set a hard timeout
+      const timeoutId = setTimeout(() => {
+        console.log('[MapView] Near Me timeout');
+        setIsGeolocating(false);
+        setError('Location request timed out');
+      }, 5000);
+      
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          clearTimeout(timeoutId);
           const newCenter = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
@@ -644,11 +665,18 @@ export default function MapView({
           setShowLocationModal(false);
         },
         (error) => {
+          clearTimeout(timeoutId);
           console.error('Geolocation error:', error);
           setError('Unable to get your location');
           setIsGeolocating(false);
+        },
+        {
+          timeout: 5000,
+          enableHighAccuracy: false
         }
       );
+    } else {
+      setError('Geolocation not supported');
     }
   };
 
@@ -1532,17 +1560,16 @@ export default function MapView({
         </div>
       )}
 
-      {/* Loading Overlay */}
+      {/* Loading Indicator - Non-blocking, shown above map */}
       {(isLoading || isGeolocating) && (
-        <div className="absolute inset-0 bg-white/50 dark:bg-[#1F1E2A]/50 flex items-center justify-center rounded-xl">
-          <div className="flex flex-col items-center gap-2">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF644A]"></div>
-            {isGeolocating && (
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {t('geolocating', { defaultValue: 'Finding your location...' })}
-              </span>
-            )}
-          </div>
+        <div className="flex items-center justify-center gap-2 py-2 px-4 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-sm">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF644A]"></div>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {isGeolocating 
+              ? t('geolocating', { defaultValue: 'Finding your location...' })
+              : t('loading', { defaultValue: 'Loading...' })
+            }
+          </span>
         </div>
       )}
 
