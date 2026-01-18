@@ -1,6 +1,7 @@
-// File: code/poc/frontend/app/recommendations/[id]/page.tsx
+// File: code/poc/frontend/app/[locale]/recommendations/[id]/page.tsx
 // Recommendation detail page with full BocaBoca branding
 // UPDATED: Dark mode support added
+// UPDATED: Fixed hardcoded backend URL to use environment variable
 
 'use client';
 
@@ -24,7 +25,8 @@ import { CleanHeader } from '@/components/CleanHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+// Use the same API URL pattern as the discover page
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api';
 
 interface Recommendation {
   id: string;
@@ -102,6 +104,8 @@ export default function RecommendationDetailPage({
     
     try {
       setIsLoading(true);
+      setError(null);
+      
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
@@ -110,7 +114,10 @@ export default function RecommendationDetailPage({
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${BACKEND_URL}/api/recommendations/${recommendationId}`, {
+      const apiUrl = `${API_BASE_URL}/recommendations/${recommendationId}`;
+      console.log('[RecommendationDetail] Fetching from:', apiUrl);
+
+      const response = await fetch(apiUrl, {
         headers
       });
 
@@ -118,18 +125,22 @@ export default function RecommendationDetailPage({
         if (response.status === 404) {
           setError('Recommendation not found');
         } else {
-          throw new Error('Failed to fetch recommendation');
+          throw new Error(`Failed to fetch recommendation: ${response.status}`);
         }
         return;
       }
 
       const data = await response.json();
+      console.log('[RecommendationDetail] Response:', data);
+      
       if (data.success) {
         setRecommendation(data.recommendation);
+      } else {
+        throw new Error(data.message || 'Failed to load recommendation');
       }
     } catch (err: any) {
       console.error('Error fetching recommendation:', err);
-      setError(err.message);
+      setError(err.message || 'Failed to load recommendation');
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +158,9 @@ export default function RecommendationDetailPage({
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${BACKEND_URL}/api/recommendations/${recommendationId}/comments`, {
+      const apiUrl = `${API_BASE_URL}/recommendations/${recommendationId}/comments`;
+
+      const response = await fetch(apiUrl, {
         headers
       });
 
@@ -169,7 +182,9 @@ export default function RecommendationDetailPage({
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/recommendations/${recommendationId}/like`, {
+      const apiUrl = `${API_BASE_URL}/recommendations/${recommendationId}/like`;
+
+      const response = await fetch(apiUrl, {
         method: recommendation?.is_liked ? 'DELETE' : 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -196,7 +211,9 @@ export default function RecommendationDetailPage({
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/recommendations/${recommendationId}/bookmark`, {
+      const apiUrl = `${API_BASE_URL}/recommendations/${recommendationId}/bookmark`;
+
+      const response = await fetch(apiUrl, {
         method: recommendation?.is_bookmarked ? 'DELETE' : 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -230,7 +247,10 @@ export default function RecommendationDetailPage({
 
     try {
       setIsSubmitting(true);
-      const response = await fetch(`${BACKEND_URL}/api/recommendations/${recommendationId}/comments`, {
+      
+      const apiUrl = `${API_BASE_URL}/recommendations/${recommendationId}/comments`;
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -278,7 +298,7 @@ export default function RecommendationDetailPage({
     return '$'.repeat(level);
   };
 
-  if (isLoading || !recommendation) {
+  if (isLoading) {
     return (
       <>
         <CleanHeader />
@@ -292,7 +312,7 @@ export default function RecommendationDetailPage({
     );
   }
 
-  if (error) {
+  if (error || !recommendation) {
     return (
       <>
         <CleanHeader />
