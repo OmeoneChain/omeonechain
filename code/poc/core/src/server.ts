@@ -54,6 +54,7 @@ import uploadRouter from './api/routes/upload';
 import rewardRoutes from './api/routes/rewards';
 import phoneAuthRoutes from './api/routes/phone-auth';
 import findByPhonesRouter from './api/routes/find-by-phones';
+import trendingRoutes from './routes/trending';
 
 // Add server identification
 console.log('🟢 REAL SERVER RUNNING - src/server.ts - TWO-TIER AUTH + USER PROFILE INTEGRATION');
@@ -2134,6 +2135,8 @@ app.use('/api/auth/social', socialAuthRoutes);
 app.use('/api/lottery', lotteryRoutes);
 
 app.use('/api/photo-contest', photoContestRoutes);
+
+app.use('/api/trending', trendingRoutes);
 
 app.use('/api/recommendations', mapRecommendationsRouter);
 

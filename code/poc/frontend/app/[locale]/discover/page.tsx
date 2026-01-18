@@ -28,9 +28,9 @@ import CreateListFlow from '@/components/lists/CreateListFlow';
 import MapView from '@/components/discover/MapView';
 import RequestCard from '@/components/discover/RequestCard';
 import CreateRequestModal from '@/components/discover/CreateRequestModal';
-import { recommendationService, type Recommendation } from '@/lib/services/recommendation-service';
 import toast from 'react-hot-toast';
 import { MapIcon, List } from 'lucide-react';
+import TrendingWidget from '@/components/discover/TrendingWidget';
 
 const DiscoverPage = () => {
   const t = useTranslations('discover');
@@ -47,7 +47,6 @@ const DiscoverPage = () => {
   
   const [curatedLists, setCuratedLists] = useState<any[]>([]);
   const [discoveryRequests, setDiscoveryRequests] = useState<any[]>([]);
-  const [trendingRecommendations, setTrendingRecommendations] = useState<Recommendation[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -582,14 +581,11 @@ const DiscoverPage = () => {
     
     try {
       const [trendingResult] = await Promise.all([
-        recommendationService.getTrendingRecommendations(8).catch(() => []),
         fetchCuratedListsFromAPI().catch(() => {}),
         fetchDiscoveryRequests().catch(() => {}),
         fetchUserInteractionStatus().catch(() => {}),
         fetchUserStats().catch(() => {})
       ]);
-
-      setTrendingRecommendations(trendingResult);
       
     } catch (err) {
       console.error('Error loading discover data:', err);
@@ -602,12 +598,6 @@ const DiscoverPage = () => {
   useEffect(() => {
     fetchData();
   }, [user]);
-
-  // Helper function to check if avatar is an image URL
-  const isImageUrl = (avatar: string | undefined): boolean => {
-    if (!avatar) return false;
-    return avatar.startsWith('http') || avatar.startsWith('/') || avatar.startsWith('data:');
-  };
 
   // Context-aware Quick Actions (only used on web/desktop)
   const quickActions = useMemo(() => {
@@ -1000,52 +990,7 @@ const DiscoverPage = () => {
             )}
 
             {/* Trending Now - Always visible (including mobile) */}
-            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] p-4">
-              <h3 className="font-semibold text-[#1F1E2A] dark:text-white mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-[#FF644A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-                {t('sidebar.trending.title')}
-              </h3>
-              <div className="space-y-3">
-                {trendingRecommendations.slice(0, 3).map((rec) => (
-                  <Link 
-                    key={rec.id} 
-                    href={`/recommendations/${rec.id}`}
-                    className="block border border-gray-100 dark:border-[#3D3C4A] rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Avatar */}
-                      <div className="w-10 h-10 bg-gradient-to-br from-[#FF644A] to-[#E65441] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        {isImageUrl(rec.author.avatar_url ?? undefined) ? (
-                          <img 
-                            src={rec.author.avatar_url ?? undefined} 
-                            alt={rec.author.display_name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : rec.author.avatar_url ? (
-                          <span className="text-lg">{rec.author.avatar_url}</span>
-                        ) : (
-                          <span className="text-white font-semibold text-sm">
-                            {rec.author.display_name.charAt(0)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-[#1F1E2A] dark:text-white text-sm line-clamp-1">{rec.title}</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{rec.restaurant.name}</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">
-                          {rec.created_at ? calculateTimeAgo(rec.created_at) : t('timeAgo.recent')}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-                {trendingRecommendations.length === 0 && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">{t('sidebar.trending.empty')}</p>
-                )}
-              </div>
-            </div>
+            <TrendingWidget itemCount={5} />
 
             {/* Dining Memory - Hidden on native mobile */}
             {!isCapacitor && user && (

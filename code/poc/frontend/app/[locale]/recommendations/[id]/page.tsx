@@ -412,7 +412,7 @@ export default function RecommendationDetailPage({
             {recommendation.restaurant && (
               <div className="px-6 py-4 bg-[#FFF4E1] dark:bg-[#353444] border-b border-gray-100 dark:border-[#3D3C4A]">
                 <Link 
-                  href={`/restaurants/${recommendation.restaurant.id}`}
+                  href={`/restaurant/${recommendation.restaurant.id}`}
                   className="block hover:opacity-80 transition-opacity"
                 >
                   <h2 className="text-xl font-semibold text-[#1F1E2A] dark:text-white mb-2">

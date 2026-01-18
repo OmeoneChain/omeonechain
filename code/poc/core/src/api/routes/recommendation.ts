@@ -1267,11 +1267,10 @@ router.get('/:id', async (req: Request, res: Response) => {
       .select(`
         *,
         restaurants!inner(*),
-        users!inner(*),
+        users!recommendations_author_id_fkey(id, username, display_name, avatar_url, trust_score),
         dishes(*),
         restaurant_aspects(*),
         contextual_factors(*),
-        users:user_id (id, username, display_name, avatar_url, trust_score),
         restaurant_photos!recommendation_id (
           id,
           ipfs_hash,
@@ -1304,6 +1303,9 @@ router.get('/:id', async (req: Request, res: Response) => {
       success: true,
       recommendation: {
         ...recommendation,
+        // Map Supabase join names to what frontend expects
+        author: recommendation.users,
+        restaurant: recommendation.restaurants,
         personalizedTrustScore,
         avgDishRating,
         hasDishData: recommendation.dishes && recommendation.dishes.length > 0,
