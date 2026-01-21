@@ -95,6 +95,10 @@ const AuthStorage = {
   _capacitorPreferences: null as any,
 
   async _getPreferences() {
+    // TEMPORARY FIX: Bypass Capacitor Preferences to fix iOS loading issue
+    console.log('📱 Using localStorage (Capacitor Preferences bypassed)');
+    return null;
+  },
     if (this._capacitorPreferences) return this._capacitorPreferences;
     
     if (isCapacitorNative()) {
