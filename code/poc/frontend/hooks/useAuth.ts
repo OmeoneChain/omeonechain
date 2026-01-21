@@ -747,13 +747,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     console.log('🔄 refreshAuth: Starting auth hydration...');
 
-    const [token, storedUser, pendingTokens, refreshToken, tokenExpiry] = await Promise.all([
-      AuthStorage.getToken(),
-      AuthStorage.getUser(),
-      AuthStorage.getPendingTokens(),
-      AuthStorage.getRefreshToken(),
-      AuthStorage.getTokenExpiry(),
-    ]);
+    try {
+      const [token, storedUser, pendingTokens, refreshToken, tokenExpiry] = await Promise.all([
+        AuthStorage.getToken(),
+        AuthStorage.getUser(),
+        AuthStorage.getPendingTokens(),
+        AuthStorage.getRefreshToken(),
+        AuthStorage.getTokenExpiry(),
+      ]);
 
     console.log('🔄 refreshAuth: Storage check:', {
       hasToken: !!token,
@@ -902,6 +903,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } finally {
         setIsCheckingAuth(false);
       }
+    }
+    } catch (error) {
+      console.error('❌ Auth hydration failed:', error);
+      setAuthState({
+        isAuthenticated: false,
+        isLoading: false,
+        isHydrated: true,
+        user: null,
+        token: null,
+        refreshToken: null,
+        authMode: 'guest',
+        pendingTokens: 0,
+        canEarnTokens: false,
+      });
+      setIsCheckingAuth(false);
     }
   }, [performSilentRefresh, scheduleTokenRefresh]);
 
