@@ -96,20 +96,8 @@ const AuthStorage = {
 
   async _getPreferences() {
     // TEMPORARY FIX: Bypass Capacitor Preferences to fix iOS loading issue
+    // This forces localStorage usage until the Capacitor plugin issue is resolved
     console.log('📱 Using localStorage (Capacitor Preferences bypassed)');
-    return null;
-  },
-    if (this._capacitorPreferences) return this._capacitorPreferences;
-    
-    if (isCapacitorNative()) {
-      try {
-        const { Preferences } = await import('@capacitor/preferences');
-        this._capacitorPreferences = Preferences;
-        return Preferences;
-      } catch (e) {
-        console.warn('Capacitor Preferences not available, falling back to localStorage');
-      }
-    }
     return null;
   },
 
@@ -760,154 +748,154 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         AuthStorage.getTokenExpiry(),
       ]);
 
-    console.log('🔄 refreshAuth: Storage check:', {
-      hasToken: !!token,
-      hasStoredUser: !!storedUser,
-      hasRefreshToken: !!refreshToken,
-      tokenExpired: tokenExpiry ? Date.now() > tokenExpiry : 'unknown',
-    });
-
-    // Case 1: No credentials at all - user is logged out
-    if (!token && !storedUser && !refreshToken) {
-      console.log('🔄 refreshAuth: No credentials found, user is logged out');
-      setAuthState(prev => ({
-        ...prev,
-        isLoading: false,
-        isHydrated: true,
-        pendingTokens,
-      }));
-      setIsCheckingAuth(false);
-      return;
-    }
-
-    // Case 2: Email-only user (no token needed)
-    if (storedUser && !token && !refreshToken) {
-      console.log('🔄 refreshAuth: Email-only user detected');
-      const authMode = getAuthMode(storedUser);
-      if (!storedUser.profileCompletion) {
-        storedUser.profileCompletion = calculateProfileCompletion(storedUser);
-      }
-      setAuthState({
-        isAuthenticated: true,
-        isLoading: false,
-        isHydrated: true,
-        user: storedUser,
-        token: null,
-        refreshToken: null,
-        authMode,
-        pendingTokens: authMode === 'email' ? pendingTokens : 0,
-        canEarnTokens: false,
+      console.log('🔄 refreshAuth: Storage check:', {
+        hasToken: !!token,
+        hasStoredUser: !!storedUser,
+        hasRefreshToken: !!refreshToken,
+        tokenExpired: tokenExpiry ? Date.now() > tokenExpiry : 'unknown',
       });
-      setIsCheckingAuth(false);
-      return;
-    }
 
-    // Case 3: Token exists - check if expired
-    if (token) {
-      const isTokenExpired = tokenExpiry ? Date.now() > tokenExpiry : false;
-      
-      // Try to refresh if token is expired and we have a refresh token
-      if (isTokenExpired && refreshToken) {
-        console.log('🔄 refreshAuth: Access token expired, attempting refresh...');
-        const refreshSuccess = await performSilentRefresh();
-        
-        if (refreshSuccess) {
-          // Refresh successful - auth state already updated by performSilentRefresh
-          // Get fresh user data
-          const newToken = await AuthStorage.getToken();
-          if (newToken) {
-            try {
-              const user = await authAPI.getCurrentUser(newToken);
-              const authMode = getAuthMode(user);
-              setAuthState(prev => ({
-                ...prev,
-                isAuthenticated: true,
-                isLoading: false,
-                isHydrated: true,
-                user,
-                authMode,
-                pendingTokens: authMode === 'email' ? pendingTokens : 0,
-                canEarnTokens: authMode === 'wallet',
-              }));
-            } catch (error) {
-              console.error('❌ Failed to fetch user after refresh:', error);
-            }
-          }
-          setIsCheckingAuth(false);
-          return;
-        }
-        
-        // Refresh failed - clear everything and log out
-        console.log('❌ refreshAuth: Token refresh failed, logging out');
-        await AuthStorage.clear();
-        setAuthState({
-          isAuthenticated: false,
+      // Case 1: No credentials at all - user is logged out
+      if (!token && !storedUser && !refreshToken) {
+        console.log('🔄 refreshAuth: No credentials found, user is logged out');
+        setAuthState(prev => ({
+          ...prev,
           isLoading: false,
           isHydrated: true,
-          user: null,
+          pendingTokens,
+        }));
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      // Case 2: Email-only user (no token needed)
+      if (storedUser && !token && !refreshToken) {
+        console.log('🔄 refreshAuth: Email-only user detected');
+        const authMode = getAuthMode(storedUser);
+        if (!storedUser.profileCompletion) {
+          storedUser.profileCompletion = calculateProfileCompletion(storedUser);
+        }
+        setAuthState({
+          isAuthenticated: true,
+          isLoading: false,
+          isHydrated: true,
+          user: storedUser,
           token: null,
           refreshToken: null,
-          authMode: 'guest',
-          pendingTokens: 0,
+          authMode,
+          pendingTokens: authMode === 'email' ? pendingTokens : 0,
           canEarnTokens: false,
         });
         setIsCheckingAuth(false);
         return;
       }
-      
-      // Token is valid - verify with backend
-      try {
-        console.log('🔄 refreshAuth: Validating token with backend...');
-        const user = await authAPI.getCurrentUser(token);
-        const authMode = getAuthMode(user);
+
+      // Case 3: Token exists - check if expired
+      if (token) {
+        const isTokenExpired = tokenExpiry ? Date.now() > tokenExpiry : false;
         
-        setAuthState({
-          isAuthenticated: true,
-          isLoading: false,
-          isHydrated: true,
-          user,
-          token,
-          refreshToken,
-          authMode,
-          pendingTokens: authMode === 'email' ? pendingTokens : 0,
-          canEarnTokens: authMode === 'wallet',
-        });
-        
-        // Schedule refresh if we have expiry info
-        if (tokenExpiry) {
-          scheduleTokenRefresh(tokenExpiry);
-        }
-        
-        console.log('✅ refreshAuth: Authentication verified successfully');
-      } catch (error: any) {
-        console.error('❌ refreshAuth: Token validation failed:', error);
-        
-        // Try refresh token if validation fails
-        if (refreshToken) {
+        // Try to refresh if token is expired and we have a refresh token
+        if (isTokenExpired && refreshToken) {
+          console.log('🔄 refreshAuth: Access token expired, attempting refresh...');
           const refreshSuccess = await performSilentRefresh();
+          
           if (refreshSuccess) {
+            // Refresh successful - auth state already updated by performSilentRefresh
+            // Get fresh user data
+            const newToken = await AuthStorage.getToken();
+            if (newToken) {
+              try {
+                const user = await authAPI.getCurrentUser(newToken);
+                const authMode = getAuthMode(user);
+                setAuthState(prev => ({
+                  ...prev,
+                  isAuthenticated: true,
+                  isLoading: false,
+                  isHydrated: true,
+                  user,
+                  authMode,
+                  pendingTokens: authMode === 'email' ? pendingTokens : 0,
+                  canEarnTokens: authMode === 'wallet',
+                }));
+              } catch (error) {
+                console.error('❌ Failed to fetch user after refresh:', error);
+              }
+            }
             setIsCheckingAuth(false);
             return;
           }
+          
+          // Refresh failed - clear everything and log out
+          console.log('❌ refreshAuth: Token refresh failed, logging out');
+          await AuthStorage.clear();
+          setAuthState({
+            isAuthenticated: false,
+            isLoading: false,
+            isHydrated: true,
+            user: null,
+            token: null,
+            refreshToken: null,
+            authMode: 'guest',
+            pendingTokens: 0,
+            canEarnTokens: false,
+          });
+          setIsCheckingAuth(false);
+          return;
         }
         
-        // All attempts failed - clear and log out
-        await AuthStorage.clear();
-        setAuthState({
-          isAuthenticated: false,
-          isLoading: false,
-          isHydrated: true,
-          user: null,
-          token: null,
-          refreshToken: null,
-          authMode: 'guest',
-          pendingTokens: 0,
-          canEarnTokens: false,
-        });
-      } finally {
-        setIsCheckingAuth(false);
+        // Token is valid - verify with backend
+        try {
+          console.log('🔄 refreshAuth: Validating token with backend...');
+          const user = await authAPI.getCurrentUser(token);
+          const authMode = getAuthMode(user);
+          
+          setAuthState({
+            isAuthenticated: true,
+            isLoading: false,
+            isHydrated: true,
+            user,
+            token,
+            refreshToken,
+            authMode,
+            pendingTokens: authMode === 'email' ? pendingTokens : 0,
+            canEarnTokens: authMode === 'wallet',
+          });
+          
+          // Schedule refresh if we have expiry info
+          if (tokenExpiry) {
+            scheduleTokenRefresh(tokenExpiry);
+          }
+          
+          console.log('✅ refreshAuth: Authentication verified successfully');
+        } catch (error: any) {
+          console.error('❌ refreshAuth: Token validation failed:', error);
+          
+          // Try refresh token if validation fails
+          if (refreshToken) {
+            const refreshSuccess = await performSilentRefresh();
+            if (refreshSuccess) {
+              setIsCheckingAuth(false);
+              return;
+            }
+          }
+          
+          // All attempts failed - clear and log out
+          await AuthStorage.clear();
+          setAuthState({
+            isAuthenticated: false,
+            isLoading: false,
+            isHydrated: true,
+            user: null,
+            token: null,
+            refreshToken: null,
+            authMode: 'guest',
+            pendingTokens: 0,
+            canEarnTokens: false,
+          });
+        } finally {
+          setIsCheckingAuth(false);
+        }
       }
-    }
     } catch (error) {
       console.error('❌ Auth hydration failed:', error);
       setAuthState({
