@@ -1,0 +1,151 @@
+{
+  "auth": {
+    "phone": {
+      "title": "Digite seu número de telefone",
+      "subtitle": "Enviaremos um código de verificação",
+      "sendCode": "Enviar Código de Verificação",
+      "sending": "Enviando...",
+      "codeSent": "Código de verificação enviado!",
+      "verifyTitle": "Digite o código de verificação",
+      "verifySubtitle": "Enviamos um código de 6 dígitos para",
+      "changeNumber": "Alterar número",
+      "verify": "Verificar",
+      "verifying": "Verificando...",
+      "verifySuccess": "Telefone verificado!",
+      "noCode": "Não recebeu o código?",
+      "resend": "Reenviar código",
+      "resendIn": "Reenviar em",
+      "codeResent": "Novo código enviado!",
+      "privacyNote": "Usaremos seu número apenas para verificação e segurança da conta.",
+      "errors": {
+        "sendFailed": "Falha ao enviar código de verificação",
+        "verifyFailed": "Falha na verificação",
+        "invalidCode": "Por favor, digite todos os 6 dígitos"
+      }
+    },
+    "phoneSuccess": {
+      "title": "Você está dentro!",
+      "subtitle": "Seu telefone foi verificado. Agora você pode descobrir e compartilhar recomendações de restaurantes."
+    },
+    "walletUpgrade": {
+      "title": "Desbloqueie Todos os Recursos",
+      "benefit1": "Resgate suas recompensas BOCA on-chain",
+      "benefit2": "Visualize seus cartões de fidelidade NFT",
+      "benefit3": "Participe das votações de governança",
+      "benefit4": "Transfira tokens para carteiras externas",
+      "connectButton": "Conectar Carteira",
+      "skipButton": "Talvez Depois",
+      "skipNote": "Você pode conectar uma carteira a qualquer momento nas configurações do perfil.",
+      "connectTitle": "Conecte Sua Carteira",
+      "connectSubtitle": "Vincule uma carteira para desbloquear todos os recursos Web3",
+      "connecting": "Conectando carteira...",
+      "signing": "Por favor, assine a mensagem...",
+      "upgrading": "Vinculando carteira à sua conta...",
+      "success": "Carteira conectada!",
+      "skipForNow": "Pular por enquanto",
+      "noMetaMask": "MetaMask é necessário para conectar uma carteira",
+      "installNote": "Instale a extensão do navegador para continuar",
+      "installMetaMask": "Instalar MetaMask",
+      "moreOptions": "Mais opções de carteira em breve",
+      "checkExtension": "Verifique sua extensão MetaMask para a solicitação de assinatura",
+      "disconnected": "Carteira desconectada",
+      "connected": "Carteira conectada",
+      "steps": {
+        "connect": "Conectando carteira...",
+        "signing": "Assinando verificação...",
+        "upgrading": "Vinculando carteira..."
+      },
+      "security": {
+        "title": "Conexão Segura",
+        "description": "Solicitamos apenas uma assinatura para verificar que você é dono desta carteira. Nunca temos acesso aos seus fundos ou chaves privadas."
+      },
+      "errors": {
+        "noMetaMask": "MetaMask não encontrado. Por favor, instale a extensão do navegador.",
+        "connectionFailed": "Falha ao conectar carteira",
+        "cancelled": "Conexão cancelada pelo usuário",
+        "alreadyLinked": "Esta carteira já está vinculada a outra conta",
+        "alreadyLinkedHint": "Por favor, use uma carteira diferente ou entre em contato com o suporte.",
+        "generic": "Falha ao conectar carteira"
+      }
+    },
+    "wallet": {
+      "title": "Conectar Carteira",
+      "subtitle": "Conecte sua carteira para acessar o BocaBoca",
+      "connectMetaMask": "Conectar com MetaMask",
+      "connecting": "Conectando...",
+      "orBrowse": "ou",
+      "browseOnly": "Continuar Navegando",
+      "noWallet": "MetaMask não encontrado",
+      "installWallet": "Por favor, instale a extensão MetaMask",
+      "walletConnect": "WalletConnect",
+      "coinbase": "Coinbase",
+      "whatIsWallet": "Não tem carteira? Saiba mais →",
+      "mobilePrompt": {
+        "title": "Baixe o App Mobile",
+        "description": "Para a experiência completa do BocaBoca com compartilhamento de fotos e recompensas, baixe nosso aplicativo móvel."
+      },
+      "errors": {
+        "walletNotFound": "MetaMask não encontrado. Por favor, instale a extensão do navegador.",
+        "connectionFailed": "Falha ao conectar carteira"
+      }
+    },
+    "walletConnect": {
+      "title": "Conectar Carteira",
+      "subtitle": "Conecte sua carteira para autenticar",
+      "connectMetaMask": "Conectar MetaMask",
+      "installMetaMask": "Instalar MetaMask",
+      "disconnected": "Carteira desconectada",
+      "accountChanged": "Conta alterada",
+      "connectionFailed": "Falha na conexão",
+      "connectionCancelled": "Conexão cancelada",
+      "success": "Conectado com sucesso!",
+      "moreOptions": "Mais opções em breve",
+      "cancelConnection": "Cancelar conexão",
+      "steps": {
+        "connecting": "Conectando carteira...",
+        "preparing": "Preparando autenticação...",
+        "signing": "Aguardando assinatura...",
+        "verifying": "Verificando assinatura..."
+      },
+      "hints": {
+        "serverCheck": "Verifique se o servidor backend está rodando.",
+        "mismatchHint": "Certifique-se de estar usando a mesma conta no MetaMask.",
+        "checkExtension": "Verifique a extensão MetaMask para a solicitação de assinatura.",
+        "verifying": "Verificando sua identidade..."
+      },
+      "security": {
+        "title": "Conexão Segura",
+        "description": "Solicitamos apenas uma assinatura para verificar sua identidade. Nunca temos acesso aos seus fundos."
+      },
+      "debug": {
+        "cleared": "Dados de autenticação limpos",
+        "clearData": "Limpar dados de autenticação"
+      },
+      "errors": {
+        "noAccounts": "Nenhuma conta encontrada. Por favor, desbloqueie o MetaMask.",
+        "accessDenied": "Acesso negado. Por favor, autorize o BocaBoca no MetaMask.",
+        "connectionFailed": "Falha ao conectar carteira. Tente novamente.",
+        "mismatch": "Endereço da carteira não corresponde. Recarregue a página.",
+        "challengeFailed": "Falha ao obter desafio de autenticação.",
+        "signatureFailed": "Falha na assinatura. Por favor, tente novamente.",
+        "authFailed": "Falha na autenticação. Por favor, tente novamente.",
+        "metaMaskFailed": "Falha na conexão MetaMask.",
+        "cancelled": "Conexão cancelada pelo usuário.",
+        "network": "Erro de rede. Verifique sua conexão.",
+        "generic": "Algo deu errado. Por favor, tente novamente."
+      }
+    }
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "continue": "Continuar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "skip": "Pular",
+    "save": "Salvar",
+    "done": "Concluído",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "success": "Sucesso"
+  }
+}

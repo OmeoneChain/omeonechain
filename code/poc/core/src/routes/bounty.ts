@@ -1285,14 +1285,6 @@ router.post('/tip', async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    // Can't tip the winner (they already got the prize)
-    if (response.is_best_answer) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot tip the winning response - they already received the main prize'
-      });
-    }
-
     // Can't tip yourself
     if (response.responder_id === userId) {
       return res.status(400).json({

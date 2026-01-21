@@ -292,12 +292,14 @@ function RecentActivity({
   events, 
   isLoading, 
   hasMore,
-  onShowMore 
+  onShowMore,
+  loadingMore = false
 }: { 
   events: RewardEvent[];
   isLoading: boolean;
   hasMore: boolean;
   onShowMore: () => void;
+  loadingMore?: boolean;
 }) {
   return (
     <motion.div
@@ -348,14 +350,24 @@ function RecentActivity({
         )}
       </div>
       
-      {/* Show More link */}
+      {/* Show More button */}
       {events.length > 0 && hasMore && (
         <button
           onClick={onShowMore}
-          className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#353444] transition-colors border-t border-gray-100 dark:border-[#3D3C4A]"
+          disabled={loadingMore}
+          className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#353444] transition-colors border-t border-gray-100 dark:border-[#3D3C4A] disabled:opacity-50"
         >
-          Show More
-          <ChevronRight size={16} />
+          {loadingMore ? (
+            <>
+              <RefreshCw size={16} className="animate-spin" />
+              Loading...
+            </>
+          ) : (
+            <>
+              Show More
+              <ChevronRight size={16} />
+            </>
+          )}
         </button>
       )}
     </motion.div>
@@ -479,6 +491,8 @@ export default function MyRewardsPage() {
   const [eventsLoading, setEventsLoading] = useState(true);
   const [totalEvents, setTotalEvents] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Determine if user is phone-only (no wallet)
   const isPhoneOnly = authMode !== 'wallet';
@@ -540,9 +554,25 @@ export default function MyRewardsPage() {
     router.push('/settings/wallet');
   };
 
-  // Handle show more (navigate to full history)
-  const handleShowMore = () => {
-    router.push('/rewards/history');
+  // Handle show more (load more events in-place)
+  const handleShowMore = async () => {
+    if (!isAuthenticated || !user?.id || loadingMore) return;
+
+    try {
+      setLoadingMore(true);
+      const newOffset = offset + 5;
+      const response = await apiClient.get(`/rewards/history?limit=5&offset=${newOffset}`) as RewardHistoryResponse;
+    
+      if (response.success && response.data) {
+        setEvents(prev => [...prev, ...response.data!.events]);
+        setOffset(newOffset);
+        setHasMore(response.data.pagination.has_more);
+      }
+    } catch (error) {
+      console.error('Failed to load more events:', error);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   // Redirect if not authenticated
@@ -593,6 +623,7 @@ export default function MyRewardsPage() {
             isLoading={eventsLoading}
             hasMore={hasMore}
             onShowMore={handleShowMore}
+            loadingMore={loadingMore}
           />
 
           {/* Ways to Earn */}

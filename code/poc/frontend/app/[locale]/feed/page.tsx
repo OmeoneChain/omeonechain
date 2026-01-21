@@ -21,6 +21,7 @@ import RequestCard from '@/components/discover/RequestCard';
 import { useAuth } from '@/hooks/useAuth';
 import tokenBalanceService from '@/services/TokenBalanceService';
 import toast from 'react-hot-toast';
+import { useCapacitor } from '@/hooks/useCapacitor';
 
 // Recommendation interface (same as before)
 interface Recommendation {
@@ -195,6 +196,7 @@ const MainFeed: React.FC = () => {
   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCreateMenu, setShowCreateMenu] = useState(false);
+  const { isCapacitor } = useCapacitor();
 
   const BACKEND_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
 
@@ -1026,9 +1028,9 @@ const handleReshare = async (id: string, comment?: string) => {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className={`grid gap-6 ${isCapacitor ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12'}`}>
           {/* Feed Column */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className={`${isCapacitor ? '' : 'lg:col-span-8'} space-y-6`}>
             {isLoadingFeed ? (
               [1, 2, 3].map(i => (
                 <div key={i} className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A] animate-pulse">
@@ -1144,36 +1146,37 @@ const handleReshare = async (id: string, comment?: string) => {
           </div>
 
           {/* Sidebar */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Quick Actions */}
-            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
-              <h3 className="font-semibold text-navy dark:text-white mb-4">{t('quickActions.title')}</h3>
-              <div className="space-y-2">
-                <button
-                  onClick={() => router.push('/create')}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
-                >
-                  <ChefHat className="w-5 h-5" />
-                  <span className="font-medium">{t('quickActions.createRecommendation')}</span>
-                </button>
-                <button
-                  onClick={() => router.push('/lists/create')}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
-                >
-                  <Coffee className="w-5 h-5" />
-                  <span className="font-medium">{t('quickActions.createList')}</span>
-                </button>
-                <button
-                  onClick={() => router.push('/discover')}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-[#353444] hover:bg-gray-100 dark:hover:bg-[#404050] text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <span className="font-medium">{t('quickActions.discover')}</span>
-                </button>
+          {!isCapacitor && (
+            <div className="lg:col-span-4 space-y-6">
+              {/* Quick Actions */}
+              <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+                <h3 className="font-semibold text-navy dark:text-white mb-4">{t('quickActions.title')}</h3>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => router.push('/create')}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
+                  >
+                    <ChefHat className="w-5 h-5" />
+                    <span className="font-medium">{t('quickActions.createRecommendation')}</span>
+                  </button>
+                  <button
+                    onClick={() => router.push('/lists/create')}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
+                  >
+                    <Coffee className="w-5 h-5" />
+                    <span className="font-medium">{t('quickActions.createList')}</span>
+                  </button>
+                  <button
+                    onClick={() => router.push('/discover')}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-[#353444] hover:bg-gray-100 dark:hover:bg-[#404050] text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <span className="font-medium">{t('quickActions.discover')}</span>
+                  </button>
+                </div>
               </div>
-            </div>
 
             {/* Trending Now */}
             <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
@@ -1253,6 +1256,7 @@ const handleReshare = async (id: string, comment?: string) => {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

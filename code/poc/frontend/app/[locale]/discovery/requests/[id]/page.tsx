@@ -220,7 +220,9 @@ export default function RequestDetailPage() {
   }, [request]);
   
   // Check if bounty can be awarded - accepts both 'open' and 'pending' as valid statuses
-  const isBountyAwaitingAward = effectiveBountyStatus === 'pending' ;
+  const isBountyAwaitingAward = 
+    ['pending', 'open'].includes(effectiveBountyStatus) || 
+    (request?.status === 'expired' && !['awarded', 'refunded'].includes(effectiveBountyStatus));
   
   // Debug logging for award button visibility
   useEffect(() => {

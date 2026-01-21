@@ -12,7 +12,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { Menu, X, Bell, Wallet, Mail, Users, ChevronDown, Settings, LogOut, Coins, Globe, Sun, Moon } from 'lucide-react';
+import { Menu, X, Bell, Wallet, Mail, Users, ChevronDown, Settings, LogOut, Coins, Globe, Sun, Moon, Gift } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthModal } from '@/components/auth/AuthModal';
 import WalletConnect from '@/components/auth/WalletConnect';
@@ -366,18 +366,21 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
 
               {isAuthenticated && <NotificationBell />}
 
-              {/* Token Balance Display */}
-              {isAuthenticated && authMode === 'wallet' && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30">
-                  <Coins className="w-4 h-4 text-[#FF644A]" />
+              {/* Token Balance Display - Links to My Rewards */}
+              {isAuthenticated && (
+                <Link
+                  href="/my-rewards"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 transition-colors"
+                >
+                  <Gift className="w-4 h-4 text-[#FF644A]" />
                   {isLoadingBalance ? (
                     <div className="animate-pulse h-4 w-12 rounded bg-[#FFD4CC] dark:bg-[#FF644A]/30"></div>
                   ) : (
                     <span className="text-sm font-semibold text-[#E65441]">
-                      {tokenBalance.toFixed(2)} BOCA
+                      {tokenBalance.toFixed(1)} BOCA
                     </span>
                   )}
-                </div>
+                </Link>
               )}
 
               {!isAuthenticated ? (
@@ -543,18 +546,25 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                 </div>
               </button>
 
-              {/* Token balance in mobile menu */}
-              {isAuthenticated && authMode === 'wallet' && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">{t('header.bocaBalance')}:</span>
+              {/* Token balance in mobile menu - Links to My Rewards */}
+              {isAuthenticated && (
+                <Link
+                  href="/my-rewards"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center justify-between p-3 rounded-lg bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 transition-colors"
+                >
+                  <span className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <Gift size={16} className="text-[#FF644A]" />
+                    {t('header.bocaBalance')}
+                  </span>
                   {isLoadingBalance ? (
                     <div className="animate-pulse h-4 w-16 rounded bg-[#FFD4CC] dark:bg-[#FF644A]/30"></div>
                   ) : (
                     <span className="text-sm font-semibold text-[#FF644A]">
-                      {tokenBalance.toFixed(2)} BOCA
+                      {tokenBalance.toFixed(1)} BOCA
                     </span>
                   )}
-                </div>
+                </Link>
               )}
 
               <Link

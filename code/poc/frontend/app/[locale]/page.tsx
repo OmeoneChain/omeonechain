@@ -1,8 +1,6 @@
 // app/[locale]/page.tsx - Landing page with OAuth callback support and full i18n
-// Updated with BocaBoca branding and harmonized messaging from One-Pager v1.0 and Litepaper v1.0
-// Dark mode support added
-// FIXED: Removed problematic debug console.logs that caused React Error #300 in Capacitor WebView
-// ADDED: Redirect authenticated users to /feed
+// FIXED: Uses isHydrated to prevent landing page flash for authenticated mobile users
+// Updated with BocaBoca branding
 
 "use client"
 
@@ -20,21 +18,25 @@ import { Star, Clock, UserCheck, AlertTriangle, Search, Shield, Users, TrendingU
 const LandingPage: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
-  const { isAuthenticated, isLoading } = useAuth();
+  
+  // CRITICAL: Use isHydrated to know when auth check is complete
+  const { isAuthenticated, isLoading, isHydrated } = useAuth() as any;
   const router = useRouter();
   const t = useTranslations('landing');
 
-  // FIXED: Simple mount effect without translation calls
+  // Mount effect
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // NEW: Redirect authenticated users to feed
+  // FIXED: Redirect authenticated users AFTER hydration is complete
+  // This prevents the landing page from showing while we check stored tokens
   useEffect(() => {
-    if (mounted && !isLoading && isAuthenticated) {
-      router.push('/feed');
+    if (mounted && isHydrated && isAuthenticated) {
+      console.log('🔄 Landing: User is authenticated, redirecting to feed...');
+      router.replace('/feed'); // Use replace to prevent back button returning to landing
     }
-  }, [mounted, isLoading, isAuthenticated, router]);
+  }, [mounted, isHydrated, isAuthenticated, router]);
 
   // Handle OAuth callback - only runs after mounted
   useEffect(() => {
@@ -43,12 +45,10 @@ const LandingPage: React.FC = () => {
     // Only process if there's actually OAuth data in the URL
     const hash = window.location.hash;
     if (!hash || (!hash.includes('auth_token') && !hash.includes('auth_success') && !hash.includes('auth_error'))) {
-      // No OAuth data, skip processing
       return;
     }
 
     console.log('🔍 OAuth callback detected, processing...');
-
     const result = AuthService.handleOAuthCallback();
 
     if (result.success) {
@@ -72,8 +72,12 @@ const LandingPage: React.FC = () => {
     }
   }, [mounted]);
 
-  // Show loading while checking auth or redirecting
-  if (isProcessingOAuth || (!isLoading && isAuthenticated)) {
+  // ==========================================================================
+  // LOADING STATES - Critical for preventing landing page flash
+  // ==========================================================================
+
+  // Show loading while processing OAuth
+  if (isProcessingOAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <div className="text-center">
@@ -85,27 +89,39 @@ const LandingPage: React.FC = () => {
     );
   }
 
-  if (!mounted || isLoading) {
+  // CRITICAL: Show loading while checking stored auth (before hydration completes)
+  // This is what prevents the landing page flash on mobile app launch
+  if (!mounted || !isHydrated) {
     return (
-      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
-        <CleanHeader />
-        <section className="py-12 sm:py-16 px-4 sm:px-6">
-          <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8">
-            <div className="space-y-4 sm:space-y-6">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-[#1F1E2A] dark:text-gray-100">
-                {t('hero.title')}
-              </h1>
-              <p className="text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed px-4 text-[#666666] dark:text-gray-400">
-                {t.rich('hero.subtitle', {
-                  br: () => <br className="hidden sm:block" />
-                })}
-              </p>
-            </div>
+      <div className="min-h-screen flex items-center justify-center bg-[#FFF4E1] dark:bg-[#1F1E2A]">
+        <div className="text-center">
+          {/* BocaBoca logo or spinner */}
+          <div className="mb-6">
+            <Logo size="lg" variant="icon" />
           </div>
-        </section>
+          <div className="animate-pulse">
+            <div className="h-2 w-24 bg-[#FF644A]/30 rounded mx-auto"></div>
+          </div>
+        </div>
       </div>
     );
   }
+
+  // If authenticated after hydration, show redirect loading (this is brief, router.replace is async)
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FFF4E1] dark:bg-[#1F1E2A]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF644A] mx-auto mb-4"></div>
+          <p className="font-medium text-[#1F1E2A] dark:text-gray-100">{t('loading.signingIn')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================================================
+  // MAIN LANDING PAGE - Only shown for unauthenticated users
+  // ==========================================================================
 
   return (
     <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
@@ -192,8 +208,8 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Problem Section */}
-      <section className="py-12 sm:py-16 px-4 sm:px-6 bg-white/40 dark:bg-[#2D2C3A]/40">
+      {/* Problem Section - DESKTOP ONLY */}
+      <section className="hidden md:block py-12 sm:py-16 px-4 sm:px-6 bg-white/40 dark:bg-[#2D2C3A]/40">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-[#1F1E2A] dark:text-gray-100">
@@ -261,8 +277,8 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Solution Section */}
-      <section className="py-12 sm:py-16 px-4 sm:px-6">
+      {/* Solution Section - DESKTOP ONLY */}
+      <section className="hidden md:block py-12 sm:py-16 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-[#1F1E2A] dark:text-gray-100">
@@ -349,8 +365,8 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Why Now Section */}
-      <section className="py-12 sm:py-16 px-4 sm:px-6 bg-white/40 dark:bg-[#2D2C3A]/40">
+      {/* Why Now Section - DESKTOP ONLY */}
+      <section className="hidden md:block py-12 sm:py-16 px-4 sm:px-6 bg-white/40 dark:bg-[#2D2C3A]/40">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-[#1F1E2A] dark:text-gray-100">

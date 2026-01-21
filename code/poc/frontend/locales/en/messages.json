@@ -1,0 +1,151 @@
+{
+  "auth": {
+    "phone": {
+      "title": "Enter your phone number",
+      "subtitle": "We'll send you a verification code",
+      "sendCode": "Send Verification Code",
+      "sending": "Sending...",
+      "codeSent": "Verification code sent!",
+      "verifyTitle": "Enter verification code",
+      "verifySubtitle": "We sent a 6-digit code to",
+      "changeNumber": "Change number",
+      "verify": "Verify",
+      "verifying": "Verifying...",
+      "verifySuccess": "Phone verified!",
+      "noCode": "Didn't receive the code?",
+      "resend": "Resend code",
+      "resendIn": "Resend in",
+      "codeResent": "New code sent!",
+      "privacyNote": "We'll only use your phone number for verification and account security.",
+      "errors": {
+        "sendFailed": "Failed to send verification code",
+        "verifyFailed": "Verification failed",
+        "invalidCode": "Please enter all 6 digits"
+      }
+    },
+    "phoneSuccess": {
+      "title": "You're in!",
+      "subtitle": "Your phone is verified. You can now discover and share restaurant recommendations."
+    },
+    "walletUpgrade": {
+      "title": "Unlock Full Features",
+      "benefit1": "Claim your BOCA rewards on-chain",
+      "benefit2": "View your NFT loyalty cards",
+      "benefit3": "Participate in governance voting",
+      "benefit4": "Transfer tokens to external wallets",
+      "connectButton": "Connect Wallet",
+      "skipButton": "Maybe Later",
+      "skipNote": "You can always connect a wallet later from your profile settings.",
+      "connectTitle": "Connect Your Wallet",
+      "connectSubtitle": "Link a wallet to unlock full Web3 features",
+      "connecting": "Connecting wallet...",
+      "signing": "Please sign the message...",
+      "upgrading": "Linking wallet to your account...",
+      "success": "Wallet connected!",
+      "skipForNow": "Skip for now",
+      "noMetaMask": "MetaMask is required to connect a wallet",
+      "installNote": "Install the browser extension to continue",
+      "installMetaMask": "Install MetaMask",
+      "moreOptions": "More wallet options coming soon",
+      "checkExtension": "Check your MetaMask extension for the signature request",
+      "disconnected": "Wallet disconnected",
+      "connected": "Wallet connected",
+      "steps": {
+        "connect": "Connecting wallet...",
+        "signing": "Signing verification...",
+        "upgrading": "Linking wallet..."
+      },
+      "security": {
+        "title": "Secure Connection",
+        "description": "We only request a signature to verify you own this wallet. We never have access to your funds or private keys."
+      },
+      "errors": {
+        "noMetaMask": "MetaMask not found. Please install the browser extension.",
+        "connectionFailed": "Failed to connect wallet",
+        "cancelled": "Connection cancelled by user",
+        "alreadyLinked": "This wallet is already linked to another account",
+        "alreadyLinkedHint": "Please use a different wallet or contact support.",
+        "generic": "Failed to connect wallet"
+      }
+    },
+    "wallet": {
+      "title": "Connect Wallet",
+      "subtitle": "Connect your wallet to access BocaBoca",
+      "connectMetaMask": "Connect with MetaMask",
+      "connecting": "Connecting...",
+      "orBrowse": "or",
+      "browseOnly": "Continue Browsing",
+      "noWallet": "MetaMask not found",
+      "installWallet": "Please install the MetaMask extension",
+      "walletConnect": "WalletConnect",
+      "coinbase": "Coinbase",
+      "whatIsWallet": "Don't have a wallet? Learn more →",
+      "mobilePrompt": {
+        "title": "Get the Mobile App",
+        "description": "For the full BocaBoca experience with photo sharing and rewards, download our mobile app."
+      },
+      "errors": {
+        "walletNotFound": "MetaMask not found. Please install the browser extension.",
+        "connectionFailed": "Failed to connect wallet"
+      }
+    },
+    "walletConnect": {
+      "title": "Connect Wallet",
+      "subtitle": "Connect your wallet to authenticate",
+      "connectMetaMask": "Connect MetaMask",
+      "installMetaMask": "Install MetaMask",
+      "disconnected": "Wallet disconnected",
+      "accountChanged": "Account changed",
+      "connectionFailed": "Connection failed",
+      "connectionCancelled": "Connection cancelled",
+      "success": "Connected successfully!",
+      "moreOptions": "More options coming soon",
+      "cancelConnection": "Cancel connection",
+      "steps": {
+        "connecting": "Connecting wallet...",
+        "preparing": "Preparing authentication...",
+        "signing": "Waiting for signature...",
+        "verifying": "Verifying signature..."
+      },
+      "hints": {
+        "serverCheck": "Please check that the backend server is running.",
+        "mismatchHint": "Make sure you're using the same account in MetaMask.",
+        "checkExtension": "Check your MetaMask extension for the signature request.",
+        "verifying": "Verifying your identity..."
+      },
+      "security": {
+        "title": "Secure Connection",
+        "description": "We only request a signature to verify your identity. We never have access to your funds."
+      },
+      "debug": {
+        "cleared": "Auth data cleared",
+        "clearData": "Clear auth data"
+      },
+      "errors": {
+        "noAccounts": "No accounts found. Please unlock MetaMask.",
+        "accessDenied": "Access denied. Please authorize BocaBoca in MetaMask.",
+        "connectionFailed": "Failed to connect wallet. Please try again.",
+        "mismatch": "Wallet address mismatch. Please refresh the page.",
+        "challengeFailed": "Failed to get authentication challenge.",
+        "signatureFailed": "Signature failed. Please try again.",
+        "authFailed": "Authentication failed. Please try again.",
+        "metaMaskFailed": "MetaMask connection failed.",
+        "cancelled": "Connection cancelled by user.",
+        "network": "Network error. Please check your connection.",
+        "generic": "Something went wrong. Please try again."
+      }
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "back": "Back",
+    "next": "Next",
+    "skip": "Skip",
+    "save": "Save",
+    "done": "Done",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  }
+}

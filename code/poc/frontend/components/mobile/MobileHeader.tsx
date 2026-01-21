@@ -209,7 +209,6 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                       </span>
                     )}
                   </Link>
-                )
               </>
             ) : (
               // Placeholder for alignment when not authenticated

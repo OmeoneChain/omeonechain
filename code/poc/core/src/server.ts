@@ -55,6 +55,8 @@ import rewardRoutes from './api/routes/rewards';
 import phoneAuthRoutes from './api/routes/phone-auth';
 import findByPhonesRouter from './api/routes/find-by-phones';
 import trendingRoutes from './routes/trending';
+import walletUpgradeRoutes from './api/routes/wallet-upgrade';
+import crypto from 'crypto';
 
 // Add server identification
 console.log('🟢 REAL SERVER RUNNING - src/server.ts - TWO-TIER AUTH + USER PROFILE INTEGRATION');
@@ -85,7 +87,7 @@ class JWTUtils {
     accountTier: 'email_basic' | 'wallet_full';
     authMethod: 'email' | 'wallet' | 'google' | 'apple' | 'twitter';
   }): string {
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' }); // ← CHANGED from '24h' to '1h'
   }
 
   static verifyToken(token: string): JWTPayload {
@@ -106,6 +108,15 @@ class JWTUtils {
     } catch (error) {
       throw new Error('Invalid or expired token');
     }
+  }
+
+  // NEW: Generate refresh token (90 days per Technical Context Document)
+  static generateRefreshToken(payload: {
+    userId: string;
+    type: 'refresh';
+    jti: string; // Unique token ID for revocation tracking
+  }): string {
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '90d' });
   }
 }
 
@@ -1112,14 +1123,27 @@ router.post('/auth/wallet/verify', async (req, res) => {
       authMethod: 'wallet'
     });
 
+    const refreshToken = JWTUtils.generateRefreshToken({
+      userId: userId,
+      type: 'refresh',
+      jti: crypto.randomUUID()
+    });
+
+    // Store refresh token
+    await supabase
+      .from('users')
+      .update({ refresh_token: refreshToken })
+      .eq('id', userId);
+
     // Clean up challenge
     challenges.delete(walletAddress);
 
     const profileCompletion = calculateProfileCompletion(dbUser);
-
+    
     res.json({
       success: true,
       token: jwtToken,
+      refreshToken: refreshToken,
       user: {
         id: dbUser.id,
         walletAddress: dbUser.wallet_address,
@@ -1143,7 +1167,7 @@ router.post('/auth/wallet/verify', async (req, res) => {
         createdAt: dbUser.created_at
       },
       isNewUser,
-      expiresIn: 86400
+      expiresIn: 3600
     });
 
   } catch (error) {
@@ -1653,6 +1677,115 @@ router.post('/auth/verify', async (req, res) => {
   }
 });
 
+// ===========================
+// TOKEN REFRESH ENDPOINT (WhatsApp-style persistent login)
+// ===========================
+
+// Refresh access token using refresh token
+router.post('/auth/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Refresh token is required'
+      });
+    }
+
+    // Verify the refresh token
+    let decoded: any;
+    try {
+      decoded = JWTUtils.verifyToken(refreshToken); // Uses same secret for now
+    } catch (error: any) {
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          success: false,
+          error: 'Refresh token expired',
+          code: 'REFRESH_TOKEN_EXPIRED'
+        });
+      }
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid refresh token'
+      });
+    }
+
+    const userId = decoded.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token payload'
+      });
+    }
+
+    // Fetch user from database
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Optional: Validate stored refresh token matches (uncomment when column exists)
+    // if (user.refresh_token && user.refresh_token !== refreshToken) {
+    //   await supabase.from('users').update({ refresh_token: null }).eq('id', userId);
+    //   return res.status(401).json({
+    //     success: false,
+    //     error: 'Refresh token has been revoked',
+    //     code: 'TOKEN_REVOKED'
+    //   });
+    // }
+
+    // Generate new access token (1 hour)
+    const newAccessToken = JWTUtils.generateToken({
+      userId: user.id,
+      address: user.wallet_address,
+      email: user.email,
+      accountTier: user.account_tier || 'wallet_full',
+      authMethod: user.auth_method || 'wallet'
+    });
+
+    // Generate new refresh token (90 days) - token rotation for security
+    const newRefreshToken = JWTUtils.generateRefreshToken({
+      userId: user.id,
+      type: 'refresh',
+      jti: crypto.randomUUID()
+    });
+
+    // Store new refresh token
+    await supabase
+      .from('users')
+      .update({ 
+        refresh_token: newRefreshToken,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    console.log(`🔄 Token refreshed for user: ${userId}`);
+
+    res.json({
+      success: true,
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+      expiresIn: 3600 // 1 hour in seconds
+    });
+
+  } catch (error) {
+    console.error('❌ Token refresh error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Token refresh failed'
+    });
+  }
+});
+
 // Get current user profile
 router.get('/auth/me', authenticateToken, async (req, res) => {
   try {
@@ -2143,6 +2276,8 @@ app.use('/api/recommendations', mapRecommendationsRouter);
 app.use('/api/upload', uploadRouter);
 
 app.use('/api/auth/phone', phoneAuthRoutes);
+
+app.use('/api/auth', walletUpgradeRoutes);
 
 app.use('/api/users', findByPhonesRouter);
 
