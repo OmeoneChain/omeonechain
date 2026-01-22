@@ -52,7 +52,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // =============================================================================
 
 const BOUNTY_CONFIG = {
-  MIN_STAKE: 1.0,          // BOCA
+  MIN_STAKE: 0.0,          // BOCA
   PLATFORM_FEE: 10,        // Percent (burned from main prize)
   MIN_TIP: 0.5,            // BOCA (minimum tip amount)
   TIP_FEE: 0,              // Percent (no fee on tips - encourage generosity)

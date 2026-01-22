@@ -57,6 +57,7 @@ import findByPhonesRouter from './api/routes/find-by-phones';
 import trendingRoutes from './routes/trending';
 import walletUpgradeRoutes from './api/routes/wallet-upgrade';
 import crypto from 'crypto';
+import diagnosticsRouter from './routes/diagnostics';
 
 // Add server identification
 console.log('🟢 REAL SERVER RUNNING - src/server.ts - TWO-TIER AUTH + USER PROFILE INTEGRATION');
@@ -2280,6 +2281,8 @@ app.use('/api/auth/phone', phoneAuthRoutes);
 app.use('/api/auth', walletUpgradeRoutes);
 
 app.use('/api/users', findByPhonesRouter);
+
+app.use('/api/diagnostics', diagnosticsRouter);
 
 // =============================================================================
 // 🔥 CRITICAL FIX: MOUNT ROUTER TO APP

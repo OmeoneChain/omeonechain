@@ -101,8 +101,6 @@
 
   "geolocating": "Finding your location...",
 
-  "legend": "Legend",
-
   "locationModal": {
     "title": "Choose Location",
     "or": "or search a city"
@@ -201,6 +199,9 @@
     "stake": {
       "balance": "Your Balance",
       "amount": "Stake Amount",
+      "optional": "(optional)",
+      "noBounty": "No Bounty",
+      "noBountyHint": "Tip: Adding a bounty can attract more and faster responses!",
       "winnerReceives": "Winner receives:",
       "platformFee": "Platform fee:",
       "loading": "Loading...",
@@ -292,6 +293,7 @@
     "actions": {
       "cancel": "Cancel",
       "submit": "Post Question ({amount} BOCA)",
+      "submitNoBounty": "Post Question",
       "creating": "Creating..."
     },
     "success": "Your question has been posted! You'll be notified when you receive recommendations.",
@@ -389,12 +391,6 @@
     "closed": "Closed"
   },
 
-  "tiers": {
-    "myNetwork": "My Network",
-    "similarTastes": "Similar Tastes",
-    "community": "Community",
-    "unrated": "Unrated"
-  },
   "infoWindow": {
     "fromNetwork": "from your network",
     "similarTastesRecommend": "Similar tastes recommend",
@@ -411,9 +407,6 @@
     "recommendations": "recommendations",
     "beFirst": "Be the first to review",
     "showingOf": "Showing {shown} of {total} restaurants. Zoom in to see more."
-  },
-  "search": {
-    "placeholder": "Search restaurants by name, cuisine, or location..."
   },
   "nearMe": "Near Me",
   "filters": {

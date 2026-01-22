@@ -2,6 +2,7 @@
 // Create Discovery Request Modal - Updated with BOCA staking (bounty) functionality
 // UPDATED: Dark mode support and full i18n translation keys
 // FIXED: Changed 'discovery.' to 'discover.' to match translation file namespace
+// UPDATED: January 2026 - MIN_STAKE changed to 0.0 for iOS App Store compliance
 
 "use client"
 
@@ -27,12 +28,12 @@ const INITIAL_FORM_STATE = {
   budget_range: [] as string[],
   dietary_restrictions: [] as string[],
   urgency: '7d' as string,
-  stake_amount: '1.0'
+  stake_amount: '0.0'  // UPDATED: Default to 0 (bounty optional)
 };
 
 // Quick stake amount options
-const STAKE_PRESETS = [1, 5, 10, 25];
-const MIN_STAKE = 1.0;
+const STAKE_PRESETS = [0, 1, 5, 10, 25];  // UPDATED: Added 0 for "no bounty" option
+const MIN_STAKE = 0.0;  // UPDATED: Was 1.0, now 0.0 for iOS App Store compliance
 
 const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
   isOpen,
@@ -350,7 +351,7 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
               {/* Stake Amount Input */}
               <div>
                 <label className="block text-sm font-medium text-[#1F1E2A] dark:text-white mb-2">
-                  {t('discover.createRequest.stake.amount') || 'Stake Amount'} <span className="text-[#FF644A]">*</span>
+                  {t('discover.createRequest.stake.amount') || 'Stake Amount'} <span className="text-gray-400 dark:text-gray-500 font-normal">{t('discover.createRequest.stake.optional') || '(optional)'}</span>
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -365,7 +366,7 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
                           ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
                           : 'border-gray-300 dark:border-[#3D3C4A]'
                       }`}
-                      placeholder="1.0"
+                      placeholder="0.0"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
                       BOCA
@@ -389,7 +390,7 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
                             : 'border-gray-300 dark:border-[#3D3C4A] hover:border-[#FF644A] text-[#1F1E2A] dark:text-white'
                       }`}
                     >
-                      {amount} BOCA
+                      {amount === 0 ? (t('discover.createRequest.stake.noBounty') || 'No Bounty') : `${amount} BOCA`}
                     </button>
                   ))}
                 </div>
@@ -403,17 +404,26 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
                 )}
               </div>
 
-              {/* Reward Explainer */}
-              <div className="bg-white/60 dark:bg-[#2D2C3A]/60 rounded-lg px-3 py-2 text-sm">
-                <div className="flex items-center justify-between text-[#1F1E2A] dark:text-white">
-                  <span>{t('discover.createRequest.stake.winnerReceives') || 'Winner receives:'}</span>
-                  <span className="font-bold text-[#FF644A]">{winnerAmount} BOCA (90%)</span>
+              {/* Reward Explainer - Only show if stake > 0 */}
+              {stakeAmount > 0 && (
+                <div className="bg-white/60 dark:bg-[#2D2C3A]/60 rounded-lg px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between text-[#1F1E2A] dark:text-white">
+                    <span>{t('discover.createRequest.stake.winnerReceives') || 'Winner receives:'}</span>
+                    <span className="font-bold text-[#FF644A]">{winnerAmount} BOCA (90%)</span>
+                  </div>
+                  <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 text-xs mt-1">
+                    <span>{t('discover.createRequest.stake.platformFee') || 'Platform fee:'}</span>
+                    <span>{(stakeAmount * 0.1).toFixed(1)} BOCA (10%)</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 text-xs mt-1">
-                  <span>{t('discover.createRequest.stake.platformFee') || 'Platform fee:'}</span>
-                  <span>{(stakeAmount * 0.1).toFixed(1)} BOCA (10%)</span>
+              )}
+
+              {/* No bounty hint - Only show if stake === 0 */}
+              {stakeAmount === 0 && (
+                <div className="bg-white/60 dark:bg-[#2D2C3A]/60 rounded-lg px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                  {t('discover.createRequest.stake.noBountyHint') || 'Tip: Adding a bounty can attract more and faster responses!'}
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Title */}
@@ -627,8 +637,11 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <Coins className="w-4 h-4" />
-                    {t('discover.createRequest.actions.submit', { amount: getStakeAmount().toFixed(1) }) || `Post Request (${getStakeAmount().toFixed(1)} BOCA)`}
+                    {stakeAmount > 0 && <Coins className="w-4 h-4" />}
+                    {stakeAmount > 0 
+                      ? (t('discover.createRequest.actions.submit', { amount: getStakeAmount().toFixed(1) }) || `Post Request (${getStakeAmount().toFixed(1)} BOCA)`)
+                      : (t('discover.createRequest.actions.submitNoBounty') || 'Post Request')
+                    }
                   </>
                 )}
               </button>

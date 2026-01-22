@@ -100,8 +100,6 @@
   },
   "geolocating": "Encontrando sua localização...",
 
-  "legend": "Legenda",
-
   "locationModal": {
     "title": "Escolher Localização",
     "or": "ou busque uma cidade"
@@ -199,11 +197,14 @@
     },
     "stake": {
       "balance": "Seu Saldo",
-      "amount": "Valor do Stake",
+      "amount": "Valor da Recompensa",
+      "optional": "(opcional)",
+      "noBounty": "Sem Recompensa",
+      "noBountyHint": "Dica: Adicionar uma recompensa pode atrair mais respostas e mais rápidas!",
       "winnerReceives": "Vencedor recebe:",
       "platformFee": "Taxa da plataforma:",
       "loading": "Carregando...",
-      "minStake": "Stake mínimo é {amount} BOCA",
+      "minStake": "Recompensa mínima é {amount} BOCA",
       "insufficientBalance": "Saldo insuficiente ({balance} BOCA disponível)",
       "loginRequired": "Faça login para fazer uma pergunta",
       "balanceError": "Não foi possível carregar o saldo",
@@ -291,6 +292,7 @@
     "actions": {
       "cancel": "Cancelar",
       "submit": "Publicar Pergunta ({amount} BOCA)",
+      "submitNoBounty": "Publicar Pergunta",
       "creating": "Criando..."
     },
     "success": "Sua pergunta foi publicada! Você será notificado quando receber dicas.",
@@ -388,12 +390,6 @@
     "closed": "Fechado"
   },
 
-  "tiers": {
-    "myNetwork": "Minha Rede",
-    "similarTastes": "Gostos Similares",
-    "community": "Comunidade",
-    "unrated": "Sem Avaliação"
-  },
   "infoWindow": {
     "fromNetwork": "da sua rede",
     "similarTastesRecommend": "Gostos similares recomendam",
