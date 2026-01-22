@@ -13,6 +13,7 @@ import Logo from '@/components/Logo';
 import { useAuth } from '@/hooks/useAuth';
 import AuthService from '@/services/auth';
 import { useTranslations } from 'next-intl';
+import { useCapacitor } from '@/hooks/useCapacitor';
 import { Star, Clock, UserCheck, AlertTriangle, Search, Shield, Users, TrendingUp } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
@@ -23,6 +24,7 @@ const LandingPage: React.FC = () => {
   const { isAuthenticated, isLoading, isHydrated } = useAuth() as any;
   const router = useRouter();
   const t = useTranslations('landing');
+  const { isCapacitor } = useCapacitor();
 
   // Mount effect
   useEffect(() => {
@@ -37,6 +39,14 @@ const LandingPage: React.FC = () => {
       router.replace('/feed'); // Use replace to prevent back button returning to landing
     }
   }, [mounted, isHydrated, isAuthenticated, router]);
+
+  // MOBILE: Redirect to onboarding if running in Capacitor and not authenticated
+  useEffect(() => {
+    if (mounted && isHydrated && isCapacitor && !isAuthenticated && !isLoading) {
+      console.log('📱 Mobile: Redirecting unauthenticated user to onboarding...');
+      router.replace('/onboarding');
+    }
+  }, [mounted, isHydrated, isCapacitor, isAuthenticated, isLoading, router]);
 
   // Handle OAuth callback - only runs after mounted
   useEffect(() => {
