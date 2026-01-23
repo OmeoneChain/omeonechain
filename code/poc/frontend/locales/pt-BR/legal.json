@@ -1,0 +1,243 @@
+{
+  "privacy": {
+    "title": "Política de Privacidade",
+    "lastUpdated": "Última atualização: Janeiro de 2026",
+    "intro": "A BocaBoca (\"nós\", \"nosso\" ou \"Empresa\") valoriza a sua privacidade e está comprometida em proteger seus dados pessoais. Esta Política de Privacidade explica como coletamos, usamos, compartilhamos e protegemos suas informações quando você usa nosso aplicativo e serviços.",
+    "lgpdCompliance": "Esta política está em conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei nº 13.709/2018) do Brasil.",
+    "sections": {
+      "dataCollection": {
+        "title": "1. Dados que Coletamos",
+        "providedByYou": {
+          "title": "1.1 Dados fornecidos por você:",
+          "phone": "Número de telefone celular (para autenticação via SMS)",
+          "displayName": "Nome de exibição e nome de usuário",
+          "photo": "Foto de perfil (opcional)",
+          "email": "Endereço de e-mail (opcional, para login alternativo)",
+          "recommendations": "Conteúdo de recomendações (textos e fotos de restaurantes)",
+          "connections": "Conexões sociais (quem você segue e quem segue você)"
+        },
+        "automatic": {
+          "title": "1.2 Dados coletados automaticamente:",
+          "location": "Localização geográfica (para mostrar restaurantes próximos)",
+          "device": "Informações do dispositivo (modelo, sistema operacional)",
+          "usage": "Dados de uso do aplicativo (telas visitadas, interações)",
+          "identifiers": "Identificadores de dispositivo"
+        },
+        "thirdParty": {
+          "title": "1.3 Dados de terceiros:",
+          "description": "Se você optar por entrar com Apple ou Google, receberemos informações básicas do perfil conforme autorizado por você."
+        }
+      },
+      "dataUsage": {
+        "title": "2. Como Usamos Seus Dados",
+        "intro": "Utilizamos seus dados para:",
+        "purposes": {
+          "account": "Criar e gerenciar sua conta",
+          "verify": "Verificar sua identidade através de SMS",
+          "recommendations": "Mostrar restaurantes e recomendações relevantes próximos a você",
+          "connect": "Conectar você com amigos e outros usuários",
+          "trustScore": "Calcular e exibir pontuações de confiança (Trust Score)",
+          "tokens": "Processar e distribuir tokens BOCA como recompensa",
+          "improve": "Melhorar nossos serviços e experiência do usuário",
+          "notifications": "Enviar notificações sobre atividades relevantes"
+        }
+      },
+      "legalBasis": {
+        "title": "3. Base Legal para o Tratamento",
+        "intro": "Conforme a LGPD, tratamos seus dados com base nas seguintes hipóteses legais:",
+        "bases": {
+          "contract": "Execução de contrato: para fornecer nossos serviços",
+          "consent": "Consentimento: para envio de comunicações de marketing",
+          "legitimateInterest": "Legítimo interesse: para melhorar nossos serviços",
+          "legal": "Cumprimento de obrigação legal: quando exigido por lei"
+        }
+      },
+      "dataSharing": {
+        "title": "4. Compartilhamento de Dados",
+        "intro": "Podemos compartilhar seus dados com:",
+        "parties": {
+          "users": "Outros usuários: seu perfil público, recomendações e conexões",
+          "providers": "Prestadores de serviços: empresas que nos ajudam a operar (hospedagem, envio de SMS)",
+          "authorities": "Autoridades: quando exigido por lei ou ordem judicial"
+        },
+        "noSale": "Não vendemos seus dados pessoais a terceiros."
+      },
+      "thirdPartyServices": {
+        "title": "5. Serviços de Terceiros",
+        "intro": "Utilizamos os seguintes serviços de terceiros:",
+        "services": {
+          "supabase": "Supabase: banco de dados e autenticação",
+          "twilio": "Twilio: envio de SMS para verificação",
+          "vercel": "Vercel: hospedagem do aplicativo",
+          "auth": "Apple/Google: autenticação social (opcional)",
+          "maps": "Mapbox/Google Maps: serviços de localização"
+        }
+      },
+      "rights": {
+        "title": "6. Seus Direitos (LGPD)",
+        "intro": "Conforme a LGPD, você tem direito a:",
+        "list": {
+          "confirmation": "Confirmação da existência de tratamento de dados",
+          "access": "Acesso aos seus dados pessoais",
+          "correction": "Correção de dados incompletos, inexatos ou desatualizados",
+          "anonymization": "Anonimização, bloqueio ou eliminação de dados",
+          "portability": "Portabilidade dos dados",
+          "revocation": "Revogação do consentimento",
+          "information": "Informação sobre compartilhamento de dados"
+        },
+        "contact": "Para exercer seus direitos, entre em contato conosco através do e-mail: privacidade@bocaboca.xyz"
+      },
+      "security": {
+        "title": "7. Segurança dos Dados",
+        "description": "Implementamos medidas técnicas e organizacionais para proteger seus dados, incluindo criptografia em trânsito e em repouso, controles de acesso e monitoramento de segurança. No entanto, nenhum sistema é 100% seguro, e não podemos garantir segurança absoluta."
+      },
+      "retention": {
+        "title": "8. Retenção de Dados",
+        "description": "Mantemos seus dados enquanto sua conta estiver ativa ou conforme necessário para fornecer nossos serviços. Após a exclusão da conta, seus dados serão removidos dentro de 30 dias, exceto quando a retenção for exigida por lei."
+      },
+      "tokens": {
+        "title": "9. Tokens BOCA",
+        "description": "Os tokens BOCA são recompensas digitais dentro do ecossistema BocaBoca. Eles não constituem moeda, valor mobiliário ou qualquer forma de investimento. O uso de tokens está sujeito aos Termos de Serviço."
+      },
+      "minors": {
+        "title": "10. Menores de Idade",
+        "description": "Nossos serviços são destinados a maiores de 13 anos. Usuários entre 13 e 18 anos devem ter consentimento de um responsável legal para usar o BocaBoca. Não coletamos intencionalmente dados de menores de 13 anos. Se você acredita que um menor de 13 anos forneceu dados pessoais, entre em contato conosco imediatamente."
+      },
+      "changes": {
+        "title": "11. Alterações nesta Política",
+        "description": "Podemos atualizar esta política periodicamente. Notificaremos você sobre alterações significativas através do aplicativo ou por e-mail. O uso continuado após as alterações constitui aceitação da política atualizada."
+      },
+      "contact": {
+        "title": "12. Contato",
+        "email": "E-mail: privacidade@bocaboca.xyz",
+        "website": "Website: https://bocaboca.xyz",
+        "dpo": "Encarregado de Dados (DPO): dpo@bocaboca.xyz"
+      }
+    },
+    "copyright": "© 2026 BocaBoca. Todos os direitos reservados."
+  },
+  "terms": {
+    "title": "Termos de Serviço",
+    "lastUpdated": "Última atualização: Janeiro de 2026",
+    "intro": "Bem-vindo ao BocaBoca! Estes Termos de Serviço (\"Termos\") regem o uso do aplicativo BocaBoca e serviços relacionados (\"Serviço\"). Ao usar nosso Serviço, você concorda com estes Termos. Se você não concordar, não use o Serviço.",
+    "sections": {
+      "about": {
+        "title": "1. Sobre o BocaBoca",
+        "description": "O BocaBoca é uma plataforma social de recomendações de restaurantes que conecta pessoas através de indicações confiáveis de amigos e conhecidos. Nossa missão é transformar recomendações boca a boca autênticas em descobertas gastronômicas verificadas."
+      },
+      "eligibility": {
+        "title": "2. Elegibilidade",
+        "intro": "Para usar o BocaBoca, você deve:",
+        "requirements": {
+          "age": "Ter pelo menos 13 anos de idade",
+          "minor": "Se você tiver entre 13 e 18 anos, deve ter consentimento de um responsável legal",
+          "phone": "Possuir um número de telefone celular válido",
+          "legal": "Ter capacidade legal para celebrar contratos (ou consentimento do responsável)",
+          "notBanned": "Não ter sido previamente banido da plataforma"
+        }
+      },
+      "account": {
+        "title": "3. Sua Conta",
+        "creation": {
+          "title": "3.1 Criação de Conta",
+          "description": "Você pode criar uma conta usando seu número de telefone, Apple ID ou conta Google. Você é responsável por manter a segurança de sua conta e por todas as atividades realizadas através dela."
+        },
+        "truthful": {
+          "title": "3.2 Informações Verdadeiras",
+          "description": "Você concorda em fornecer informações verdadeiras e precisas. Não é permitido criar contas falsas, usar identidades de terceiros ou criar múltiplas contas."
+        }
+      },
+      "content": {
+        "title": "4. Conteúdo do Usuário",
+        "recommendations": {
+          "title": "4.1 Suas Recomendações",
+          "description": "Ao publicar recomendações, avaliações, fotos ou outros conteúdos, você concede ao BocaBoca uma licença mundial, não exclusiva, transferível e sublicenciável para usar, reproduzir, modificar e exibir esse conteúdo em conexão com nosso Serviço."
+        },
+        "guidelines": {
+          "title": "4.2 Diretrizes de Conteúdo",
+          "intro": "Você concorda em NÃO publicar conteúdo que:",
+          "prohibited": {
+            "false": "Seja falso, enganoso ou fraudulento",
+            "rights": "Viole direitos de terceiros (propriedade intelectual, privacidade)",
+            "offensive": "Seja ofensivo, discriminatório ou promova ódio",
+            "spam": "Contenha spam, publicidade não autorizada ou malware",
+            "illegal": "Viole qualquer lei aplicável"
+          }
+        }
+      },
+      "trustScore": {
+        "title": "5. Trust Score (Pontuação de Confiança)",
+        "description": "O Trust Score é uma métrica que reflete a confiabilidade das recomendações com base em diversos fatores, incluindo conexões sociais, histórico de recomendações e validações da comunidade. O algoritmo é proprietário e pode ser ajustado a qualquer momento."
+      },
+      "tokens": {
+        "title": "6. Tokens BOCA",
+        "nature": {
+          "title": "6.1 Natureza dos Tokens",
+          "description": "Os tokens BOCA são pontos de recompensa digitais dentro do ecossistema BocaBoca. Eles podem ser ganhos através de contribuições à plataforma (recomendações, validações, engajamento) e usados para benefícios dentro do app."
+        },
+        "disclaimer": {
+          "title": "6.2 Isenção Importante",
+          "intro": "Os tokens BOCA:",
+          "points": {
+            "notCurrency": "NÃO são moeda, criptomoeda ou valor mobiliário",
+            "noValue": "NÃO possuem valor monetário garantido",
+            "notInvestment": "NÃO constituem investimento financeiro",
+            "notRedeemable": "NÃO são resgatáveis por dinheiro",
+            "mayChange": "Podem ser modificados ou descontinuados a nosso critério"
+          }
+        }
+      },
+      "prohibited": {
+        "title": "7. Conduta Proibida",
+        "intro": "Você concorda em NÃO:",
+        "actions": {
+          "manipulate": "Manipular o sistema de Trust Score ou tokens",
+          "fakeReviews": "Criar avaliações falsas ou compradas",
+          "bots": "Usar bots, scrapers ou automação não autorizada",
+          "harass": "Assediar, intimidar ou ameaçar outros usuários",
+          "security": "Contornar medidas de segurança",
+          "violateTerms": "Violar estes Termos ou políticas relacionadas"
+        }
+      },
+      "ip": {
+        "title": "8. Propriedade Intelectual",
+        "description": "O BocaBoca, incluindo sua marca, logo, design, código e funcionalidades, é propriedade da Empresa e protegido por leis de propriedade intelectual. Você não pode copiar, modificar, distribuir ou criar obras derivadas sem autorização."
+      },
+      "disclaimer": {
+        "title": "9. Isenção de Garantias",
+        "description": "O Serviço é fornecido \"como está\" e \"conforme disponível\". Não garantimos que o Serviço será ininterrupto, seguro ou livre de erros. As recomendações são opiniões de usuários e não representam endosso do BocaBoca."
+      },
+      "liability": {
+        "title": "10. Limitação de Responsabilidade",
+        "description": "Na extensão máxima permitida por lei, o BocaBoca não será responsável por danos indiretos, incidentais, especiais ou consequenciais decorrentes do uso do Serviço, incluindo experiências negativas em restaurantes recomendados."
+      },
+      "termination": {
+        "title": "11. Suspensão e Encerramento",
+        "description": "Podemos suspender ou encerrar sua conta a qualquer momento, com ou sem aviso, por violação destes Termos ou por qualquer outro motivo. Você pode excluir sua conta a qualquer momento através das configurações do aplicativo."
+      },
+      "changes": {
+        "title": "12. Alterações nos Termos",
+        "description": "Podemos modificar estes Termos periodicamente. Alterações significativas serão notificadas através do aplicativo. O uso continuado após as alterações constitui aceitação dos novos Termos."
+      },
+      "law": {
+        "title": "13. Lei Aplicável e Foro",
+        "description": "Estes Termos são regidos pelas leis da República Federativa do Brasil. Qualquer disputa será submetida ao foro da comarca de São Paulo, SP, com exclusão de qualquer outro."
+      },
+      "general": {
+        "title": "14. Disposições Gerais",
+        "provisions": {
+          "severability": "Se qualquer disposição for considerada inválida, as demais permanecerão em vigor",
+          "waiver": "A falha em exercer qualquer direito não constitui renúncia",
+          "entireAgreement": "Estes Termos constituem o acordo integral entre você e o BocaBoca"
+        }
+      },
+      "contact": {
+        "title": "15. Contato",
+        "email": "E-mail: contato@bocaboca.xyz",
+        "website": "Website: https://bocaboca.xyz"
+      }
+    },
+    "agreement": "Ao criar uma conta ou usar o BocaBoca, você confirma que leu, entendeu e concorda com estes Termos de Serviço e nossa Política de Privacidade.",
+    "copyright": "© 2026 BocaBoca. Todos os direitos reservados."
+  }
+}

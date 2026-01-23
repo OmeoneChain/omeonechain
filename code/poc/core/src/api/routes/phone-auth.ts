@@ -28,6 +28,10 @@ const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
+// 🍎 Apple Review test account (bypasses SMS verification)
+const APPLE_REVIEW_PHONE = '+5511999999999';
+const APPLE_REVIEW_CODE = '123456';
+
 /**
  * Generate a 6-digit verification code
  */
@@ -78,6 +82,17 @@ router.post('/request-code', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid phone number format'
+      });
+    }
+    
+    // 🍎 Apple Review test account - skip SMS
+    if (fullPhoneNumber === APPLE_REVIEW_PHONE) {
+      console.log('🍎 Apple Review test account - skipping SMS');
+      return res.json({
+        success: true,
+        message: 'Verification code sent',
+        expiresIn: 600,
+        phoneNumber: fullPhoneNumber.replace(/(\+\d{2})(\d{2})(\d+)(\d{4})/, '$1 $2 ****** $4')
       });
     }
     
@@ -219,6 +234,73 @@ router.post('/verify', async (req: Request, res: Response) => {
     }
     
     const fullPhoneNumber = formatPhoneNumber(phoneNumber, countryCode);
+    
+    // 🍎 Apple Review test account - bypass verification
+    if (fullPhoneNumber === APPLE_REVIEW_PHONE && code === APPLE_REVIEW_CODE) {
+      console.log('🍎 Apple Review test account - bypassing verification');
+      
+      // Check if test user exists
+      let { data: user } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', fullPhoneNumber)
+        .single();
+      
+      let isNewUser = false;
+      
+      if (!user) {
+        // Create Apple Review test user
+        isNewUser = true;
+        const { data: newUser, error: createError } = await supabase
+          .from('users')
+          .insert({
+            phone: fullPhoneNumber,
+            phone_country_code: countryCode,
+            phone_verified: true,
+            phone_confirmed_at: new Date().toISOString(),
+            username: 'applereview',
+            display_name: 'Apple Review',
+            account_tier: 'verified',
+            auth_method: 'phone',
+            token_balance: 50,
+            tokens_earned: 50,
+            reputation_score: 100,
+            trust_score: 50
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error('❌ Failed to create Apple Review user:', createError);
+          throw createError;
+        }
+        user = newUser;
+        console.log('✅ Apple Review test user created:', user.id);
+      }
+      
+      const token = generateToken(user);
+      
+      return res.json({
+        success: true,
+        message: isNewUser ? 'Account created successfully' : 'Login successful',
+        isNewUser,
+        token,
+        user: {
+          id: user.id,
+          phone: user.phone,
+          username: user.username,
+          displayName: user.display_name,
+          accountTier: user.account_tier,
+          authMethod: user.auth_method,
+          tokenBalance: user.token_balance,
+          tokensEarned: user.tokens_earned,
+          reputationScore: user.reputation_score,
+          trustScore: user.trust_score,
+          createdAt: user.created_at
+        },
+        expiresIn: 604800
+      });
+    }
     
     // Find valid verification code
     const { data: verification, error: verifyError } = await supabase
@@ -398,6 +480,16 @@ router.post('/resend', async (req: Request, res: Response) => {
     }
     
     const fullPhoneNumber = formatPhoneNumber(phoneNumber, countryCode);
+    
+    // 🍎 Apple Review test account - skip resend logic
+    if (fullPhoneNumber === APPLE_REVIEW_PHONE) {
+      console.log('🍎 Apple Review test account - skipping resend');
+      return res.json({
+        success: true,
+        message: 'New verification code sent',
+        expiresIn: 600
+      });
+    }
     
     // Check if there's a recent code (prevent spam)
     const { data: recentCode } = await supabase

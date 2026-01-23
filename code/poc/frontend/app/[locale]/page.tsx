@@ -613,8 +613,8 @@ const LandingPage: React.FC = () => {
               {t('footer.copyright')}
             </p>
             <div className="flex gap-4 sm:gap-6 text-xs sm:text-sm text-[#999999] dark:text-gray-500">
-              <a href="#" className="hover:opacity-70 transition-opacity">{t('footer.privacy')}</a>
-              <a href="#" className="hover:opacity-70 transition-opacity">{t('footer.terms')}</a>
+              <Link href="/privacy" className="hover:opacity-70 transition-opacity">{t('footer.privacy')}</Link>
+              <Link href="/terms" className="hover:opacity-70 transition-opacity">{t('footer.terms')}</Link>
               <a href="#" className="hover:opacity-70 transition-opacity">{t('footer.status')}</a>
             </div>
           </div>
