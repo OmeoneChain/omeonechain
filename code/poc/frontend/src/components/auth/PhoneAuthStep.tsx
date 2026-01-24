@@ -115,7 +115,7 @@ const PhoneAuthStep: React.FC<PhoneAuthStepProps> = ({
         headers['Authorization'] = `Bearer ${existingToken}`;
       }
 
-      const response = await fetch(`${API_URL}/api/auth/phone/request-code`, {
+      const response = await fetch(`${API_URL}/auth/phone/request-code`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -210,7 +210,7 @@ const PhoneAuthStep: React.FC<PhoneAuthStepProps> = ({
         headers['Authorization'] = `Bearer ${existingToken}`;
       }
 
-      const response = await fetch(`${API_URL}/api/auth/phone/verify`, {
+      const response = await fetch(`${API_URL}/auth/phone/verify`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -250,7 +250,7 @@ const PhoneAuthStep: React.FC<PhoneAuthStepProps> = ({
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/phone/resend`, {
+      const response = await fetch(`${API_URL}/auth/phone/resend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
