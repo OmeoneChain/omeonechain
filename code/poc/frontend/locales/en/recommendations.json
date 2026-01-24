@@ -186,7 +186,7 @@
   "publish": {
     "bonusHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
     "publishing": "Publicando...",
-    "button": "Publicar e ganhar {tokens} tokens",
+    "button": "Publish",
     "bonusEarned": "Bônus disponível após validação.",
     "disabledReason": {
       "noRestaurant": "Selecione um restaurante para publicar",

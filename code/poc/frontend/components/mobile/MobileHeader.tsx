@@ -200,7 +200,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                     href="/my-rewards"
                     className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FFE8E3] dark:bg-[#FF644A]/20 active:opacity-70 transition-opacity"
                   >
-                    <Gift size={13} className="text-[#FF644A]" />
+                    <Coins size={13} className="text-[#FF644A]" />
                     {isLoadingBalance ? (
                       <div className="w-8 h-4 bg-[#FFD4CC] dark:bg-[#FF644A]/30 rounded animate-pulse" />
                     ) : (

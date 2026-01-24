@@ -264,7 +264,7 @@ router.post('/verify', async (req: Request, res: Response) => {
             auth_method: 'phone',
             token_balance: 50,
             tokens_earned: 50,
-            reputation_score: 100,
+            reputation_score: 50,
             trust_score: 50
           })
           .select()

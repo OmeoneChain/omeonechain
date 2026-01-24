@@ -186,7 +186,7 @@
       "publish": {
         "bonusHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
         "publishing": "Publicando...",
-        "button": "Publicar e ganhar {tokens} tokens",
+        "button": "Publicar",
         "bonusEarned": "Bônus disponível após validação."
       },
     "sections": {
@@ -207,7 +207,7 @@
     "optional": "opcional",
 
     "publish": {
-      "button": "Publicar e ganhar {tokens} tokens",
+      "button": "Publicar",
       "publishing": "Publicando...",
       "bonusEarned": "Bônus por adicionar mais detalhes!",
       "disabledReason": {
