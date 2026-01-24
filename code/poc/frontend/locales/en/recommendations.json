@@ -175,42 +175,42 @@
   },
 
   "singleScreen": {
-  "title": "Criar uma Recomendação",
-  "subtitle": "Avalie, adicione detalhes e publique",
-  "restaurantLabel": "Restaurante",
-  "optional": "opcional",
-  "publishHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
-  "restaurant": {
-    "change": "Alterar"
-  },
-  "publish": {
-    "bonusHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
-    "publishing": "Publicando...",
-    "button": "Publish",
-    "bonusEarned": "Bônus disponível após validação.",
-    "disabledReason": {
-      "noRestaurant": "Selecione um restaurante para publicar",
-      "noRating": "Adicione uma avaliação para publicar"
+    "title": "Create a Recommendation",
+    "subtitle": "Rate, add details and publish",
+    "restaurantLabel": "Restaurant",
+    "optional": "optional",
+    "publishHint": "Tip: some bonuses are unlocked with validation and community engagement",
+    "restaurant": {
+      "change": "Change"
+    },
+    "publish": {
+      "bonusHint": "Tip: some bonuses are unlocked with validation and community engagement",
+      "publishing": "Publishing...",
+      "button": "Publish",
+      "bonusEarned": "Bonus available after validation.",
+      "disabledReason": {
+        "noRestaurant": "Select a restaurant to publish",
+        "noRating": "Add a rating to publish"
+      }
+    },
+    "sections": {
+      "photos": "Photos",
+      "dishes": "Individual Dishes",
+      "aspects": "Restaurant Aspects",
+      "context": "Visit Context",
+      "labels": "Labels",
+      "comments": "Comments"
+    },
+    "sectionSubtitle": {
+      "comments": "Add optional comments about your experience"
+    },
+    "cancelConfirm": {
+      "title": "Discard recommendation?",
+      "message": "You have unsaved changes. Are you sure you want to leave?",
+      "stay": "Keep editing",
+      "leave": "Discard"
     }
   },
-  "sections": {
-    "photos": "Fotos",
-    "dishes": "Pratos Individuais",
-    "aspects": "Aspectos do Restaurante",
-    "context": "Contexto da Visita",
-    "labels": "Etiquetas",
-    "comments": "Comentários"
-  },
-  "sectionSubtitle": {
-    "comments": "Adicione comentários opcionais sobre sua experiência"
-  },
-  "cancelConfirm": {
-    "title": "Discard recommendation?",
-    "message": "You have unsaved changes. Are you sure you want to leave?",
-    "stay": "Keep editing",
-    "leave": "Discard"
-  }
-},
 
   "photos": {
     "tagging": {

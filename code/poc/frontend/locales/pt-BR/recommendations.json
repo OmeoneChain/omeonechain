@@ -175,20 +175,24 @@
   },
 
   "singleScreen": {
-      "title": "Criar uma Recomendação",
-      "subtitle": "Avalie, adicione detalhes e publique",
-      "restaurantLabel": "Restaurante",
-      "optional": "opcional",
-      "publishHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
-      "restaurant": {
-        "change": "Alterar"
-      },
-      "publish": {
-        "bonusHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
-        "publishing": "Publicando...",
-        "button": "Publicar",
-        "bonusEarned": "Bônus disponível após validação."
-      },
+    "title": "Criar uma Recomendação",
+    "subtitle": "Avalie, adicione detalhes e publique",
+    "restaurantLabel": "Restaurante",
+    "optional": "opcional",
+    "publishHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
+    "restaurant": {
+      "change": "Alterar"
+    },
+    "publish": {
+      "bonusHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
+      "publishing": "Publicando...",
+      "button": "Publicar",
+      "bonusEarned": "Bônus disponível após validação.",
+      "disabledReason": {
+        "noRestaurant": "Selecione um restaurante para publicar",
+        "noRating": "Adicione uma avaliação para publicar"
+      }
+    },
     "sections": {
       "photos": "Fotos",
       "dishes": "Pratos Individuais",
@@ -197,30 +201,15 @@
       "labels": "Etiquetas",
       "comments": "Comentários"
     },
-
-    "subtitle": "Avalie, adicione detalhes e publique",
-
     "sectionSubtitle": {
       "comments": "Adicione comentários opcionais sobre sua experiência"
     },
-
-    "optional": "opcional",
-
-    "publish": {
-      "button": "Publicar",
-      "publishing": "Publicando...",
-      "bonusEarned": "Bônus por adicionar mais detalhes!",
-      "disabledReason": {
-        "noRestaurant": "Selecione um restaurante para publicar",
-        "noRating": "Adicione uma avaliação para publicar"
-      }
-    }
     "cancelConfirm": {
       "title": "Descartar recomendação?",
       "message": "Você tem alterações não salvas. Tem certeza que deseja sair?",
       "stay": "Continuar editando",
       "leave": "Descartar"
-    },
+    }
   },
 
   "photos": {
