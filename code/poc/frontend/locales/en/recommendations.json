@@ -203,6 +203,12 @@
   },
   "sectionSubtitle": {
     "comments": "Adicione comentários opcionais sobre sua experiência"
+  },
+  "cancelConfirm": {
+    "title": "Discard recommendation?",
+    "message": "You have unsaved changes. Are you sure you want to leave?",
+    "stay": "Keep editing",
+    "leave": "Discard"
   }
 },
 
