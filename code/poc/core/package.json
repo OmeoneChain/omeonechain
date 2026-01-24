@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
+    "start": "ts-node --transpile-only src/server.ts",
     "build": "tsc",
     "dev": "ts-node src/index.ts",
     "server": "ts-node src/server.ts",
