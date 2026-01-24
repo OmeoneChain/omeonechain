@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs_18"]
+
+[phases.install]
+cmds = ["cd code/poc/core && npm install"]
+
+[phases.build]
+cmds = []
+
+[start]
+cmd = "cd code/poc/core && npm start"
