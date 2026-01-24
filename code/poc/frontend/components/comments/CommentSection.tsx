@@ -25,7 +25,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   onCommentCountChange,
   onAuthorClick,
   collapsedByDefault = false,
-  backendUrl = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev'
+  backendUrl = 'https://omeonechain-production.up.railway.app'
 }) => {
   const t = useTranslations();
   

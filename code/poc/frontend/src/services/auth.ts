@@ -13,7 +13,7 @@ const getApiBaseUrl = (): string => {
     NODE_ENV: process.env.NODE_ENV
   });
 
-  const baseUrl = nextPublicUrl || reactAppUrl || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api';
+  const baseUrl = nextPublicUrl || reactAppUrl || 'https://omeonechain-production.up.railway.app/api';
   console.log('🔗 Auth Service using API URL:', baseUrl);
   
   return baseUrl;
@@ -268,7 +268,7 @@ export class AuthService {
    */
   static loginWithGoogle(): void {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
-                       'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+                       'https://omeonechain-production.up.railway.app';
     console.log('🔵 Redirecting to Google OAuth:', `${backendUrl}/api/auth/social/google`);
     window.location.href = `${backendUrl}/api/auth/social/google`;
   }
@@ -278,7 +278,7 @@ export class AuthService {
    */
   static loginWithInstagram(): void {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
-                       'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+                       'https://omeonechain-production.up.railway.app';
     console.log('📸 Redirecting to Instagram OAuth:', `${backendUrl}/api/auth/social/instagram`);
     window.location.href = `${backendUrl}/api/auth/social/instagram`;
   }
@@ -288,7 +288,7 @@ export class AuthService {
    */
   static loginWithApple(): void {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
-                       'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+                       'https://omeonechain-production.up.railway.app';
     console.log('🍎 Redirecting to Apple OAuth:', `${backendUrl}/api/auth/social/apple`);
     window.location.href = `${backendUrl}/api/auth/social/apple`;
   }
@@ -298,7 +298,7 @@ export class AuthService {
    */
   static loginWithTwitter(): void {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
-                       'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+                       'https://omeonechain-production.up.railway.app';
     console.log('🐦 Redirecting to Twitter OAuth:', `${backendUrl}/api/auth/social/twitter`);
     window.location.href = `${backendUrl}/api/auth/social/twitter`;
   }

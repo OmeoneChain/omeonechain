@@ -63,7 +63,7 @@ const WelcomeStep: React.FC<WelcomeStepProps> = ({ user, onComplete }) => {
       try {
         // Check with backend API
         const response = await fetch(
-          `https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api/auth/profile/availability/${username}`
+          `https://omeonechain-production.up.railway.app/api/auth/profile/availability/${username}`
         );
         
         if (response.ok) {

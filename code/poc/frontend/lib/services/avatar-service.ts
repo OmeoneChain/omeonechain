@@ -2,7 +2,7 @@
 // Service for uploading user avatars via the backend Pinata endpoint
 
 // API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jfxqjp-3001.app.github.dev';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
 
 // Maximum file size (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;

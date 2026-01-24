@@ -2,7 +2,7 @@
 // UPDATED VERSION: Added attribution endpoint, removed all /v1/ prefixes
 
 // FIXED: Use environment variables properly
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://omeonechain-production.up.railway.app/api';
 const WS_BASE_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:3001';
 
 // Log the URLs being used

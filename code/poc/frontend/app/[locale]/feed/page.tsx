@@ -198,7 +198,7 @@ const MainFeed: React.FC = () => {
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const { isCapacitor } = useCapacitor();
 
-  const BACKEND_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+  const BACKEND_URL = 'https://omeonechain-production.up.railway.app';
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

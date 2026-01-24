@@ -53,7 +53,7 @@ interface TrendingWidgetProps {
 // CONSTANTS
 // =============================================================================
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app/api';
 
 const TYPE_CONFIG: Record<TrendingItemType, { 
   icon: React.ElementType; 

@@ -96,7 +96,7 @@ export default function CuratedListDetailPage() {
   const listId = params.id as string;
   const locale = params.locale as string || 'en';
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
 
   const [list, setList] = useState<CuratedListDetail | null>(null);
   const [loading, setLoading] = useState(true);

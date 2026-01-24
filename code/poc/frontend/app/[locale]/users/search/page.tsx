@@ -44,7 +44,7 @@ function UserSearchContent() {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api/social/users/discover?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`https://omeonechain-production.up.railway.app/api/social/users/discover?q=${encodeURIComponent(query)}`);
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data.users || data || []);

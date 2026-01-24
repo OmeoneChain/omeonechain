@@ -257,7 +257,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   onDelete,
   onReport,
   className,
-  backendUrl = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev'
+  backendUrl = 'https://omeonechain-production.up.railway.app'
 }) => {
   const t = useTranslations('recommendations');
   const photoScrollRef = useRef<HTMLDivElement>(null);

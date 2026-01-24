@@ -24,7 +24,7 @@ import AppleSignIn from './AppleSignIn';
 import { useAuth } from '@/hooks/useAuth';
 
 // API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jfxqjp-3001.app.github.dev';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
 
 // Auth flow steps
 type AuthStep = 'welcome' | 'phone' | 'sms' | 'profile' | 'checklist';

@@ -77,7 +77,7 @@ const FollowSuggestionsStep: React.FC<FollowSuggestionsStepProps> = ({
         console.log('🔍 Fetching user suggestions...');
         
         const response = await fetch(
-          'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api/users/suggestions',
+          'https://omeonechain-production.up.railway.app/api/users/suggestions',
           {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('omeone_auth_token')}`,
@@ -133,7 +133,7 @@ const FollowSuggestionsStep: React.FC<FollowSuggestionsStepProps> = ({
       console.log('👥 Following user:', userId);
       
       const response = await fetch(
-        'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api/social/follow',
+        'https://omeonechain-production.up.railway.app/api/social/follow',
         {
           method: 'POST',
           headers: {

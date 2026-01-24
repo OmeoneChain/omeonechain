@@ -247,7 +247,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   const [editingDishId, setEditingDishId] = useState<string | null>(null);
   const [customTag, setCustomTag] = useState('');
 
-  const API_BASE_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+  const API_BASE_URL = 'https://omeonechain-production.up.railway.app';
 
   const location = {
     latitude: -15.8052,

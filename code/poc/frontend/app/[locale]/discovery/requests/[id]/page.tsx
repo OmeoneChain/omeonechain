@@ -57,7 +57,7 @@ import TipResponseModal from '@/components/discover/TipResponseModal';
 import ResponseCard from '@/components/discover/ResponseCard';
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
 
 // Constants
 const MAX_RESTAURANTS_PER_RESPONSE = 5;

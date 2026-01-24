@@ -23,7 +23,7 @@ export const SocialLoginButtons: React.FC<SocialLoginButtonsProps> = ({
       onSocialLogin(provider);
     } else {
       // Redirect to OAuth endpoint
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
     window.location.href = `${backendUrl}/api/auth/social/${provider}`;
     }
   };

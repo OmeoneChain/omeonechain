@@ -75,7 +75,7 @@ const DiscoverPage = () => {
     followers_count: number;
   } | null>(null);
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev/api';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app/api';
 
   // Filter function for searching lists
   const filterListsByQuery = useCallback((lists: any[], query: string): any[] => {

@@ -105,7 +105,7 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
         return;
       }
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
       
       const response = await fetch(`${API_BASE_URL}/tokens/balance`, {
         headers: {
@@ -241,7 +241,7 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
         return;
       }
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
 
       const response = await fetch(`${API_BASE_URL}/bounty/create`, {
         method: 'POST',

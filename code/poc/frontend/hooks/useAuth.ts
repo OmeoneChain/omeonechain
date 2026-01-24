@@ -68,7 +68,7 @@ const initialAuthState: AuthState = {
   canEarnTokens: false,
 };
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
 
 // Token expiry buffer - refresh 5 minutes before expiry
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;

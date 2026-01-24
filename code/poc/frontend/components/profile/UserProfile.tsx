@@ -171,7 +171,7 @@ interface ResharedRecommendation {
 
 // ---- API base URL normalization (supports base with or without /api suffix) ----
 const FALLBACK_BACKEND_URL =
-  'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+  'https://omeonechain-production.up.railway.app';
 
 function buildApiUrl(base: string, path: string) {
   // path should be like "/api/users/123" OR "/users/123" depending on base

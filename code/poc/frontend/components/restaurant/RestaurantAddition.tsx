@@ -104,7 +104,7 @@ export default function RestaurantAddition({
   const [showSuccess, setShowSuccess] = useState(false);
 
   // API Base URL - matches your Core Server
-  const API_BASE_URL = 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+  const API_BASE_URL = 'https://omeonechain-production.up.railway.app';
 
   // Load recent searches from localStorage
   useEffect(() => {

@@ -213,7 +213,7 @@ const CreateListFlow: React.FC<CreateListFlowProps> = ({
     setIsSubmitting(true);
 
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
 
       const restaurantIds = selectedRestaurants
         .map(r => {
