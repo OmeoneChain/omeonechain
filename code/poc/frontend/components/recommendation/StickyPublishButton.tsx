@@ -96,12 +96,6 @@ export function StickyPublishButton({
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#2D2C3A]/95 backdrop-blur-md border-t border-gray-200 dark:border-[#3D3C4A] pb-[env(safe-area-inset-bottom,16px)]">
       <div className="px-4 py-3 max-w-lg mx-auto">
-        {/* Bonus hint - always show when not disabled */}
-        {!disabled && !isPublishing && (
-          <p className="text-xs text-center mb-2 text-gray-500 dark:text-gray-400">
-            {tt('singleScreen.publish.bonusHint')}
-          </p>
-        )}
 
         {/* Disabled reason message */}
         {disabled && disabledReason && !isPublishing && (
