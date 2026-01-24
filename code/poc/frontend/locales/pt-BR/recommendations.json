@@ -208,7 +208,7 @@
       "title": "Descartar recomendação?",
       "message": "Você tem alterações não salvas. Tem certeza que deseja sair?",
       "stay": "Continuar editando",
-      "leave": "Descartar"
+      "discard": "Descartar"
     }
   },
 
