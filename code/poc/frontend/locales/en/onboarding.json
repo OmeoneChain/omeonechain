@@ -1,0 +1,23 @@
+{
+  "welcome": {
+    "slide1": {
+      "title": "Trust Your Network's Taste",
+      "subtitle": "Find restaurants recommended by people you actually trust — not strangers or algorithms."
+    },
+    "slide2": {
+      "title": "Never Lost in the Scroll",
+      "subtitle": "That perfect restaurant rec from your friend? It's saved, searchable, and there when you need it."
+    },
+    "slide3": {
+      "title": "Your Taste, Your Data",
+      "subtitle": "Build a taste profile that's yours — portable, private, and always improving."
+    },
+    "getStarted": "Get Started",
+    "alreadyHaveAccount": "Already have an account?",
+    "logIn": "Log in",
+    "termsPrefix": "By continuing, you agree to our",
+    "terms": "Terms",
+    "privacyPrefix": "You acknowledge receipt and understanding of our",
+    "privacyPolicy": "Privacy Policy"
+  }
+}

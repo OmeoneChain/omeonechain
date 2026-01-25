@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>BocaBoca</string>
+	<string>BocaBoca</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,8 +24,17 @@
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	
+	<!-- Privacy Permissions -->
 	<key>NSContactsUsageDescription</key>
 	<string>BocaBoca uses your contacts to help you find friends who are already using the app.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>BocaBoca needs camera access to take photos of dishes and restaurants for your recommendations.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>BocaBoca needs access to your photo library to add photos to your recommendations.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>BocaBoca needs permission to save photos to your library.</string>
+	
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>

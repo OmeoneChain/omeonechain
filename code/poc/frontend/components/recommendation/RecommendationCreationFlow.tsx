@@ -7,6 +7,7 @@
 // UPDATED: Dark mode support added
 // UPDATED: 0.5 increments for Restaurant Aspects
 // UPDATED: Cancel button added
+// UPDATED: Touch-friendly rating sliders (Jan 25, 2026)
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -45,6 +46,74 @@ import StickyPublishButton from './StickyPublishButton';
 const CS: any = CollapsibleSection as any;
 const RH: any = RestaurantHeader as any;
 const SPB: any = StickyPublishButton as any;
+
+// ============================================
+// TOUCH-FRIENDLY SLIDER STYLES
+// ============================================
+const sliderStyles = `
+  /* Track styling */
+  .touch-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 12px;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+  }
+  
+  /* Webkit (Chrome, Safari, iOS) thumb */
+  .touch-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #FF644A;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    margin-top: -10px; /* Center thumb on track */
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  
+  .touch-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .touch-slider::-webkit-slider-thumb:active {
+    transform: scale(1.15);
+    box-shadow: 0 4px 12px rgba(255, 100, 74, 0.4);
+  }
+  
+  /* Firefox thumb */
+  .touch-slider::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #FF644A;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  
+  .touch-slider::-moz-range-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .touch-slider::-moz-range-thumb:active {
+    transform: scale(1.15);
+    box-shadow: 0 4px 12px rgba(255, 100, 74, 0.4);
+  }
+  
+  /* Firefox track */
+  .touch-slider::-moz-range-track {
+    height: 12px;
+    border-radius: 8px;
+  }
+`;
 
 // ============================================
 // BRAND COLORS (BocaBoca Brand Guidelines)
@@ -790,6 +859,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
   return (
     <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
+      {/* Inject slider styles */}
+      <style>{sliderStyles}</style>
+      
       <CleanHeader />
 
       <div className="max-w-2xl mx-auto px-4 py-8 pb-28">
@@ -851,25 +923,28 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             </div>
           )}
 
-          {/* Rating (required) */}
+          {/* Rating (required) - TOUCH FRIENDLY */}
           <div className={`mb-8 ${!hasRestaurant ? 'opacity-50 pointer-events-none' : ''}`}>
             <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-3">
               {t('steps.essentials.overallRating') || 'Overall rating'} <span className="text-[#FF644A]">*</span>
             </label>
 
             <div className="flex items-center space-x-4">
-              <input
-                type="range"
-                min="0"
-                max="10"
-                step="0.5"
-                value={draft.overall_rating}
-                onChange={e => setDraft(prev => ({ ...prev, overall_rating: parseFloat(e.target.value) }))}
-                className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
-                }}
-              />
+              {/* Touch-friendly slider with larger hit area */}
+              <div className="flex-1 py-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  step="0.5"
+                  value={draft.overall_rating}
+                  onChange={e => setDraft(prev => ({ ...prev, overall_rating: parseFloat(e.target.value) }))}
+                  className="w-full touch-slider"
+                  style={{
+                    background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
+                  }}
+                />
+              </div>
               <div className="flex items-center space-x-2 min-w-[140px]">
                 <Star className="h-5 w-5 text-[#FF644A] fill-[#FF644A]" />
                 <span className="text-2xl font-bold text-[#FF644A]">{formatRating(draft.overall_rating)}</span>
@@ -882,61 +957,90 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
           {/* Optional sections only show once restaurant is selected */}
           {hasRestaurant && (
-            <div className="space-y-4">
+            <>
+              {/* Completion Divider - Shows users they can publish now, optional sections below */}
+              <div className="my-6 py-4 px-4 bg-[#BFE2D9]/30 dark:bg-[#BFE2D9]/10 border border-[#BFE2D9] dark:border-[#BFE2D9]/30 rounded-xl text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="text-lg">✅</span>
+                  <span className="font-semibold text-[#1F1E2A] dark:text-white">
+                    {t('singleScreen.readyToPublish') || 'Good to go!'}
+                  </span>
+                </div>
+                <p className="text-sm text-[#1F1E2A]/70 dark:text-gray-400">
+                  {t('singleScreen.optionalDetails') || 'Want to add more? More details = smarter recommendations for you, and better tips for your network.'}
+                </p>
+              </div>
+
+              <div className="space-y-4">
               {/* 1) Restaurant Aspects */}
               <CS
                 title={t('singleScreen.sections.aspects') || t('aspects.title') || 'Restaurant Aspects'}
                 icon={<Star className="h-5 w-5 text-[#FF644A]" />}
                 defaultOpen={!!draft.aspects}
               >
-                <div className="space-y-4">
-                  {/* Ambiance */}
+                <div className="space-y-5">
+                  {/* Ambiance - TOUCH FRIENDLY */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.ambiance')}</label>
                     <div className="flex items-center space-x-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.5"
-                        value={aspects.ambiance}
-                        onChange={e => updateAspects({ ambiance: parseFloat(e.target.value) })}
-                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
-                      />
+                      <div className="flex-1 py-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max="10"
+                          step="0.5"
+                          value={aspects.ambiance}
+                          onChange={e => updateAspects({ ambiance: parseFloat(e.target.value) })}
+                          className="w-full touch-slider"
+                          style={{
+                            background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
+                          }}
+                        />
+                      </div>
                       <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(aspects.ambiance)}/10</span>
                     </div>
                   </div>
 
-                  {/* Service */}
+                  {/* Service - TOUCH FRIENDLY */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.service')}</label>
                     <div className="flex items-center space-x-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.5"
-                        value={aspects.service}
-                        onChange={e => updateAspects({ service: parseFloat(e.target.value) })}
-                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
-                      />
+                      <div className="flex-1 py-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max="10"
+                          step="0.5"
+                          value={aspects.service}
+                          onChange={e => updateAspects({ service: parseFloat(e.target.value) })}
+                          className="w-full touch-slider"
+                          style={{
+                            background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
+                          }}
+                        />
+                      </div>
                       <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(aspects.service)}/10</span>
                     </div>
                   </div>
 
-                  {/* Value for Money */}
+                  {/* Value for Money - TOUCH FRIENDLY */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.valueForMoney')}</label>
                     <div className="flex items-center space-x-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.5"
-                        value={aspects.value_for_money}
-                        onChange={e => updateAspects({ value_for_money: parseFloat(e.target.value) })}
-                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
-                      />
+                      <div className="flex-1 py-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max="10"
+                          step="0.5"
+                          value={aspects.value_for_money}
+                          onChange={e => updateAspects({ value_for_money: parseFloat(e.target.value) })}
+                          className="w-full touch-slider"
+                          style={{
+                            background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
+                          }}
+                        />
+                      </div>
                       <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(aspects.value_for_money)}/10</span>
                     </div>
                   </div>
@@ -949,7 +1053,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                         <button
                           key={option.value}
                           onClick={() => updateAspects({ noise_level: option.value as any })}
-                          className={`p-2 rounded-xl text-center text-sm transition-colors ${
+                          className={`p-3 rounded-xl text-center text-sm transition-colors ${
                             aspects.noise_level === option.value
                               ? 'bg-[#FF644A] text-white'
                               : 'bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:border-[#FF644A]'
@@ -972,7 +1076,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                         placeholder={t('aspects.minutesPlaceholder')}
                         value={aspects.wait_time_minutes || ''}
                         onChange={e => updateAspects({ wait_time_minutes: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                        className="flex-1 px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                        className="flex-1 px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                         min="0"
                       />
                       <span className="text-sm text-[#9CA3AF] dark:text-gray-500">{t('aspects.minutes')}</span>
@@ -1043,7 +1147,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                     </div>
                   )}
 
-                  {/* Add/edit dish */}
+                  {/* Add/edit dish - TOUCH FRIENDLY SLIDER */}
                   <div className="space-y-3 bg-white dark:bg-[#353444] p-4 rounded-xl border-2 border-dashed border-[#FF644A]/30 dark:border-[#FF644A]/40">
                     <p className="text-sm font-medium text-[#1F1E2A] dark:text-white">{editingDishId ? t('dishes.editDish') : t('dishes.addDish')}</p>
 
@@ -1052,19 +1156,24 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                       placeholder={t('dishes.namePlaceholder')}
                       value={currentDish.name}
                       onChange={e => setCurrentDish(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                     />
 
                     <div className="flex items-center space-x-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.5"
-                        value={currentDish.rating}
-                        onChange={e => setCurrentDish(prev => ({ ...prev, rating: parseFloat(e.target.value) }))}
-                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
-                      />
+                      <div className="flex-1 py-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max="10"
+                          step="0.5"
+                          value={currentDish.rating}
+                          onChange={e => setCurrentDish(prev => ({ ...prev, rating: parseFloat(e.target.value) }))}
+                          className="w-full touch-slider"
+                          style={{
+                            background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
+                          }}
+                        />
+                      </div>
                       <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(currentDish.rating)}/10</span>
                     </div>
 
@@ -1073,13 +1182,13 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                       value={currentDish.notes || ''}
                       onChange={e => setCurrentDish(prev => ({ ...prev, notes: e.target.value }))}
                       rows={2}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                     />
 
                     <div className="flex gap-2">
                       <button
                         onClick={() => setCurrentDish(prev => ({ ...prev, would_order_again: true }))}
-                        className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${
                           currentDish.would_order_again ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white hover:bg-gray-200 dark:hover:bg-[#404050]'
                         }`}
                       >
@@ -1087,7 +1196,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                       </button>
                       <button
                         onClick={() => setCurrentDish(prev => ({ ...prev, would_order_again: false }))}
-                        className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${
                           !currentDish.would_order_again ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white hover:bg-gray-200 dark:hover:bg-[#404050]'
                         }`}
                       >
@@ -1099,7 +1208,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                       {editingDishId && (
                         <button
                           onClick={handleCancelEditDish}
-                          className="flex-1 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#404050] transition-colors"
+                          className="flex-1 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#404050] transition-colors"
                         >
                           {t('actions.cancel')}
                         </button>
@@ -1107,7 +1216,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                       <button
                         onClick={handleAddDish}
                         disabled={!currentDish.name.trim()}
-                        className="flex-1 py-2 bg-[#FF644A] text-white rounded-xl hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                        className="flex-1 py-3 bg-[#FF644A] text-white rounded-xl hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
                       >
                         <Plus className="h-4 w-4 inline mr-1" />
                         {editingDishId ? t('actions.save') : t('actions.add')}
@@ -1125,7 +1234,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                 defaultOpen={draft.photos.length > 0}
               >
                 <div className="space-y-4">
-                  <EnhancedPhotoUpload photos={draft.photos} onPhotosChange={handlePhotosChange} maxPhotos={5} allowLocation={true} />
+                  <EnhancedPhotoUpload photos={draft.photos} onPhotosChange={handlePhotosChange} maxPhotos={5} />
 
                   {draft.photos.length > 0 && (
                     <p className="text-xs text-green-600 dark:text-green-400">
@@ -1185,7 +1294,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                                       updatePhotoTag(idx, { dish_tag: next, dish_tag_other: undefined });
                                     }
                                   }}
-                                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+                                  className="w-full px-3 py-3 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
                                 >
                                   <option value="skip">{t('photos.tagging.skip')}</option>
                 
@@ -1214,7 +1323,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                                     value={photo.dish_tag_other || ''}
                                     onChange={e => updatePhotoTag(idx, { dish_tag_other: e.target.value })}
                                     placeholder={t('photos.tagging.otherPlaceholder')}
-                                    className="mt-2 w-full px-3 py-2 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+                                    className="mt-2 w-full px-3 py-3 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
                                   />
                                 )}
 
@@ -1305,7 +1414,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                             const newTags = active ? draft.context_tags.filter(tg => tg !== tag.id) : [...draft.context_tags, tag.id];
                             setDraft(prev => ({ ...prev, context_tags: newTags }));
                           }}
-                          className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                          className={`px-4 py-3 rounded-full text-sm font-medium transition-all duration-200 ${
                             active
                               ? 'bg-[#FF644A] text-white shadow-md'
                               : 'bg-[#FFF4E1] dark:bg-[#353444] hover:bg-[#FFE4D6] dark:hover:bg-[#404050] text-[#1F1E2A] dark:text-white border border-gray-200 dark:border-[#3D3C4A]'
@@ -1330,12 +1439,12 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                           handleAddCustomTag();
                         }
                       }}
-                      className="flex-1 px-4 py-2 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+                      className="flex-1 px-4 py-3 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
                     />
                     <button
                       onClick={handleAddCustomTag}
                       disabled={!customTag.trim()}
-                      className="px-4 py-2 bg-[#FF644A] text-white rounded-xl text-sm hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-4 py-3 bg-[#FF644A] text-white rounded-xl text-sm hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -1349,7 +1458,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                         .map(tag => (
                           <span
                             key={tag}
-                            className="px-3 py-1 bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#1F1E2A] dark:text-[#6EE7B7] rounded-full text-sm flex items-center gap-1.5"
+                            className="px-3 py-2 bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#1F1E2A] dark:text-[#6EE7B7] rounded-full text-sm flex items-center gap-1.5"
                           >
                             #{tag}
                             <button
@@ -1380,7 +1489,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                         <button
                           key={option.value}
                           onClick={() => updateContext({ occasion: option.value as any })}
-                          className={`p-2 rounded-xl text-sm transition-colors ${
+                          className={`p-3 rounded-xl text-sm transition-colors ${
                             context.occasion === option.value 
                               ? 'bg-[#FF644A] text-white' 
                               : 'bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:border-[#FF644A]'
@@ -1401,7 +1510,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                         type="number"
                         value={context.party_size}
                         onChange={e => updateContext({ party_size: parseInt(e.target.value, 10) || 1 })}
-                        className="flex-1 px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                        className="flex-1 px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                         min="1"
                         max="20"
                       />
@@ -1417,7 +1526,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                         <button
                           key={option.value}
                           onClick={() => updateContext({ meal_type: option.value as any })}
-                          className={`p-2 rounded-xl text-xs transition-colors ${
+                          className={`p-3 rounded-xl text-xs transition-colors ${
                             context.meal_type === option.value 
                               ? 'bg-[#FF644A] text-white' 
                               : 'bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:border-[#FF644A]'
@@ -1444,7 +1553,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                           day_of_week: dayOfWeek,
                         });
                       }}
-                      className="w-full px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                     />
                   </div>
 
@@ -1459,7 +1568,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                         placeholder="0.00"
                         value={context.total_spent || ''}
                         onChange={e => updateContext({ total_spent: e.target.value ? parseFloat(e.target.value) : undefined })}
-                        className="flex-1 px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                        className="flex-1 px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                         step="0.01"
                         min="0"
                       />
@@ -1476,7 +1585,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                         placeholder={t('aspects.minutesPlaceholder')}
                         value={context.visit_duration_minutes || ''}
                         onChange={e => updateContext({ visit_duration_minutes: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                        className="flex-1 px-3 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                        className="flex-1 px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                         min="0"
                       />
                       <span className="text-sm text-[#9CA3AF] dark:text-gray-500">{t('aspects.minutes')}</span>
@@ -1484,7 +1593,8 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                   </div>
                 </div>
               </CS>
-            </div>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -1502,13 +1612,13 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCancelConfirm(false)}
-                className="flex-1 py-2 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm font-medium text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
+                className="flex-1 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm font-medium text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
               >
                 {t('singleScreen.cancelConfirm.stay') || 'Keep editing'}
               </button>
               <button
                 onClick={handleConfirmCancel}
-                className="flex-1 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition-colors"
+                className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition-colors"
               >
                 {t('singleScreen.cancelConfirm.discard') || 'Discard'}
               </button>

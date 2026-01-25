@@ -1,0 +1,23 @@
+{
+  "welcome": {
+    "slide1": {
+      "title": "Confie no Gosto da Sua Rede",
+      "subtitle": "Encontre restaurantes recomendados por pessoas em quem você realmente confia — não estranhos ou algoritmos."
+    },
+    "slide2": {
+      "title": "Nunca Mais Perdido no Feed",
+      "subtitle": "Aquela dica perfeita de restaurante do seu amigo? Está salva, pesquisável, e disponível quando você precisar."
+    },
+    "slide3": {
+      "title": "Seu Gosto, Seus Dados",
+      "subtitle": "Construa um perfil de gosto que é seu — portátil, privado, e sempre melhorando."
+    },
+    "getStarted": "Começar",
+    "alreadyHaveAccount": "Já tem uma conta?",
+    "logIn": "Entrar",
+    "termsPrefix": "Ao continuar, você concorda com nossos",
+    "terms": "Termos",
+    "privacyPrefix": "Você reconhece o recebimento e entendimento da nossa",
+    "privacyPolicy": "Política de Privacidade"
+  }
+}

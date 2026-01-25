@@ -1,6 +1,9 @@
 // File: code/poc/frontend/src/components/auth/AuthModal.tsx
 // UPDATED: Phone-first authentication for web (January 2026)
 // Flow: Phone verification (required) → Wallet connection (optional upgrade)
+//
+// FIXED (Jan 25, 2026): Use useAuth login() function for proper storage
+// This ensures tokens are saved with correct keys (omeone_*) and state is updated
 
 'use client';
 
@@ -10,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { Phone, Wallet, CheckCircle, ArrowRight, X } from 'lucide-react';
 import PhoneAuthStep from './PhoneAuthStep';
 import WalletUpgradeStep from './WalletUpgradeStep';
+import { useAuth } from '../../../../hooks/useAuth';
 
 type AuthStep = 'phone' | 'success' | 'wallet-upgrade';
 
@@ -26,34 +30,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const t = useTranslations('auth');
   const router = useRouter();
+  const { login } = useAuth();
   
   const [step, setStep] = useState<AuthStep>(initialStep);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
 
   // Handle successful phone verification
-  const handlePhoneSuccess = (token: string, userData: any) => {
+  const handlePhoneSuccess = async (token: string, userData: any) => {
     console.log('✅ Phone auth successful:', userData);
     setAuthToken(token);
     setUser(userData);
     
-    // Store auth data
-    localStorage.setItem('bocaboca_auth_token', token);
-    localStorage.setItem('bocaboca_user', JSON.stringify(userData));
+    // Use the centralized login function from useAuth
+    // This saves to the correct storage keys (omeone_*) and updates auth state
+    try {
+      await login(token, userData, userData.refreshToken);
+      console.log('✅ Auth state updated via useAuth login()');
+    } catch (error) {
+      console.error('Failed to update auth state via useAuth:', error);
+      // Fallback: store directly with correct keys
+      localStorage.setItem('omeone_auth_token', token);
+      localStorage.setItem('omeone_user', JSON.stringify(userData));
+    }
     
     // Move to success/upgrade prompt
     setStep('success');
   };
 
   // Handle wallet upgrade success
-  const handleWalletUpgradeSuccess = (token: string, userData: any) => {
+  const handleWalletUpgradeSuccess = async (token: string, userData: any) => {
     console.log('✅ Wallet upgrade successful:', userData);
     setAuthToken(token);
     setUser(userData);
     
-    // Update stored auth data
-    localStorage.setItem('bocaboca_auth_token', token);
-    localStorage.setItem('bocaboca_user', JSON.stringify(userData));
+    // Use the centralized login function from useAuth
+    try {
+      await login(token, userData, userData.refreshToken);
+      console.log('✅ Auth state updated via useAuth login()');
+    } catch (error) {
+      console.error('Failed to update auth state via useAuth:', error);
+      // Fallback: store directly with correct keys
+      localStorage.setItem('omeone_auth_token', token);
+      localStorage.setItem('omeone_user', JSON.stringify(userData));
+    }
     
     // Call parent success handler
     if (onSuccess) {

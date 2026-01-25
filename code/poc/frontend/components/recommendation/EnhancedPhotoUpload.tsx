@@ -1,15 +1,10 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, Upload, X, MapPin, Loader, FileImage } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { Camera, Upload, X, Loader, FileImage } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface PhotoData {
   file: File;
   preview: string;
-  location?: {
-    latitude: number;
-    longitude: number;
-    address?: string;
-  };
   timestamp: Date;
 }
 
@@ -18,15 +13,6 @@ interface PhotoUploadProps {
   onPhotosChange: (photos: PhotoData[]) => void;
   maxPhotos?: number;
   maxSizeBytes?: number;
-  allowLocation?: boolean;
-}
-
-interface GeolocationState {
-  latitude: number | null;
-  longitude: number | null;
-  address: string | null;
-  loading: boolean;
-  error: string | null;
 }
 
 const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
@@ -34,83 +20,10 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
   onPhotosChange,
   maxPhotos = 5,
   maxSizeBytes = 5 * 1024 * 1024, // 5MB
-  allowLocation = true
 }) => {
   const t = useTranslations('recommendations');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [geolocation, setGeolocation] = useState<GeolocationState>({
-    latitude: null,
-    longitude: null,
-    address: null,
-    loading: false,
-    error: null
-  });
-
-  // Request location permission on component mount
-  useEffect(() => {
-    if (allowLocation && navigator.geolocation) {
-      getCurrentLocation();
-    }
-  }, [allowLocation]);
-
-  const getCurrentLocation = async () => {
-    if (!navigator.geolocation) return;
-
-    setGeolocation(prev => ({ ...prev, loading: true, error: null }));
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        
-        try {
-          // Reverse geocoding to get address
-          const address = await reverseGeocode(latitude, longitude);
-          
-          setGeolocation({
-            latitude,
-            longitude,
-            address,
-            loading: false,
-            error: null
-          });
-        } catch (error) {
-          setGeolocation(prev => ({
-            ...prev,
-            latitude,
-            longitude,
-            loading: false,
-            error: t('photoUpload.errors.couldNotGetAddress')
-          }));
-        }
-      },
-      (error) => {
-        setGeolocation(prev => ({
-          ...prev,
-          loading: false,
-          error: error.message
-        }));
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000 // 5 minutes
-      }
-    );
-  };
-
-  // Mock reverse geocoding - replace with actual service
-  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (lat > 38.7 && lat < 38.8 && lng > -9.2 && lng < -9.1) {
-      return "Chiado, Lisbon, Portugal";
-    } else if (lat > -23.6 && lat < -23.5 && lng > -46.7 && lng < -46.6) {
-      return "Vila Madalena, São Paulo, Brazil";
-    } else {
-      return `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
-    }
-  };
 
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
@@ -165,14 +78,6 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
       timestamp: new Date()
     };
 
-    if (geolocation.latitude && geolocation.longitude) {
-      photoData.location = {
-        latitude: geolocation.latitude,
-        longitude: geolocation.longitude,
-        address: geolocation.address || undefined
-      };
-    }
-
     return photoData;
   };
 
@@ -209,7 +114,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 
     onPhotosChange([...photos, ...newPhotos]);
     setIsProcessing(false);
-  }, [photos, maxPhotos, maxSizeBytes, onPhotosChange, geolocation, t]);
+  }, [photos, maxPhotos, maxSizeBytes, onPhotosChange, t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -235,32 +140,6 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Location Status - Updated to BocaBoca colors */}
-      {allowLocation && (
-        <div className="bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFB3AB] dark:border-[#FF644A]/30 rounded-lg p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <MapPin className="h-4 w-4 text-[#FF644A] mr-2" />
-              <span className="text-sm font-medium text-[#1F1E2A] dark:text-white">
-                {geolocation.loading ? t('photoUpload.location.getting') : 
-                 geolocation.address ? t('photoUpload.location.found', { address: geolocation.address }) :
-                 geolocation.error ? t('photoUpload.location.unavailable') :
-                 t('photoUpload.location.ready')}
-              </span>
-            </div>
-            {geolocation.loading && <Loader className="h-4 w-4 animate-spin text-[#FF644A]" />}
-          </div>
-          {geolocation.error && !geolocation.latitude && (
-            <button
-              onClick={getCurrentLocation}
-              className="text-xs text-[#FF644A] hover:text-[#E65441] mt-1"
-            >
-              {t('photoUpload.location.retry')}
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Photo Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {photos.map((photo, index) => (
@@ -271,7 +150,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
               className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
             />
             
-            {/* Photo overlay with info */}
+            {/* Photo overlay with delete button */}
             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center">
               <button
                 onClick={() => removePhoto(index)}
@@ -280,16 +159,6 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
                 <X className="h-4 w-4" />
               </button>
             </div>
-
-            {/* Location indicator */}
-            {photo.location && (
-              <div className="absolute bottom-1 left-1">
-                <div className="bg-black bg-opacity-60 text-white text-xs px-1 py-0.5 rounded flex items-center">
-                  <MapPin className="h-3 w-3 mr-1" />
-                  GPS
-                </div>
-              </div>
-            )}
 
             {/* File size indicator */}
             <div className="absolute top-1 right-1">
@@ -344,14 +213,11 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
       {photos.length > 0 && (
         <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
           <p>📸 {t('photoUpload.info.photoCount', { count: photos.length, max: maxPhotos })}</p>
-          {photos.some(p => p.location) && (
-            <p>📍 {t('photoUpload.info.photosWithLocation', { count: photos.filter(p => p.location).length })}</p>
-          )}
           <p>💾 {t('photoUpload.info.totalSize', { size: (photos.reduce((sum, p) => sum + p.file.size, 0) / 1024 / 1024).toFixed(1) })}</p>
         </div>
       )}
 
-      {/* Mobile Camera Buttons - Updated to BocaBoca brand colors */}
+      {/* Mobile Camera Buttons */}
       <div className="flex space-x-3">
         <button
           onClick={triggerFileInput}
