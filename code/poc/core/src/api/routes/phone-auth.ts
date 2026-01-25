@@ -4,6 +4,9 @@
  * 
  * Handles phone number verification for the two-tier auth system.
  * Users can sign up/login with phone number, or add phone to existing account.
+ * 
+ * FIXED (Jan 25, 2026): Login bug where existing users couldn't log in
+ * because the phone registry check was blocking normal logins.
  */
 
 import { Router, Request, Response } from 'express';
@@ -97,6 +100,8 @@ router.post('/request-code', async (req: Request, res: Response) => {
     }
     
     // Check if phone is already registered to another user
+    // FIXED: This check only applies when upgrading an existing account (existingUserId is set)
+    // For normal login/signup, we allow existing phones (that's how login works!)
     const { data: existingRegistry } = await supabase
       .from('phone_number_registry')
       .select('user_id')
@@ -104,7 +109,9 @@ router.post('/request-code', async (req: Request, res: Response) => {
       .eq('is_active', true)
       .single();
     
-    if (existingRegistry && existingRegistry.user_id !== existingUserId) {
+    // Only block if: phone belongs to someone else AND current user is authenticated
+    // This prevents account hijacking during wallet→phone upgrade, but allows normal login
+    if (existingRegistry && existingUserId && existingRegistry.user_id !== existingUserId) {
       return res.status(409).json({
         success: false,
         error: 'Phone number already registered to another account'
