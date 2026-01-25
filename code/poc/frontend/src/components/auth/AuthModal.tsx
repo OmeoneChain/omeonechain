@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import { Phone, Wallet, CheckCircle, ArrowRight, X } from 'lucide-react';
 import PhoneAuthStep from './PhoneAuthStep';
 import WalletUpgradeStep from './WalletUpgradeStep';
-import { useAuth } from '../../../../hooks/useAuth';
+import { useAuth } from '../../../hooks/useAuth';
 
 type AuthStep = 'phone' | 'success' | 'wallet-upgrade';
 
