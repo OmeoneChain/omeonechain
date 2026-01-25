@@ -175,6 +175,8 @@
   },
 
   "singleScreen": {
+    "readyToPublish": "Tudo pronto!",
+    "optionalDetails": "Quer adicionar mais? Mais detalhes = recomendações mais inteligentes para você e melhores dicas para sua rede.",
     "title": "Criar uma Recomendação",
     "subtitle": "Avalie, adicione detalhes e publique",
     "restaurantLabel": "Restaurante",
