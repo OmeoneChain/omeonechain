@@ -3,6 +3,7 @@
 // Manages state machine: welcome → phone → sms → profile → checklist → feed
 // Updated: Skips to checklist if user is already authenticated
 // Updated: Passes auth context to ProfileSetup for avatar upload
+// Updated: Integrated WelcomeCarousel for better onboarding (Jan 26, 2026)
 
 'use client';
 
@@ -12,6 +13,7 @@ import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
+import WelcomeCarousel from '@/components/onboarding/WelcomeCarousel';
 
 // Import auth components
 import PhoneEntry from './PhoneEntry';
@@ -358,9 +360,9 @@ export default function PhoneAuthFlow({
   return (
     <div className="min-h-screen bg-cream-50 flex flex-col">
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
+      <div className="flex-1 flex items-center justify-center">
         <AnimatePresence mode="wait">
-          {/* Welcome Screen */}
+          {/* Welcome Carousel - NEW: 3-slide intro explaining BocaBoca */}
           {currentStep === 'welcome' && (
             <motion.div
               key="welcome"
@@ -369,74 +371,12 @@ export default function PhoneAuthFlow({
               animate="animate"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="w-full max-w-md"
+              className="w-full"
             >
-              <div className="text-center mb-8">
-                {/* Logo */}
-                <div className="mb-6">
-                  <Image
-                    src="/BocaBoca_Logo.png"
-                    alt="BocaBoca"
-                    width={80}
-                    height={80}
-                    className="mx-auto"
-                    priority
-                  />
-                </div>
-                
-                <h1 className="text-3xl font-bold text-navy-900 mb-2">
-                  BocaBoca
-                </h1>
-                <p className="text-lg text-coral-600 font-medium mb-2">
-                  {t('welcome.tagline') || 'Recomendações de Quem Você Confia'}
-                </p>
-                <p className="text-gray-600">
-                  {t('welcome.subtitle') || 'Descubra os melhores restaurantes através de pessoas que você conhece'}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {/* Phone Sign In - Primary CTA */}
-                <button
-                  onClick={() => goToStep('phone')}
-                  className="w-full py-4 bg-coral-500 hover:bg-coral-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-3"
-                >
-                  <span className="text-xl">📱</span>
-                  {t('welcome.continueWithPhone') || 'Continuar com Telefone'}
-                </button>
-
-                {/* Apple Sign In */}
-                <AppleSignIn
-                  onSuccess={handleAppleSuccess}
-                  onError={handleAppleError}
-                  mode="signup"
-                />
-
-                {/* Login Link */}
-                <div className="text-center pt-4">
-                  <p className="text-gray-600">
-                    {t('welcome.hasAccount') || 'Já tem conta?'}{' '}
-                    <button
-                      onClick={() => goToStep('phone')}
-                      className="text-coral-600 hover:text-coral-700 font-semibold"
-                    >
-                      {t('welcome.login') || 'Entrar'}
-                    </button>
-                  </p>
-                </div>
-              </div>
-
-              {/* Terms */}
-              <p className="text-center text-xs text-gray-500 mt-8">
-                {t('welcome.termsPrefix') || 'Ao continuar, você aceita nossos'}{' '}
-                <a href="/terms" className="underline hover:text-gray-700">
-                  {t('welcome.terms') || 'Termos de Uso'}
-                </a>{' '}
-                {t('welcome.and') || 'e'}{' '}
-                <a href="/privacy" className="underline hover:text-gray-700">
-                  {t('welcome.privacy') || 'Política de Privacidade'}
-                </a>
-              </p>
+              <WelcomeCarousel
+                onGetStarted={() => goToStep('phone')}
+                onLogin={() => goToStep('phone')}
+              />
             </motion.div>
           )}
 
@@ -449,7 +389,7 @@ export default function PhoneAuthFlow({
               animate="animate"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="w-full max-w-md"
+              className="w-full max-w-md p-4 sm:p-6"
             >
               <PhoneEntry
                 onSubmit={handlePhoneSubmit}
@@ -470,7 +410,7 @@ export default function PhoneAuthFlow({
               animate="animate"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="w-full max-w-md"
+              className="w-full max-w-md p-4 sm:p-6"
             >
               <SMSVerification
                 phoneNumber={phoneState.formattedPhone}
@@ -494,7 +434,7 @@ export default function PhoneAuthFlow({
               animate="animate"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="w-full max-w-md"
+              className="w-full max-w-md p-4 sm:p-6"
             >
               <ProfileSetup
                 onComplete={handleProfileComplete}
@@ -517,7 +457,7 @@ export default function PhoneAuthFlow({
               animate="animate"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="w-full max-w-md"
+              className="w-full max-w-md p-4 sm:p-6"
             >
               <OnboardingChecklist
                 userName={userName || user?.display_name || user?.username || 'User'}
