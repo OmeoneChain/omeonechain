@@ -29,6 +29,7 @@ export default getRequestConfig(async ({ locale }) => {
     restaurant,
     restaurantCard,
     legal,
+    onboarding,
   ] = await Promise.all([
     import(`./locales/${validLocale}/common.json`),
     import(`./locales/${validLocale}/auth.json`),
@@ -46,6 +47,7 @@ export default getRequestConfig(async ({ locale }) => {
     import(`./locales/${validLocale}/restaurant.json`),
     import(`./locales/${validLocale}/restaurantCard.json`),
     import(`./locales/${validLocale}/legal.json`),
+    import(`./locales/${validLocale}/onboarding.json`),
   ]);
 
   console.log('=== landing.default keys:', Object.keys(landing.default));
@@ -72,6 +74,7 @@ export default getRequestConfig(async ({ locale }) => {
       restaurant: restaurant.default,
       restaurantCard: restaurantCard.default,
       legal: legal.default,
+      onboarding: onboarding.default
     }
   };
 });
