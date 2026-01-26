@@ -88,7 +88,7 @@ class JWTUtils {
     accountTier: 'email_basic' | 'wallet_full';
     authMethod: 'email' | 'wallet' | 'google' | 'apple' | 'twitter';
   }): string {
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' }); // ← CHANGED from '24h' to '1h'
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
   }
 
   static verifyToken(token: string): JWTPayload {

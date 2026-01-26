@@ -29,7 +29,7 @@ const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
 // JWT configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 
 // 🍎 Apple Review test account (bypasses SMS verification)
 const APPLE_REVIEW_PHONE = '+5511999999999';
