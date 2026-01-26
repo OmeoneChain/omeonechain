@@ -5,7 +5,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { 
@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Coins,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Info
 } from 'lucide-react';
 
 interface OnboardingTask {
@@ -59,6 +60,7 @@ export default function OnboardingChecklist({
   }
 }: OnboardingChecklistProps) {
   const t = useTranslations('auth');
+  const [showBocaInfo, setShowBocaInfo] = useState(false);
   
   // Use useMemo instead of useState + useEffect to avoid infinite loop
   // (the `t` function from useTranslations gets a new reference each render)
@@ -151,6 +153,34 @@ export default function OnboardingChecklist({
         >
           {t('onboardingChecklist.subtitle') || 'Complete these tasks to earn BOCA'}
         </motion.p>
+        
+        {/* What's BOCA? Info Toggle */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.25 }}
+          className="mt-3"
+        >
+          <button
+            onClick={() => setShowBocaInfo(!showBocaInfo)}
+            className="inline-flex items-center gap-1 text-sm text-coral-600 hover:text-coral-700 transition-colors"
+          >
+            <Info className="w-4 h-4" />
+            <span>{t('onboardingChecklist.whatIsBoca') || "What's BOCA?"}</span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${showBocaInfo ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {showBocaInfo && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="mt-2 p-3 bg-coral-50 rounded-lg text-sm text-gray-700 border border-coral-100"
+            >
+              {t('onboardingChecklist.bocaExplanation') || "Your currency in BocaBoca. Earn them by sharing great recommendations, spend them to discover your next meal. More features coming soon!"}
+            </motion.div>
+          )}
+        </motion.div>
       </div>
 
       {/* Progress Bar */}
