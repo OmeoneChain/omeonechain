@@ -305,6 +305,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   const [connectionStatus, setConnectionStatus] = useState<'testing' | 'connected' | 'fallback'>('testing');
   const { user, isAuthenticated } = useAuth();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [hasInteractedWithRating, setHasInteractedWithRating] = useState(false);
 
   const [currentDish, setCurrentDish] = useState<Dish>({
     id: '',
@@ -938,7 +939,10 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                   max="10"
                   step="0.5"
                   value={draft.overall_rating}
-                  onChange={e => setDraft(prev => ({ ...prev, overall_rating: parseFloat(e.target.value) }))}
+                  onChange={e => {
+                    setHasInteractedWithRating(true);
+                    setDraft(prev => ({ ...prev, overall_rating: parseFloat(e.target.value) }));
+                  }}
                   className="w-full touch-slider"
                   style={{
                     background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
@@ -956,7 +960,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
           </div>
 
           {/* Optional sections only show once restaurant is selected */}
-          {hasRestaurant && (
+          {hasRestaurant && hasInteractedWithRating && (
             <>
               {/* Completion Divider - Shows users they can publish now, optional sections below */}
               <div className="my-6 py-4 px-4 bg-[#BFE2D9]/30 dark:bg-[#BFE2D9]/10 border border-[#BFE2D9] dark:border-[#BFE2D9]/30 rounded-xl text-center">
