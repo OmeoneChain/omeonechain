@@ -204,7 +204,7 @@ export default function SMSVerification({
             onKeyDown={(e) => handleKeyDown(index, e)}
             onPaste={handlePaste}
             disabled={isLoading}
-            className={`w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-bold rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 ${
+            className={`w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-bold text-[#1F1E2A] rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 ${
               displayError 
                 ? 'border-red-500 bg-red-50' 
                 : digit 

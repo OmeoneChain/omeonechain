@@ -1,3 +1,27 @@
 {
-  "/[locale]/page": "app/[locale]/page.js"
+  "/_not-found": "app/_not-found.js",
+  "/[locale]/admin/recommendations/page": "app/[locale]/admin/recommendations/page.js",
+  "/[locale]/admin/test-api/page": "app/[locale]/admin/test-api/page.js",
+  "/[locale]/callback/page": "app/[locale]/callback/page.js",
+  "/[locale]/community/page": "app/[locale]/community/page.js",
+  "/[locale]/create/page": "app/[locale]/create/page.js",
+  "/[locale]/create/recommendation/page": "app/[locale]/create/recommendation/page.js",
+  "/[locale]/discover/page": "app/[locale]/discover/page.js",
+  "/[locale]/discovery/requests/[id]/page": "app/[locale]/discovery/requests/[id]/page.js",
+  "/[locale]/feed/page": "app/[locale]/feed/page.js",
+  "/[locale]/list/[id]/page": "app/[locale]/list/[id]/page.js",
+  "/[locale]/my-rewards/page": "app/[locale]/my-rewards/page.js",
+  "/[locale]/onboarding/page": "app/[locale]/onboarding/page.js",
+  "/[locale]/page": "app/[locale]/page.js",
+  "/[locale]/privacy/page": "app/[locale]/privacy/page.js",
+  "/[locale]/recommendations/[id]/page": "app/[locale]/recommendations/[id]/page.js",
+  "/[locale]/restaurant/[id]/page": "app/[locale]/restaurant/[id]/page.js",
+  "/[locale]/rewards/page": "app/[locale]/rewards/page.js",
+  "/[locale]/saved-lists/[id]/page": "app/[locale]/saved-lists/[id]/page.js",
+  "/[locale]/saved-lists/page": "app/[locale]/saved-lists/page.js",
+  "/[locale]/terms/page": "app/[locale]/terms/page.js",
+  "/[locale]/users/[id]/followers/page": "app/[locale]/users/[id]/followers/page.js",
+  "/[locale]/users/[id]/following/page": "app/[locale]/users/[id]/following/page.js",
+  "/[locale]/users/search/page": "app/[locale]/users/search/page.js",
+  "/[locale]/users/[id]/page": "app/[locale]/users/[id]/page.js"
 }

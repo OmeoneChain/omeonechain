@@ -930,7 +930,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
               {t('steps.essentials.overallRating') || 'Overall rating'} <span className="text-[#FF644A]">*</span>
             </label>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               {/* Touch-friendly slider with larger hit area */}
               <div className="flex-1 py-3">
                 <input
@@ -949,7 +949,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                   }}
                 />
               </div>
-              <div className="flex items-center space-x-2 min-w-[140px]">
+              <div className="flex items-center space-x-1 min-w-[90px]">
                 <Star className="h-5 w-5 text-[#FF644A] fill-[#FF644A]" />
                 <span className="text-2xl font-bold text-[#FF644A]">{formatRating(draft.overall_rating)}</span>
                 <span className="text-[#9CA3AF] dark:text-gray-500">/10</span>
@@ -986,7 +986,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                   {/* Ambiance - TOUCH FRIENDLY */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.ambiance')}</label>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
                       <div className="flex-1 py-2">
                         <input
                           type="range"
@@ -1001,14 +1001,14 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                           }}
                         />
                       </div>
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(aspects.ambiance)}/10</span>
+                      <span className="text-sm font-bold text-[#FF644A] min-w-[50px] text-center">{formatRating(aspects.ambiance)}/10</span>
                     </div>
                   </div>
 
                   {/* Service - TOUCH FRIENDLY */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.service')}</label>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
                       <div className="flex-1 py-2">
                         <input
                           type="range"
@@ -1023,14 +1023,14 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                           }}
                         />
                       </div>
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(aspects.service)}/10</span>
+                      <span className="text-sm font-bold text-[#FF644A] min-w-[50px] text-center">{formatRating(aspects.service)}/10</span>
                     </div>
                   </div>
 
                   {/* Value for Money - TOUCH FRIENDLY */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('aspects.valueForMoney')}</label>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
                       <div className="flex-1 py-2">
                         <input
                           type="range"
@@ -1045,7 +1045,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                           }}
                         />
                       </div>
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(aspects.value_for_money)}/10</span>
+                      <span className="text-sm font-bold text-[#FF644A] min-w-[50px] text-center">{formatRating(aspects.value_for_money)}/10</span>
                     </div>
                   </div>
 
@@ -1163,7 +1163,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                       className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
                     />
 
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
                       <div className="flex-1 py-2">
                         <input
                           type="range"
@@ -1178,7 +1178,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                           }}
                         />
                       </div>
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[60px] text-center">{formatRating(currentDish.rating)}/10</span>
+                      <span className="text-sm font-bold text-[#FF644A] min-w-[50px] text-center">{formatRating(currentDish.rating)}/10</span>
                     </div>
 
                     <textarea
