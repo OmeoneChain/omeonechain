@@ -14,6 +14,15 @@
     "description": "Follow some food experts to see their recommendations here",
     "action": "Discover People"
   },
+  "emptyFeed": {
+    "title": "Your feed is empty!",
+    "subtitle": "Follow people to see their recommendations here, or explore what's trending.",
+    "discover": "Discover Recommendations",
+    "findFriends": "Find Friends",
+    "share": "Share a Place",
+    "trendingTitle": "Trending in Your Area",
+    "noTrending": "Be the first to share a recommendation!"
+  },
   "quickActions": {
     "title": "Quick Actions",
     "createRecommendation": "Create Recommendation",

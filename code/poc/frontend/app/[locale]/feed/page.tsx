@@ -8,7 +8,10 @@ import {
   Users,
   RefreshCw,
   ChefHat,
-  Coffee
+  Coffee,
+  Search,
+  TrendingUp,
+  Sparkles
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -193,7 +196,9 @@ const MainFeed: React.FC = () => {
   const t = useTranslations('feed');
   
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const [trendingItems, setTrendingItems] = useState<FeedItem[]>([]);
   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
+  const [isLoadingTrending, setIsLoadingTrending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const { isCapacitor } = useCapacitor();
@@ -489,6 +494,61 @@ const MainFeed: React.FC = () => {
     });
   }, [user?.id, t]);
 
+  // NEW: Fetch trending content when feed is empty
+  const loadTrendingContent = useCallback(async () => {
+    try {
+      setIsLoadingTrending(true);
+      const token = localStorage.getItem('omeone_auth_token');
+      
+      if (!token) {
+        console.log('❌ No token for trending fetch');
+        return;
+      }
+
+      console.log('🔥 Fetching trending content for empty feed...');
+
+      // Try discover endpoint first (public recommendations)
+      const response = await fetch(`${BACKEND_URL}/api/discover?limit=10`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Loaded trending content:', data);
+        
+        if (data.success && data.recommendations) {
+          const transformedItems = transformRecommendationsData(data.recommendations);
+          setTrendingItems(transformedItems);
+        }
+      } else {
+        console.warn('⚠️ Discover endpoint failed, trying recommendations...');
+        
+        // Fallback to general recommendations
+        const recResponse = await fetch(`${BACKEND_URL}/api/recommendations?limit=10`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (recResponse.ok) {
+          const recData = await recResponse.json();
+          const transformedItems = transformRecommendationsData(recData.recommendations || []);
+          setTrendingItems(transformedItems);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to load trending content:', error);
+    } finally {
+      setIsLoadingTrending(false);
+    }
+  }, [BACKEND_URL, transformRecommendationsData]);
+
   // Fetch user's interaction status for recommendations
   const fetchUserInteractionStatus = useCallback(async () => {
     try {
@@ -531,6 +591,24 @@ const MainFeed: React.FC = () => {
               }
             };
           } else if (item.type === 'reshare') {
+            return {
+              ...item,
+              data: {
+                ...item.data,
+                isBookmarked: data.bookmarked?.includes(item.data.id) || false,
+                hasUpvoted: data.liked?.includes(item.data.id) || false,
+                hasReshared: data.reshared?.includes(item.data.id) || false
+              }
+            };
+          }
+          return item;
+        })
+      );
+
+      // Also update trending items if they exist
+      setTrendingItems(items => 
+        items.map(item => {
+          if (item.type === 'recommendation') {
             return {
               ...item,
               data: {
@@ -593,6 +671,11 @@ const MainFeed: React.FC = () => {
         const transformedItems = transformRecommendationsData(recData.recommendations || []);
         setFeedItems(transformedItems);
         
+        // If feed is empty, load trending content
+        if (transformedItems.length === 0) {
+          await loadTrendingContent();
+        }
+        
       } else {
         const data = await response.json();
         console.log('✅ Loaded mixed feed:', data);
@@ -601,8 +684,15 @@ const MainFeed: React.FC = () => {
           const transformedItems = transformMixedFeed(data.feed);
           setFeedItems(transformedItems);
           console.log(`📊 Feed contains ${transformedItems.filter(i => i.type === 'recommendation').length} recommendations, ${transformedItems.filter(i => i.type === 'reshare').length} reshares, ${transformedItems.filter(i => i.type === 'list').length} lists, and ${transformedItems.filter(i => i.type === 'request').length} requests`);
+          
+          // If feed is empty, load trending content
+          if (transformedItems.length === 0) {
+            await loadTrendingContent();
+          }
         } else {
           setFeedItems([]);
+          // Load trending content for empty feed
+          await loadTrendingContent();
         }
       }
 
@@ -612,10 +702,12 @@ const MainFeed: React.FC = () => {
     } catch (error) {
       console.error('❌ Failed to load feed:', error);
       setFeedItems([]);
+      // Load trending content even on error
+      await loadTrendingContent();
     } finally {
       setIsLoadingFeed(false);
     }
-  }, [BACKEND_URL, transformMixedFeed, transformRecommendationsData, fetchUserInteractionStatus]);
+  }, [BACKEND_URL, transformMixedFeed, transformRecommendationsData, fetchUserInteractionStatus, loadTrendingContent]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -631,21 +723,10 @@ const MainFeed: React.FC = () => {
 
   // Recommendation interactions (same as before)
   const handleSaveRecommendation = async (id: string) => {
-    setFeedItems(items => 
+    // Update both feed items and trending items
+    const updateItems = (items: FeedItem[]) => 
       items.map(item => {
-        if (item.type === 'recommendation' && item.data.id === id) {
-          return {
-            ...item,
-            data: {
-              ...item.data,
-              isBookmarked: !item.data.isBookmarked,
-              engagement: {
-                ...item.data.engagement,
-                saves: item.data.isBookmarked ? item.data.engagement.saves - 1 : item.data.engagement.saves + 1
-              }
-            }
-          };
-        } else if (item.type === 'reshare' && item.data.id === id) {
+        if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
           return {
             ...item,
             data: {
@@ -659,8 +740,10 @@ const MainFeed: React.FC = () => {
           };
         }
         return item;
-      })
-    );
+      });
+
+    setFeedItems(updateItems);
+    setTrendingItems(updateItems);
 
     try {
       const token = localStorage.getItem('omeone_auth_token');
@@ -687,7 +770,7 @@ const MainFeed: React.FC = () => {
     } catch (error) {
       console.error('❌ Failed to save recommendation:', error);
       // Revert on error
-      setFeedItems(items => 
+      const revertItems = (items: FeedItem[]) => 
         items.map(item => {
           if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
             return {
@@ -703,27 +786,18 @@ const MainFeed: React.FC = () => {
             };
           }
           return item;
-        })
-      );
+        });
+      
+      setFeedItems(revertItems);
+      setTrendingItems(revertItems);
     }
   };
 
   const handleUpvoteRecommendation = async (id: string) => {
-    setFeedItems(items => 
+    // Update both feed items and trending items
+    const updateItems = (items: FeedItem[]) => 
       items.map(item => {
-        if (item.type === 'recommendation' && item.data.id === id) {
-          return {
-            ...item,
-            data: {
-              ...item.data,
-              hasUpvoted: !item.data.hasUpvoted,
-              engagement: {
-                ...item.data.engagement,
-                upvotes: item.data.hasUpvoted ? item.data.engagement.upvotes - 1 : item.data.engagement.upvotes + 1
-              }
-            }
-          };
-        } else if (item.type === 'reshare' && item.data.id === id) {
+        if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
           return {
             ...item,
             data: {
@@ -737,8 +811,10 @@ const MainFeed: React.FC = () => {
           };
         }
         return item;
-      })
-    );
+      });
+
+    setFeedItems(updateItems);
+    setTrendingItems(updateItems);
 
     try {
       const token = localStorage.getItem('omeone_auth_token');
@@ -765,7 +841,7 @@ const MainFeed: React.FC = () => {
     } catch (error) {
       console.error('❌ Failed to like recommendation:', error);
       // Revert on error
-      setFeedItems(items => 
+      const revertItems = (items: FeedItem[]) => 
         items.map(item => {
           if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
             return {
@@ -781,21 +857,23 @@ const MainFeed: React.FC = () => {
             };
           }
           return item;
-        })
-      );
+        });
+      
+      setFeedItems(revertItems);
+      setTrendingItems(revertItems);
     }
   };
 
-// ADD THIS NEW FUNCTION HERE:
-const handleReshare = async (id: string, comment?: string) => {
-  // Backend already awards tokens (0.2 BOCA to resharer + 0.1 BOCA attribution)
-  // Just refresh balance to show the update
-  if (user?.id) {
-    await tokenBalanceService.forceRefreshBalance(user.id);
-  }
-};
+  // ADD THIS NEW FUNCTION HERE:
+  const handleReshare = async (id: string, comment?: string) => {
+    // Backend already awards tokens (0.2 BOCA to resharer + 0.1 BOCA attribution)
+    // Just refresh balance to show the update
+    if (user?.id) {
+      await tokenBalanceService.forceRefreshBalance(user.id);
+    }
+  };
 
-// Request interactions (NEW)
+  // Request interactions (NEW)
   const handleBookmarkRequest = async (id: string) => {
     setFeedItems(items =>
       items.map(item => {
@@ -963,6 +1041,74 @@ const handleReshare = async (id: string, comment?: string) => {
 
   const recommendationCount = feedItems.filter(i => i.type === 'recommendation' || i.type === 'reshare').length;
   const listCount = feedItems.filter(i => i.type === 'list').length;
+  const isFeedEmpty = feedItems.length === 0;
+
+  // ============================================================================
+  // EMPTY FEED CTA BOX COMPONENT
+  // ============================================================================
+  const EmptyFeedCTA = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6 mb-6"
+    >
+      {/* Header */}
+      <div className="text-center mb-6">
+        <div className="w-16 h-16 bg-[#FFE8E4] dark:bg-[#FF644A]/20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Sparkles className="w-8 h-8 text-coral" />
+        </div>
+        <h3 className="text-xl font-semibold text-navy dark:text-white mb-2">
+          {t('emptyFeed.title') || 'Your feed is empty!'}
+        </h3>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
+          {t('emptyFeed.subtitle') || 'Follow people to see their recommendations here, or explore what\'s trending.'}
+        </p>
+      </div>
+
+      {/* CTA Buttons */}
+      <div className="space-y-3">
+        {/* Primary: Discover */}
+        <button
+          onClick={() => router.push('/discover')}
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-coral hover:bg-coral-dark text-white rounded-xl font-medium transition-colors"
+        >
+          <Search className="w-5 h-5" />
+          {t('emptyFeed.discover') || 'Discover Recommendations'}
+        </button>
+
+        {/* Secondary row: Find Friends + Create */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => router.push('/community')}
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-xl font-medium transition-colors"
+          >
+            <Users className="w-5 h-5" />
+            <span className="text-sm">{t('emptyFeed.findFriends') || 'Find Friends'}</span>
+          </button>
+          <button
+            onClick={() => router.push('/create')}
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-xl font-medium transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="text-sm">{t('emptyFeed.share') || 'Share a Place'}</span>
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+
+  // ============================================================================
+  // TRENDING SECTION HEADER
+  // ============================================================================
+  const TrendingSectionHeader = () => (
+    <div className="flex items-center gap-3 mb-4 mt-2">
+      <div className="flex items-center gap-2 text-coral">
+        <TrendingUp className="w-5 h-5" />
+        <span className="font-semibold">{t('emptyFeed.trendingTitle') || 'Trending in Your Area'}</span>
+      </div>
+      <div className="flex-1 h-px bg-gray-200 dark:bg-[#3D3C4A]" />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-cream dark:bg-[#1F1E2A]">
@@ -1045,23 +1191,70 @@ const handleReshare = async (id: string, comment?: string) => {
                   <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
                 </div>
               ))
-            ) : feedItems.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-navy dark:text-white mb-2">
-                  {t('empty.title')}
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6">
-                  {t('empty.description')}
-                </p>
-                <button
-                  onClick={() => router.push('/community')}
-                  className="bg-coral text-white px-6 py-2 rounded-lg font-medium hover:bg-coral-dark transition-colors"
-                >
-                  {t('empty.action')}
-                </button>
-              </div>
+            ) : isFeedEmpty ? (
+              // ================================================================
+              // EMPTY FEED: Show CTA Box + Trending Content
+              // ================================================================
+              <>
+                <EmptyFeedCTA />
+                
+                {/* Trending Section */}
+                {isLoadingTrending ? (
+                  <div className="space-y-4">
+                    <TrendingSectionHeader />
+                    {[1, 2].map(i => (
+                      <div key={i} className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A] animate-pulse">
+                        <div className="flex gap-3 mb-4">
+                          <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                          <div className="flex-1">
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                          </div>
+                        </div>
+                        <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : trendingItems.length > 0 ? (
+                  <>
+                    <TrendingSectionHeader />
+                    {trendingItems.map((item, index) => {
+                      if (item.type === 'recommendation') {
+                        return (
+                          <RecommendationCard
+                            key={`trending-${item.data.id}-${index}`}
+                            recommendation={item.data}
+                            variant="default"
+                            showAuthor={true}
+                            showTokenRewards={false}
+                            showBlockchainInfo={false}
+                            showActions={true}
+                            onSave={handleSaveRecommendation}
+                            onUpvote={handleUpvoteRecommendation}
+                            onShare={handleShare}
+                            onAuthorClick={(authorId) => router.push(`/users/${authorId}`)}
+                            onLocationClick={(location) => {
+                              if (location.restaurant_id) {
+                                router.push(`/restaurant/${location.restaurant_id}`);
+                              }
+                            }}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                  </>
+                ) : (
+                  // No trending content either - show simple message
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <p className="text-sm">{t('emptyFeed.noTrending') || 'Be the first to share a recommendation!'}</p>
+                  </div>
+                )}
+              </>
             ) : (
+              // ================================================================
+              // NORMAL FEED: Show user's feed items
+              // ================================================================
               feedItems.map((item, index) => {
                 if (item.type === 'reshare') {
                   return (

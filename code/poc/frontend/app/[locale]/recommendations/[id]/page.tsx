@@ -621,13 +621,39 @@ export default function RecommendationDetailPage({
                       )}
                       <div className="flex-1">
                         <textarea
+                          ref={(el) => {
+                            // Scroll into view when focused on mobile
+                            if (el) {
+                              el.addEventListener('focus', () => {
+                                setTimeout(() => {
+                                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }, 300); // Delay to let keyboard appear
+                              });
+                            }
+                          }}
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
                           placeholder="Add a comment..."
                           className="w-full px-3 py-2 bg-gray-50 dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] rounded-lg text-sm text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-[#FF644A] outline-none resize-none"
                           rows={2}
                         />
-                        <div className="mt-2 flex justify-end">
+                        <div className="mt-2 flex justify-end gap-2">
+                          {/* Cancel button - only show when there's text or textarea is focused */}
+                          {commentText.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCommentText('');
+                                // Blur the textarea to dismiss keyboard
+                                if (document.activeElement instanceof HTMLElement) {
+                                  document.activeElement.blur();
+                                }
+                              }}
+                              className="px-4 py-1.5 text-gray-500 dark:text-gray-400 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-[#353444] transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          )}
                           <button
                             type="submit"
                             disabled={!commentText.trim() || isSubmitting}
@@ -663,6 +689,10 @@ export default function RecommendationDetailPage({
                         Be the first to share your thoughts!
                       </p>
                     </div>
+
+                    {/* Extra padding for keyboard on mobile */}
+                    <div className="h-32" />
+
                   ) : (
                     comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3">

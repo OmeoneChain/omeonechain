@@ -14,6 +14,15 @@
     "description": "Siga alguns experts gastronômicos para ver suas recomendações aqui",
     "action": "Descobrir Pessoas"
   },
+  "emptyFeed": {
+    "title": "Seu feed está vazio!",
+    "subtitle": "Siga pessoas para ver as recomendações delas aqui, ou explore o que está em alta.",
+    "discover": "Descobrir Recomendações",
+    "findFriends": "Encontrar Amigos",
+    "share": "Compartilhar um Lugar",
+    "trendingTitle": "Em Alta na Sua Região",
+    "noTrending": "Seja o primeiro a compartilhar uma recomendação!"
+  },
   "quickActions": {
     "title": "Ações Rápidas",
     "createRecommendation": "Criar Recomendação",
