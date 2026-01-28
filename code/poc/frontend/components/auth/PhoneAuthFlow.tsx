@@ -4,6 +4,7 @@
 // Updated: Skips to checklist if user is already authenticated
 // Updated: Passes auth context to ProfileSetup for avatar upload
 // Updated: Integrated WelcomeCarousel for better onboarding (Jan 26, 2026)
+// Updated: Fixed async login calls and auth hydration check (Jan 28, 2026)
 
 'use client';
 
@@ -63,7 +64,7 @@ export default function PhoneAuthFlow({
 }: PhoneAuthFlowProps) {
   const router = useRouter();
   const t = useTranslations('auth');
-  const { login, updateUser, user, isAuthenticated } = useAuth();
+  const { login, updateUser, user, isAuthenticated, isHydrated, isLoading } = useAuth();
   
   // Determine initial step based on auth state
   const getInitialStep = (): AuthStep => {
@@ -81,19 +82,19 @@ export default function PhoneAuthFlow({
     formattedPhone: '',
     isNewUser: false
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(30);
   const [userName, setUserName] = useState('');
 
-  // NEW: Check auth state on mount and update step accordingly
+  // Check auth state on mount and update step accordingly
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isHydrated && isAuthenticated && user) {
       // User is already logged in, show checklist
       setUserName(user.display_name || user.username || 'User');
       setCurrentStep('checklist');
     }
-  }, [isAuthenticated, user]);
+  }, [isHydrated, isAuthenticated, user]);
 
   // Navigate to specific step
   const goToStep = useCallback((step: AuthStep) => {
@@ -103,7 +104,7 @@ export default function PhoneAuthFlow({
 
   // Request SMS code
   const handlePhoneSubmit = async (phoneNumber: string, countryCode: string) => {
-    setIsLoading(true);
+    setIsSubmitting(true);
     setError(null);
     
     try {
@@ -136,13 +137,13 @@ export default function PhoneAuthFlow({
       setError(err.message || 'Failed to send code');
       toast.error(err.message || 'Failed to send code');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   // Verify SMS code
   const handleCodeVerify = async (code: string) => {
-    setIsLoading(true);
+    setIsSubmitting(true);
     setError(null);
     
     try {
@@ -177,7 +178,8 @@ export default function PhoneAuthFlow({
         goToStep('profile');
       } else {
         // Returning user - log in and redirect
-        login(data.token, {
+        // IMPORTANT: await the login to ensure auth state is saved before navigation
+        await login(data.token, {
           id: data.user.id,
           phone: data.user.phone,
           username: data.user.username,
@@ -185,7 +187,7 @@ export default function PhoneAuthFlow({
           auth_mode: 'phone' as const,
           tokens_earned: data.user.tokensEarned || 0,
           trust_score: data.user.trustScore || 0,
-        });
+        }, data.refreshToken); // Pass refresh token if available
         
         toast.success(t('phoneAuth.welcomeBack') || 'Bem-vindo de volta!');
         
@@ -201,7 +203,7 @@ export default function PhoneAuthFlow({
       setError(err.message || 'Invalid code');
       throw err; // Re-throw so SMSVerification can clear the code
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -236,7 +238,7 @@ export default function PhoneAuthFlow({
 
   // Complete profile setup
   const handleProfileComplete = async (profileData: ProfileData) => {
-    setIsLoading(true);
+    setIsSubmitting(true);
     setError(null);
     
     try {
@@ -266,8 +268,8 @@ export default function PhoneAuthFlow({
       // Update local user name for checklist
       setUserName(profileData.displayName);
       
-      // Log the user in
-      login(phoneState.token!, {
+      // Log the user in - IMPORTANT: await to ensure state is saved
+      await login(phoneState.token!, {
         id: phoneState.userId!,
         username: profileData.username,
         display_name: profileData.displayName,
@@ -285,14 +287,14 @@ export default function PhoneAuthFlow({
       setError(err.message || 'Failed to save profile');
       toast.error(err.message || 'Failed to save profile');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   // Skip profile setup
-  const handleProfileSkip = () => {
-    // Log in with default profile
-    login(phoneState.token!, {
+  const handleProfileSkip = async () => {
+    // Log in with default profile - IMPORTANT: await to ensure state is saved
+    await login(phoneState.token!, {
       id: phoneState.userId!,
       auth_mode: 'phone' as const,
       tokens_earned: 0,
@@ -302,7 +304,7 @@ export default function PhoneAuthFlow({
     goToStep('checklist');
   };
 
-  // NEW: Handle task click - navigate to relevant page
+  // Handle task click - navigate to relevant page
   const handleTaskClick = (taskId: string) => {
     const route = TASK_ROUTES[taskId];
     if (route) {
@@ -357,12 +359,25 @@ export default function PhoneAuthFlow({
     exit: { opacity: 0, x: -20 }
   };
 
+  // Show loading while auth is hydrating
+  // This prevents showing welcome screen to already-authenticated users
+  if (!isHydrated || isLoading) {
+    return (
+      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coral-500 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-cream-50 flex flex-col">
       {/* Content */}
       <div className="flex-1 flex items-center justify-center">
         <AnimatePresence mode="wait">
-          {/* Welcome Carousel - NEW: 3-slide intro explaining BocaBoca */}
+          {/* Welcome Carousel - 3-slide intro explaining BocaBoca */}
           {currentStep === 'welcome' && (
             <motion.div
               key="welcome"
@@ -394,7 +409,7 @@ export default function PhoneAuthFlow({
               <PhoneEntry
                 onSubmit={handlePhoneSubmit}
                 onBack={showWelcome ? () => goToStep('welcome') : undefined}
-                isLoading={isLoading}
+                isLoading={isSubmitting}
                 error={error}
                 defaultCountryCode={phoneState.countryCode}
               />
@@ -418,7 +433,7 @@ export default function PhoneAuthFlow({
                 onVerify={handleCodeVerify}
                 onResend={handleResendCode}
                 onBack={() => goToStep('phone')}
-                isLoading={isLoading}
+                isLoading={isSubmitting}
                 error={error}
                 resendCooldown={resendCooldown}
               />
@@ -439,7 +454,7 @@ export default function PhoneAuthFlow({
               <ProfileSetup
                 onComplete={handleProfileComplete}
                 onSkip={handleProfileSkip}
-                isLoading={isLoading}
+                isLoading={isSubmitting}
                 error={error}
                 suggestedUsername={`user_${phoneState.phoneNumber.slice(-6)}`}
                 authToken={phoneState.token}
