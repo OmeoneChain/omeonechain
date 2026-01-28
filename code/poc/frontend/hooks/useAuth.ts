@@ -388,7 +388,7 @@ const authAPI = {
    * NEW: Refresh access token using refresh token
    */
   refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; expiresIn?: number }> => {
-    const response = await fetch(`${BACKEND_URL}/auth/refresh`, {
+    const response = await fetch(`${BACKEND_URL}/auth/phone/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
