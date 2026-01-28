@@ -1,7 +1,8 @@
 "use client"
 
 import React, { useState, useRef } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
   Heart, 
@@ -29,7 +30,6 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn, timeAgo, formatTokenAmount } from '@/lib/utils';
-import CommentSection from '@/components/comments/CommentSection';
 import FirstReviewerBadge from './badges/FirstReviewerBadge';
 import SaveToListModal from '@/src/components/saved-lists/SaveToListModal';
 import toast from 'react-hot-toast';
@@ -260,6 +260,8 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   backendUrl = 'https://omeonechain-production.up.railway.app'
 }) => {
   const t = useTranslations('recommendations');
+  const router = useRouter();
+  const locale = useLocale();
   const photoScrollRef = useRef<HTMLDivElement>(null);
   
   // UI State
@@ -291,7 +293,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
     recommendation.aspects.value_for_money
   );
   const hasSmartTags = !!(
-    recommendation.category ||
+    (recommendation.category && recommendation.category.toLowerCase() !== 'restaurant') ||
     recommendation.context?.meal_type ||
     recommendation.context_tags?.length ||
     recommendation.aspects?.noise_level ||
@@ -305,9 +307,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   const hasLocationInfo = locationDisplay.length > 0;
   
   const isLongContent = hasContent && recommendation.content!.length > CONTENT_COLLAPSE_THRESHOLD;
-  const displayContent = isLongContent && !isContentExpanded 
-    ? recommendation.content!.slice(0, CONTENT_COLLAPSE_THRESHOLD) + '...'
-    : recommendation.content;
 
   // ============================================================================
   // HANDLERS
@@ -316,6 +315,10 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   const handleUpvote = () => onUpvote?.(recommendation.id);
   const handleShare = () => onShare?.(recommendation.id);
   const handleSave = () => onSave?.(recommendation.id);
+
+  const handleNavigateToDetail = () => {
+    router.push(`/${locale}/recommendations/${recommendation.id}`);
+  };
 
   const handleReshareToggle = async () => {
     if (isResharing) return;
@@ -422,14 +425,6 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
       default:
         return null;
     }
-  };
-
-  const formatAspectRatings = (aspects: RestaurantAspects) => {
-    const parts: string[] = [];
-    if (aspects.ambiance) parts.push(`A${aspects.ambiance}`);
-    if (aspects.service) parts.push(`S${aspects.service}`);
-    if (aspects.value_for_money) parts.push(`V${aspects.value_for_money}`);
-    return parts.join(' · ');
   };
 
   const getMealTypeLabel = (mealType: string) => {
@@ -599,10 +594,13 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
         </div>
       </div>
 
-      {/* User Title (optional, quoted, italic) */}
+      {/* User Title (optional, italic, no quotes) */}
       {hasTitle && (
-        <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-          "{recommendation.title}"
+        <p 
+          className="text-sm text-gray-600 dark:text-gray-400 italic cursor-pointer hover:text-coral transition-colors"
+          onClick={handleNavigateToDetail}
+        >
+          {recommendation.title}
         </p>
       )}
     </div>
@@ -613,10 +611,13 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
     if (validPhotos.length === 0) return null;
 
     return (
-      <div className="relative -mx-4">
+      <div 
+        className="relative -mx-3 cursor-pointer"
+        onClick={handleNavigateToDetail}
+      >
         <div 
           ref={photoScrollRef}
-          className="flex gap-2 overflow-x-auto px-4 pb-2 scrollbar-hide snap-x snap-mandatory"
+          className="flex gap-2 overflow-x-auto px-3 pb-2 scrollbar-hide snap-x snap-mandatory"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {photos.map((photo, index) => {
@@ -641,7 +642,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
         
         {/* Photo count indicator */}
         {validPhotos.length > 3 && (
-          <div className="absolute top-2 right-6 px-2 py-0.5 bg-black/60 text-white text-xs rounded-full flex items-center gap-1">
+          <div className="absolute top-2 right-5 px-2 py-0.5 bg-black/60 text-white text-xs rounded-full flex items-center gap-1">
             <Camera size={10} />
             {validPhotos.length}
           </div>
@@ -654,15 +655,15 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
     if (!hasContent) return null;
 
     return (
-      <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-        {displayContent}
+      <div 
+        className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed cursor-pointer"
+        onClick={handleNavigateToDetail}
+      >
+        <span className="line-clamp-2">{recommendation.content}</span>
         {isLongContent && (
-          <button
-            onClick={() => setIsContentExpanded(!isContentExpanded)}
-            className="text-coral hover:text-[#E65441] ml-1 font-medium"
-          >
-            {isContentExpanded ? t('card.showLess') : t('card.readMore')}
-          </button>
+          <span className="text-coral hover:text-[#E65441] font-medium ml-1">
+            {t('card.readMore')}
+          </span>
         )}
       </div>
     );
@@ -809,10 +810,13 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
           <span>{recommendation.engagement.upvotes}</span>
         </button>
         
-        <div className="flex items-center gap-1">
+        <button 
+          onClick={handleNavigateToDetail}
+          className="flex items-center gap-1 hover:text-coral transition-colors"
+        >
           <MessageCircle size={14} />
           <span>{commentCount}</span>
-        </div>
+        </button>
         
         {reshareCount > 0 && (
           <div className="flex items-center gap-1">
