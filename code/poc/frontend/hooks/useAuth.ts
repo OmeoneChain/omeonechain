@@ -107,49 +107,11 @@ const AuthStorage = {
    * Now properly uses iOS UserDefaults / Android SharedPreferences for persistent storage
    */
   async _getPreferences() {
-    if (typeof window === 'undefined') return null;
-    
-    // Check if we're in a Capacitor native environment
-    const isNative = isCapacitorNative();
-    
-    if (!isNative) {
-      // Web browser - use localStorage (acceptable for web)
-      return null;
-    }
-    
-    // Already initialized
-    if (this._capacitorPreferences) {
-      return this._capacitorPreferences;
-    }
-    
-    // Prevent multiple simultaneous init attempts
-    if (this._initPromise) {
-      return this._initPromise;
-    }
-    
-    // Only try once if it fails
-    if (this._initAttempted) {
-      return null;
-    }
-    
-    // Native app - use Capacitor Preferences (iOS UserDefaults / Android SharedPreferences)
-    this._initPromise = (async () => {
-      try {
-        this._initAttempted = true;
-        const { Preferences } = await import('@capacitor/preferences');
-        this._capacitorPreferences = Preferences;
-        console.log('📱 Capacitor Preferences initialized - using native persistent storage');
-        return this._capacitorPreferences;
-      } catch (error) {
-        console.warn('⚠️ Capacitor Preferences not available, falling back to localStorage:', error);
-        console.warn('⚠️ WARNING: localStorage on iOS is NOT persistent - users may be logged out unexpectedly');
-        return null;
-      } finally {
-        this._initPromise = null;
-      }
-    })();
-    
-    return this._initPromise;
+    // TEMPORARY FIX: Bypass Capacitor Preferences to fix loading issue
+    // This forces localStorage usage until the Capacitor plugin issue is resolved
+    // TODO: Re-enable Capacitor Preferences once plugin is properly configured
+    console.log('📱 Using localStorage (Capacitor Preferences bypassed)');
+    return null;
   },
 
   async saveToken(token: string): Promise<void> {
