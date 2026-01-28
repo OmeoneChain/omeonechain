@@ -1,12 +1,12 @@
 // File: code/poc/frontend/app/[locale]/recommendations/[id]/page.tsx
 // Recommendation detail page with full BocaBoca branding
-// UPDATED: Cleaner, tighter design consistent with feed cards
+// UPDATED: Cleaner, tighter design consistent with feed cards (Jan 28, 2026)
 // UPDATED: Dark mode support
-// UPDATED: Fixed hardcoded backend URL to use environment variable
+// UPDATED: Fixed keyboard issues on mobile
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -94,6 +94,7 @@ export default function RecommendationDetailPage({
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const recommendationId = params.id;
 
@@ -253,6 +254,21 @@ export default function RecommendationDetailPage({
       // Fallback: copy to clipboard
       navigator.clipboard.writeText(window.location.href);
       toast.success('Link copied to clipboard!');
+    }
+  };
+
+  const handleTextareaFocus = () => {
+    // Scroll into view when focused on mobile
+    setTimeout(() => {
+      textareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300); // Delay to let keyboard appear
+  };
+
+  const handleCancelComment = () => {
+    setCommentText('');
+    // Blur the textarea to dismiss keyboard
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
     }
   };
 
@@ -621,34 +637,20 @@ export default function RecommendationDetailPage({
                       )}
                       <div className="flex-1">
                         <textarea
-                          ref={(el) => {
-                            // Scroll into view when focused on mobile
-                            if (el) {
-                              el.addEventListener('focus', () => {
-                                setTimeout(() => {
-                                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                }, 300); // Delay to let keyboard appear
-                              });
-                            }
-                          }}
+                          ref={textareaRef}
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
+                          onFocus={handleTextareaFocus}
                           placeholder="Add a comment..."
                           className="w-full px-3 py-2 bg-gray-50 dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] rounded-lg text-sm text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-[#FF644A] outline-none resize-none"
                           rows={2}
                         />
                         <div className="mt-2 flex justify-end gap-2">
-                          {/* Cancel button - only show when there's text or textarea is focused */}
+                          {/* Cancel button - only show when there's text */}
                           {commentText.trim() && (
                             <button
                               type="button"
-                              onClick={() => {
-                                setCommentText('');
-                                // Blur the textarea to dismiss keyboard
-                                if (document.activeElement instanceof HTMLElement) {
-                                  document.activeElement.blur();
-                                }
-                              }}
+                              onClick={handleCancelComment}
                               className="px-4 py-1.5 text-gray-500 dark:text-gray-400 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-[#353444] transition-colors"
                             >
                               Cancel
@@ -689,10 +691,6 @@ export default function RecommendationDetailPage({
                         Be the first to share your thoughts!
                       </p>
                     </div>
-
-                    {/* Extra padding for keyboard on mobile */}
-                    <div className="h-32" />
-
                   ) : (
                     comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3">
@@ -742,6 +740,9 @@ export default function RecommendationDetailPage({
                     ))
                   )}
                 </div>
+
+                {/* Extra padding for keyboard on mobile */}
+                <div className="h-32" />
               </div>
             </div>
           </div>
