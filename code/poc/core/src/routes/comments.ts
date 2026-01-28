@@ -558,19 +558,8 @@ router.post(
 
       console.log(`✅ Comment created: ${newComment.id}`);
 
-      // Update recommendation comments_count
-      const { data: currentRec } = await supabase
-        .from('recommendations')
-        .select('comments_count')
-        .eq('id', recommendationId)
-        .single();
-
-      const newCount = (currentRec?.comments_count || 0) + 1;
-
-      await supabase
-        .from('recommendations')
-        .update({ comments_count: newCount })
-        .eq('id', recommendationId);
+      // Note: comments_count is automatically updated by database trigger
+      // trg_update_recommendation_comment_count
 
       // =========================================================================
       // Award token reward via TWO-TIER REWARD SERVICE
