@@ -625,7 +625,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
             return (
               <div 
                 key={index}
-                className="relative flex-shrink-0 w-32 h-28 rounded-lg overflow-hidden snap-start"
+                className="relative flex-shrink-0 w-40 h-32 rounded-lg overflow-hidden snap-start"
               >
                 <Image
                   src={photo.url}
@@ -722,8 +722,8 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   const renderSmartTags = () => {
     const tags: React.ReactNode[] = [];
 
-    // Category
-    if (recommendation.category) {
+    // Category (only show if not the default "restaurant")
+    if (recommendation.category && recommendation.category.toLowerCase() !== 'restaurant') {
       tags.push(
         <span key="category" className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full">
           {recommendation.category}
@@ -795,7 +795,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   };
 
   const renderEngagementActions = () => (
-    <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-[#3D3C4A]">
+    <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-[#3D3C4A]">
       {/* Engagement Stats */}
       <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
         <button 
@@ -947,7 +947,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="p-4 space-y-3">
+        <div className="p-3 space-y-2">
           {/* Creation Preview Banner */}
           {variant === 'creation-preview' && (
             <div className="bg-green-100 dark:bg-green-900/40 border border-green-200 dark:border-green-700 rounded-lg p-3">
@@ -982,17 +982,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
           {/* 6. Engagement Actions */}
           {showActions && renderEngagementActions()}
 
-          {/* 7. Comment Section */}
-          {showComments && (
-            <CommentSection
-              recommendationId={recommendation.id}
-              recommendationAuthorId={recommendation.author.id}
-              initialCommentCount={commentCount}
-              onCommentCountChange={setCommentCount}
-              onAuthorClick={onAuthorClick}
-              collapsedByDefault={true}
-            />
-          )}
+          {/* Comment Section removed - now lives on detail page */}
         </div>
       </motion.div>
 
