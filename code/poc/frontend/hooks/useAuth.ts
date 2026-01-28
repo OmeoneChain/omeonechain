@@ -385,10 +385,15 @@ const authAPI = {
   },
 
   /**
-   * NEW: Refresh access token using refresh token
+   * Refresh access token using refresh token
+   * Uses different endpoints for native (phone auth) vs web
    */
   refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; expiresIn?: number }> => {
-    const response = await fetch(`${BACKEND_URL}/auth/phone/refresh`, {
+    const endpoint = isCapacitorNative() 
+      ? `${BACKEND_URL}/auth/phone/refresh`
+      : `${BACKEND_URL}/auth/refresh`;
+    
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -407,8 +412,8 @@ const authAPI = {
     
     return {
       token: data.token,
-      refreshToken: data.refreshToken, // Server may rotate refresh token
-      expiresIn: data.expiresIn || 3600, // Default 1 hour
+      refreshToken: data.refreshToken,
+      expiresIn: data.expiresIn || 3600,
     };
   },
 
