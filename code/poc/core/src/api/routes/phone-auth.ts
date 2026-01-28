@@ -7,6 +7,8 @@
  * 
  * FIXED (Jan 25, 2026): Login bug where existing users couldn't log in
  * because the phone registry check was blocking normal logins.
+ * 
+ * UPDATED (Jan 28, 2026): Added /refresh endpoint for token renewal
  */
 
 import { Router, Request, Response } from 'express';
@@ -55,6 +57,20 @@ function generateToken(user: any): string {
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
+  );
+}
+
+/**
+ * Generate refresh token (longer lived)
+ */
+function generateRefreshToken(user: any): string {
+  return jwt.sign(
+    {
+      userId: user.id,
+      type: 'refresh'
+    },
+    JWT_SECRET,
+    { expiresIn: '90d' } // Refresh token valid for 90 days
   );
 }
 
@@ -286,17 +302,20 @@ router.post('/verify', async (req: Request, res: Response) => {
       }
       
       const token = generateToken(user);
+      const refreshToken = generateRefreshToken(user);
       
       return res.json({
         success: true,
         message: isNewUser ? 'Account created successfully' : 'Login successful',
         isNewUser,
         token,
+        refreshToken,
         user: {
           id: user.id,
           phone: user.phone,
           username: user.username,
           displayName: user.display_name,
+          avatarUrl: user.avatar_url,
           accountTier: user.account_tier,
           authMethod: user.auth_method,
           tokenBalance: user.token_balance,
@@ -305,7 +324,7 @@ router.post('/verify', async (req: Request, res: Response) => {
           trustScore: user.trust_score,
           createdAt: user.created_at
         },
-        expiresIn: 604800
+        expiresIn: 2592000 // 30 days in seconds
       });
     }
     
@@ -436,8 +455,9 @@ router.post('/verify', async (req: Request, res: Response) => {
       .delete()
       .eq('identifier', clientIP);
     
-    // Generate JWT token
+    // Generate JWT tokens
     const token = generateToken(user);
+    const refreshToken = generateRefreshToken(user);
     
     console.log(`🎯 Phone auth successful for user: ${user.id}`);
     
@@ -446,11 +466,13 @@ router.post('/verify', async (req: Request, res: Response) => {
       message: isNewUser ? 'Account created successfully' : 'Login successful',
       isNewUser,
       token,
+      refreshToken,
       user: {
         id: user.id,
         phone: user.phone,
         username: user.username,
         displayName: user.display_name,
+        avatarUrl: user.avatar_url,
         accountTier: user.account_tier,
         authMethod: user.auth_method,
         tokenBalance: user.token_balance,
@@ -459,7 +481,7 @@ router.post('/verify', async (req: Request, res: Response) => {
         trustScore: user.trust_score,
         createdAt: user.created_at
       },
-      expiresIn: 604800 // 7 days in seconds
+      expiresIn: 2592000 // 30 days in seconds
     });
     
   } catch (error: any) {
@@ -563,6 +585,120 @@ router.post('/resend', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to resend verification code'
+    });
+  }
+});
+
+/**
+ * POST /api/auth/phone/refresh
+ * Refresh an expired token (if user still exists and is valid)
+ * 
+ * ADDED: Jan 28, 2026 - Enables token refresh for persistent sessions
+ */
+router.post('/refresh', async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    let userId: string | null = null;
+    
+    // Try to get user ID from Authorization header (might be expired token)
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+      try {
+        // Verify without checking expiration
+        const payload = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true }) as any;
+        userId = payload.userId;
+        console.log(`🔄 Refresh attempt from expired token for user: ${userId}`);
+      } catch (e) {
+        // Token is completely invalid, try refresh token
+        console.log('⚠️ Access token invalid, trying refresh token');
+      }
+    }
+    
+    // Also accept refreshToken in body
+    if (!userId && refreshToken) {
+      try {
+        const payload = jwt.verify(refreshToken, JWT_SECRET) as any;
+        if (payload.type === 'refresh') {
+          userId = payload.userId;
+          console.log(`🔄 Refresh using refresh token for user: ${userId}`);
+        }
+      } catch (e: any) {
+        if (e.name === 'TokenExpiredError') {
+          // Even refresh token expired - try to extract userId anyway for logging
+          try {
+            const expiredPayload = jwt.verify(refreshToken, JWT_SECRET, { ignoreExpiration: true }) as any;
+            console.log(`❌ Refresh token expired for user: ${expiredPayload.userId}`);
+          } catch (e2) {
+            // Completely invalid
+          }
+          return res.status(401).json({
+            success: false,
+            error: 'Refresh token expired',
+            code: 'REFRESH_TOKEN_EXPIRED'
+          });
+        }
+        console.log('⚠️ Invalid refresh token');
+      }
+    }
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid or missing token',
+        code: 'NO_VALID_TOKEN'
+      });
+    }
+    
+    // Fetch user from database
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (userError || !user) {
+      console.log(`❌ User not found for refresh: ${userId}`);
+      return res.status(401).json({
+        success: false,
+        error: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+    
+    // Generate new tokens
+    const newToken = generateToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+    
+    console.log(`✅ Token refreshed for user: ${user.id}`);
+    
+    res.json({
+      success: true,
+      token: newToken,
+      refreshToken: newRefreshToken,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        username: user.username,
+        displayName: user.display_name,
+        avatarUrl: user.avatar_url,
+        accountTier: user.account_tier,
+        authMethod: user.auth_method,
+        tokenBalance: user.token_balance,
+        tokensEarned: user.tokens_earned,
+        reputationScore: user.reputation_score,
+        trustScore: user.trust_score,
+        createdAt: user.created_at
+      },
+      expiresIn: 2592000 // 30 days in seconds
+    });
+    
+  } catch (error: any) {
+    console.error('❌ Token refresh error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Token refresh failed'
     });
   }
 });

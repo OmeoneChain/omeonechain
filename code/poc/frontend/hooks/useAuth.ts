@@ -1,6 +1,10 @@
 // File: code/poc/frontend/hooks/useAuth.ts
 // COMPREHENSIVE FIX: Capacitor Preferences + Refresh Tokens + App Resume Handling
 // This implements WhatsApp-style persistent login for mobile apps
+//
+// UPDATED (Jan 28, 2026): Re-enabled Capacitor Preferences for iOS/Android native storage
+// localStorage is volatile on iOS WKWebView - the OS can clear it anytime
+// Capacitor Preferences uses iOS UserDefaults / Android SharedPreferences which persist
 
 'use client';
 
@@ -47,10 +51,10 @@ export interface User {
 export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
-  isHydrated: boolean; // NEW: Tracks if we've completed initial auth check
+  isHydrated: boolean; // Tracks if we've completed initial auth check
   user: User | null;
   token: string | null;
-  refreshToken: string | null; // NEW: Refresh token support
+  refreshToken: string | null; // Refresh token support
   authMode: AuthMode;
   pendingTokens: number;
   canEarnTokens: boolean;
@@ -88,26 +92,81 @@ const isCapacitorNative = (): boolean => {
 /**
  * Storage adapter that uses Capacitor Preferences on mobile, localStorage on web
  * Capacitor Preferences uses:
- * - iOS: UserDefaults (persists across app restarts)
+ * - iOS: UserDefaults (persists across app restarts, survives app backgrounding)
  * - Android: SharedPreferences (persists across app restarts)
+ * 
+ * This is CRITICAL for mobile apps - localStorage in WKWebView is NOT persistent!
  */
 const AuthStorage = {
   _capacitorPreferences: null as any,
+  _initPromise: null as Promise<any> | null,
+  _initAttempted: false,
 
+  /**
+   * FIXED (Jan 28, 2026): Re-enabled Capacitor Preferences
+   * Now properly uses iOS UserDefaults / Android SharedPreferences for persistent storage
+   */
   async _getPreferences() {
-    // TEMPORARY FIX: Bypass Capacitor Preferences to fix iOS loading issue
-    // This forces localStorage usage until the Capacitor plugin issue is resolved
-    console.log('📱 Using localStorage (Capacitor Preferences bypassed)');
-    return null;
+    if (typeof window === 'undefined') return null;
+    
+    // Check if we're in a Capacitor native environment
+    const isNative = isCapacitorNative();
+    
+    if (!isNative) {
+      // Web browser - use localStorage (acceptable for web)
+      return null;
+    }
+    
+    // Already initialized
+    if (this._capacitorPreferences) {
+      return this._capacitorPreferences;
+    }
+    
+    // Prevent multiple simultaneous init attempts
+    if (this._initPromise) {
+      return this._initPromise;
+    }
+    
+    // Only try once if it fails
+    if (this._initAttempted) {
+      return null;
+    }
+    
+    // Native app - use Capacitor Preferences (iOS UserDefaults / Android SharedPreferences)
+    this._initPromise = (async () => {
+      try {
+        this._initAttempted = true;
+        const { Preferences } = await import('@capacitor/preferences');
+        this._capacitorPreferences = Preferences;
+        console.log('📱 Capacitor Preferences initialized - using native persistent storage');
+        return this._capacitorPreferences;
+      } catch (error) {
+        console.warn('⚠️ Capacitor Preferences not available, falling back to localStorage:', error);
+        console.warn('⚠️ WARNING: localStorage on iOS is NOT persistent - users may be logged out unexpectedly');
+        return null;
+      } finally {
+        this._initPromise = null;
+      }
+    })();
+    
+    return this._initPromise;
   },
 
   async saveToken(token: string): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await prefs.set({ key: 'omeone_auth_token', value: token });
-    } else {
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await prefs.set({ key: 'omeone_auth_token', value: token });
+        console.log('💾 Token saved to Capacitor Preferences');
+      } else {
+        localStorage.setItem('omeone_auth_token', token);
+        console.log('💾 Token saved to localStorage');
+      }
+    } catch (error) {
+      console.error('❌ Failed to save token:', error);
+      // Fallback to localStorage
       localStorage.setItem('omeone_auth_token', token);
     }
   },
@@ -115,33 +174,49 @@ const AuthStorage = {
   async getToken(): Promise<string | null> {
     if (typeof window === 'undefined') return null;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      const { value } = await prefs.get({ key: 'omeone_auth_token' });
-      return value;
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        const { value } = await prefs.get({ key: 'omeone_auth_token' });
+        return value;
+      }
+      return localStorage.getItem('omeone_auth_token');
+    } catch (error) {
+      console.error('❌ Failed to get token:', error);
+      return localStorage.getItem('omeone_auth_token');
     }
-    return localStorage.getItem('omeone_auth_token');
   },
 
   async removeToken(): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await prefs.remove({ key: 'omeone_auth_token' });
-    } else {
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await prefs.remove({ key: 'omeone_auth_token' });
+      } else {
+        localStorage.removeItem('omeone_auth_token');
+      }
+    } catch (error) {
+      console.error('❌ Failed to remove token:', error);
       localStorage.removeItem('omeone_auth_token');
     }
   },
 
-  // NEW: Refresh token storage
+  // Refresh token storage
   async saveRefreshToken(token: string): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await prefs.set({ key: 'omeone_refresh_token', value: token });
-    } else {
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await prefs.set({ key: 'omeone_refresh_token', value: token });
+        console.log('💾 Refresh token saved to Capacitor Preferences');
+      } else {
+        localStorage.setItem('omeone_refresh_token', token);
+      }
+    } catch (error) {
+      console.error('❌ Failed to save refresh token:', error);
       localStorage.setItem('omeone_refresh_token', token);
     }
   },
@@ -149,33 +224,48 @@ const AuthStorage = {
   async getRefreshToken(): Promise<string | null> {
     if (typeof window === 'undefined') return null;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      const { value } = await prefs.get({ key: 'omeone_refresh_token' });
-      return value;
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        const { value } = await prefs.get({ key: 'omeone_refresh_token' });
+        return value;
+      }
+      return localStorage.getItem('omeone_refresh_token');
+    } catch (error) {
+      console.error('❌ Failed to get refresh token:', error);
+      return localStorage.getItem('omeone_refresh_token');
     }
-    return localStorage.getItem('omeone_refresh_token');
   },
 
   async removeRefreshToken(): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await prefs.remove({ key: 'omeone_refresh_token' });
-    } else {
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await prefs.remove({ key: 'omeone_refresh_token' });
+      } else {
+        localStorage.removeItem('omeone_refresh_token');
+      }
+    } catch (error) {
+      console.error('❌ Failed to remove refresh token:', error);
       localStorage.removeItem('omeone_refresh_token');
     }
   },
 
-  // NEW: Token expiry storage for silent refresh scheduling
+  // Token expiry storage for silent refresh scheduling
   async saveTokenExpiry(expiryTimestamp: number): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await prefs.set({ key: 'omeone_token_expiry', value: expiryTimestamp.toString() });
-    } else {
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await prefs.set({ key: 'omeone_token_expiry', value: expiryTimestamp.toString() });
+      } else {
+        localStorage.setItem('omeone_token_expiry', expiryTimestamp.toString());
+      }
+    } catch (error) {
+      console.error('❌ Failed to save token expiry:', error);
       localStorage.setItem('omeone_token_expiry', expiryTimestamp.toString());
     }
   },
@@ -183,26 +273,38 @@ const AuthStorage = {
   async getTokenExpiry(): Promise<number | null> {
     if (typeof window === 'undefined') return null;
     
-    const prefs = await this._getPreferences();
-    let value: string | null = null;
-    
-    if (prefs) {
-      const result = await prefs.get({ key: 'omeone_token_expiry' });
-      value = result.value;
-    } else {
-      value = localStorage.getItem('omeone_token_expiry');
+    try {
+      const prefs = await this._getPreferences();
+      let value: string | null = null;
+      
+      if (prefs) {
+        const result = await prefs.get({ key: 'omeone_token_expiry' });
+        value = result.value;
+      } else {
+        value = localStorage.getItem('omeone_token_expiry');
+      }
+      
+      return value ? parseInt(value, 10) : null;
+    } catch (error) {
+      console.error('❌ Failed to get token expiry:', error);
+      const value = localStorage.getItem('omeone_token_expiry');
+      return value ? parseInt(value, 10) : null;
     }
-    
-    return value ? parseInt(value, 10) : null;
   },
 
   async saveUser(user: User): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await prefs.set({ key: 'omeone_user', value: JSON.stringify(user) });
-    } else {
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await prefs.set({ key: 'omeone_user', value: JSON.stringify(user) });
+        console.log('💾 User saved to Capacitor Preferences');
+      } else {
+        localStorage.setItem('omeone_user', JSON.stringify(user));
+      }
+    } catch (error) {
+      console.error('❌ Failed to save user:', error);
       localStorage.setItem('omeone_user', JSON.stringify(user));
     }
   },
@@ -210,34 +312,52 @@ const AuthStorage = {
   async getUser(): Promise<User | null> {
     if (typeof window === 'undefined') return null;
     
-    const prefs = await this._getPreferences();
-    let userData: string | null = null;
-    
-    if (prefs) {
-      const { value } = await prefs.get({ key: 'omeone_user' });
-      userData = value;
-    } else {
-      userData = localStorage.getItem('omeone_user');
-    }
-    
-    if (userData) {
-      try {
-        return JSON.parse(userData);
-      } catch (error) {
-        console.error('Failed to parse stored user data');
-        return null;
+    try {
+      const prefs = await this._getPreferences();
+      let userData: string | null = null;
+      
+      if (prefs) {
+        const { value } = await prefs.get({ key: 'omeone_user' });
+        userData = value;
+      } else {
+        userData = localStorage.getItem('omeone_user');
       }
+      
+      if (userData) {
+        try {
+          return JSON.parse(userData);
+        } catch (parseError) {
+          console.error('Failed to parse stored user data');
+          return null;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('❌ Failed to get user:', error);
+      const userData = localStorage.getItem('omeone_user');
+      if (userData) {
+        try {
+          return JSON.parse(userData);
+        } catch {
+          return null;
+        }
+      }
+      return null;
     }
-    return null;
   },
 
   async removeUser(): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await prefs.remove({ key: 'omeone_user' });
-    } else {
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await prefs.remove({ key: 'omeone_user' });
+      } else {
+        localStorage.removeItem('omeone_user');
+      }
+    } catch (error) {
+      console.error('❌ Failed to remove user:', error);
       localStorage.removeItem('omeone_user');
     }
   },
@@ -245,10 +365,15 @@ const AuthStorage = {
   async savePendingTokens(amount: number): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await prefs.set({ key: 'omeone_pending_tokens', value: amount.toString() });
-    } else {
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await prefs.set({ key: 'omeone_pending_tokens', value: amount.toString() });
+      } else {
+        localStorage.setItem('omeone_pending_tokens', amount.toString());
+      }
+    } catch (error) {
+      console.error('❌ Failed to save pending tokens:', error);
       localStorage.setItem('omeone_pending_tokens', amount.toString());
     }
   },
@@ -256,26 +381,37 @@ const AuthStorage = {
   async getPendingTokens(): Promise<number> {
     if (typeof window === 'undefined') return 0;
     
-    const prefs = await this._getPreferences();
-    let value: string | null = null;
-    
-    if (prefs) {
-      const result = await prefs.get({ key: 'omeone_pending_tokens' });
-      value = result.value;
-    } else {
-      value = localStorage.getItem('omeone_pending_tokens');
+    try {
+      const prefs = await this._getPreferences();
+      let value: string | null = null;
+      
+      if (prefs) {
+        const result = await prefs.get({ key: 'omeone_pending_tokens' });
+        value = result.value;
+      } else {
+        value = localStorage.getItem('omeone_pending_tokens');
+      }
+      
+      return value ? parseFloat(value) || 0 : 0;
+    } catch (error) {
+      console.error('❌ Failed to get pending tokens:', error);
+      const value = localStorage.getItem('omeone_pending_tokens');
+      return value ? parseFloat(value) || 0 : 0;
     }
-    
-    return value ? parseFloat(value) || 0 : 0;
   },
 
   async removePendingTokens(): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await prefs.remove({ key: 'omeone_pending_tokens' });
-    } else {
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await prefs.remove({ key: 'omeone_pending_tokens' });
+      } else {
+        localStorage.removeItem('omeone_pending_tokens');
+      }
+    } catch (error) {
+      console.error('❌ Failed to remove pending tokens:', error);
       localStorage.removeItem('omeone_pending_tokens');
     }
   },
@@ -283,16 +419,30 @@ const AuthStorage = {
   async clear(): Promise<void> {
     if (typeof window === 'undefined') return;
     
-    const prefs = await this._getPreferences();
-    if (prefs) {
-      await Promise.all([
-        prefs.remove({ key: 'omeone_auth_token' }),
-        prefs.remove({ key: 'omeone_refresh_token' }),
-        prefs.remove({ key: 'omeone_token_expiry' }),
-        prefs.remove({ key: 'omeone_user' }),
-        prefs.remove({ key: 'omeone_pending_tokens' }),
-      ]);
-    } else {
+    console.log('🗑️ Clearing all auth storage...');
+    
+    try {
+      const prefs = await this._getPreferences();
+      if (prefs) {
+        await Promise.all([
+          prefs.remove({ key: 'omeone_auth_token' }),
+          prefs.remove({ key: 'omeone_refresh_token' }),
+          prefs.remove({ key: 'omeone_token_expiry' }),
+          prefs.remove({ key: 'omeone_user' }),
+          prefs.remove({ key: 'omeone_pending_tokens' }),
+        ]);
+        console.log('🗑️ Cleared Capacitor Preferences');
+      } else {
+        localStorage.removeItem('omeone_auth_token');
+        localStorage.removeItem('omeone_refresh_token');
+        localStorage.removeItem('omeone_token_expiry');
+        localStorage.removeItem('omeone_user');
+        localStorage.removeItem('omeone_pending_tokens');
+        console.log('🗑️ Cleared localStorage');
+      }
+    } catch (error) {
+      console.error('❌ Failed to clear storage:', error);
+      // Fallback: clear localStorage anyway
       localStorage.removeItem('omeone_auth_token');
       localStorage.removeItem('omeone_refresh_token');
       localStorage.removeItem('omeone_token_expiry');
@@ -385,10 +535,14 @@ const authAPI = {
   },
 
   /**
-   * NEW: Refresh access token using refresh token
+   * Refresh access token using refresh token
+   * UPDATED (Jan 28, 2026): Now calls /auth/phone/refresh endpoint
    */
-  refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; expiresIn?: number }> => {
-    const response = await fetch(`${BACKEND_URL}/auth/refresh`, {
+  refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; user?: any; expiresIn?: number }> => {
+    console.log('🔄 Calling refresh token endpoint...');
+    
+    // Try the phone auth refresh endpoint (primary for mobile users)
+    const response = await fetch(`${BACKEND_URL}/auth/phone/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -397,7 +551,9 @@ const authAPI = {
     });
     
     if (!response.ok) {
-      throw new Error(`Token refresh failed: HTTP ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('❌ Token refresh failed:', errorData);
+      throw new Error(errorData.error || `Token refresh failed: HTTP ${response.status}`);
     }
     
     const data = await response.json();
@@ -405,10 +561,13 @@ const authAPI = {
       throw new Error('Invalid refresh response');
     }
     
+    console.log('✅ Token refresh successful');
+    
     return {
       token: data.token,
       refreshToken: data.refreshToken, // Server may rotate refresh token
-      expiresIn: data.expiresIn || 3600, // Default 1 hour
+      user: data.user,
+      expiresIn: data.expiresIn || 2592000, // Default 30 days
     };
   },
 
@@ -518,14 +677,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (delay > 0) {
       console.log(`🔄 Token refresh scheduled in ${Math.round(delay / 1000 / 60)} minutes`);
       refreshTimeoutRef.current = setTimeout(async () => {
-        console.log('🔄 Performing silent token refresh...');
+        console.log('🔄 Performing scheduled silent token refresh...');
         await performSilentRefresh();
       }, delay);
+    } else {
+      // Token already needs refresh
+      console.log('🔄 Token needs immediate refresh');
+      performSilentRefresh();
     }
   }, []);
 
   // Perform silent token refresh
-  const performSilentRefresh = useCallback(async () => {
+  const performSilentRefresh = useCallback(async (): Promise<boolean> => {
     const refreshToken = await AuthStorage.getRefreshToken();
     if (!refreshToken) {
       console.log('❌ No refresh token available for silent refresh');
@@ -533,6 +696,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      console.log('🔄 Attempting silent token refresh...');
       const result = await authAPI.refreshAccessToken(refreshToken);
       
       // Save new tokens
@@ -542,15 +706,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Calculate and save new expiry
-      const expiry = parseJwtExpiry(result.token) || (Date.now() + (result.expiresIn || 3600) * 1000);
+      const expiry = parseJwtExpiry(result.token) || (Date.now() + (result.expiresIn || 2592000) * 1000);
       await AuthStorage.saveTokenExpiry(expiry);
       
-      // Update state
-      setAuthState(prev => ({
-        ...prev,
-        token: result.token,
-        refreshToken: result.refreshToken || prev.refreshToken,
-      }));
+      // Update user data if returned
+      if (result.user) {
+        const user = {
+          ...result.user,
+          profileCompletion: calculateProfileCompletion(result.user),
+        };
+        await AuthStorage.saveUser(user);
+        
+        setAuthState(prev => ({
+          ...prev,
+          token: result.token,
+          refreshToken: result.refreshToken || prev.refreshToken,
+          user,
+        }));
+      } else {
+        setAuthState(prev => ({
+          ...prev,
+          token: result.token,
+          refreshToken: result.refreshToken || prev.refreshToken,
+        }));
+      }
       
       // Schedule next refresh
       scheduleTokenRefresh(expiry);
@@ -565,26 +744,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Login function - now async to handle storage
   const login = useCallback(async (token: string, user: User, refreshToken?: string) => {
+    console.log('🔐 Login called, saving credentials...');
+    
     const authMode = getAuthMode(user);
     if (!user.profileCompletion) {
       user.profileCompletion = calculateProfileCompletion(user);
     }
     
-    // Save to persistent storage
+    // Save to persistent storage (MUST await these!)
     await AuthStorage.saveToken(token);
     await AuthStorage.saveUser(user);
     
     if (refreshToken) {
       await AuthStorage.saveRefreshToken(refreshToken);
+      console.log('💾 Refresh token saved');
     }
     
     // Calculate and save token expiry
-    const expiry = parseJwtExpiry(token) || (Date.now() + 3600 * 1000); // Default 1 hour
+    const expiry = parseJwtExpiry(token) || (Date.now() + 30 * 24 * 60 * 60 * 1000); // Default 30 days
     await AuthStorage.saveTokenExpiry(expiry);
     
     if (authMode === 'wallet') {
       await AuthStorage.removePendingTokens();
     }
+    
+    console.log('💾 All credentials saved to storage');
     
     setAuthState({
       isAuthenticated: true,
@@ -606,6 +790,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Logout function
   const logout = useCallback(async () => {
+    console.log('🚪 Logout called...');
+    
     // Clear refresh timeout
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
@@ -752,7 +938,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasToken: !!token,
         hasStoredUser: !!storedUser,
         hasRefreshToken: !!refreshToken,
+        tokenExpiry: tokenExpiry ? new Date(tokenExpiry).toISOString() : 'none',
         tokenExpired: tokenExpiry ? Date.now() > tokenExpiry : 'unknown',
+        isNative: isCapacitorNative(),
       });
 
       // Case 1: No credentials at all - user is logged out
@@ -819,6 +1007,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }));
               } catch (error) {
                 console.error('❌ Failed to fetch user after refresh:', error);
+                // Still authenticated with refreshed token, just couldn't get fresh user data
               }
             }
             setIsCheckingAuth(false);
@@ -843,7 +1032,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
         
-        // Token is valid - verify with backend
+        // Token is valid (not expired) - verify with backend
         try {
           console.log('🔄 refreshAuth: Validating token with backend...');
           const user = await authAPI.getCurrentUser(token);
@@ -861,6 +1050,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             canEarnTokens: authMode === 'wallet',
           });
           
+          // Save user to storage (in case it was updated on backend)
+          await AuthStorage.saveUser(user);
+          
           // Schedule refresh if we have expiry info
           if (tokenExpiry) {
             scheduleTokenRefresh(tokenExpiry);
@@ -870,8 +1062,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error: any) {
           console.error('❌ refreshAuth: Token validation failed:', error);
           
-          // Try refresh token if validation fails
+          // Try refresh token if validation fails (token might be invalid but not yet expired)
           if (refreshToken) {
+            console.log('🔄 Attempting refresh after validation failure...');
             const refreshSuccess = await performSilentRefresh();
             if (refreshSuccess) {
               setIsCheckingAuth(false);
@@ -880,6 +1073,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           
           // All attempts failed - clear and log out
+          console.log('❌ All auth attempts failed, clearing credentials');
           await AuthStorage.clear();
           setAuthState({
             isAuthenticated: false,
@@ -895,6 +1089,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
           setIsCheckingAuth(false);
         }
+      } else if (refreshToken) {
+        // No access token but have refresh token - try to refresh
+        console.log('🔄 refreshAuth: No access token but have refresh token, attempting refresh...');
+        const refreshSuccess = await performSilentRefresh();
+        
+        if (!refreshSuccess) {
+          console.log('❌ Refresh failed, clearing credentials');
+          await AuthStorage.clear();
+          setAuthState({
+            isAuthenticated: false,
+            isLoading: false,
+            isHydrated: true,
+            user: null,
+            token: null,
+            refreshToken: null,
+            authMode: 'guest',
+            pendingTokens: 0,
+            canEarnTokens: false,
+          });
+        }
+        setIsCheckingAuth(false);
       }
     } catch (error) {
       console.error('❌ Auth hydration failed:', error);
