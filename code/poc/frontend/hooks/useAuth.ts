@@ -389,32 +389,7 @@ const authAPI = {
    * Tries regular endpoint first (for web), falls back to phone endpoint (for mobile)
    */
     refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; expiresIn?: number }> => {
-    // Try regular refresh endpoint first (works for web users)
-    try {
-      const response = await fetch(`${BACKEND_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.token) {
-          return {
-            token: data.token,
-            refreshToken: data.refreshToken,
-            expiresIn: data.expiresIn || 3600,
-          };
-        }
-      }
-    } catch (error) {
-      console.log('Regular refresh endpoint failed, trying phone endpoint...');
-    }
-    
-    // Fallback to phone refresh endpoint (for mobile users)
-    const phoneResponse = await fetch(`${BACKEND_URL}/auth/phone/refresh`, {
+    const response = await fetch(`${BACKEND_URL}/auth/phone/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -422,11 +397,11 @@ const authAPI = {
       body: JSON.stringify({ refreshToken }),
     });
     
-    if (!phoneResponse.ok) {
-      throw new Error(`Token refresh failed: HTTP ${phoneResponse.status}`);
+    if (!response.ok) {
+      throw new Error(`Token refresh failed: HTTP ${response.status}`);
     }
     
-    const data = await phoneResponse.json();
+    const data = await response.json();
     if (!data.success || !data.token) {
       throw new Error('Invalid refresh response');
     }
@@ -552,6 +527,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Perform silent token refresh
   const performSilentRefresh = useCallback(async () => {
+    // Only perform silent refresh on native mobile apps
+    if (!isCapacitorNative()) {
+      console.log('⏭️ Skipping silent refresh on web');
+      return false;
+    }
+    
     const refreshToken = await AuthStorage.getRefreshToken();
     if (!refreshToken) {
       console.log('❌ No refresh token available for silent refresh');
