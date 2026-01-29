@@ -3,6 +3,7 @@
 // UPDATED: Cleaner, tighter design consistent with feed cards (Jan 28, 2026)
 // UPDATED: Dark mode support
 // UPDATED: Fixed keyboard issues on mobile
+// UPDATED: Added SaveToListModal integration (Jan 29, 2026)
 
 'use client';
 
@@ -26,6 +27,7 @@ import {
   FolderPlus
 } from 'lucide-react';
 import { CleanHeader } from '@/components/CleanHeader';
+import SaveToListModal from '@/components/saved-lists/SaveToListModal';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 
@@ -94,6 +96,7 @@ export default function RecommendationDetailPage({
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const recommendationId = params.id;
@@ -255,6 +258,15 @@ export default function RecommendationDetailPage({
       navigator.clipboard.writeText(window.location.href);
       toast.success('Link copied to clipboard!');
     }
+  };
+
+  const handleAddToList = () => {
+    setShowMenu(false);
+    if (!isAuthenticated) {
+      toast.error('Please sign in to save to a list');
+      return;
+    }
+    setShowSaveModal(true);
   };
 
   const handleTextareaFocus = () => {
@@ -442,9 +454,7 @@ export default function RecommendationDetailPage({
                       />
                       <div className="absolute right-0 top-10 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-1 z-20 min-w-[160px]">
                         <button
-                          onClick={() => {
-                            setShowMenu(false);
-                          }}
+                          onClick={handleAddToList}
                           className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-2 text-gray-700 dark:text-gray-300"
                         >
                           <FolderPlus size={14} />
@@ -748,6 +758,16 @@ export default function RecommendationDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Save to List Modal */}
+      {showSaveModal && (
+        <SaveToListModal
+          itemType="recommendation"
+          itemId={recommendationId}
+          onClose={() => setShowSaveModal(false)}
+          onSave={() => setShowSaveModal(false)}
+        />
+      )}
     </>
   );
 }
