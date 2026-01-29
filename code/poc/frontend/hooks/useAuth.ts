@@ -388,12 +388,37 @@ const authAPI = {
    * Refresh access token using refresh token
    * Uses different endpoints for native (phone auth) vs web
    */
+  /**
+   * Refresh access token using refresh token
+   * Tries phone auth endpoint first (for mobile), falls back to regular endpoint (for web)
+   */
   refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; expiresIn?: number }> => {
-    const endpoint = isCapacitorNative() 
-      ? `${BACKEND_URL}/auth/phone/refresh`
-      : `${BACKEND_URL}/auth/refresh`;
+    // Try phone refresh endpoint first (works for mobile users)
+    try {
+      const phoneResponse = await fetch(`${BACKEND_URL}/auth/phone/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+      
+      if (phoneResponse.ok) {
+        const data = await phoneResponse.json();
+        if (data.success && data.token) {
+          return {
+            token: data.token,
+            refreshToken: data.refreshToken,
+            expiresIn: data.expiresIn || 3600,
+          };
+        }
+      }
+    } catch (error) {
+      console.log('Phone refresh endpoint failed, trying regular endpoint...');
+    }
     
-    const response = await fetch(endpoint, {
+    // Fallback to regular refresh endpoint (for web users)
+    const response = await fetch(`${BACKEND_URL}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
