@@ -74,6 +74,7 @@ interface JWTPayload {
   userId: string;
   address?: string; // Only for wallet users
   email?: string; // Only for email users
+  phoneNumber?: string;
   accountTier: 'email_basic' | 'wallet_full'; // NEW: Tier tracking
   authMethod: 'email' | 'wallet' | 'google' | 'apple' | 'twitter'; // NEW: Auth method
   iat?: number;
@@ -85,33 +86,45 @@ class JWTUtils {
     userId: string; 
     address?: string;
     email?: string;
-    accountTier: 'email_basic' | 'wallet_full';
-    authMethod: 'email' | 'wallet' | 'google' | 'apple' | 'twitter';
+    phoneNumber?: string;
+    accountTier: string;
+    authMethod: string;
   }): string {
     return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
   }
 
-  static verifyToken(token: string): JWTPayload {
+  static verifyToken(token: string, options?: { ignoreExpiration?: boolean }): JWTPayload {
     try {
-      const payload = jwt.verify(token, JWT_SECRET) as JWTPayload;
+      const verifyOptions: jwt.VerifyOptions = {};
+      if (options?.ignoreExpiration) {
+        verifyOptions.ignoreExpiration = true;
+      }
+      
+      const payload = jwt.verify(token, JWT_SECRET, verifyOptions) as JWTPayload;
       
       // Backward compatibility: If no accountTier, assume email_basic
       if (!payload.accountTier) {
         payload.accountTier = 'email_basic';
       }
       
-      // Backward compatibility: If no authMethod, infer from address/email
+      // Backward compatibility: If no authMethod, infer from address/email/phone
       if (!payload.authMethod) {
-        payload.authMethod = payload.address ? 'wallet' : 'email';
+        payload.authMethod = payload.address ? 'wallet' : payload.phoneNumber ? 'phone' : 'email';
       }
       
       return payload;
     } catch (error) {
+      // Re-throw with original error info for better handling upstream
+      if (error instanceof jwt.TokenExpiredError) {
+        const expiredError = new Error('Token expired') as any;
+        expiredError.name = 'TokenExpiredError';
+        throw expiredError;
+      }
       throw new Error('Invalid or expired token');
     }
   }
 
-  // NEW: Generate refresh token (90 days per Technical Context Document)
+  // Generate refresh token (90 days per Technical Context Document)
   static generateRefreshToken(payload: {
     userId: string;
     type: 'refresh';
@@ -1680,6 +1693,7 @@ router.post('/auth/verify', async (req, res) => {
 
 // ===========================
 // TOKEN REFRESH ENDPOINT (WhatsApp-style persistent login)
+// UPDATED: Now handles all auth methods (phone, wallet, email)
 // ===========================
 
 // Refresh access token using refresh token
@@ -1687,36 +1701,54 @@ router.post('/auth/refresh', async (req, res) => {
   try {
     const { refreshToken } = req.body;
     
-    if (!refreshToken) {
-      return res.status(400).json({
-        success: false,
-        error: 'Refresh token is required'
-      });
-    }
-
-    // Verify the refresh token
-    let decoded: any;
-    try {
-      decoded = JWTUtils.verifyToken(refreshToken); // Uses same secret for now
-    } catch (error: any) {
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({
-          success: false,
-          error: 'Refresh token expired',
-          code: 'REFRESH_TOKEN_EXPIRED'
-        });
+    let userId: string | null = null;
+    
+    // Method 1: Try refresh token from body
+    if (refreshToken) {
+      try {
+        const decoded = JWTUtils.verifyToken(refreshToken);
+        userId = decoded.userId;
+        console.log(`🔄 Refresh using refresh token for user: ${userId}`);
+      } catch (error: any) {
+        if (error.name === 'TokenExpiredError') {
+          // Try to extract userId from expired token for logging
+          try {
+            const expiredPayload = JWTUtils.verifyToken(refreshToken, { ignoreExpiration: true });
+            console.log(`❌ Refresh token expired for user: ${expiredPayload.userId}`);
+          } catch (e) {
+            // Completely invalid
+          }
+          return res.status(401).json({
+            success: false,
+            error: 'Refresh token expired',
+            code: 'REFRESH_TOKEN_EXPIRED'
+          });
+        }
+        console.log('⚠️ Invalid refresh token:', error.message);
       }
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid refresh token'
-      });
     }
-
-    const userId = decoded.userId;
+    
+    // Method 2: Try Authorization header (might be expired access token)
+    if (!userId) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.slice(7);
+        try {
+          // Verify without checking expiration to extract userId
+          const payload = JWTUtils.verifyToken(token, { ignoreExpiration: true });
+          userId = payload.userId;
+          console.log(`🔄 Refresh from expired access token for user: ${userId}`);
+        } catch (e) {
+          console.log('⚠️ Access token completely invalid');
+        }
+      }
+    }
+    
     if (!userId) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid token payload'
+        error: 'Invalid or missing token',
+        code: 'NO_VALID_TOKEN'
       });
     }
 
@@ -1728,30 +1760,40 @@ router.post('/auth/refresh', async (req, res) => {
       .single();
 
     if (userError || !user) {
+      console.log(`❌ User not found for refresh: ${userId}`);
       return res.status(401).json({
         success: false,
-        error: 'User not found'
+        error: 'User not found',
+        code: 'USER_NOT_FOUND'
       });
     }
 
-    // Optional: Validate stored refresh token matches (uncomment when column exists)
-    // if (user.refresh_token && user.refresh_token !== refreshToken) {
-    //   await supabase.from('users').update({ refresh_token: null }).eq('id', userId);
-    //   return res.status(401).json({
-    //     success: false,
-    //     error: 'Refresh token has been revoked',
-    //     code: 'TOKEN_REVOKED'
-    //   });
-    // }
+    // Determine auth method and account tier from user record
+    const authMethod = user.auth_method || 
+      (user.wallet_address ? 'wallet' : user.phone ? 'phone' : 'email');
+    
+    const accountTier = user.account_tier || 
+      (user.wallet_address ? 'wallet_full' : 'verified');
 
-    // Generate new access token (1 hour)
-    const newAccessToken = JWTUtils.generateToken({
+    // Generate new access token with correct payload for user type
+    const tokenPayload: any = {
       userId: user.id,
-      address: user.wallet_address,
-      email: user.email,
-      accountTier: user.account_tier || 'wallet_full',
-      authMethod: user.auth_method || 'wallet'
-    });
+      accountTier: accountTier,
+      authMethod: authMethod
+    };
+    
+    // Include relevant identifiers based on auth method
+    if (user.wallet_address) {
+      tokenPayload.address = user.wallet_address;
+    }
+    if (user.email) {
+      tokenPayload.email = user.email;
+    }
+    if (user.phone) {
+      tokenPayload.phoneNumber = user.phone;
+    }
+
+    const newAccessToken = JWTUtils.generateToken(tokenPayload);
 
     // Generate new refresh token (90 days) - token rotation for security
     const newRefreshToken = JWTUtils.generateRefreshToken({
@@ -1769,13 +1811,39 @@ router.post('/auth/refresh', async (req, res) => {
       })
       .eq('id', userId);
 
-    console.log(`🔄 Token refreshed for user: ${userId}`);
+    // Calculate profile completion
+    const profileCompletion = calculateProfileCompletion(user);
 
+    console.log(`✅ Token refreshed for ${authMethod} user: ${userId}`);
+
+    // Return response with user object (matching phone-auth.ts format)
     res.json({
       success: true,
       token: newAccessToken,
       refreshToken: newRefreshToken,
-      expiresIn: 3600 // 1 hour in seconds
+      user: {
+        id: user.id,
+        phone: user.phone,
+        walletAddress: user.wallet_address,
+        email: user.email,
+        username: user.username,
+        display_name: user.display_name,
+        bio: user.bio,
+        avatar_url: user.avatar_url,
+        location_city: user.location_city,
+        location_country: user.location_country,
+        accountTier: accountTier,
+        authMethod: authMethod,
+        tokenBalance: user.token_balance || 0,
+        tokensEarned: user.tokens_earned || 0,
+        reputationScore: user.reputation_score || 0,
+        trustScore: user.trust_score || 0,
+        profileCompletion: profileCompletion,
+        onboarding_completed: user.onboarding_completed || false,
+        onboarding_step: user.onboarding_step || 'complete',
+        createdAt: user.created_at
+      },
+      expiresIn: 2592000 // 30 days in seconds (matching phone-auth.ts)
     });
 
   } catch (error) {
