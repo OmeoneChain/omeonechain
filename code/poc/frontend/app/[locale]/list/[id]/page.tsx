@@ -748,7 +748,7 @@ export default function CuratedListDetailPage() {
                                     openRestaurantMenuId === restaurant.id ? null : restaurant.id
                                   );
                                 }}
-                                className="p-1.5 bg-white/90 dark:bg-[#2D2C3A]/90 backdrop-blur-sm rounded-full hover:bg-white dark:hover:bg-[#2D2C3A] transition-colors shadow-sm opacity-0 group-hover:opacity-100"
+                                className="p-1.5 bg-white/90 dark:bg-[#2D2C3A]/90 backdrop-blur-sm rounded-full hover:bg-white dark:hover:bg-[#2D2C3A] transition-colors shadow-sm"
                               >
                                 <MoreHorizontal size={16} className="text-gray-600 dark:text-gray-400" />
                               </button>

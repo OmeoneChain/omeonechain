@@ -16,8 +16,10 @@ import {
   Star,
   Users,
   TrendingUp,
+  Bookmark,
 } from 'lucide-react';
 import CleanHeader from '@/components/CleanHeader';
+import SaveToListModal from '@/components/saved-lists/SaveToListModal';
 import { useTranslations } from 'next-intl';
 
 // ============================================================================
@@ -656,6 +658,7 @@ export default function RestaurantDetailPage() {
   const [userReview, setUserReview] = useState<UserReview | null>(null);
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
   const [isSaved, setIsSaved] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [restaurantPhotos, setRestaurantPhotos] = useState<any[]>([]);
@@ -926,7 +929,7 @@ export default function RestaurantDetailPage() {
         <section className="mb-6">
           <div className="flex items-start justify-between mb-1">
             <h1 className="text-2xl font-bold text-[#1F1E2A] dark:text-white">{restaurant.name}</h1>
-            {/* SAVE & SHARE BUTTONS */}
+            {/* LIKE, SAVE & SHARE BUTTONS */}
             <div className="flex items-center gap-1">
               <button 
                 onClick={handleSave} 
@@ -934,6 +937,13 @@ export default function RestaurantDetailPage() {
                 title={isSaved ? t('saved') : t('save')}
               >
                 <Heart className={`w-6 h-6 ${isSaved ? 'fill-current' : ''}`} />
+              </button>
+              <button 
+                onClick={() => setShowSaveModal(true)} 
+                className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:text-[#FF644A] transition-colors"
+                title={t('addToList') || 'Add to List'}
+              >
+                <Bookmark className="w-6 h-6" />
               </button>
               <button 
                 onClick={handleShare} 
@@ -1096,6 +1106,16 @@ export default function RestaurantDetailPage() {
         {/* LOCATION SECTION with Google Maps */}
         <LocationMap restaurant={restaurant} title={t('location')} />
       </main>
+
+      {/* Save to List Modal */}
+      {showSaveModal && (
+        <SaveToListModal
+          itemType="restaurant"
+          itemId={restaurantId}
+          onClose={() => setShowSaveModal(false)}
+          onSave={() => setShowSaveModal(false)}
+        />
+      )}
     </div>
   );
 }
