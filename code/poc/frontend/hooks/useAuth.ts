@@ -384,12 +384,11 @@ const authAPI = {
     };
   },
 
-    /**
-   * Refresh access token using refresh token
-   * Tries regular endpoint first (for web), falls back to phone endpoint (for mobile)
+  /**
+   * NEW: Refresh access token using refresh token
    */
-    refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; expiresIn?: number }> => {
-    const response = await fetch(`${BACKEND_URL}/auth/phone/refresh`, {
+  refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; expiresIn?: number }> => {
+    const response = await fetch(`${BACKEND_URL}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -408,8 +407,8 @@ const authAPI = {
     
     return {
       token: data.token,
-      refreshToken: data.refreshToken,
-      expiresIn: data.expiresIn || 3600,
+      refreshToken: data.refreshToken, // Server may rotate refresh token
+      expiresIn: data.expiresIn || 3600, // Default 1 hour
     };
   },
 
@@ -527,12 +526,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Perform silent token refresh
   const performSilentRefresh = useCallback(async () => {
-    // Only perform silent refresh on native mobile apps
-    if (!isCapacitorNative()) {
-      console.log('⏭️ Skipping silent refresh on web');
-      return false;
-    }
-    
     const refreshToken = await AuthStorage.getRefreshToken();
     if (!refreshToken) {
       console.log('❌ No refresh token available for silent refresh');
