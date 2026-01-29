@@ -384,18 +384,14 @@ const authAPI = {
     };
   },
 
-  /**
+    /**
    * Refresh access token using refresh token
-   * Uses different endpoints for native (phone auth) vs web
+   * Tries regular endpoint first (for web), falls back to phone endpoint (for mobile)
    */
-  /**
-   * Refresh access token using refresh token
-   * Tries phone auth endpoint first (for mobile), falls back to regular endpoint (for web)
-   */
-  refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; expiresIn?: number }> => {
-    // Try phone refresh endpoint first (works for mobile users)
+    refreshAccessToken: async (refreshToken: string): Promise<{ token: string; refreshToken?: string; expiresIn?: number }> => {
+    // Try regular refresh endpoint first (works for web users)
     try {
-      const phoneResponse = await fetch(`${BACKEND_URL}/auth/phone/refresh`, {
+      const response = await fetch(`${BACKEND_URL}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -403,8 +399,8 @@ const authAPI = {
         body: JSON.stringify({ refreshToken }),
       });
       
-      if (phoneResponse.ok) {
-        const data = await phoneResponse.json();
+      if (response.ok) {
+        const data = await response.json();
         if (data.success && data.token) {
           return {
             token: data.token,
@@ -414,11 +410,11 @@ const authAPI = {
         }
       }
     } catch (error) {
-      console.log('Phone refresh endpoint failed, trying regular endpoint...');
+      console.log('Regular refresh endpoint failed, trying phone endpoint...');
     }
     
-    // Fallback to regular refresh endpoint (for web users)
-    const response = await fetch(`${BACKEND_URL}/auth/refresh`, {
+    // Fallback to phone refresh endpoint (for mobile users)
+    const phoneResponse = await fetch(`${BACKEND_URL}/auth/phone/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -426,11 +422,11 @@ const authAPI = {
       body: JSON.stringify({ refreshToken }),
     });
     
-    if (!response.ok) {
-      throw new Error(`Token refresh failed: HTTP ${response.status}`);
+    if (!phoneResponse.ok) {
+      throw new Error(`Token refresh failed: HTTP ${phoneResponse.status}`);
     }
     
-    const data = await response.json();
+    const data = await phoneResponse.json();
     if (!data.success || !data.token) {
       throw new Error('Invalid refresh response');
     }
