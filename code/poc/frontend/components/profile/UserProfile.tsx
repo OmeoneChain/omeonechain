@@ -1,6 +1,7 @@
 // File: components/profile/UserProfile.tsx
 // Refactored: Map-first profile with 4-tab structure (Taste Map | Activity | Network | Settings [own only])
 // Preserves: all data fetching, rewards/onboarding/attribution, cards, follow/unfollow, profile editor, i18n
+// FIXED: Token refresh loop - now uses tokenRef to prevent infinite re-renders
 //
 // =============================================================================
 // DARK MODE PATTERNS USED IN THIS FILE:
@@ -24,7 +25,7 @@
 
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import {
@@ -229,6 +230,15 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
   const { user: currentUser, updateUser, token } = useAuth();
 
+  // ==========================================================================
+  // FIX: Use a ref to store the token to prevent re-render loops
+  // When token changes, it updates the ref but doesn't cause useCallback to regenerate
+  // ==========================================================================
+  const tokenRef = useRef(token);
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
+
   const API_BASE = useMemo(() => {
     // If you already set NEXT_PUBLIC_API_URL, this will use it.
     // Works whether you set it as "https://host" or "https://host/api".
@@ -345,16 +355,17 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   }, []);
 
   // -------------------------------
-  // Fetching functions (preserved 11)
+  // Fetching functions (using tokenRef.current instead of token)
   // -------------------------------
   const loadUserProfile = useCallback(async () => {
     try {
       setIsLoading(true);
 
       const url = buildApiUrl(API_BASE, `/users/${userId}`);
+      const currentToken = tokenRef.current;
       const response = await fetch(url, {
-        headers: token
-          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: currentToken
+          ? { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' }
           : { 'Content-Type': 'application/json' }
       });
 
@@ -373,7 +384,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [API_BASE, normalizeUserProfile, token, userId]);
+  }, [API_BASE, normalizeUserProfile, userId]);
 
   const loadRecommendations = useCallback(async () => {
     try {
@@ -382,10 +393,11 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
       // Preserve original endpoint shape: /api/recommendations?author=...
       const url = buildApiUrl(API_BASE, `/recommendations?author=${encodeURIComponent(userId)}`);
+      const currentToken = tokenRef.current;
 
       const response = await fetch(url, {
-        headers: token
-          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: currentToken
+          ? { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' }
           : { 'Content-Type': 'application/json' }
       });
 
@@ -410,7 +422,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     } finally {
       setRecommendationsLoading(false);
     }
-  }, [API_BASE, normalizeRecommendation, t, token, userId]);
+  }, [API_BASE, normalizeRecommendation, t, userId]);
 
   const loadUserReshares = useCallback(async () => {
     try {
@@ -418,9 +430,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       setContentError(null);
 
       const url = buildApiUrl(API_BASE, `/users/${userId}/reshares`);
+      const currentToken = tokenRef.current;
       const response = await fetch(url, {
-        headers: token
-          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: currentToken
+          ? { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' }
           : { 'Content-Type': 'application/json' }
       });
 
@@ -465,6 +478,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         });
 
         setResharesData(mapped);
+        setResharesLoaded(true);
       } else {
         setContentError(`${t('profile.errors.loadingReshares')} (${response.status})`);
         setResharesData([]);
@@ -476,7 +490,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     } finally {
       setContentLoading(false);
     }
-  }, [API_BASE, normalizeRecommendation, t, token, userId]);
+  }, [API_BASE, normalizeRecommendation, t, userId]);
 
   const loadUserLists = useCallback(async () => {
     try {
@@ -484,9 +498,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       setContentError(null);
 
       const url = buildApiUrl(API_BASE, `/lists?author=${encodeURIComponent(userId)}`);
+      const currentToken = tokenRef.current;
       const response = await fetch(url, {
-        headers: token
-          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: currentToken
+          ? { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' }
           : { 'Content-Type': 'application/json' }
       });
 
@@ -511,7 +526,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       setContentLoading(false);
       setListsLoaded(true);
     }
-  }, [API_BASE, t, token, userId]);
+  }, [API_BASE, t, userId]);
 
   const loadUserLikes = useCallback(async () => {
     try {
@@ -519,9 +534,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       setContentError(null);
 
       const url = buildApiUrl(API_BASE, `/users/${userId}/likes`);
+      const currentToken = tokenRef.current;
       const response = await fetch(url, {
-        headers: token
-          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: currentToken
+          ? { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' }
           : { 'Content-Type': 'application/json' }
       });
 
@@ -556,7 +572,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       setContentLoading(false);
       setLikesLoaded(true);
     }
-  }, [API_BASE, normalizeRecommendation, t, token, userId]);
+  }, [API_BASE, normalizeRecommendation, t, userId]);
 
   const loadUserSavedLists = useCallback(async () => {
     try {
@@ -564,9 +580,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       setContentError(null);
 
       const url = buildApiUrl(API_BASE, `/saved-lists`);
+      const currentToken = tokenRef.current;
       const response = await fetch(url, {
-        headers: token
-          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: currentToken
+          ? { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' }
           : { 'Content-Type': 'application/json' }
       });
 
@@ -591,7 +608,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       setContentLoading(false);
       setSavedListsLoaded(true);
     }
-  }, [API_BASE, t, token, userId]);
+  }, [API_BASE, t]);
 
   const loadFollowers = useCallback(async () => {
     try {
@@ -693,16 +710,16 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   }, [userId]);
 
   // -------------------------------
-  // Follow status + follow/unfollow (preserved)
+  // Follow status + follow/unfollow (using tokenRef)
   // -------------------------------
   const checkFollowStatus = useCallback(async () => {
-    if (!token || isOwnProfile) return;
+    if (!tokenRef.current || isOwnProfile) return;
 
     // Try a couple of plausible endpoints; fail silently to false.
     try {
       // Attempt: /api/social/following/:userId/check
       const url1 = buildApiUrl(API_BASE, `/social/following/${userId}/check`);
-      const res1 = await fetch(url1, { headers: { Authorization: `Bearer ${token}` } });
+      const res1 = await fetch(url1, { headers: { Authorization: `Bearer ${tokenRef.current}` } });
       if (res1.ok) {
         const data = await res1.json();
         setIsFollowing(Boolean(data?.isFollowing));
@@ -719,10 +736,11 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       console.error('Error checking follow status:', e);
       setIsFollowing(false);
     }
-  }, [API_BASE, isOwnProfile, token, userId]);
+  }, [API_BASE, isOwnProfile, userId]);
 
   const handleFollow = useCallback(async () => {
-    if (!token || followLoading || isOwnProfile) return;
+    const currentToken = tokenRef.current;
+    if (!currentToken || followLoading || isOwnProfile) return;
 
     try {
       setFollowLoading(true);
@@ -734,7 +752,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         const url = buildApiUrl(API_BASE, `/social/follow/${userId}`);
         const res = await fetch(url, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' }
         });
 
         if (res.ok) {
@@ -746,7 +764,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         const url = buildApiUrl(API_BASE, `/social/follow`);
         const res = await fetch(url, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ following_id: userId })
         });
 
@@ -761,7 +779,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
       const fallbackUrl = buildApiUrl(API_BASE, `/social/${isFollowing ? 'unfollow' : 'follow'}`);
       const fallbackRes = await fetch(fallbackUrl, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
       });
 
@@ -778,7 +796,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     } finally {
       setFollowLoading(false);
     }
-  }, [API_BASE, followLoading, isFollowing, isOwnProfile, token, userId]);
+  }, [API_BASE, followLoading, isFollowing, isOwnProfile, userId]);
 
   // -------------------------------
   // Save profile (preserved)
@@ -833,7 +851,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     return {
       type: 'email' as const,
       icon: <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
-      display: u.email || t('header.emailAccount')
+      display: u.email || t('profile.header.emailAccount')
     };
   };
 
@@ -898,7 +916,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   }, [user?.displayName, user?.userId, user?.username, userId]);
 
   // -------------------------------
-  // Effects
+  // Effects (with stable dependencies - no token)
   // -------------------------------
   useEffect(() => {
     loadUserProfile();
@@ -931,7 +949,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (activeTab === 'activity') {
       if (activitySubTab === 'recommendations' && recommendationsData.length === 0 && !recommendationsLoading) {
         loadRecommendations();
-      } else if (activitySubTab === 'reshares' && resharesData.length === 0 && !contentLoading) {
+      } else if (activitySubTab === 'reshares' && !resharesLoaded && !contentLoading) {
         loadUserReshares();
       } else if (activitySubTab === 'lists' && !listsLoaded && !contentLoading) {
         loadUserLists();
@@ -968,9 +986,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     loadUserLists,
     loadUserReshares,
     loadUserSavedLists,
+    networkSubTab,
     recommendationsData.length,
     recommendationsLoading,
-    resharesData.length,
+    resharesLoaded,
     savedListsLoaded,
     socialLoading,
     contentLoading,
