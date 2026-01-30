@@ -192,7 +192,9 @@
       "avatar": {
         "title": "Profile Photo",
         "description": "Tap to change your profile picture",
-        "change": "Change Photo"
+        "change": "Change Photo",
+        "upload": "Upload Photo",
+        "alt": "Profile avatar"
       },
       "fields": {
         "username": "Username",
@@ -210,16 +212,47 @@
         "country": "Your country",
         "email": "your@email.com"
       },
+      "countries": {
+        "brazil": "Brazil",
+        "usa": "United States",
+        "portugal": "Portugal",
+        "uk": "United Kingdom",
+        "canada": "Canada",
+        "germany": "Germany",
+        "france": "France",
+        "spain": "Spain",
+        "italy": "Italy",
+        "australia": "Australia"
+      },
       "requiredFields": "* Required fields",
       "save": "Save Profile",
+      "saveChanges": "Save Changes",
+      "saving": "Saving...",
+      "uploadingAvatar": "Uploading photo...",
       "cancel": "Cancel",
+      "usernameAvailable": "Username available",
+      "trySuggestions": "Try one of these:",
       "errors": {
         "avatarUploadFailed": "Failed to upload photo. Please try again.",
         "usernameTaken": "This username is already taken",
         "usernameInvalid": "Username can only contain letters, numbers, and underscores",
         "usernameTooShort": "Username must be at least 3 characters",
+        "usernameRequired": "Username is required",
+        "usernameMinLength": "Username must be at least 3 characters",
+        "usernameFormat": "Username can only contain letters, numbers, and underscores",
         "displayNameRequired": "Display name is required",
-        "saveFailed": "Failed to save profile. Please try again."
+        "displayNameMinLength": "Display name must be at least 2 characters",
+        "emailInvalid": "Invalid email address",
+        "saveFailed": "Failed to save profile. Please try again.",
+        "fixErrors": "Please fix the errors before saving",
+        "notLoggedIn": "You must be logged in to update your profile",
+        "connectionFailed": "Could not connect to server. Please try again.",
+        "authFailed": "Authentication failed. Please log in again.",
+        "invalidData": "Invalid profile data. Please check your entries.",
+        "generic": "Something went wrong. Please try again.",
+        "invalidImageType": "Please select an image file",
+        "imageTooLarge": "Image must be less than 5MB",
+        "updateFailed": "Failed to update profile"
       },
       "success": {
         "saved": "Profile updated successfully!"

@@ -192,7 +192,9 @@
       "avatar": {
         "title": "Foto de Perfil",
         "description": "Toque para alterar sua foto de perfil",
-        "change": "Alterar Foto"
+        "change": "Alterar Foto",
+        "upload": "Enviar Foto",
+        "alt": "Avatar do perfil"
       },
       "fields": {
         "username": "Nome de usuário",
@@ -210,16 +212,47 @@
         "country": "Seu país",
         "email": "seu@email.com"
       },
+      "countries": {
+        "brazil": "Brasil",
+        "usa": "Estados Unidos",
+        "portugal": "Portugal",
+        "uk": "Reino Unido",
+        "canada": "Canadá",
+        "germany": "Alemanha",
+        "france": "França",
+        "spain": "Espanha",
+        "italy": "Itália",
+        "australia": "Austrália"
+      },
       "requiredFields": "* Campos obrigatórios",
       "save": "Salvar Perfil",
+      "saveChanges": "Salvar Alterações",
+      "saving": "Salvando...",
+      "uploadingAvatar": "Enviando foto...",
       "cancel": "Cancelar",
+      "usernameAvailable": "Nome de usuário disponível",
+      "trySuggestions": "Tente um destes:",
       "errors": {
         "avatarUploadFailed": "Falha ao enviar foto. Por favor, tente novamente.",
         "usernameTaken": "Este nome de usuário já está em uso",
         "usernameInvalid": "Nome de usuário pode conter apenas letras, números e underscores",
         "usernameTooShort": "Nome de usuário deve ter pelo menos 3 caracteres",
+        "usernameRequired": "Nome de usuário é obrigatório",
+        "usernameMinLength": "Nome de usuário deve ter pelo menos 3 caracteres",
+        "usernameFormat": "Nome de usuário pode conter apenas letras, números e underscores",
         "displayNameRequired": "Nome de exibição é obrigatório",
-        "saveFailed": "Falha ao salvar perfil. Por favor, tente novamente."
+        "displayNameMinLength": "Nome de exibição deve ter pelo menos 2 caracteres",
+        "emailInvalid": "Endereço de email inválido",
+        "saveFailed": "Falha ao salvar perfil. Por favor, tente novamente.",
+        "fixErrors": "Por favor, corrija os erros antes de salvar",
+        "notLoggedIn": "Você precisa estar logado para atualizar seu perfil",
+        "connectionFailed": "Não foi possível conectar ao servidor. Por favor, tente novamente.",
+        "authFailed": "Falha na autenticação. Por favor, faça login novamente.",
+        "invalidData": "Dados de perfil inválidos. Por favor, verifique suas entradas.",
+        "generic": "Algo deu errado. Por favor, tente novamente.",
+        "invalidImageType": "Por favor, selecione um arquivo de imagem",
+        "imageTooLarge": "A imagem deve ter menos de 5MB",
+        "updateFailed": "Falha ao atualizar perfil"
       },
       "success": {
         "saved": "Perfil atualizado com sucesso!"
