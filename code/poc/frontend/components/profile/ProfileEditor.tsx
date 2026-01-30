@@ -365,7 +365,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
         bio: formData.bio?.trim() || '',
         location_city: formData.location_city?.trim() || '',
         location_country: formData.location_country?.trim() || '',
-        email: formData.email?.trim() || '',
+        email: formData.email?.trim() || undefined,  // undefined instead of ''
         // Include new avatar URL if uploaded, otherwise keep existing
         avatar_url: newAvatarUrl || formData.avatar_url || ''
       };
