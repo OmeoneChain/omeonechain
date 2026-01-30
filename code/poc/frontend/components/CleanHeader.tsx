@@ -5,6 +5,7 @@
 // UPDATED: Dark mode for language dropdown
 // REMOVED: Non-functional global search bar
 // FIXED: Moved all hooks before conditional returns to fix React Error #300
+// FIXED: Avatar image display - now shows uploaded avatar instead of just initials (Jan 30, 2026)
 
 'use client';
 
@@ -42,6 +43,66 @@ const BocaBocaLogo = ({ size = 32 }: { size?: number }) => (
     priority
   />
 );
+
+// ============================================
+// AVATAR COMPONENT - Shows image or falls back to initials
+// ============================================
+const UserAvatar = ({ 
+  user, 
+  size = 32 
+}: { 
+  user: any; 
+  size?: number;
+}) => {
+  const [imgError, setImgError] = useState(false);
+  
+  const getDisplayName = () => {
+    if (!user) return 'User';
+    return user.display_name || user.displayName || user.username || user.name || 'User';
+  };
+
+  const getInitial = () => {
+    const name = getDisplayName();
+    return name[0]?.toUpperCase() || 'U';
+  };
+
+  const getAvatarUrl = () => {
+    if (!user) return null;
+    const avatarUrl = user.avatar_url || user.avatarUrl || user.avatar;
+    if (!avatarUrl) return null;
+    // Check if it's a real uploaded avatar (not a generated placeholder)
+    if (avatarUrl.includes('dicebear') || avatarUrl.includes('default-avatar')) {
+      return null;
+    }
+    return avatarUrl;
+  };
+
+  const avatarUrl = getAvatarUrl();
+  const showImage = avatarUrl && !imgError;
+
+  return (
+    <div 
+      className="rounded-full flex items-center justify-center text-white font-semibold overflow-hidden"
+      style={{ 
+        width: size, 
+        height: size,
+        background: showImage ? 'transparent' : 'linear-gradient(135deg, #FFB3AB 0%, #FF644A 100%)',
+        fontSize: size * 0.4
+      }}
+    >
+      {showImage ? (
+        <img
+          src={avatarUrl}
+          alt={getDisplayName()}
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        getInitial()
+      )}
+    </div>
+  );
+};
 
 // ============================================
 // LANGUAGE SWITCHER COMPONENT - With Dark Mode
@@ -238,12 +299,6 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
     return user.display_name || user.displayName || user.username || user.name || 'User';
   };
 
-  const getInitial = () => {
-    if (!user) return 'U';
-    const name = getDisplayName();
-    return name[0]?.toUpperCase() || 'U';
-  };
-
   const AuthButtons = ({ mobile = false }: { mobile?: boolean }) => (
     <>
       {!isAuthenticated && (
@@ -388,23 +443,23 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
               ) : (
                 <div className="relative group">
                   <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-[#2D2C3A] transition-colors">
-                    <div 
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm"
-                      style={{ background: 'linear-gradient(135deg, #FFB3AB 0%, #FF644A 100%)' }}
-                    >
-                      {getInitial()}
-                    </div>
+                    <UserAvatar user={user} size={32} />
                     <ChevronDown size={16} className="text-gray-500 dark:text-gray-400" />
                   </button>
 
                   <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#2D2C3A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all border border-gray-200 dark:border-[#3D3C4A]">
                     <div className="px-4 py-3 border-b border-gray-100 dark:border-[#3D3C4A]">
-                      <div className="font-medium text-[#1F1E2A] dark:text-white">
-                        {getDisplayName()}
+                      <div className="flex items-center gap-3 mb-2">
+                        <UserAvatar user={user} size={40} />
+                        <div>
+                          <div className="font-medium text-[#1F1E2A] dark:text-white">
+                            {getDisplayName()}
+                          </div>
+                          {user?.email && (
+                            <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
+                          )}
+                        </div>
                       </div>
-                      {user?.email && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
-                      )}
                       {(user?.walletAddress || user?.wallet_address) && (
                         <div className="text-xs font-mono text-gray-400 dark:text-gray-500">
                           {formatAddress(user.walletAddress || user.wallet_address || '')}

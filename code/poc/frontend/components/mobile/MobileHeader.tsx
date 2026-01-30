@@ -2,6 +2,7 @@
 // Mobile-optimized header for BocaBoca app
 // Layout: Avatar (left) | Logo (center) | Bell + Tokens (right)
 // FIXED: Translation fallbacks and iOS safe area handling
+// FIXED: Avatar image display - now shows uploaded avatar instead of just initials (Jan 30, 2026)
 
 'use client';
 
@@ -19,6 +20,66 @@ import { useTranslations } from 'next-intl';
 interface MobileHeaderProps {
   className?: string;
 }
+
+// ============================================
+// AVATAR COMPONENT - Shows image or falls back to initials
+// ============================================
+const UserAvatar = ({ 
+  user, 
+  size = 36 
+}: { 
+  user: any; 
+  size?: number;
+}) => {
+  const [imgError, setImgError] = useState(false);
+  
+  const getDisplayName = () => {
+    if (!user) return 'User';
+    return user.display_name || user.displayName || user.username || user.name || 'User';
+  };
+
+  const getInitial = () => {
+    const name = getDisplayName();
+    return name[0]?.toUpperCase() || 'U';
+  };
+
+  const getAvatarUrl = () => {
+    if (!user) return null;
+    const avatarUrl = user.avatar_url || user.avatarUrl || user.avatar;
+    if (!avatarUrl) return null;
+    // Check if it's a real uploaded avatar (not a generated placeholder)
+    if (avatarUrl.includes('dicebear') || avatarUrl.includes('default-avatar')) {
+      return null;
+    }
+    return avatarUrl;
+  };
+
+  const avatarUrl = getAvatarUrl();
+  const showImage = avatarUrl && !imgError;
+
+  return (
+    <div 
+      className="rounded-full flex items-center justify-center text-white font-semibold overflow-hidden"
+      style={{ 
+        width: size, 
+        height: size,
+        background: showImage ? 'transparent' : 'linear-gradient(135deg, #FFB3AB 0%, #FF644A 100%)',
+        fontSize: size * 0.4
+      }}
+    >
+      {showImage ? (
+        <img
+          src={avatarUrl}
+          alt={getDisplayName()}
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        getInitial()
+      )}
+    </div>
+  );
+};
 
 export function MobileHeader({ className = '' }: MobileHeaderProps) {
   const router = useRouter();
@@ -102,12 +163,6 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
     return user.display_name || user.username || user.name || 'User';
   };
 
-  const getInitial = () => {
-    if (!user) return 'U';
-    const name = getDisplayName();
-    return name[0]?.toUpperCase() || 'U';
-  };
-
   // Safe translation helper - returns fallback if key not found
   const safeT = (key: string, fallback: string): string => {
     try {
@@ -152,12 +207,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-1 active:opacity-70 transition-opacity"
               >
-                <div 
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                  style={{ background: 'linear-gradient(135deg, #FFB3AB 0%, #FF644A 100%)' }}
-                >
-                  {getInitial()}
-                </div>
+                <UserAvatar user={user} size={36} />
                 <ChevronDown 
                   size={14} 
                   className={`text-gray-400 dark:text-gray-500 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} 
@@ -195,20 +245,20 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
                 {/* Notifications Bell */}
                 <NotificationBell />
                 
-                {/* Token Balance (wallet users only) */}
-                  <Link
-                    href="/my-rewards"
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FFE8E3] dark:bg-[#FF644A]/20 active:opacity-70 transition-opacity"
-                  >
-                    <Coins size={13} className="text-[#FF644A]" />
-                    {isLoadingBalance ? (
-                      <div className="w-8 h-4 bg-[#FFD4CC] dark:bg-[#FF644A]/30 rounded animate-pulse" />
-                    ) : (
-                      <span className="text-[13px] font-semibold text-[#FF644A]">
-                        {tokenBalance.toFixed(1)}
-                      </span>
-                    )}
-                  </Link>
+                {/* Token Balance */}
+                <Link
+                  href="/my-rewards"
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FFE8E3] dark:bg-[#FF644A]/20 active:opacity-70 transition-opacity"
+                >
+                  <Coins size={13} className="text-[#FF644A]" />
+                  {isLoadingBalance ? (
+                    <div className="w-8 h-4 bg-[#FFD4CC] dark:bg-[#FF644A]/30 rounded animate-pulse" />
+                  ) : (
+                    <span className="text-[13px] font-semibold text-[#FF644A]">
+                      {tokenBalance.toFixed(1)}
+                    </span>
+                  )}
+                </Link>
               </>
             ) : (
               // Placeholder for alignment when not authenticated
@@ -244,12 +294,17 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
             >
               {/* User Info */}
               <div className="px-4 py-3 border-b border-gray-100 dark:border-[#3D3C4A]">
-                <div className="font-medium text-[#1F1E2A] dark:text-white">
-                  {getDisplayName()}
+                <div className="flex items-center gap-3 mb-2">
+                  <UserAvatar user={user} size={44} />
+                  <div>
+                    <div className="font-medium text-[#1F1E2A] dark:text-white">
+                      {getDisplayName()}
+                    </div>
+                    {user?.email && (
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
+                    )}
+                  </div>
                 </div>
-                {user?.email && (
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
-                )}
                 <div className="mt-2">
                   <span 
                     className={`inline-block px-2 py-1 text-xs rounded ${

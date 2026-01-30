@@ -174,10 +174,23 @@
       "verified": "Verificado"
     }
   },
+  "draft": {
+    "saved": "Rascunho salvo",
+    "saving": "Salvando...",
+    "found": "Rascunho Encontrado",
+    "savedAt": "Salvo {time}",
+    "noRestaurant": "Nenhum restaurante selecionado",
+    "restoreQuestion": "Gostaria de continuar de onde parou?",
+    "startFresh": "Começar do Zero",
+    "restore": "Restaurar Rascunho",
+    "restored": "Rascunho restaurado!",
+    "photosNotRecovered": "Nota: {count} foto(s) não puderam ser recuperadas. Por favor, adicione-as novamente."
+  },
 
   "singleScreen": {
     "readyToPublish": "Tudo pronto!",
-    "optionalDetails": "Quer adicionar mais? Mais detalhes = recomendações mais inteligentes para você e melhores dicas para sua rede.",
+    "optionalHint": "Opcional:",
+    "optionalDetails": "Adicione mais detalhes para ajudar sua rede e construir seu perfil de gosto.",
     "title": "Criar uma Recomendação",
     "subtitle": "Avalie, adicione detalhes e publique",
     "restaurantLabel": "Restaurante",
