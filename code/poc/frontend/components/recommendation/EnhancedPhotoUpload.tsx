@@ -1,6 +1,19 @@
+// components/recommendation/EnhancedPhotoUpload.tsx
+// UPDATED: Safe Capacitor Camera integration with file input fallback
+// UPDATED: Better mobile UX with proper native camera support
+
 import React, { useState, useRef, useCallback } from 'react';
 import { Camera, Upload, X, Loader, FileImage } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'react-hot-toast';
+
+// Safe import of Capacitor - won't crash if not available
+let Capacitor: any = null;
+try {
+  Capacitor = require('@capacitor/core').Capacitor;
+} catch (e) {
+  console.log('Capacitor not available');
+}
 
 interface PhotoData {
   file: File;
@@ -23,6 +36,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 }) => {
   const t = useTranslations('recommendations');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const compressImage = (file: File): Promise<File> => {
@@ -65,6 +79,11 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         );
       };
       
+      img.onerror = () => {
+        console.warn('Image load failed, using original file');
+        resolve(file);
+      };
+      
       img.src = URL.createObjectURL(file);
     });
   };
@@ -83,7 +102,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 
   const handleFileSelect = useCallback(async (files: FileList) => {
     if (photos.length >= maxPhotos) {
-      alert(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
+      toast.error(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
       return;
     }
 
@@ -92,11 +111,11 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
     const newPhotos: PhotoData[] = [];
     const validFiles = Array.from(files).filter(file => {
       if (!file.type.startsWith('image/')) {
-        alert(t('photoUpload.errors.notImage', { name: file.name }));
+        toast.error(t('photoUpload.errors.notImage', { name: file.name }));
         return false;
       }
       if (file.size > maxSizeBytes) {
-        alert(t('photoUpload.errors.tooLarge', { name: file.name, max: Math.round(maxSizeBytes / 1024 / 1024) }));
+        toast.error(t('photoUpload.errors.tooLarge', { name: file.name, max: Math.round(maxSizeBytes / 1024 / 1024) }));
         return false;
       }
       return true;
@@ -108,13 +127,180 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         newPhotos.push(photoData);
       } catch (error) {
         console.error('Error processing file:', error);
-        alert(t('photoUpload.errors.processingFailed', { name: file.name }));
+        toast.error(t('photoUpload.errors.processingFailed', { name: file.name }));
       }
     }
 
-    onPhotosChange([...photos, ...newPhotos]);
+    if (newPhotos.length > 0) {
+      onPhotosChange([...photos, ...newPhotos]);
+      toast.success(t('photoUpload.success.added', { count: newPhotos.length }) || `Added ${newPhotos.length} photo(s)`);
+    }
+    
     setIsProcessing(false);
   }, [photos, maxPhotos, maxSizeBytes, onPhotosChange, t]);
+
+  // Handle Capacitor Camera for native platforms
+  const handleCameraCapture = useCallback(async () => {
+    if (photos.length >= maxPhotos) {
+      toast.error(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
+      return;
+    }
+
+    const isNative = Capacitor?.isNativePlatform?.() ?? false;
+
+    if (isNative) {
+      try {
+        console.log('📱 Attempting Capacitor Camera for photo capture');
+        
+        // Dynamic import to prevent crashes if plugin not available
+        const { Camera: CapacitorCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+        
+        // Check if Camera plugin is available
+        if (typeof CapacitorCamera?.getPhoto !== 'function') {
+          console.log('⚠️ Camera plugin not available, falling back to file input');
+          fileInputRef.current?.click();
+          return;
+        }
+
+        // Check permissions first
+        try {
+          const permissions = await CapacitorCamera.checkPermissions();
+          console.log('📷 Camera permissions:', permissions);
+          
+          if (permissions.camera === 'denied') {
+            const requested = await CapacitorCamera.requestPermissions();
+            if (requested.camera === 'denied') {
+              toast.error(t('photoUpload.errors.cameraPermission') || 'Camera permission required. Please enable in Settings.');
+              fileInputRef.current?.click();
+              return;
+            }
+          }
+        } catch (permError) {
+          console.log('⚠️ Permission check failed, trying anyway:', permError);
+        }
+        
+        const image = await CapacitorCamera.getPhoto({
+          quality: 85,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Camera, // Camera only
+          width: 1200,
+          height: 1200
+        });
+
+        if (image.dataUrl) {
+          console.log('✅ Photo captured successfully');
+          setIsProcessing(true);
+          
+          // Convert data URL to File object
+          const response = await fetch(image.dataUrl);
+          const blob = await response.blob();
+          const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          
+          const photoData = await processFile(file);
+          onPhotosChange([...photos, photoData]);
+          toast.success(t('photoUpload.success.captured') || 'Photo captured!');
+          setIsProcessing(false);
+        }
+      } catch (error: any) {
+        console.error('❌ Camera error:', error);
+        setIsProcessing(false);
+        
+        // User cancelled - not an error
+        if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
+          console.log('📷 User cancelled photo capture');
+          return;
+        }
+        
+        // Fall back to file input
+        console.log('⚠️ Camera failed, falling back to file input');
+        fileInputRef.current?.click();
+      }
+    } else {
+      // Web - use file input with camera capture
+      console.log('🌐 Using file input for web platform');
+      fileInputRef.current?.click();
+    }
+  }, [photos, maxPhotos, onPhotosChange, t]);
+
+  // Handle gallery selection with Capacitor
+  const handleGallerySelect = useCallback(async () => {
+    if (photos.length >= maxPhotos) {
+      toast.error(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
+      return;
+    }
+
+    const isNative = Capacitor?.isNativePlatform?.() ?? false;
+
+    if (isNative) {
+      try {
+        console.log('📱 Attempting Capacitor Camera for gallery selection');
+        
+        // Dynamic import to prevent crashes
+        const { Camera: CapacitorCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+        
+        if (typeof CapacitorCamera?.getPhoto !== 'function') {
+          console.log('⚠️ Camera plugin not available, falling back to file input');
+          galleryInputRef.current?.click();
+          return;
+        }
+
+        // Check photo library permissions
+        try {
+          const permissions = await CapacitorCamera.checkPermissions();
+          if (permissions.photos === 'denied') {
+            const requested = await CapacitorCamera.requestPermissions();
+            if (requested.photos === 'denied') {
+              toast.error(t('photoUpload.errors.galleryPermission') || 'Photo library permission required. Please enable in Settings.');
+              galleryInputRef.current?.click();
+              return;
+            }
+          }
+        } catch (permError) {
+          console.log('⚠️ Permission check failed, trying anyway:', permError);
+        }
+        
+        const image = await CapacitorCamera.getPhoto({
+          quality: 85,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Photos, // Gallery only
+          width: 1200,
+          height: 1200
+        });
+
+        if (image.dataUrl) {
+          console.log('✅ Photo selected from gallery');
+          setIsProcessing(true);
+          
+          const response = await fetch(image.dataUrl);
+          const blob = await response.blob();
+          const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          
+          const photoData = await processFile(file);
+          onPhotosChange([...photos, photoData]);
+          toast.success(t('photoUpload.success.selected') || 'Photo added!');
+          setIsProcessing(false);
+        }
+      } catch (error: any) {
+        console.error('❌ Gallery error:', error);
+        setIsProcessing(false);
+        
+        if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
+          console.log('📷 User cancelled gallery selection');
+          return;
+        }
+        
+        // Fall back to file input
+        console.log('⚠️ Gallery selection failed, falling back to file input');
+        galleryInputRef.current?.click();
+      }
+    } else {
+      // Web - use standard file input
+      console.log('🌐 Using file input for gallery');
+      galleryInputRef.current?.click();
+    }
+  }, [photos, maxPhotos, onPhotosChange, t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -150,26 +336,24 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
               className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
             />
             
-            {/* Photo overlay with delete button */}
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center">
-              <button
-                onClick={() => removePhoto(index)}
-                className="bg-red-500 text-white rounded-full p-1 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            {/* Delete button - always visible on mobile for easier access */}
+            <button
+              onClick={() => removePhoto(index)}
+              className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-opacity shadow-lg"
+            >
+              <X className="h-4 w-4" />
+            </button>
 
             {/* File size indicator */}
-            <div className="absolute top-1 right-1">
-              <div className="bg-black bg-opacity-60 text-white text-xs px-1 py-0.5 rounded">
+            <div className="absolute bottom-1 left-1">
+              <div className="bg-black bg-opacity-60 text-white text-xs px-1.5 py-0.5 rounded">
                 {(photo.file.size / 1024 / 1024).toFixed(1)}MB
               </div>
             </div>
           </div>
         ))}
 
-        {/* Add Photo Button */}
+        {/* Add Photo Button (drag & drop zone) */}
         {photos.length < maxPhotos && (
           <div
             onClick={triggerFileInput}
@@ -198,14 +382,33 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         )}
       </div>
 
-      {/* File Input */}
+      {/* Hidden File Inputs */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         multiple
         capture="environment"
-        onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+        onChange={(e) => {
+          if (e.target.files) {
+            handleFileSelect(e.target.files);
+            e.target.value = ''; // Reset for same file selection
+          }
+        }}
+        className="hidden"
+      />
+      
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(e) => {
+          if (e.target.files) {
+            handleFileSelect(e.target.files);
+            e.target.value = ''; // Reset for same file selection
+          }
+        }}
         className="hidden"
       />
 
@@ -217,33 +420,39 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         </div>
       )}
 
-      {/* Mobile Camera Buttons */}
-      <div className="flex space-x-3">
-        <button
-          onClick={triggerFileInput}
-          className="flex-1 px-4 py-3 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441] transition-colors flex items-center justify-center font-medium"
-        >
-          <Camera className="h-5 w-5 mr-2" />
-          {t('photoUpload.takePhoto')}
-        </button>
-        <button
-          onClick={() => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.multiple = true;
-            input.onchange = (e) => {
-              const files = (e.target as HTMLInputElement).files;
-              if (files) handleFileSelect(files);
-            };
-            input.click();
-          }}
-          className="flex-1 px-4 py-3 bg-[#353444] dark:bg-[#404050] text-white rounded-lg hover:bg-[#2D2C3A] dark:hover:bg-[#4D4C5A] transition-colors flex items-center justify-center font-medium"
-        >
-          <FileImage className="h-5 w-5 mr-2" />
-          {t('photoUpload.fromGallery')}
-        </button>
-      </div>
+      {/* Mobile Camera/Gallery Buttons */}
+      {photos.length < maxPhotos && (
+        <div className="flex space-x-3">
+          <button
+            onClick={handleCameraCapture}
+            disabled={isProcessing}
+            className="flex-1 px-4 py-3 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441] transition-colors flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? (
+              <Loader className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                <Camera className="h-5 w-5 mr-2" />
+                {t('photoUpload.takePhoto')}
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleGallerySelect}
+            disabled={isProcessing}
+            className="flex-1 px-4 py-3 bg-[#353444] dark:bg-[#404050] text-white rounded-lg hover:bg-[#2D2C3A] dark:hover:bg-[#4D4C5A] transition-colors flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? (
+              <Loader className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                <FileImage className="h-5 w-5 mr-2" />
+                {t('photoUpload.fromGallery')}
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

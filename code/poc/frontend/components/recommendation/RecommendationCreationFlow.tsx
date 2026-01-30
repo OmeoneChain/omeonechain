@@ -1,13 +1,13 @@
 // components/recommendation/RecommendationCreationFlow.tsx
-// SINGLE SCREEN VERSION (Option A): inline restaurant search when none selected
+// SINGLE SCREEN VERSION: inline restaurant search when none selected
 // Uses existing reusable components: CollapsibleSection, RestaurantHeader, StickyPublishButton
-// Comments (optional) replaces Notes
-// Required: restaurant + overall_rating only
 //
-// UPDATED: Dark mode support added
+// UPDATED: Dark mode support
 // UPDATED: 0.5 increments for Restaurant Aspects
 // UPDATED: Cancel button added
 // UPDATED: Touch-friendly rating sliders (Jan 25, 2026)
+// UPDATED: All optional sections visible upfront (Jan 30, 2026)
+// UPDATED: Autosave draft to localStorage (Jan 30, 2026)
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -24,6 +24,7 @@ import {
   Calendar,
   X,
   ArrowLeft,
+  Save,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useTranslations } from 'next-intl';
@@ -46,6 +47,12 @@ import StickyPublishButton from './StickyPublishButton';
 const CS: any = CollapsibleSection as any;
 const RH: any = RestaurantHeader as any;
 const SPB: any = StickyPublishButton as any;
+
+// ============================================
+// DRAFT STORAGE KEY
+// ============================================
+const DRAFT_STORAGE_KEY = 'bocaboca_recommendation_draft';
+const DRAFT_SAVE_DELAY = 2000; // 2 seconds debounce
 
 // ============================================
 // TOUCH-FRIENDLY SLIDER STYLES
@@ -186,6 +193,23 @@ interface PhotoData {
   dish_tag_other?: string;
 }
 
+// Serializable version for localStorage (without File objects)
+interface SerializableDraft {
+  restaurant: Restaurant | null;
+  title: string;
+  body: string;
+  category: string;
+  overall_rating: number;
+  dishes: Dish[];
+  aspects: RestaurantAspects | null;
+  context: ContextualFactors | null;
+  context_tags: string[];
+  cuisine_type?: string;
+  // Photos can't be serialized, so we just track count
+  photoCount: number;
+  savedAt: string;
+}
+
 interface RecommendationDraft {
   restaurant: Restaurant | null;
   title: string;
@@ -305,7 +329,10 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   const [connectionStatus, setConnectionStatus] = useState<'testing' | 'connected' | 'fallback'>('testing');
   const { user, isAuthenticated } = useAuth();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [hasInteractedWithRating, setHasInteractedWithRating] = useState(false);
+  const [showDraftRecovery, setShowDraftRecovery] = useState(false);
+  const [recoveredDraft, setRecoveredDraft] = useState<SerializableDraft | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [currentDish, setCurrentDish] = useState<Dish>({
     id: '',
@@ -326,6 +353,92 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     address: 'Asa Sul',
     city: 'Brasília',
     country: 'Brazil',
+  };
+
+  // ============================================
+  // DRAFT SAVE/LOAD FUNCTIONS
+  // ============================================
+
+  const saveDraftToStorage = (draftToSave: RecommendationDraft) => {
+    try {
+      const serializableDraft: SerializableDraft = {
+        restaurant: draftToSave.restaurant,
+        title: draftToSave.title,
+        body: draftToSave.body,
+        category: draftToSave.category,
+        overall_rating: draftToSave.overall_rating,
+        dishes: draftToSave.dishes,
+        aspects: draftToSave.aspects,
+        context: draftToSave.context,
+        context_tags: draftToSave.context_tags,
+        cuisine_type: draftToSave.cuisine_type,
+        photoCount: draftToSave.photos.length,
+        savedAt: new Date().toISOString(),
+      };
+      
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(serializableDraft));
+      setLastSavedAt(new Date());
+      setIsSaving(false);
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+      setIsSaving(false);
+    }
+  };
+
+  const loadDraftFromStorage = (): SerializableDraft | null => {
+    try {
+      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Failed to load draft:', error);
+    }
+    return null;
+  };
+
+  const clearDraftFromStorage = () => {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      setLastSavedAt(null);
+    } catch (error) {
+      console.error('Failed to clear draft:', error);
+    }
+  };
+
+  const applyRecoveredDraft = () => {
+    if (recoveredDraft) {
+      setDraft({
+        restaurant: recoveredDraft.restaurant,
+        title: recoveredDraft.title,
+        body: recoveredDraft.body,
+        category: recoveredDraft.category,
+        overall_rating: recoveredDraft.overall_rating,
+        dishes: recoveredDraft.dishes,
+        aspects: recoveredDraft.aspects,
+        context: recoveredDraft.context,
+        context_tags: recoveredDraft.context_tags,
+        cuisine_type: recoveredDraft.cuisine_type,
+        photos: [], // Photos can't be recovered
+      });
+      
+      if (recoveredDraft.photoCount > 0) {
+        toast(t('draft.photosNotRecovered') || `Note: ${recoveredDraft.photoCount} photo(s) could not be recovered. Please re-add them.`, {
+          icon: '📷',
+          duration: 5000,
+        });
+      }
+      
+      toast.success(t('draft.restored') || 'Draft restored!');
+      setShowDraftRecovery(false);
+      setRecoveredDraft(null);
+    }
+  };
+
+  const discardRecoveredDraft = () => {
+    clearDraftFromStorage();
+    setShowDraftRecovery(false);
+    setRecoveredDraft(null);
   };
 
   // ============================================
@@ -380,6 +493,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   };
 
   const handleConfirmCancel = () => {
+    clearDraftFromStorage();
     setShowCancelConfirm(false);
     if (onCancel) {
       onCancel();
@@ -391,6 +505,35 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   // ============================================
   // EFFECTS
   // ============================================
+
+  // Check for saved draft on mount
+  useEffect(() => {
+    const savedDraft = loadDraftFromStorage();
+    if (savedDraft && savedDraft.restaurant) {
+      // Only show recovery if there's meaningful content
+      const hasContent = savedDraft.restaurant || 
+                         savedDraft.title.trim() || 
+                         savedDraft.body.trim() || 
+                         savedDraft.dishes.length > 0;
+      
+      if (hasContent) {
+        setRecoveredDraft(savedDraft);
+        setShowDraftRecovery(true);
+      }
+    }
+  }, []);
+
+  // Autosave draft when content changes (debounced)
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    
+    setIsSaving(true);
+    const timeoutId = setTimeout(() => {
+      saveDraftToStorage(draft);
+    }, DRAFT_SAVE_DELAY);
+
+    return () => clearTimeout(timeoutId);
+  }, [draft, hasUnsavedChanges]);
 
   useEffect(() => {
     const initIOTA = async () => {
@@ -433,7 +576,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
   const handleAddDish = () => {
     if (!currentDish.name.trim()) {
-      alert(t('dishes.validation.enterName'));
+      toast.error(t('dishes.validation.enterName'));
       return;
     }
 
@@ -622,18 +765,18 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
   const handleSubmit = async () => {
     if (!draft.restaurant) {
-      alert(t('validation.fillRequired'));
+      toast.error(t('validation.fillRequired'));
       return;
     }
     if (!(draft.overall_rating >= 0 && draft.overall_rating <= 10)) {
-      alert(t('validation.fillRequired'));
+      toast.error(t('validation.fillRequired'));
       return;
     }
 
     try {
       getCurrentUser();
     } catch (e: any) {
-      alert(t('errors.connectWalletFirst'));
+      toast.error(t('errors.connectWalletFirst'));
       return;
     }
 
@@ -793,6 +936,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         await tokenBalanceService.optimisticUpdate(user.id, tokensEarned);
       }
 
+      // Clear draft on successful publish
+      clearDraftFromStorage();
+
       toast.success(t('success.published', { tokens: Number(tokensEarned).toFixed(2) }), {
         duration: 5000,
         icon: '💰',
@@ -820,7 +966,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     } catch (error: any) {
       const msg = error instanceof Error ? error.message : 'Unknown error occurred';
       onError?.(error instanceof Error ? error : new Error(msg));
-      alert(t('errors.createFailed', { error: msg }));
+      toast.error(t('errors.createFailed', { error: msg }));
     } finally {
       setIsSubmitting?.(false);
       setIsLoading(false);
@@ -865,16 +1011,94 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       
       <CleanHeader />
 
+      {/* Draft Recovery Modal */}
+      {showDraftRecovery && recoveredDraft && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2D2C3A] rounded-2xl shadow-xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 rounded-full flex items-center justify-center">
+                <Save className="h-5 w-5 text-[#1F1E2A] dark:text-[#BFE2D9]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-[#1F1E2A] dark:text-white">
+                  {t('draft.found') || 'Draft Found'}
+                </h3>
+                <p className="text-xs text-[#9CA3AF] dark:text-gray-500">
+                  {t('draft.savedAt', { 
+                    time: new Date(recoveredDraft.savedAt).toLocaleString() 
+                  }) || `Saved ${new Date(recoveredDraft.savedAt).toLocaleString()}`}
+                </p>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 dark:bg-[#353444] rounded-lg p-3 mb-4">
+              <p className="text-sm text-[#1F1E2A] dark:text-white font-medium">
+                {recoveredDraft.restaurant?.name || t('draft.noRestaurant')}
+              </p>
+              {recoveredDraft.title && (
+                <p className="text-xs text-[#9CA3AF] dark:text-gray-400 mt-1">"{recoveredDraft.title}"</p>
+              )}
+              <div className="flex gap-2 mt-2 text-xs text-[#9CA3AF] dark:text-gray-500">
+                {recoveredDraft.dishes.length > 0 && (
+                  <span>🍽️ {recoveredDraft.dishes.length} dishes</span>
+                )}
+                {recoveredDraft.photoCount > 0 && (
+                  <span>📷 {recoveredDraft.photoCount} photos</span>
+                )}
+              </div>
+            </div>
+            
+            <p className="text-sm text-[#9CA3AF] dark:text-gray-400 mb-6">
+              {t('draft.restoreQuestion') || 'Would you like to continue where you left off?'}
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={discardRecoveredDraft}
+                className="flex-1 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm font-medium text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
+              >
+                {t('draft.startFresh') || 'Start Fresh'}
+              </button>
+              <button
+                onClick={applyRecoveredDraft}
+                className="flex-1 py-3 bg-[#FF644A] text-white rounded-xl text-sm font-medium hover:bg-[#E65441] transition-colors"
+              >
+                {t('draft.restore') || 'Restore Draft'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto px-4 py-8 pb-28">
         <div className="bg-white dark:bg-[#2D2C3A] rounded-2xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] p-6 md:p-8 transition-all duration-300">
-          {/* Cancel Button */}
-          <button
-            onClick={handleCancelClick}
-            className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A] transition-colors mb-4"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span className="text-sm font-medium">{t('actions.cancel') || 'Cancel'}</span>
-          </button>
+          {/* Header with Cancel and Save Status */}
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={handleCancelClick}
+              className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A] transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              <span className="text-sm font-medium">{t('actions.cancel') || 'Cancel'}</span>
+            </button>
+            
+            {/* Autosave indicator */}
+            {hasUnsavedChanges && (
+              <div className="flex items-center gap-2 text-xs text-[#9CA3AF] dark:text-gray-500">
+                {isSaving ? (
+                  <>
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                    <span>{t('draft.saving') || 'Saving...'}</span>
+                  </>
+                ) : lastSavedAt ? (
+                  <>
+                    <div className="w-2 h-2 bg-green-400 rounded-full" />
+                    <span>{t('draft.saved') || 'Draft saved'}</span>
+                  </>
+                ) : null}
+              </div>
+            )}
+          </div>
 
           {/* Title */}
           <div className="text-center mb-6">
@@ -925,7 +1149,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
           )}
 
           {/* Rating (required) - TOUCH FRIENDLY */}
-          <div className={`mb-8 ${!hasRestaurant ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className={`mb-6 ${!hasRestaurant ? 'opacity-50 pointer-events-none' : ''}`}>
             <label className="block text-sm font-semibold text-[#1F1E2A] dark:text-white mb-3">
               {t('steps.essentials.overallRating') || 'Overall rating'} <span className="text-[#FF644A]">*</span>
             </label>
@@ -940,7 +1164,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                   step="0.5"
                   value={draft.overall_rating}
                   onChange={e => {
-                    setHasInteractedWithRating(true);
                     setDraft(prev => ({ ...prev, overall_rating: parseFloat(e.target.value) }));
                   }}
                   className="w-full touch-slider"
@@ -959,19 +1182,14 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             <p className="text-sm text-[#9CA3AF] dark:text-gray-400 text-center mt-2">{getRatingLabel(draft.overall_rating)}</p>
           </div>
 
-          {/* Optional sections only show once restaurant is selected */}
-          {hasRestaurant && hasInteractedWithRating && (
+          {/* Optional sections - always visible once restaurant selected */}
+          {hasRestaurant && (
             <>
-              {/* Completion Divider - Shows users they can publish now, optional sections below */}
-              <div className="my-6 py-4 px-4 bg-[#BFE2D9]/30 dark:bg-[#BFE2D9]/10 border border-[#BFE2D9] dark:border-[#BFE2D9]/30 rounded-xl text-center">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="text-lg">✅</span>
-                  <span className="font-semibold text-[#1F1E2A] dark:text-white">
-                    {t('singleScreen.readyToPublish') || 'Good to go!'}
-                  </span>
-                </div>
-                <p className="text-sm text-[#1F1E2A]/70 dark:text-gray-400">
-                  {t('singleScreen.optionalDetails') || 'Want to add more? More details = smarter recommendations for you, and better tips for your network.'}
+              {/* Info text about optional fields */}
+              <div className="mb-6 py-3 px-4 bg-[#BFE2D9]/20 dark:bg-[#BFE2D9]/10 border border-[#BFE2D9]/50 dark:border-[#BFE2D9]/20 rounded-xl">
+                <p className="text-sm text-[#1F1E2A]/80 dark:text-gray-300 text-center">
+                  <span className="font-medium">{t('singleScreen.optionalHint') || 'Optional:'}</span>{' '}
+                  {t('singleScreen.optionalDetails') || 'Add more details to help your network and build your taste profile.'}
                 </p>
               </div>
 
