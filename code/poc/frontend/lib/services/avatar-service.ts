@@ -1,8 +1,9 @@
 // File: code/poc/frontend/lib/services/avatar-service.ts
 // Service for uploading user avatars via the backend Pinata endpoint
 
-// API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
+// API configuration - normalize to never end with /api
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app';
+const API_BASE_URL = RAW_API_URL.replace(/\/api\/?$/, ''); // Strip trailing /api if present
 
 // Maximum file size (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
