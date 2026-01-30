@@ -5,7 +5,7 @@
 // UPDATED: Added avatar upload via avatar-service.ts (IPFS/Pinata)
 // UPDATED: Added username availability checking with debounce + suggestions
 // UPDATED: Added dark mode support
-// UPDATED: Added Capacitor Camera plugin for native mobile photo capture
+// UPDATED: Safe Capacitor Camera with dynamic import to prevent crashes
 // =============================================================================
 
 'use client';
@@ -17,8 +17,14 @@ import { useAuth } from '../../hooks/useAuth';
 import { authApi } from '../../src/services/api';
 import { uploadAvatar } from '../../lib/services/avatar-service';
 import { toast } from 'react-hot-toast';
-import { Capacitor } from '@capacitor/core';
-import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+
+// Safe import of Capacitor - won't crash if not available
+let Capacitor: any = null;
+try {
+  Capacitor = require('@capacitor/core').Capacitor;
+} catch (e) {
+  console.log('Capacitor not available');
+}
 
 interface ProfileData {
   username?: string;
@@ -165,12 +171,44 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
     }
   };
 
-  // Avatar click handler - uses Capacitor Camera on native, file input on web
+  // Avatar click handler - uses dynamic import for Camera to prevent crashes
   const handleAvatarClick = async () => {
     // Check if running on native mobile platform
-    if (Capacitor.isNativePlatform()) {
+    const isNative = Capacitor?.isNativePlatform?.() ?? false;
+    
+    if (isNative) {
       try {
-        console.log('📱 Using Capacitor Camera for native platform');
+        console.log('📱 Attempting Capacitor Camera for native platform');
+        
+        // Dynamic import to prevent crashes if plugin not available
+        const { Camera: CapacitorCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+        
+        // Check if Camera plugin is available
+        if (typeof CapacitorCamera?.getPhoto !== 'function') {
+          console.log('⚠️ Camera plugin not available, falling back to file input');
+          fileInputRef.current?.click();
+          return;
+        }
+
+        // Check permissions first
+        try {
+          const permissions = await CapacitorCamera.checkPermissions();
+          console.log('📷 Camera permissions:', permissions);
+          
+          if (permissions.camera === 'denied' || permissions.photos === 'denied') {
+            // Request permissions
+            const requested = await CapacitorCamera.requestPermissions();
+            console.log('📷 Requested permissions:', requested);
+            
+            if (requested.camera === 'denied' && requested.photos === 'denied') {
+              toast.error('Camera and photo permissions are required. Please enable in Settings.');
+              fileInputRef.current?.click();
+              return;
+            }
+          }
+        } catch (permError) {
+          console.log('⚠️ Permission check failed, trying anyway:', permError);
+        }
         
         const image = await CapacitorCamera.getPhoto({
           quality: 85,
@@ -193,16 +231,20 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
           setAvatarPreview(image.dataUrl);
         }
       } catch (error: any) {
-        // User cancelled or error occurred
-        if (error.message && !error.message.includes('User cancelled')) {
-          console.error('❌ Camera error:', error);
-          toast.error(t('profile.editor.errors.avatarUploadFailed') || 'Failed to capture photo');
-        } else {
+        console.error('❌ Camera error:', error);
+        
+        // User cancelled - not an error
+        if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
           console.log('📷 User cancelled photo selection');
+          return;
         }
+        
+        // Any other error - fall back to file input
+        console.log('⚠️ Camera failed, falling back to file input');
+        fileInputRef.current?.click();
       }
     } else {
-      // Web fallback - use standard file input
+      // Web - use standard file input
       console.log('🌐 Using file input for web platform');
       fileInputRef.current?.click();
     }
@@ -394,7 +436,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
 
         {/* Form */}
         <div className="p-6 space-y-6">
-          {/* Avatar Section - Now with Capacitor Camera support */}
+          {/* Avatar Section */}
           <div className="flex items-center gap-6">
             <div className="relative">
               <button
@@ -405,7 +447,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
               >
                 <img
                   src={displayAvatarUrl}
-                  alt={t('profile.editor.avatar.alt')}
+                  alt={t('profile.editor.avatar.alt') || 'Profile avatar'}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.display_name || 'User')}&background=3b82f6&color=fff`;
@@ -429,7 +471,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
                 </button>
               )}
               
-              {/* Hidden file input for web fallback */}
+              {/* Hidden file input for web/fallback */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -455,7 +497,7 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
             </div>
           </div>
 
-          {/* Username Field - Now with availability checking */}
+          {/* Username Field */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('profile.editor.fields.username')} *
@@ -599,16 +641,16 @@ export function ProfileEditor({ isOpen, onClose, onSave }: ProfileEditorProps) {
                 onChange={(e) => handleInputChange('location_country', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-[#3D3C4A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#353444] text-gray-900 dark:text-gray-100"
               >
-                <option value="Brazil">{t('profile.editor.countries.brazil')}</option>
-                <option value="United States">{t('profile.editor.countries.usa')}</option>
-                <option value="Portugal">{t('profile.editor.countries.portugal')}</option>
-                <option value="United Kingdom">{t('profile.editor.countries.uk')}</option>
-                <option value="Canada">{t('profile.editor.countries.canada')}</option>
-                <option value="Germany">{t('profile.editor.countries.germany')}</option>
-                <option value="France">{t('profile.editor.countries.france')}</option>
-                <option value="Spain">{t('profile.editor.countries.spain')}</option>
-                <option value="Italy">{t('profile.editor.countries.italy')}</option>
-                <option value="Australia">{t('profile.editor.countries.australia')}</option>
+                <option value="Brazil">{t('profile.editor.countries.brazil') || 'Brazil'}</option>
+                <option value="United States">{t('profile.editor.countries.usa') || 'United States'}</option>
+                <option value="Portugal">{t('profile.editor.countries.portugal') || 'Portugal'}</option>
+                <option value="United Kingdom">{t('profile.editor.countries.uk') || 'United Kingdom'}</option>
+                <option value="Canada">{t('profile.editor.countries.canada') || 'Canada'}</option>
+                <option value="Germany">{t('profile.editor.countries.germany') || 'Germany'}</option>
+                <option value="France">{t('profile.editor.countries.france') || 'France'}</option>
+                <option value="Spain">{t('profile.editor.countries.spain') || 'Spain'}</option>
+                <option value="Italy">{t('profile.editor.countries.italy') || 'Italy'}</option>
+                <option value="Australia">{t('profile.editor.countries.australia') || 'Australia'}</option>
               </select>
             </div>
           </div>
