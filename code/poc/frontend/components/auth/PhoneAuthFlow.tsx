@@ -174,8 +174,11 @@ export default function PhoneAuthFlow({
       // If new user, go to profile setup
       // If returning user, log them in and redirect
       if (data.isNewUser) {
-        setUserName(data.user.displayName || 'User');
+        setUserName(data.user?.displayName || data.user?.username || 'User');
         goToStep('profile');
+      } else if (!data.user || !data.token) {
+        // Defensive check: API returned success but missing user data
+        throw new Error('Invalid response from server. Please try again.');
       } else {
         // Returning user - log in and redirect
         // IMPORTANT: await the login to ensure auth state is saved before navigation

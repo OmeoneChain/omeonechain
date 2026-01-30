@@ -1,5 +1,7 @@
 // File: code/poc/frontend/components/auth/SMSVerification.tsx
 // SMS code verification with 6 individual boxes, auto-advance, and auto-submit
+// Updated: Fixed duplicate country code display
+// Updated: Added iOS SMS autofill support via hidden input
 
 'use client';
 
@@ -9,7 +11,7 @@ import { motion } from 'framer-motion';
 import { MessageSquare, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 
 interface SMSVerificationProps {
-  phoneNumber: string; // Formatted display version
+  phoneNumber: string; // Formatted display version (may or may not include country code)
   countryCode: string;
   onVerify: (code: string) => Promise<void>;
   onResend: () => Promise<void>;
@@ -37,6 +39,7 @@ export default function SMSVerification({
   const [isResending, setIsResending] = useState(false);
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -140,6 +143,30 @@ export default function SMSVerification({
     }
   };
 
+  // Handle iOS SMS autofill from hidden input
+  const handleHiddenInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    
+    if (value.length > 0) {
+      const newCode = ['', '', '', '', '', ''];
+      for (let i = 0; i < value.length && i < 6; i++) {
+        newCode[i] = value[i];
+      }
+      setCode(newCode);
+      setInternalError(null);
+      
+      // Focus appropriate input
+      if (value.length < 6) {
+        inputRefs.current[value.length]?.focus();
+      } else {
+        inputRefs.current[5]?.focus();
+      }
+      
+      // Clear the hidden input
+      e.target.value = '';
+    }
+  };
+
   const handleResend = async () => {
     if (countdown > 0 || isResending) return;
     
@@ -159,8 +186,10 @@ export default function SMSVerification({
 
   const displayError = externalError || internalError;
 
-  // Mask phone number for display: +55 11 *****-9999
-  const maskedPhone = phoneNumber;
+  // FIX: Check if phoneNumber already includes country code to avoid duplication
+  const displayPhone = phoneNumber.startsWith(countryCode) 
+    ? phoneNumber 
+    : `${countryCode} ${phoneNumber}`;
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -171,7 +200,7 @@ export default function SMSVerification({
         disabled={isLoading}
       >
         <span className="mr-2">←</span>
-        {t('common.back') || 'Voltar'}
+        {t('common.back') || 'Back'}
       </button>
 
       {/* Header */}
@@ -180,15 +209,27 @@ export default function SMSVerification({
           <MessageSquare className="w-8 h-8 text-coral-500" />
         </div>
         <h1 className="text-2xl font-bold text-navy-900 mb-2">
-          {t('smsVerification.title') || 'Digite o código'}
+          {t('smsVerification.title') || 'Enter the code'}
         </h1>
         <p className="text-gray-600">
-          {t('smsVerification.subtitle') || 'Enviamos um código de 6 dígitos para'}
+          {t('smsVerification.subtitle') || 'We sent a 6-digit code to'}
         </p>
         <p className="text-gray-900 font-medium mt-1">
-          {countryCode} {maskedPhone}
+          {displayPhone}
         </p>
       </div>
+
+      {/* Hidden input for iOS SMS autofill */}
+      <input
+        ref={hiddenInputRef}
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        onChange={handleHiddenInputChange}
+        className="sr-only"
+        aria-hidden="true"
+        tabIndex={-1}
+      />
 
       {/* Code Input Boxes */}
       <div className="flex justify-center gap-2 sm:gap-3 mb-6">
@@ -198,11 +239,16 @@ export default function SMSVerification({
             ref={(el) => { inputRefs.current[index] = el; }}
             type="text"
             inputMode="numeric"
+            autoComplete={index === 0 ? "one-time-code" : "off"}
             maxLength={1}
             value={digit}
             onChange={(e) => handleInputChange(index, e.target.value)}
             onKeyDown={(e) => handleKeyDown(index, e)}
             onPaste={handlePaste}
+            onFocus={(e) => {
+              // Select content on focus for easier replacement
+              e.target.select();
+            }}
             disabled={isLoading}
             className={`w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-bold text-[#1F1E2A] rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 ${
               displayError 
@@ -224,7 +270,7 @@ export default function SMSVerification({
           className="flex items-center justify-center gap-2 text-coral-600 mb-4"
         >
           <Loader2 className="w-5 h-5 animate-spin" />
-          <span>{t('smsVerification.verifying') || 'Verificando...'}</span>
+          <span>{t('smsVerification.verifying') || 'Verifying...'}</span>
         </motion.div>
       )}
 
@@ -243,12 +289,12 @@ export default function SMSVerification({
       {/* Resend Section */}
       <div className="text-center">
         <p className="text-gray-600 text-sm mb-2">
-          {t('smsVerification.didntReceive') || 'Não recebeu?'}
+          {t('smsVerification.didntReceive') || "Didn't receive it?"}
         </p>
         
         {countdown > 0 ? (
           <p className="text-gray-500 text-sm">
-            {t('smsVerification.resendIn') || 'Reenviar disponível em'}{' '}
+            {t('smsVerification.resendIn') || 'Resend available in'}{' '}
             <span className="font-medium text-gray-700">
               {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}
             </span>
@@ -262,12 +308,12 @@ export default function SMSVerification({
             {isResending ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                {t('smsVerification.resending') || 'Reenviando...'}
+                {t('smsVerification.resending') || 'Resending...'}
               </>
             ) : (
               <>
                 <RefreshCw className="w-4 h-4" />
-                {t('smsVerification.resendCode') || 'Reenviar código'}
+                {t('smsVerification.resendCode') || 'Resend code'}
               </>
             )}
           </button>
@@ -277,7 +323,7 @@ export default function SMSVerification({
       {/* Help text */}
       <div className="mt-8 p-4 bg-gray-50 rounded-xl">
         <p className="text-sm text-gray-600 text-center">
-          {t('smsVerification.helpText') || 'O código expira em 10 minutos. Verifique sua caixa de SMS e certifique-se de que o número está correto.'}
+          {t('smsVerification.helpText') || 'The code expires in 10 minutes. Check your SMS inbox and make sure the number is correct.'}
         </p>
       </div>
     </div>

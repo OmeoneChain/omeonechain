@@ -144,6 +144,7 @@
   },
 
   "card": {
+    "addToList": "Add to List",
     "trustScore": "Trust Score",
     "dish": "dish",
     "dishes": "dishes",

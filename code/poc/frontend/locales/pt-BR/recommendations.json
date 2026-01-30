@@ -144,6 +144,7 @@
   },
 
   "card": {
+    "addToList": "Adicionar à Lista",
     "trustScore": "Trust Score",
     "dish": "prato",
     "dishes": "pratos",
