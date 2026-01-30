@@ -186,6 +186,44 @@
         "otherDescription": "Este usuário ainda não tem seguidores",
         "cta": "Compartilhar Seu Perfil"
       }
+    },
+    "editor": {
+      "title": "Editar Perfil",
+      "avatar": {
+        "title": "Foto de Perfil",
+        "description": "Toque para alterar sua foto de perfil",
+        "change": "Alterar Foto"
+      },
+      "fields": {
+        "username": "Nome de usuário",
+        "displayName": "Nome de exibição",
+        "bio": "Bio",
+        "city": "Cidade",
+        "country": "País",
+        "email": "Email"
+      },
+      "placeholders": {
+        "username": "seu_usuario",
+        "displayName": "Seu Nome",
+        "bio": "Conte-nos sobre você e suas preferências gastronômicas...",
+        "city": "Sua cidade",
+        "country": "Seu país",
+        "email": "seu@email.com"
+      },
+      "requiredFields": "* Campos obrigatórios",
+      "save": "Salvar Perfil",
+      "cancel": "Cancelar",
+      "errors": {
+        "avatarUploadFailed": "Falha ao enviar foto. Por favor, tente novamente.",
+        "usernameTaken": "Este nome de usuário já está em uso",
+        "usernameInvalid": "Nome de usuário pode conter apenas letras, números e underscores",
+        "usernameTooShort": "Nome de usuário deve ter pelo menos 3 caracteres",
+        "displayNameRequired": "Nome de exibição é obrigatório",
+        "saveFailed": "Falha ao salvar perfil. Por favor, tente novamente."
+      },
+      "success": {
+        "saved": "Perfil atualizado com sucesso!"
+      }
     }
   },
   "profileMap": {

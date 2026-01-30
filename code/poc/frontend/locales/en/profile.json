@@ -186,6 +186,44 @@
         "otherDescription": "This user doesn't have any followers yet",
         "cta": "Share Your Profile"
       }
+    },
+    "editor": {
+      "title": "Edit Profile",
+      "avatar": {
+        "title": "Profile Photo",
+        "description": "Tap to change your profile picture",
+        "change": "Change Photo"
+      },
+      "fields": {
+        "username": "Username",
+        "displayName": "Display Name",
+        "bio": "Bio",
+        "city": "City",
+        "country": "Country",
+        "email": "Email"
+      },
+      "placeholders": {
+        "username": "your_username",
+        "displayName": "Your Name",
+        "bio": "Tell us about yourself and your food preferences...",
+        "city": "Your city",
+        "country": "Your country",
+        "email": "your@email.com"
+      },
+      "requiredFields": "* Required fields",
+      "save": "Save Profile",
+      "cancel": "Cancel",
+      "errors": {
+        "avatarUploadFailed": "Failed to upload photo. Please try again.",
+        "usernameTaken": "This username is already taken",
+        "usernameInvalid": "Username can only contain letters, numbers, and underscores",
+        "usernameTooShort": "Username must be at least 3 characters",
+        "displayNameRequired": "Display name is required",
+        "saveFailed": "Failed to save profile. Please try again."
+      },
+      "success": {
+        "saved": "Profile updated successfully!"
+      }
     }
   },
   "profileMap": {
