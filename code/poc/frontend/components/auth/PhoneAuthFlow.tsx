@@ -6,6 +6,7 @@
 // Updated: Integrated WelcomeCarousel for better onboarding (Jan 26, 2026)
 // Updated: Fixed async login calls and auth hydration check (Jan 28, 2026)
 // Updated: Fixed AuthMode type mismatch and added defensive null checks (Jan 31, 2026)
+// Updated: Added temporary debug alerts to identify crash location (Jan 31, 2026)
 
 'use client';
 
@@ -160,7 +161,7 @@ export default function PhoneAuthFlow({
       
       const data = await response.json();
       
-      // Debug logging - can remove after fixing
+      // Debug logging
       console.log('📱 Verify response:', JSON.stringify(data, null, 2));
       
       if (!response.ok || !data.success) {
@@ -182,39 +183,63 @@ export default function PhoneAuthFlow({
         token: data.token
       }));
       
-      // If new user, go to profile setup
-      // If returning user, log them in and redirect
-      if (data.isNewUser) {
-        setUserName(userData.displayName || userData.display_name || userData.username || 'User');
-        goToStep('profile');
-      } else {
-        // Returning user - log in and redirect
-        // Defensive checks for user data to prevent crashes
-        const safeUserData = {
-          id: userData.id || `phone_${phoneState.phoneNumber}`,
-          phone: userData.phone || phoneState.phoneNumber,
-          username: userData.username || '',
-          display_name: userData.displayName || userData.display_name || userData.username || '',
-          avatar_url: userData.avatarUrl || userData.avatar_url || '',
-          // Use 'email' as AuthMode since 'phone' is not defined in AuthMode type
-          auth_mode: 'email' as const,
-          tokens_earned: userData.tokensEarned || userData.tokens_earned || 0,
-          trust_score: userData.trustScore || userData.trust_score || 0,
-        };
-        
-        console.log('📱 Logging in with user data:', JSON.stringify(safeUserData, null, 2));
-        
-        // IMPORTANT: await the login to ensure auth state is saved before navigation
-        await login(data.token, safeUserData, data.refreshToken || undefined);
-        
-        toast.success(t('phoneAuth.welcomeBack') || 'Bem-vindo de volta!');
-        
-        if (onComplete) {
-          onComplete();
+      // TEMPORARY DEBUG WRAPPER - Shows any error on device
+      try {
+        // If new user, go to profile setup
+        // If returning user, log them in and redirect
+        if (data.isNewUser) {
+          // DEBUG: Alert for new user path
+          alert('DEBUG: New user detected, going to profile setup');
+          
+          setUserName(userData.displayName || userData.display_name || userData.username || 'User');
+          goToStep('profile');
         } else {
-          router.push(redirectTo);
+          // Returning user - log in and redirect
+          // Defensive checks for user data to prevent crashes
+          const safeUserData = {
+            id: userData.id || `phone_${phoneState.phoneNumber}`,
+            phone: userData.phone || phoneState.phoneNumber,
+            username: userData.username || '',
+            display_name: userData.displayName || userData.display_name || userData.username || '',
+            avatar_url: userData.avatarUrl || userData.avatar_url || '',
+            // Use 'email' as AuthMode since 'phone' is not defined in AuthMode type
+            auth_mode: 'email' as const,
+            tokens_earned: userData.tokensEarned || userData.tokens_earned || 0,
+            trust_score: userData.trustScore || userData.trust_score || 0,
+          };
+          
+          console.log('📱 Logging in with user data:', JSON.stringify(safeUserData, null, 2));
+          
+          // DEBUG: Alert before login
+          alert('DEBUG 1: About to call login()');
+          
+          // IMPORTANT: await the login to ensure auth state is saved before navigation
+          await login(data.token, safeUserData, data.refreshToken || undefined);
+          
+          // DEBUG: Alert after login
+          alert('DEBUG 2: Login succeeded, about to show toast');
+          
+          toast.success(t('phoneAuth.welcomeBack') || 'Bem-vindo de volta!');
+          
+          // DEBUG: Alert before navigation
+          alert('DEBUG 3: Toast shown, about to navigate to ' + (onComplete ? 'onComplete callback' : redirectTo));
+          
+          if (onComplete) {
+            onComplete();
+          } else {
+            router.push(redirectTo);
+          }
+          
+          // DEBUG: Alert after navigation
+          alert('DEBUG 4: Navigation initiated');
         }
+      } catch (innerErr: any) {
+        // TEMPORARY: Show the actual error on device
+        alert('LOGIN ERROR: ' + (innerErr?.message || innerErr?.toString() || JSON.stringify(innerErr) || 'Unknown error'));
+        console.error('Inner error:', innerErr);
+        throw innerErr;
       }
+      // END TEMPORARY DEBUG
       
     } catch (err: any) {
       console.error('Code verify error:', err);
