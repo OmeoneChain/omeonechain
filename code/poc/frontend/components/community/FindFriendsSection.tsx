@@ -1,10 +1,11 @@
 // File: code/poc/frontend/components/community/FindFriendsSection.tsx
 // Component for finding friends from device contacts
 // Shows permission flow, syncs contacts, displays matches
+// UPDATED: Hidden on iOS devices since Contact Picker API is not supported
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { 
@@ -33,6 +34,36 @@ interface FindFriendsSectionProps {
 
 type SyncState = 'idle' | 'loading' | 'success' | 'error' | 'no-permission' | 'web-only';
 
+// Detect if running on iOS (iPhone, iPad, iPod)
+function isIOSDevice(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  
+  // Check for iOS devices
+  if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
+    return true;
+  }
+  
+  // Also check for iPad on iOS 13+ which reports as MacIntel but has touch
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) {
+    return true;
+  }
+  
+  return false;
+}
+
+// Check if Contact Picker API is supported
+function isContactPickerSupported(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  
+  return 'contacts' in navigator && 'ContactsManager' in window;
+}
+
 export default function FindFriendsSection({ onFollow, onUnfollow }: FindFriendsSectionProps) {
   const t = useTranslations('community');
   const router = useRouter();
@@ -45,9 +76,29 @@ export default function FindFriendsSection({ onFollow, onUnfollow }: FindFriends
   const [isExpanded, setIsExpanded] = useState(false);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  
+  // Track if we should show this component at all
+  const [isSupported, setIsSupported] = useState<boolean | null>(null);
 
   // Check if running in native app on mount
   const isNative = isNativeApp();
+
+  // Check platform support on mount (client-side only)
+  useEffect(() => {
+    // On iOS, the Contact Picker API is not supported at all
+    // Hide the entire component on iOS devices
+    const isiOS = isIOSDevice();
+    const hasContactPicker = isContactPickerSupported();
+    
+    // Hide on iOS regardless of other factors
+    if (isiOS) {
+      setIsSupported(false);
+      return;
+    }
+    
+    // On other platforms, show the component (it will handle web-only messaging itself)
+    setIsSupported(true);
+  }, []);
 
   const handleSyncContacts = useCallback(async () => {
     if (!isAuthenticated || !token) {
@@ -126,7 +177,8 @@ export default function FindFriendsSection({ onFollow, onUnfollow }: FindFriends
   }, [followingIds, processingIds, onFollow, onUnfollow]);
 
   const handleProfileClick = (userId: string) => {
-    router.push(`/profile/${userId}`);
+    // FIXED: Changed from /profile/ to /users/ to match actual route
+    router.push(`/users/${userId}`);
   };
 
   const handleDismiss = () => {
@@ -134,6 +186,16 @@ export default function FindFriendsSection({ onFollow, onUnfollow }: FindFriends
     setSyncState('idle');
     setMatches([]);
   };
+
+  // Don't render anything while checking support
+  if (isSupported === null) {
+    return null;
+  }
+
+  // Don't render on iOS or unsupported platforms
+  if (isSupported === false) {
+    return null;
+  }
 
   // Render the CTA card (initial state or collapsed)
   const renderCTACard = () => (

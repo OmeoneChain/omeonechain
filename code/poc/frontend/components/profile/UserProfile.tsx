@@ -2,6 +2,8 @@
 // Refactored: Map-first profile with 4-tab structure (Taste Map | Activity | Network | Settings [own only])
 // Preserves: all data fetching, rewards/onboarding/attribution, cards, follow/unfollow, profile editor, i18n
 // FIXED: Token refresh loop - now uses tokenRef to prevent infinite re-renders
+// FIXED: Follow/unfollow now uses socialApi for consistency with Community page
+// FIXED: Button colors updated to BocaBoca brand coral (#FF644A)
 //
 // =============================================================================
 // DARK MODE PATTERNS USED IN THIS FILE:
@@ -55,7 +57,8 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import tokenBalanceService from '../../src/services/TokenBalanceService';
 import onboardingService from '../../src/services/OnboardingService';
-import { recommendationApi, AttributionRewardsResponse } from '../../src/services/api';
+// FIXED: Added socialApi import for consistent follow/unfollow functionality
+import { socialApi, recommendationApi, AttributionRewardsResponse } from '../../src/services/api';
 
 // NOTE: These imports assume you have these components.
 // If your paths differ, only adjust these imports (rest of file should be drop-in).
@@ -710,34 +713,30 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   }, [userId]);
 
   // -------------------------------
-  // Follow status + follow/unfollow (using tokenRef)
+  // Follow status + follow/unfollow (FIXED: using socialApi for consistency)
   // -------------------------------
   const checkFollowStatus = useCallback(async () => {
     if (!tokenRef.current || isOwnProfile) return;
 
-    // Try a couple of plausible endpoints; fail silently to false.
     try {
-      // Attempt: /api/social/following/:userId/check
-      const url1 = buildApiUrl(API_BASE, `/social/following/${userId}/check`);
-      const res1 = await fetch(url1, { headers: { Authorization: `Bearer ${tokenRef.current}` } });
-      if (res1.ok) {
-        const data = await res1.json();
-        setIsFollowing(Boolean(data?.isFollowing));
-        return;
-      }
-    } catch {
-      // ignore
-    }
+      // Use the same endpoint pattern as FollowButton.tsx
+      const response = await fetch(buildApiUrl(API_BASE, `/social/users/${userId}/follow-status`), {
+        headers: { Authorization: `Bearer ${tokenRef.current}` }
+      });
 
-    try {
-      // Fallback: no check endpoint known -> default false
-      setIsFollowing(false);
+      if (response.ok) {
+        const data = await response.json();
+        setIsFollowing(Boolean(data?.is_following || data?.isFollowing || data?.data?.is_following));
+      } else {
+        setIsFollowing(false);
+      }
     } catch (e) {
       console.error('Error checking follow status:', e);
       setIsFollowing(false);
     }
   }, [API_BASE, isOwnProfile, userId]);
 
+  // FIXED: handleFollow now uses socialApi for consistency with Community page
   const handleFollow = useCallback(async () => {
     const currentToken = tokenRef.current;
     if (!currentToken || followLoading || isOwnProfile) return;
@@ -745,58 +744,27 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     try {
       setFollowLoading(true);
 
-      // Primary behavior preserved from long version:
-      // POST /api/social/follow  { following_id }
-      // DELETE /api/social/follow/:userId
       if (isFollowing) {
-        const url = buildApiUrl(API_BASE, `/social/follow/${userId}`);
-        const res = await fetch(url, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' }
-        });
-
-        if (res.ok) {
+        // Unfollow using socialApi
+        const response = await socialApi.unfollowUser(userId);
+        if (response.success) {
           setIsFollowing(false);
           setUser((prev) => (prev ? { ...prev, followers: Math.max(0, prev.followers - 1) } : prev));
-          return;
         }
       } else {
-        const url = buildApiUrl(API_BASE, `/social/follow`);
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ following_id: userId })
-        });
-
-        if (res.ok) {
+        // Follow using socialApi
+        const response = await socialApi.followUser(userId);
+        if (response.success) {
           setIsFollowing(true);
           setUser((prev) => (prev ? { ...prev, followers: prev.followers + 1 } : prev));
-          return;
         }
       }
-
-      // Optional fallback (short-version style): POST /social/follow or /social/unfollow with {userId}
-      const fallbackUrl = buildApiUrl(API_BASE, `/social/${isFollowing ? 'unfollow' : 'follow'}`);
-      const fallbackRes = await fetch(fallbackUrl, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${currentToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-
-      if (fallbackRes.ok) {
-        setIsFollowing((v) => !v);
-        setUser((prev) =>
-          prev
-            ? { ...prev, followers: prev.followers + (isFollowing ? -1 : 1) }
-            : prev
-        );
-      }
     } catch (e) {
-      console.error('Network error during follow operation:', e);
+      console.error('Error during follow operation:', e);
     } finally {
       setFollowLoading(false);
     }
-  }, [API_BASE, followLoading, isFollowing, isOwnProfile, userId]);
+  }, [followLoading, isFollowing, isOwnProfile, userId]);
 
   // -------------------------------
   // Save profile (preserved)
@@ -850,7 +818,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     }
     return {
       type: 'email' as const,
-      icon: <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />,
+      icon: <Mail className="w-4 h-4 text-[#FF644A] dark:text-[#FF644A]" />,
       display: u.email || t('profile.header.emailAccount')
     };
   };
@@ -859,13 +827,13 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     switch (status) {
       case 'verified':
         return (
-          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+          <div className="w-5 h-5 bg-[#FF644A] rounded-full flex items-center justify-center shadow-lg">
             <Star className="w-3 h-3 text-white" />
           </div>
         );
       case 'expert':
         return (
-          <div className="w-5 h-5 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg">
+          <div className="w-5 h-5 bg-gradient-to-r from-[#FF644A] to-[#E65441] rounded-full flex items-center justify-center shadow-lg">
             <Star className="w-3 h-3 text-white" />
           </div>
         );
@@ -1004,7 +972,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   }, [isOwnProfile, loadAttributionRewards]);
 
   // -------------------------------
-  // Cards (preserved with dark mode)
+  // Cards (preserved with dark mode + brand colors)
   // -------------------------------
   const SocialUserCard = ({ user: socialUser }: { user: SocialUser }) => (
     <div className="flex items-center gap-4 p-4 bg-white dark:bg-[#2D2C3A] rounded-lg border border-gray-200 dark:border-[#3D3C4A] hover:shadow-sm dark:hover:shadow-[0_2px_10px_rgba(0,0,0,0.3)] transition-shadow">
@@ -1017,7 +985,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         />
         {socialUser.verification_status && socialUser.verification_status !== 'basic' && (
           <div className="absolute -bottom-0.5 -right-0.5">
-            <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+            <div className="w-4 h-4 bg-[#FF644A] rounded-full flex items-center justify-center">
               <span className="text-white text-xs">✓</span>
             </div>
           </div>
@@ -1026,7 +994,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
       <div className="flex-1">
         <h3
-          className="font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+          className="font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:text-[#FF644A] dark:hover:text-[#FF644A]"
           onClick={() => router.push(`/users/${socialUser.id}`)}
         >
           {socialUser.display_name || socialUser.username || 'Unknown User'}
@@ -1070,7 +1038,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         <div className="flex-1">
           <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">{recommendation.title}</h3>
           {recommendation.category && (
-            <span className="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
+            <span className="inline-block px-2 py-1 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 text-[#FF644A] dark:text-[#FF644A] text-xs rounded-full">
               {recommendation.category}
             </span>
           )}
@@ -1105,7 +1073,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
         <button
           onClick={() => router.push(`/recommendations/${recommendation.id}`)}
-          className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
+          className="px-3 py-1 text-sm text-[#FF644A] dark:text-[#FF644A] hover:text-[#E65441] dark:hover:text-[#E65441] border border-[#FF644A]/30 dark:border-[#FF644A]/50 rounded-lg hover:bg-[#FF644A]/5 dark:hover:bg-[#FF644A]/10"
         >
           {t('profile.cards.viewDetails')}
         </button>
@@ -1148,7 +1116,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
         <button
           onClick={() => router.push(`/lists/${list.id}`)}
-          className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
+          className="px-3 py-1 text-sm text-[#FF644A] dark:text-[#FF644A] hover:text-[#E65441] dark:hover:text-[#E65441] border border-[#FF644A]/30 dark:border-[#FF644A]/50 rounded-lg hover:bg-[#FF644A]/5 dark:hover:bg-[#FF644A]/10"
         >
           {t('profile.cards.viewList')}
         </button>
@@ -1168,7 +1136,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               <span
                 className={`inline-block px-2 py-1 text-xs rounded-full ${
                   list.listType === 'places'
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                    ? 'bg-[#FF644A]/10 dark:bg-[#FF644A]/20 text-[#FF644A] dark:text-[#FF644A]'
                     : list.listType === 'bookmarks'
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
                       : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
@@ -1205,7 +1173,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
         <button
           onClick={() => router.push(`/saved-lists/${list.id}`)}
-          className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
+          className="px-3 py-1 text-sm text-[#FF644A] dark:text-[#FF644A] hover:text-[#E65441] dark:hover:text-[#E65441] border border-[#FF644A]/30 dark:border-[#FF644A]/50 rounded-lg hover:bg-[#FF644A]/5 dark:hover:bg-[#FF644A]/10"
         >
           {t('profile.cards.viewList')}
         </button>
@@ -1240,7 +1208,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (recommendationsLoading) {
       return (
         <div className="text-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FF644A]" />
           <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
         </div>
       );
@@ -1272,7 +1240,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           {isOwnProfile && (
             <button
               onClick={() => router.push('/create')}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="px-6 py-2 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441]"
             >
               {t('profile.empty.recommendations.cta')}
             </button>
@@ -1287,7 +1255,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {t('profile.tabs.recommendationsFull')} ({recommendationsData.length})
           </h3>
-          <button onClick={loadRecommendations} className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+          <button onClick={loadRecommendations} className="text-sm text-[#FF644A] dark:text-[#FF644A] hover:text-[#E65441] dark:hover:text-[#E65441]">
             {t('profile.actions.refresh')}
           </button>
         </div>
@@ -1305,7 +1273,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (contentLoading) {
       return (
         <div className="text-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FF644A]" />
           <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
         </div>
       );
@@ -1337,7 +1305,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           {isOwnProfile && (
             <button
               onClick={() => router.push('/feed')}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="px-6 py-2 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441]"
             >
               {t('profile.empty.reshares.cta')}
             </button>
@@ -1352,7 +1320,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {t('profile.tabs.reshares')} ({resharesData.length})
           </h3>
-          <button onClick={loadUserReshares} className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
+          <button onClick={loadUserReshares} className="text-sm text-[#FF644A] dark:text-[#FF644A] hover:text-[#E65441] dark:hover:text-[#E65441]">
             {t('profile.actions.refresh')}
           </button>
         </div>
@@ -1370,7 +1338,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (contentLoading) {
       return (
         <div className="text-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FF644A]" />
           <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
         </div>
       );
@@ -1432,7 +1400,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           {isOwnProfile && (
             <button
               onClick={() => router.push('/discover')}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="px-6 py-2 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441]"
             >
               {type === 'lists'
                 ? t('profile.empty.lists.cta')
@@ -1462,7 +1430,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
               else if (type === 'likes') loadUserLikes();
               else loadUserSavedLists();
             }}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+            className="text-sm text-[#FF644A] dark:text-[#FF644A] hover:text-[#E65441] dark:hover:text-[#E65441]"
           >
             {t('profile.actions.refresh')}
           </button>
@@ -1483,7 +1451,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (socialLoading) {
       return (
         <div className="text-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FF644A]" />
           <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
         </div>
       );
@@ -1530,7 +1498,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           {isOwnProfile && type === 'following' && (
             <button
               onClick={() => router.push('/community')}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="px-6 py-2 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441]"
             >
               {t('profile.empty.following.cta')}
             </button>
@@ -1547,7 +1515,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           </h3>
           <button
             onClick={() => (type === 'followers' ? loadFollowers() : loadFollowing())}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+            className="text-sm text-[#FF644A] dark:text-[#FF644A] hover:text-[#E65441] dark:hover:text-[#E65441]"
           >
             {t('profile.actions.refresh')}
           </button>
@@ -1576,7 +1544,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     if (onboardingLoading || tokenBalanceLoading) {
       return (
         <div className="text-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-[#FF644A]" />
           <p className="text-gray-600 dark:text-gray-400">{t('profile.rewardsTab.loading')}</p>
         </div>
       );
@@ -1597,7 +1565,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 loadOnboardingProgress();
                 loadAttributionRewards();
               }}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+              className="text-sm text-[#FF644A] dark:text-[#FF644A] hover:text-[#E65441] dark:hover:text-[#E65441]"
             >
               {t('profile.actions.refresh')}
             </button>
@@ -1676,10 +1644,10 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
         {/* Onboarding Progress Card */}
         {onboardingProgress && !onboardingProgress.isComplete && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-lg p-6">
+          <div className="bg-[#FF644A]/5 dark:bg-[#FF644A]/10 border border-[#FF644A]/20 dark:border-[#FF644A]/30 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('profile.rewardsTab.onboarding.title')}</h3>
-              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              <span className="text-sm font-medium text-[#FF644A] dark:text-[#FF644A]">
                 {onboardingProgress.completionPercentage}% {t('profile.rewardsTab.onboarding.complete')}
               </span>
             </div>
@@ -1705,7 +1673,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div
-                        className="bg-blue-500 h-2 rounded-full transition-all"
+                        className="bg-[#FF644A] h-2 rounded-full transition-all"
                         style={{
                           width: `${Math.min((onboardingProgress.milestones.followUsers.current / onboardingProgress.milestones.followUsers.requirement) * 100, 100)}%`
                         }}
@@ -1740,7 +1708,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div
-                        className="bg-blue-500 h-2 rounded-full transition-all"
+                        className="bg-[#FF644A] h-2 rounded-full transition-all"
                         style={{
                           width: `${Math.min((onboardingProgress.milestones.createRecommendations.current / onboardingProgress.milestones.createRecommendations.requirement) * 100, 100)}%`
                         }}
@@ -1773,7 +1741,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div
-                        className="bg-blue-500 h-2 rounded-full transition-all"
+                        className="bg-[#FF644A] h-2 rounded-full transition-all"
                         style={{
                           width: `${Math.min((onboardingProgress.milestones.engageWithPosts.current / onboardingProgress.milestones.engageWithPosts.requirement) * 100, 100)}%`
                         }}
@@ -1788,7 +1756,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
             </div>
 
             {onboardingProgress.nextStep && (
-              <div className="mt-4 p-3 bg-white dark:bg-[#2D2C3A] rounded-lg border border-blue-200 dark:border-blue-800/50">
+              <div className="mt-4 p-3 bg-white dark:bg-[#2D2C3A] rounded-lg border border-[#FF644A]/20 dark:border-[#FF644A]/30">
                 <p className="text-sm text-gray-700 dark:text-gray-300">
                   <span className="font-medium">{t('profile.rewardsTab.onboarding.nextStep')}</span>{' '}
                   {onboardingProgress.nextStep === 'follow' && t('profile.rewardsTab.onboarding.milestones.followUsers.name')}
@@ -1849,7 +1817,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-700 dark:text-gray-300">{t('profile.activity.security.accountStatus')}</span>
-              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{t('profile.activity.security.active')}</span>
+              <span className="text-sm font-medium text-[#FF644A] dark:text-[#FF644A]">{t('profile.activity.security.active')}</span>
             </div>
 
             <div className="flex items-center justify-between">
@@ -1859,7 +1827,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           </div>
         </div>
 
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-lg p-4">
+        <div className="bg-[#FF644A]/5 dark:bg-[#FF644A]/10 border border-[#FF644A]/20 dark:border-[#FF644A]/30 rounded-lg p-4">
           <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-3">
             <Wallet className="w-4 h-4" />
             {t('profile.activity.security.backup.title')}
@@ -1975,13 +1943,14 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                     <Settings className="w-5 h-5" />
                   </button>
                 ) : currentUserId || currentUser?.id ? (
+                  // FIXED: Follow button now uses brand coral color (#FF644A)
                   <button
                     onClick={handleFollow}
                     disabled={followLoading}
                     className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                       isFollowing 
                         ? 'bg-gray-100 dark:bg-[#353444] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#3D3C4A]' 
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                        : 'bg-[#FF644A] text-white hover:bg-[#E65441]'
                     } ${followLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <Users className="w-4 h-4" />
@@ -2088,13 +2057,13 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors relative ${
                   activeTab === tab.key 
-                    ? 'text-blue-600 dark:text-blue-400' 
+                    ? 'text-[#FF644A] dark:text-[#FF644A]' 
                     : 'text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
               >
                 {tab.icon}
                 <span className="hidden sm:inline">{tab.label}</span>
-                {activeTab === tab.key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />}
+                {activeTab === tab.key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF644A] dark:bg-[#FF644A]" />}
               </button>
             ))}
         </div>

@@ -2,6 +2,7 @@
 // UPDATED: Dark mode support added
 // UPDATED: BocaBoca Community Page with i18n translations
 // UPDATED: Added Find Friends from Contacts feature
+// FIXED: Profile routes changed from /profile/ to /users/ to match actual page structure
 
 'use client';
 
@@ -75,7 +76,8 @@ function CompactUserCard({ user, onFollow, onUnfollow, isLoading, t }: CompactUs
   };
 
   const handleCardClick = () => {
-    router.push(`/profile/${user.id}`);
+    // FIXED: Changed from /profile/ to /users/ to match actual route
+    router.push(`/users/${user.id}`);
   };
 
   return (
@@ -171,7 +173,8 @@ function UserCard({ user, onFollow, onUnfollow, isLoading, t }: UserCardProps) {
   };
 
   const handleCardClick = () => {
-    router.push(`/profile/${user.id}`);
+    // FIXED: Changed from /profile/ to /users/ to match actual route
+    router.push(`/users/${user.id}`);
   };
 
   return (
@@ -319,40 +322,6 @@ function SearchResultItem({ user, onFollow, onUnfollow, onClick, t }: SearchResu
       >
         {isProcessing ? t('actions.processing') : isFollowing ? t('actions.following') : t('actions.follow')}
       </button>
-    </div>
-  );
-}
-
-// ============================================
-// COMING SOON TEASER CARD
-// ============================================
-
-interface ComingSoonCardProps {
-  icon: string;
-  title: string;
-  description: string;
-  badgeText: string;
-}
-
-function ComingSoonCard({ icon, title, description, badgeText }: ComingSoonCardProps) {
-  return (
-    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-[#353444] dark:to-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] border-dashed p-6 opacity-75">
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] flex items-center justify-center text-2xl">
-          {icon}
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-[#1F1E2A] dark:text-white">{title}</h3>
-            <span className="px-2 py-0.5 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 text-[#FF644A] text-xs font-medium rounded-full">
-              {badgeText}
-            </span>
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {description}
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
@@ -616,7 +585,8 @@ export default function CommunityPage() {
   const handleSearchResultClick = (userId: string) => {
     setShowSearchDropdown(false);
     setSearchQuery('');
-    router.push(`/profile/${userId}`);
+    // FIXED: Changed from /profile/ to /users/ to match actual route
+    router.push(`/users/${userId}`);
   };
 
   // ============================================
@@ -761,25 +731,6 @@ export default function CommunityPage() {
                   onSeeAll={() => setShowAllDiscover(true)}
                   t={t}
                 />
-
-                {/* Coming Soon Sections */}
-                <div className="space-y-4 mt-8">
-                  <h2 className="text-lg font-semibold text-[#1F1E2A] dark:text-white">{t('comingSoon.title')}</h2>
-                  
-                  <ComingSoonCard
-                    icon="🎯"
-                    title={t('comingSoon.tasteCircles.title')}
-                    description={t('comingSoon.tasteCircles.description')}
-                    badgeText={t('comingSoon.badge')}
-                  />
-                  
-                  <ComingSoonCard
-                    icon="📝"
-                    title={t('comingSoon.collaborativeLists.title')}
-                    description={t('comingSoon.collaborativeLists.description')}
-                    badgeText={t('comingSoon.badge')}
-                  />
-                </div>
               </>
             ) : (
               <>
