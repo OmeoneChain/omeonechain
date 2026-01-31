@@ -1,6 +1,7 @@
 // File: code/poc/frontend/app/[locale]/onboarding/page.tsx
 // Mobile-first onboarding page with phone authentication
 // Implements BocaBoca Mobile Onboarding UI Design v1.2
+// Updated: Added AuthErrorBoundary for crash protection (Jan 31, 2026)
 
 'use client';
 
@@ -8,6 +9,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import PhoneAuthFlow from '@/components/auth/PhoneAuthFlow';
+import AuthErrorBoundary from '@/components/auth/AuthErrorBoundary';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -41,10 +43,12 @@ export default function OnboardingPage() {
   // If already authenticated but onboarding not complete, continue from profile/checklist
   // Otherwise show full flow starting from welcome
   return (
-    <PhoneAuthFlow
-      showWelcome={!isAuthenticated}
-      redirectTo="/feed"
-      onComplete={() => router.push('/feed')}
-    />
+    <AuthErrorBoundary>
+      <PhoneAuthFlow
+        showWelcome={!isAuthenticated}
+        redirectTo="/feed"
+        onComplete={() => router.push('/feed')}
+      />
+    </AuthErrorBoundary>
   );
 }
