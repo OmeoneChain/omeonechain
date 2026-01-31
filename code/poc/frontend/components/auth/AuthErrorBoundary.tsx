@@ -1,12 +1,12 @@
 // File: code/poc/frontend/components/auth/AuthErrorBoundary.tsx
 // Error boundary for the authentication flow
-// Catches crashes and shows a user-friendly retry screen instead of generic error
-// Created: Jan 31, 2026
+// Catches crashes and shows a user-friendly retry screen
+// Updated: Try Again now does full reload to handle stale cache issues (Jan 31, 2026)
 
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -17,6 +17,7 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  retryCount: number;
 }
 
 export default class AuthErrorBoundary extends Component<Props, State> {
@@ -25,41 +26,61 @@ export default class AuthErrorBoundary extends Component<Props, State> {
     this.state = {
       hasError: false,
       error: null,
-      errorInfo: null
+      errorInfo: null,
+      retryCount: 0
     };
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
-    // Update state so the next render shows the fallback UI
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log the error for debugging
     console.error('AuthErrorBoundary caught an error:', error);
     console.error('Component stack:', errorInfo.componentStack);
     
     this.setState({ errorInfo });
-    
-    // Optional: Send to error reporting service
-    // logErrorToService(error, errorInfo);
   }
 
-  handleRetry = () => {
-    // Clear error state
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null
-    });
+  handleTryAgain = async () => {
+    // Clear any service worker caches first
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+        console.log('🔄 Cleared browser caches');
+      } catch (e) {
+        console.warn('Failed to clear caches:', e);
+      }
+    }
     
-    // Call optional reset callback
-    this.props.onReset?.();
+    // Clear the build check storage to force a fresh check
+    try {
+      localStorage.removeItem('bocaboca_last_build_id');
+      localStorage.removeItem('bocaboca_last_build_check');
+    } catch (e) {
+      console.warn('Failed to clear build check storage:', e);
+    }
+    
+    // Do a full reload to get fresh code
+    // This is more reliable than just resetting state when dealing with stale cache
+    window.location.reload();
   };
 
   handleReload = () => {
-    // Force a full page reload
     window.location.reload();
+  };
+
+  handleSoftRetry = () => {
+    // Soft retry - just reset state (used after successful reload)
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      retryCount: this.state.retryCount + 1
+    });
+    
+    this.props.onReset?.();
   };
 
   render() {
@@ -80,21 +101,21 @@ export default class AuthErrorBoundary extends Component<Props, State> {
               We had trouble loading this page. This is usually temporary — please try again.
             </p>
             
-            {/* Retry Button */}
+            {/* Try Again Button - now does full reload */}
             <button
-              onClick={this.handleRetry}
+              onClick={this.handleTryAgain}
               className="w-full py-4 bg-coral-500 hover:bg-coral-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 mb-4"
             >
               <RefreshCw className="w-5 h-5" />
               Try Again
             </button>
             
-            {/* Reload Button (secondary) */}
+            {/* Go to Home Button - alternative escape route */}
             <button
-              onClick={this.handleReload}
+              onClick={() => window.location.href = '/'}
               className="w-full py-3 bg-white border border-gray-300 hover:border-gray-400 text-gray-700 font-medium rounded-xl transition-colors"
             >
-              Reload App
+              Go to Home
             </button>
             
             {/* Debug info (only in development) */}
