@@ -2,7 +2,7 @@
 // Updated with next-intl for internationalization support
 // FIXED: Added viewport-fit=cover for iOS safe areas in Capacitor
 // ADDED: OnboardingProgressBanner for onboarding task navigation
-// ADDED: BuildVersionCheck for deployment cache-busting (Jan 31, 2026)
+// ADDED: BuildVersionGate for blocking deployment cache-busting (Jan 31, 2026)
 
 import '../globals.css'
 import { Inter } from 'next/font/google'
@@ -13,7 +13,7 @@ import { getMessages, getLocale } from 'next-intl/server'
 import { ThemeProvider } from '@/components/ThemeProvider';
 import type { Viewport } from 'next'
 import OnboardingProgressBanner from '@/components/onboarding/OnboardingProgressBanner';
-import BuildVersionCheck from '@/components/BuildVersionCheck';
+import BuildVersionGate from '@/components/BuildVersionGate';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -28,7 +28,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: 'cover', // This enables env(safe-area-inset-*) to work
+  viewportFit: 'cover',
 }
 
 export default async function RootLayout({
@@ -44,72 +44,69 @@ export default async function RootLayout({
   return (
     <html lang={locale}>
       <body className={inter.className}>
-        {/* Version check - detects new deployments and forces refresh if needed */}
-        <BuildVersionCheck />
-        
-        {/* Wrap the entire app with i18n and AuthProvider */}
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <AuthProvider>
-            {/* Each page will handle its own header through CleanHeader */}
-            {children}
-            
-            {/* Floating onboarding progress banner - shows on key pages during onboarding */}
-            <OnboardingProgressBanner />
-            
-            {/* Keep the Toaster for notifications */}
-            <Toaster 
-              position="top-right"
-              reverseOrder={false}
-              gutter={8}
-              containerClassName=""
-              containerStyle={{}}
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#363636',
-                  color: '#fff',
-                  border: '1px solid #4a5568',
-                  borderRadius: '8px',
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                  padding: '12px 16px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  maxWidth: '400px',
-                },
-                success: {
-                  duration: 3000,
+          {/* BuildVersionGate blocks rendering until version is verified */}
+          {/* This prevents stale code from ever reaching the user */}
+          <BuildVersionGate>
+            <AuthProvider>
+              {children}
+              
+              <OnboardingProgressBanner />
+              
+              <Toaster 
+                position="top-right"
+                reverseOrder={false}
+                gutter={8}
+                containerClassName=""
+                containerStyle={{}}
+                toastOptions={{
+                  duration: 4000,
                   style: {
-                    background: '#059669',
+                    background: '#363636',
                     color: '#fff',
-                    border: '1px solid #047857',
+                    border: '1px solid #4a5568',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    maxWidth: '400px',
                   },
-                  iconTheme: {
-                    primary: '#10b981',
-                    secondary: '#fff',
+                  success: {
+                    duration: 3000,
+                    style: {
+                      background: '#059669',
+                      color: '#fff',
+                      border: '1px solid #047857',
+                    },
+                    iconTheme: {
+                      primary: '#10b981',
+                      secondary: '#fff',
+                    },
                   },
-                },
-                error: {
-                  duration: 5000,
-                  style: {
-                    background: '#DC2626',
-                    color: '#fff',
-                    border: '1px solid #b91c1c',
+                  error: {
+                    duration: 5000,
+                    style: {
+                      background: '#DC2626',
+                      color: '#fff',
+                      border: '1px solid #b91c1c',
+                    },
+                    iconTheme: {
+                      primary: '#ef4444',
+                      secondary: '#fff',
+                    },
                   },
-                  iconTheme: {
-                    primary: '#ef4444',
-                    secondary: '#fff',
+                  loading: {
+                    style: {
+                      background: '#374151',
+                      color: '#f3f4f6',
+                      border: '1px solid #4b5563',
+                    },
                   },
-                },
-                loading: {
-                  style: {
-                    background: '#374151',
-                    color: '#f3f4f6',
-                    border: '1px solid #4b5563',
-                  },
-                },
-              }}
-            />
-          </AuthProvider>
+                }}
+              />
+            </AuthProvider>
+          </BuildVersionGate>
         </NextIntlClientProvider>
       </body>
     </html>
