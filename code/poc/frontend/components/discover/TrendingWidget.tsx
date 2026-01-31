@@ -1,6 +1,7 @@
 // File: code/poc/frontend/components/discover/TrendingWidget.tsx
 // Trending Widget - Shows mixed content types (recommendations, guides, requests)
 // based on engagement metrics
+// UPDATED: Added "See All" footer and visual termination for better UX
 
 'use client';
 
@@ -8,7 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
-import { TrendingUp, MessageCircle, Heart, Users, MapPin, HelpCircle, BookOpen, Utensils } from 'lucide-react';
+import { TrendingUp, MessageCircle, Heart, Users, MapPin, HelpCircle, BookOpen, Utensils, ChevronRight } from 'lucide-react';
 
 // =============================================================================
 // TYPES
@@ -47,6 +48,7 @@ interface TrendingWidgetProps {
   itemCount?: number;
   onItemClick?: (item: TrendingItem) => void;
   className?: string;
+  showSeeAll?: boolean; // Whether to show "See All" link
 }
 
 // =============================================================================
@@ -117,6 +119,7 @@ export default function TrendingWidget({
   itemCount = 5,
   onItemClick,
   className = '',
+  showSeeAll = true,
 }: TrendingWidgetProps) {
   const t = useTranslations('discover');
   const { token } = useAuth();
@@ -124,6 +127,7 @@ export default function TrendingWidget({
   const [trendingItems, setTrendingItems] = useState<TrendingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0); // Track total available items
 
   // Fetch trending data from backend
   const fetchTrendingData = useCallback(async () => {
@@ -148,12 +152,13 @@ export default function TrendingWidget({
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.items) {
-            setTrendingItems(data.items);
-            setIsLoading(false);  // ✅ Add this line
-            console.log(`[TrendingWidget] Loaded ${data.items.length} trending items`);
-            return;
+          setTrendingItems(data.items);
+          setTotalCount(data.total_count || data.items.length);
+          setIsLoading(false);
+          console.log(`[TrendingWidget] Loaded ${data.items.length} trending items`);
+          return;
         }
-    }
+      }
 
       // Fallback: fetch from individual endpoints and merge
       console.log('[TrendingWidget] Unified endpoint not available, fetching from individual sources...');
@@ -300,6 +305,9 @@ export default function TrendingWidget({
         return bEngagement - aEngagement;
       });
 
+      // Track total before slicing
+      setTotalCount(results.length);
+
       // Take top items
       setTrendingItems(results.slice(0, itemCount));
       setIsLoading(false);
@@ -404,9 +412,9 @@ export default function TrendingWidget({
 
   // Main Render
   return (
-    <div className={`bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] p-4 ${className}`}>
+    <div className={`bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] overflow-hidden ${className}`}>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 p-4 pb-3">
         <TrendingUp className="w-5 h-5 text-[#FF644A]" />
         <h3 className="font-semibold text-[#1F1E2A] dark:text-white">
           {t('sidebar.trending.title', { defaultValue: 'Trending' })}
@@ -414,7 +422,7 @@ export default function TrendingWidget({
       </div>
 
       {/* Trending Items */}
-      <div className="space-y-3">
+      <div className="px-4 space-y-3">
         {trendingItems.map((item) => {
           const typeConfig = TYPE_CONFIG[item.type];
           const TypeIcon = typeConfig.icon;
@@ -490,6 +498,26 @@ export default function TrendingWidget({
           );
         })}
       </div>
+
+      {/* Footer - Visual termination with optional "See All" link */}
+      <div className="mt-3 pt-3 pb-4 px-4 border-t border-gray-100 dark:border-[#3D3C4A]">
+        {showSeeAll && totalCount > itemCount ? (
+          <Link
+            href="/feed"
+            className="flex items-center justify-center gap-1 text-sm text-[#FF644A] hover:text-[#E65441] font-medium transition-colors"
+          >
+            <span>{t('sidebar.trending.seeAll', { defaultValue: 'See all trending' })}</span>
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        ) : (
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+            {t('sidebar.trending.endOfList', { defaultValue: `Showing ${trendingItems.length} trending items` })}
+          </p>
+        )}
+      </div>
+      
+      {/* Extra bottom padding for mobile safe area */}
+      <div className="h-2" />
     </div>
   );
 }

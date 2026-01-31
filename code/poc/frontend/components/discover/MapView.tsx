@@ -343,7 +343,8 @@ export default function MapView({
     console.log('[BocaBoca] Fetching tier data for center:', mapCenter);
     try {
       const token = localStorage.getItem('token');
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+      // FIXED: Use production URL as fallback instead of localhost
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || 'https://omeonechain-production.up.railway.app';
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };

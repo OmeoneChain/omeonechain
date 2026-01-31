@@ -683,7 +683,7 @@ const DiscoverPage = () => {
   return (
     <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       <CleanHeader />
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className={`max-w-7xl mx-auto px-4 py-6 ${isCapacitor ? 'pb-24' : ''}`}>
         
         {/* Page Header - Hidden on native mobile for cleaner look */}
         {!isCapacitor && (
