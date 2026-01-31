@@ -1,5 +1,6 @@
 // File: code/poc/frontend/components/auth/PhoneEntry.tsx
 // Phone number entry with country code selector for BocaBoca onboarding
+// Updated: Jan 31, 2026 - Better handling of iOS autofill with country codes
 
 'use client';
 
@@ -10,13 +11,13 @@ import { ChevronDown, Phone, AlertCircle, Loader2 } from 'lucide-react';
 
 // Country codes for supported regions
 const COUNTRY_CODES = [
-  { code: '+55', country: 'BR', flag: '🇧🇷', name: 'Brasil', placeholder: '(11) 99999-9999' },
-  { code: '+1', country: 'US', flag: '🇺🇸', name: 'United States', placeholder: '(555) 555-5555' },
-  { code: '+44', country: 'GB', flag: '🇬🇧', name: 'United Kingdom', placeholder: '7911 123456' },
-  { code: '+351', country: 'PT', flag: '🇵🇹', name: 'Portugal', placeholder: '912 345 678' },
-  { code: '+34', country: 'ES', flag: '🇪🇸', name: 'España', placeholder: '612 34 56 78' },
-  { code: '+52', country: 'MX', flag: '🇲🇽', name: 'México', placeholder: '55 1234 5678' },
-  { code: '+54', country: 'AR', flag: '🇦🇷', name: 'Argentina', placeholder: '11 1234-5678' },
+  { code: '+55', country: 'BR', flag: '🇧🇷', name: 'Brasil', placeholder: '(11) 99999-9999', digits: '55' },
+  { code: '+1', country: 'US', flag: '🇺🇸', name: 'United States', placeholder: '(555) 555-5555', digits: '1' },
+  { code: '+44', country: 'GB', flag: '🇬🇧', name: 'United Kingdom', placeholder: '7911 123456', digits: '44' },
+  { code: '+351', country: 'PT', flag: '🇵🇹', name: 'Portugal', placeholder: '912 345 678', digits: '351' },
+  { code: '+34', country: 'ES', flag: '🇪🇸', name: 'España', placeholder: '612 34 56 78', digits: '34' },
+  { code: '+52', country: 'MX', flag: '🇲🇽', name: 'México', placeholder: '55 1234 5678', digits: '52' },
+  { code: '+54', country: 'AR', flag: '🇦🇷', name: 'Argentina', placeholder: '11 1234-5678', digits: '54' },
 ];
 
 interface PhoneEntryProps {
@@ -57,6 +58,30 @@ export default function PhoneEntry({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  /**
+   * Detects if a phone number string contains a country code and extracts the national part.
+   * Returns { countryCode, nationalNumber } or null if no country code detected.
+   */
+  const parsePhoneWithCountryCode = (value: string): { country: typeof COUNTRY_CODES[0], nationalNumber: string } | null => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, '');
+    
+    // Check each country code (sorted by length descending to match longest first)
+    const sortedCountries = [...COUNTRY_CODES].sort((a, b) => b.digits.length - a.digits.length);
+    
+    for (const country of sortedCountries) {
+      if (digits.startsWith(country.digits)) {
+        const nationalNumber = digits.slice(country.digits.length);
+        // Only consider it a match if there are remaining digits after the country code
+        if (nationalNumber.length >= 6) {
+          return { country, nationalNumber };
+        }
+      }
+    }
+    
+    return null;
+  };
+
   // Format phone number based on country
   const formatPhoneNumber = (value: string, countryCode: string): string => {
     // Remove all non-digits
@@ -81,8 +106,32 @@ export default function PhoneEntry({
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value, selectedCountry.code);
-    setPhoneNumber(formatted);
+    const rawValue = e.target.value;
+    const digits = rawValue.replace(/\D/g, '');
+    
+    // Check if this looks like an autofilled international number
+    // iOS often autofills the full number including country code
+    const parsed = parsePhoneWithCountryCode(digits);
+    
+    if (parsed && digits.length > 11) {
+      // Autofill detected with country code - extract national number
+      // and optionally switch to the detected country
+      console.log('📱 Detected autofill with country code:', parsed.country.code);
+      
+      // Update country selector if different
+      if (parsed.country.code !== selectedCountry.code) {
+        setSelectedCountry(parsed.country);
+      }
+      
+      // Format and set just the national number
+      const formatted = formatPhoneNumber(parsed.nationalNumber, parsed.country.code);
+      setPhoneNumber(formatted);
+    } else {
+      // Normal input - just format it
+      const formatted = formatPhoneNumber(rawValue, selectedCountry.code);
+      setPhoneNumber(formatted);
+    }
+    
     setInternalError(null);
   };
 
@@ -139,7 +188,7 @@ export default function PhoneEntry({
           className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors"
         >
           <span className="mr-2">←</span>
-          {t('common.back') || 'Voltar'}
+          {t('common.back') || 'Back'}
         </button>
       )}
 
@@ -149,10 +198,10 @@ export default function PhoneEntry({
           <Phone className="w-8 h-8 text-coral-500" />
         </div>
         <h1 className="text-2xl font-bold text-navy-900 mb-2">
-          {t('phoneEntry.title') || 'Qual é o seu número?'}
+          {t('phoneEntry.title') || "What's your number?"}
         </h1>
         <p className="text-gray-600">
-          {t('phoneEntry.subtitle') || 'Vamos enviar um código SMS para verificar seu número'}
+          {t('phoneEntry.subtitle') || "We'll send an SMS code to verify your number"}
         </p>
       </div>
 
@@ -160,7 +209,7 @@ export default function PhoneEntry({
         {/* Phone Input */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {t('phoneEntry.label') || 'Número de telefone'}
+            {t('phoneEntry.label') || 'Phone number'}
           </label>
           
           <div className="flex gap-2">
@@ -241,19 +290,19 @@ export default function PhoneEntry({
           {isLoading ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
-              {t('phoneEntry.sending') || 'Enviando...'}
+              {t('phoneEntry.sending') || 'Sending...'}
             </>
           ) : (
             <>
               <Phone className="w-5 h-5" />
-              {t('phoneEntry.submit') || 'Enviar Código SMS'}
+              {t('phoneEntry.submit') || 'Send SMS Code'}
             </>
           )}
         </button>
 
         {/* Terms */}
         <p className="text-center text-xs text-gray-500">
-          {t('phoneEntry.terms') || 'Ao continuar, você autoriza o BocaBoca a enviar mensagens SMS para este número'}
+          {t('phoneEntry.terms') || 'By continuing, you authorize BocaBoca to send SMS messages to this number'}
         </p>
       </form>
     </div>
