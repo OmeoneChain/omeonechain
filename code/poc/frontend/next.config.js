@@ -1,10 +1,15 @@
 // File: code/poc/frontend/next.config.js
 // Updated with conditional static export for mobile builds
+// Updated: Added build ID for deployment cache-busting (Jan 31, 2026)
 
 const withNextIntl = require('next-intl/plugin')('./i18n.ts');
 
 // Check if this is a mobile build
 const isMobileBuild = process.env.MOBILE_BUILD === 'true';
+
+// Generate a build ID - Vercel provides VERCEL_GIT_COMMIT_SHA automatically
+// For local dev, use a timestamp
+const buildId = process.env.VERCEL_GIT_COMMIT_SHA || `dev-${Date.now()}`;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -16,26 +21,14 @@ const nextConfig = {
   
   // TypeScript configuration
   typescript: {
-    // Allow builds to complete even with type errors (can be removed later)
     ignoreBuildErrors: true,
   },
   
-  // Cache headers - force fresh content during beta
-  // This fixes "first login after update fails" issue
+  // Cache headers to help with stale code issues
   async headers() {
     return [
       {
-        // Apply to all JS/CSS chunks
-        source: '/_next/static/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=60, must-revalidate',
-          },
-        ],
-      },
-      {
-        // Apply to pages
+        // HTML pages should always be revalidated
         source: '/:path*',
         headers: [
           {
@@ -44,10 +37,20 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Static assets can be cached but with revalidation
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=60, must-revalidate',
+          },
+        ],
+      },
     ];
   },
   
-  // Webpack configuration for crypto polyfills (IOTA Rebased blockchain support)
+  // Webpack configuration for crypto polyfills
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -66,11 +69,13 @@ const nextConfig = {
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
     IS_MOBILE_BUILD: isMobileBuild ? 'true' : 'false',
+    // Expose build ID to client for version checking
+    NEXT_PUBLIC_BUILD_ID: buildId,
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA || '',
   },
   
-  // Image configuration - ALL remote patterns in ONE place
+  // Image configuration
   images: {
-    // Disable optimization for mobile builds (static export doesn't support it)
     ...(isMobileBuild && { unoptimized: true }),
     
     remotePatterns: [

@@ -1,7 +1,8 @@
-// File: code/poc/frontend/app/layout.tsx
+// File: code/poc/frontend/app/[locale]/layout.tsx
 // Updated with next-intl for internationalization support
 // FIXED: Added viewport-fit=cover for iOS safe areas in Capacitor
 // ADDED: OnboardingProgressBanner for onboarding task navigation
+// ADDED: BuildVersionCheck for deployment cache-busting (Jan 31, 2026)
 
 import '../globals.css'
 import { Inter } from 'next/font/google'
@@ -12,6 +13,7 @@ import { getMessages, getLocale } from 'next-intl/server'
 import { ThemeProvider } from '@/components/ThemeProvider';
 import type { Viewport } from 'next'
 import OnboardingProgressBanner from '@/components/onboarding/OnboardingProgressBanner';
+import BuildVersionCheck from '@/components/BuildVersionCheck';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -42,6 +44,9 @@ export default async function RootLayout({
   return (
     <html lang={locale}>
       <body className={inter.className}>
+        {/* Version check - detects new deployments and forces refresh if needed */}
+        <BuildVersionCheck />
+        
         {/* Wrap the entire app with i18n and AuthProvider */}
         <NextIntlClientProvider locale={locale} messages={messages}>
           <AuthProvider>
