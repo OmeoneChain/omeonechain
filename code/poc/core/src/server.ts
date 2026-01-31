@@ -493,6 +493,7 @@ const profileUpdateSchema = z.object({
   email: z.string()
     .email('Invalid email address')
     .optional()
+    .or(z.literal(''))
 });
 
 const usernameCheckSchema = z.object({

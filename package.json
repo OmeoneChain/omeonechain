@@ -37,6 +37,7 @@
     "url": "https://github.com/YOUR_USERNAME/omeonechain.git"
   },
   "dependencies": {
+    "@capacitor/camera": "^8.0.0",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.52.1",
     "@types/node-cron": "^3.0.11",
