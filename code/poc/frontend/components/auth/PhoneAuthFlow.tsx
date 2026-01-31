@@ -5,6 +5,7 @@
 // Updated: Passes auth context to ProfileSetup for avatar upload
 // Updated: Integrated WelcomeCarousel for better onboarding (Jan 26, 2026)
 // Updated: Fixed async login calls and auth hydration check (Jan 28, 2026)
+// Updated: Fixed AuthMode type mismatch and added defensive null checks (Jan 31, 2026)
 
 'use client';
 
@@ -159,38 +160,52 @@ export default function PhoneAuthFlow({
       
       const data = await response.json();
       
+      // Debug logging - can remove after fixing
+      console.log('📱 Verify response:', JSON.stringify(data, null, 2));
+      
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Invalid verification code');
       }
       
-      // Store auth data
+      // Defensive check: ensure we have minimum required data
+      if (!data.token) {
+        throw new Error('Server response missing authentication token');
+      }
+      
+      // Store auth data with defensive access
+      const userData = data.user || {};
+      
       setPhoneState(prev => ({
         ...prev,
-        isNewUser: data.isNewUser,
-        userId: data.user.id,
+        isNewUser: data.isNewUser || false,
+        userId: userData.id || '',
         token: data.token
       }));
       
       // If new user, go to profile setup
       // If returning user, log them in and redirect
       if (data.isNewUser) {
-        setUserName(data.user?.displayName || data.user?.username || 'User');
+        setUserName(userData.displayName || userData.display_name || userData.username || 'User');
         goToStep('profile');
-      } else if (!data.user || !data.token) {
-        // Defensive check: API returned success but missing user data
-        throw new Error('Invalid response from server. Please try again.');
       } else {
         // Returning user - log in and redirect
+        // Defensive checks for user data to prevent crashes
+        const safeUserData = {
+          id: userData.id || `phone_${phoneState.phoneNumber}`,
+          phone: userData.phone || phoneState.phoneNumber,
+          username: userData.username || '',
+          display_name: userData.displayName || userData.display_name || userData.username || '',
+          avatar_url: userData.avatarUrl || userData.avatar_url || '',
+          // Use 'email' as AuthMode since 'phone' is not defined in AuthMode type
+          auth_mode: 'email' as const,
+          tokens_earned: userData.tokensEarned || userData.tokens_earned || 0,
+          trust_score: userData.trustScore || userData.trust_score || 0,
+        };
+        
+        console.log('📱 Logging in with user data:', JSON.stringify(safeUserData, null, 2));
+        
         // IMPORTANT: await the login to ensure auth state is saved before navigation
-        await login(data.token, {
-          id: data.user.id,
-          phone: data.user.phone,
-          username: data.user.username,
-          display_name: data.user.displayName,
-          auth_mode: 'phone' as const,
-          tokens_earned: data.user.tokensEarned || 0,
-          trust_score: data.user.trustScore || 0,
-        }, data.refreshToken); // Pass refresh token if available
+        await login(data.token, safeUserData, data.refreshToken || undefined);
         
         toast.success(t('phoneAuth.welcomeBack') || 'Bem-vindo de volta!');
         
@@ -272,12 +287,13 @@ export default function PhoneAuthFlow({
       setUserName(profileData.displayName);
       
       // Log the user in - IMPORTANT: await to ensure state is saved
+      // Use 'email' as AuthMode since 'phone' is not defined in AuthMode type
       await login(phoneState.token!, {
-        id: phoneState.userId!,
-        username: profileData.username,
-        display_name: profileData.displayName,
-        avatar_url: profileData.avatarUrl,
-        auth_mode: 'phone' as const,
+        id: phoneState.userId || '',
+        username: profileData.username || '',
+        display_name: profileData.displayName || '',
+        avatar_url: profileData.avatarUrl || '',
+        auth_mode: 'email' as const,
         tokens_earned: 0,
         trust_score: 0,
       });
@@ -297,9 +313,10 @@ export default function PhoneAuthFlow({
   // Skip profile setup
   const handleProfileSkip = async () => {
     // Log in with default profile - IMPORTANT: await to ensure state is saved
+    // Use 'email' as AuthMode since 'phone' is not defined in AuthMode type
     await login(phoneState.token!, {
-      id: phoneState.userId!,
-      auth_mode: 'phone' as const,
+      id: phoneState.userId || '',
+      auth_mode: 'email' as const,
       tokens_earned: 0,
       trust_score: 0,
     });

@@ -1,6 +1,7 @@
 // File: code/poc/frontend/components/auth/SMSVerification.tsx
 // SMS code verification with 6 individual boxes, auto-advance, and auto-submit
-// Updated: Fixed iOS SMS autofill - hidden input now overlays boxes for better capture
+// Updated: Fixed duplicate country code display
+// Updated: Added iOS SMS autofill support via hidden input
 
 'use client';
 
@@ -10,14 +11,14 @@ import { motion } from 'framer-motion';
 import { MessageSquare, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 
 interface SMSVerificationProps {
-  phoneNumber: string;
+  phoneNumber: string; // Formatted display version (may or may not include country code)
   countryCode: string;
   onVerify: (code: string) => Promise<void>;
   onResend: () => Promise<void>;
   onBack: () => void;
   isLoading?: boolean;
   error?: string | null;
-  resendCooldown?: number;
+  resendCooldown?: number; // seconds until resend allowed
 }
 
 export default function SMSVerification({
@@ -36,11 +37,9 @@ export default function SMSVerification({
   const [internalError, setInternalError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(resendCooldown);
   const [isResending, setIsResending] = useState(false);
-  const [isHiddenInputFocused, setIsHiddenInputFocused] = useState(true);
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -58,13 +57,9 @@ export default function SMSVerification({
     }
   }, [code]);
 
-  // Focus hidden input on mount for iOS autofill
+  // Focus first input on mount
   useEffect(() => {
-    // Small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      hiddenInputRef.current?.focus();
-    }, 100);
-    return () => clearTimeout(timer);
+    inputRefs.current[0]?.focus();
   }, []);
 
   const handleSubmit = async (fullCode: string) => {
@@ -78,53 +73,15 @@ export default function SMSVerification({
     try {
       await onVerify(fullCode);
     } catch (err) {
+      // Error handling done by parent
+      // Clear the code on error so user can retry
       setCode(['', '', '', '', '', '']);
-      hiddenInputRef.current?.focus();
-      setIsHiddenInputFocused(true);
-    }
-  };
-
-  // Handle input in the hidden field (for iOS autofill)
-  const handleHiddenInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
-    
-    if (value.length > 0) {
-      const newCode = ['', '', '', '', '', ''];
-      for (let i = 0; i < Math.min(value.length, 6); i++) {
-        newCode[i] = value[i];
-      }
-      setCode(newCode);
-      setInternalError(null);
-      
-      // If we got a full code, stay on hidden input (will auto-submit)
-      // If partial, switch to individual boxes
-      if (value.length < 6) {
-        setIsHiddenInputFocused(false);
-        inputRefs.current[value.length]?.focus();
-      }
-    }
-  };
-
-  // When user taps on the code boxes area, focus appropriately
-  const handleContainerClick = () => {
-    if (code.every(d => d === '')) {
-      // All empty - focus hidden input for autofill
-      hiddenInputRef.current?.focus();
-      setIsHiddenInputFocused(true);
-    } else {
-      // Some digits entered - focus first empty box
-      const firstEmpty = code.findIndex(d => d === '');
-      if (firstEmpty !== -1) {
-        inputRefs.current[firstEmpty]?.focus();
-        setIsHiddenInputFocused(false);
-      } else {
-        inputRefs.current[5]?.focus();
-        setIsHiddenInputFocused(false);
-      }
+      inputRefs.current[0]?.focus();
     }
   };
 
   const handleInputChange = (index: number, value: string) => {
+    // Only allow digits
     const digit = value.replace(/\D/g, '').slice(-1);
     
     const newCode = [...code];
@@ -132,19 +89,23 @@ export default function SMSVerification({
     setCode(newCode);
     setInternalError(null);
     
+    // Auto-advance to next input
     if (digit && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Handle backspace
     if (e.key === 'Backspace') {
       if (!code[index] && index > 0) {
+        // If current is empty, go back and clear previous
         const newCode = [...code];
         newCode[index - 1] = '';
         setCode(newCode);
         inputRefs.current[index - 1]?.focus();
       } else {
+        // Clear current
         const newCode = [...code];
         newCode[index] = '';
         setCode(newCode);
@@ -152,6 +113,7 @@ export default function SMSVerification({
       e.preventDefault();
     }
     
+    // Handle arrow keys
     if (e.key === 'ArrowLeft' && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
@@ -171,6 +133,7 @@ export default function SMSVerification({
       }
       setCode(newCode);
       
+      // Focus the next empty input or the last one
       const nextEmptyIndex = newCode.findIndex(c => c === '');
       if (nextEmptyIndex !== -1) {
         inputRefs.current[nextEmptyIndex]?.focus();
@@ -180,8 +143,28 @@ export default function SMSVerification({
     }
   };
 
-  const handleIndividualInputFocus = (index: number) => {
-    setIsHiddenInputFocused(false);
+  // Handle iOS SMS autofill from hidden input
+  const handleHiddenInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    
+    if (value.length > 0) {
+      const newCode = ['', '', '', '', '', ''];
+      for (let i = 0; i < value.length && i < 6; i++) {
+        newCode[i] = value[i];
+      }
+      setCode(newCode);
+      setInternalError(null);
+      
+      // Focus appropriate input
+      if (value.length < 6) {
+        inputRefs.current[value.length]?.focus();
+      } else {
+        inputRefs.current[5]?.focus();
+      }
+      
+      // Clear the hidden input
+      e.target.value = '';
+    }
   };
 
   const handleResend = async () => {
@@ -190,11 +173,10 @@ export default function SMSVerification({
     setIsResending(true);
     try {
       await onResend();
-      setCountdown(60);
+      setCountdown(60); // Reset to 60 seconds after successful resend
       setCode(['', '', '', '', '', '']);
       setInternalError(null);
-      hiddenInputRef.current?.focus();
-      setIsHiddenInputFocused(true);
+      inputRefs.current[0]?.focus();
     } catch (err) {
       // Error handled by parent
     } finally {
@@ -204,22 +186,10 @@ export default function SMSVerification({
 
   const displayError = externalError || internalError;
 
-  // Check if phoneNumber already includes country code to avoid duplication
+  // FIX: Check if phoneNumber already includes country code to avoid duplication
   const displayPhone = phoneNumber.startsWith(countryCode) 
     ? phoneNumber 
     : `${countryCode} ${phoneNumber}`;
-
-  // Mask phone number for display (show last 4 digits)
-  const maskedPhone = (() => {
-    const digits = displayPhone.replace(/\D/g, '');
-    if (digits.length > 4) {
-      const countryPart = countryCode;
-      const lastFour = digits.slice(-4);
-      const maskedMiddle = '*'.repeat(Math.max(0, digits.length - countryCode.replace('+', '').length - 4));
-      return `${countryPart} ${maskedMiddle} ${lastFour}`;
-    }
-    return displayPhone;
-  })();
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -245,57 +215,51 @@ export default function SMSVerification({
           {t('smsVerification.subtitle') || 'We sent a 6-digit code to'}
         </p>
         <p className="text-gray-900 font-medium mt-1">
-          {maskedPhone}
+          {displayPhone}
         </p>
       </div>
 
-      {/* Code Input Area */}
-      <div 
-        ref={containerRef}
-        className="relative mb-6"
-        onClick={handleContainerClick}
-      >
-        {/* Hidden input for iOS SMS autofill - positioned over the boxes */}
-        <input
-          ref={hiddenInputRef}
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          value={code.join('')}
-          onChange={handleHiddenInputChange}
-          onFocus={() => setIsHiddenInputFocused(true)}
-          disabled={isLoading}
-          className={`absolute inset-0 w-full h-full opacity-0 ${isHiddenInputFocused ? 'z-10' : 'z-0'}`}
-          style={{ caretColor: 'transparent' }}
-          aria-label="SMS verification code"
-        />
+      {/* Hidden input for iOS SMS autofill */}
+      <input
+        ref={hiddenInputRef}
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        onChange={handleHiddenInputChange}
+        className="sr-only"
+        aria-hidden="true"
+        tabIndex={-1}
+      />
 
-        {/* Visible Code Boxes */}
-        <div className="flex justify-center gap-2 sm:gap-3">
-          {code.map((digit, index) => (
-            <input
-              key={index}
-              ref={(el) => { inputRefs.current[index] = el; }}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleInputChange(index, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(index, e)}
-              onPaste={handlePaste}
-              onFocus={() => handleIndividualInputFocus(index)}
-              disabled={isLoading}
-              className={`relative z-20 w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-bold text-[#1F1E2A] rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 ${
-                displayError 
-                  ? 'border-red-500 bg-red-50' 
-                  : digit 
-                    ? 'border-coral-500 bg-coral-50' 
-                    : 'border-gray-300 bg-white'
-              } ${isLoading ? 'opacity-50' : ''}`}
-              aria-label={`Digit ${index + 1}`}
-            />
-          ))}
-        </div>
+      {/* Code Input Boxes */}
+      <div className="flex justify-center gap-2 sm:gap-3 mb-6">
+        {code.map((digit, index) => (
+          <input
+            key={index}
+            ref={(el) => { inputRefs.current[index] = el; }}
+            type="text"
+            inputMode="numeric"
+            autoComplete={index === 0 ? "one-time-code" : "off"}
+            maxLength={1}
+            value={digit}
+            onChange={(e) => handleInputChange(index, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(index, e)}
+            onPaste={handlePaste}
+            onFocus={(e) => {
+              // Select content on focus for easier replacement
+              e.target.select();
+            }}
+            disabled={isLoading}
+            className={`w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-bold text-[#1F1E2A] rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 ${
+              displayError 
+                ? 'border-red-500 bg-red-50' 
+                : digit 
+                  ? 'border-coral-500 bg-coral-50' 
+                  : 'border-gray-300 bg-white'
+            } ${isLoading ? 'opacity-50' : ''}`}
+            aria-label={`Digit ${index + 1}`}
+          />
+        ))}
       </div>
 
       {/* Loading indicator */}
