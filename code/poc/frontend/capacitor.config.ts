@@ -7,6 +7,11 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://omeonechain.vercel.app',
     cleartext: true
+  },
+  ios: {
+    // Enable debugging during beta (helps with cache issues)
+    webContentsDebuggingEnabled: true,
+    preferredContentMode: 'mobile'
   }
 };
 

@@ -20,6 +20,33 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
+  // Cache headers - force fresh content during beta
+  // This fixes "first login after update fails" issue
+  async headers() {
+    return [
+      {
+        // Apply to all JS/CSS chunks
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=60, must-revalidate',
+          },
+        ],
+      },
+      {
+        // Apply to pages
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+    ];
+  },
+  
   // Webpack configuration for crypto polyfills (IOTA Rebased blockchain support)
   webpack: (config, { isServer }) => {
     if (!isServer) {
