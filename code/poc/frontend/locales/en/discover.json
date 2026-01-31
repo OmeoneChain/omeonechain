@@ -19,7 +19,7 @@
 
   "tabs": {
     "curated": "Guides",
-    "requests": "Questions",
+    "requests": "Crowd-sourcing",
     "map": "Map",
     "mapSection": {
       "title": "Nearby Restaurants",
@@ -128,14 +128,14 @@
   },
 
   "requestSearch": {
-    "placeholder": "Search questions by title, location, cuisine, occasion...",
+    "placeholder": "Search crowd-sourced help by title, location, cuisine, occasion...",
     "clear": "Clear search",
     "clearAll": "Clear all filters",
     "clearSearch": "Clear search",
     "filters": "Filters",
-    "badge": "Questions",
-    "scopeHint": "Search across question titles, descriptions, locations, cuisines, and occasions",
-    "noResults": "No questions match your filters",
+    "badge": "Crowd-sourcing",
+    "scopeHint": "Search across crowd-sourced help by title, description, location, cuisine, and occasion",
+    "noResults": "No crowd-sourced requests match your filters",
     "resultsCount": "Showing {count} of {total} questions",
     "statusLabel": "Status",
     "status": {
@@ -173,14 +173,14 @@
   },
 
   "requests": {
-    "title": "Community Questions",
+    "title": "Crowd-source a Recommendation",
     "subtitle": "Help others find the perfect place to eat",
-    "createButton": "Ask a Question",
+    "createButton": "Ask the Community",
     "noFilterResults": "No questions match your filters",
     "tryDifferentFilters": "Try adjusting your search or filters",
     "clearFilters": "Clear all filters",
     "empty": {
-      "title": "No questions yet",
+      "title": "No crowd-sourced requests yet",
       "description": "Be the first to ask the community for restaurant recommendations!",
       "cta": "Ask for Recommendations"
     },

@@ -8,20 +8,20 @@
     "options": {
       "recommendation": {
         "title": "Recomendação",
-        "description": "Compartilhe um restaurante que você adora com seus amigos"
+        "description": "Compartilhe com sua rede um restaurante que você gosta"
       },
       "list": {
-        "title": "Lista Curada",
-        "description": "Agrupe restaurantes por tema (ex: \"Melhores Tacos da Cidade\")"
+        "title": "Melhores",
+        "description": "Agrupe restaurantes por tipo, cidade ou ocasião"
       },
       "request": {
-        "title": "Pedido",
-        "description": "Peça recomendações para sua rede"
+        "title": "Quer uma dica?",
+        "description": "Pergunte para a comunidade"
       }
     }
   },
   "recommendation": {
-    "title": "Compartilhar uma Recomendação",
+    "title": "Compartilhar uma recomendação",
     "restaurant": {
       "label": "Qual restaurante?",
       "nearLocation": "Perto de {location}",
@@ -45,14 +45,14 @@
       "label": "Ideal para"
     },
     "contextTags": {
-      "dateNight": "Jantar Romântico",
+      "dateNight": "Jantar romântico",
       "familyFriendly": "Família",
-      "businessLunch": "Almoço de Negócios",
-      "quickBite": "Refeição Rápida",
-      "specialOccasion": "Ocasião Especial",
+      "businessLunch": "Almoço de negócios",
+      "quickBite": "Refeição rápida",
+      "specialOccasion": "Ocasião especial",
       "casualDining": "Casual",
-      "outdoorSeating": "Área Externa",
-      "goodForGroups": "Bom para Grupos"
+      "outdoorSeating": "Área externa",
+      "goodForGroups": "Bom para grupos"
     },
     "dishes": {
       "label": "Avalie pratos específicos",
@@ -71,11 +71,11 @@
     }
   },
   "list": {
-    "title": "Criar uma Lista Curada",
-    "comingSoonMessage": "Listas curadas em breve! Você poderá agrupar seus restaurantes favoritos por tema e compartilhar com sua rede."
+    "title": "Criar uma Lista de Melhores",
+    "comingSoonMessage": "Listas de melhores em breve! Você poderá agrupar seus restaurantes favoritos por tema e compartilhar com sua rede."
   },
   "request": {
-    "title": "Pedir Recomendações",
+    "title": "Quer uma dica?",
     "comingSoonMessage": "Pedidos em breve! Você poderá pedir sugestões de restaurantes para sua rede e até definir recompensas para as melhores recomendações."
   },
   "restaurants": {
@@ -104,7 +104,7 @@
   },
   "lists": {
     "createFlow": {
-      "title": "Criar uma Lista Curada",
+      "title": "Criar uma lista de melhores",
       "aria": {
         "close": "Fechar diálogo"
       },
@@ -148,7 +148,7 @@
         "remove": "Remover"
       },
       "review": {
-        "detailsTitle": "Detalhes da Lista",
+        "detailsTitle": "Detalhes da lista",
         "visibility": "Visibilidade",
         "restaurantsTitle": "Restaurantes ({count})"
       },

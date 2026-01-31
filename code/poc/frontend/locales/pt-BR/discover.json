@@ -1,6 +1,6 @@
 {
   "page": {
-    "title": "Descubra Boa Comida",
+    "title": "Descubra boa comida",
     "subtitle": "Recomendações selecionadas por especialistas em gastronomia de Brasília"
   },
 
@@ -18,8 +18,8 @@
   },
 
   "tabs": {
-    "curated": "Roteiros",
-    "requests": "Peça Dicas",
+    "curated": "Melhores",
+    "requests": "Quer uma dica?",
     "map": "Mapa",
     "mapSection": {
       "title": "Restaurantes Próximos",
@@ -41,17 +41,17 @@
   "filters": {
     "title": "Filtros",
     "cuisine": "Culinária",
-    "priceRange": "Faixa de Preço",
+    "priceRange": "Faixa de preço",
     "clear": "Limpar filtros"
   },
 
   "results": "Resultados",
 
   "tiers": {
-    "myNetwork": "Minha Rede",
-    "similarTastes": "Gostos Similares",
+    "myNetwork": "Minha rede",
+    "similarTastes": "Gostos similares",
     "community": "Comunidade",
-    "unrated": "Sem Avaliação"
+    "unrated": "Sem avaliação"
   },
 
   "open": "Aberto",
@@ -60,14 +60,14 @@
   "recommendation": "recomendação",
   "recommendations": "recomendações",
   "fromNetwork": "da sua rede",
-  "viewDetails": "Ver Detalhes",
-  "directions": "Como Chegar",
+  "viewDetails": "Ver detalhes",
+  "directions": "Como chegar",
   "beFirstToReview": "Seja o primeiro a avaliar",
 
-  "tierMyNetwork": "Minha Rede",
-  "tierSimilarTastes": "Gostos Similares",
+  "tierMyNetwork": "Minha rede",
+  "tierSimilarTastes": "Gostos similares",
   "tierCommunity": "Comunidade",
-  "tierUnrated": "Sem Avaliação",
+  "tierUnrated": "Sem avaliação",
 
   "noResults": {
     "title": "Nenhum restaurante encontrado",
@@ -77,7 +77,7 @@
   "infoWindow": {
     "rating": "Avaliação",
     "by": "por",
-    "viewDetails": "Ver Detalhes",
+    "viewDetails": "Ver detalhes",
     "noRating": "Ainda não avaliado",
     "recommendations": "{count} recomendações"
   },
@@ -108,26 +108,26 @@
   "useMyLocation": "Usar Minha Localização",
   
   "listSearch": {
-    "placeholder": "Buscar roteiros por nome, local, culinária, criador ou restaurante...",
-    "badge": "Roteiros",
+    "placeholder": "Buscar listas por nome, local, culinária, criador ou restaurante...",
+    "badge": "Melhores",
     "scopeHint": "Buscar em títulos, locais, culinárias, tags, criadores e restaurantes",
     "clear": "Limpar busca",
     "quickFiltersTitle": "Buscas rápidas",
     "quickFilters": {
-      "dateNight": "Noite Romântica",
+      "dateNight": "Noite romântica",
       "brunch": "Brunch",
       "italian": "Italiano",
       "japanese": "Japonês",
       "vegetarian": "Vegetariano",
       "cocktails": "Coquetéis"
     },
-    "noResults": "Nenhum roteiro encontrado para \"{query}\"",
-    "resultsCount": "{count} {count, plural, =1 {roteiro encontrado} other {roteiros encontrados}} para \"{query}\"",
+    "noResults": "Nenhuma lista encontrada para \"{query}\"",
+    "resultsCount": "{count} {count, plural, =1 {lista encontrada} other {listas encontradas}} para \"{query}\"",
     "clearSearch": "Limpar busca"
   },
 
   "requestSearch": {
-    "placeholder": "Buscar perguntas por título, local, culinária, ocasião...",
+    "placeholder": "Buscar pedidos de dicas por título, local, culinária, ocasião...",
     "clear": "Limpar busca",
     "clearAll": "Limpar todos os filtros",
     "clearSearch": "Limpar busca",
@@ -149,7 +149,7 @@
       "withBounty": "Com Recompensa",
       "noBounty": "Sem Recompensa"
     },
-    "budgetLabel": "Faixa de Preço",
+    "budgetLabel": "Faixa de preço",
     "budget": {
       "all": "Todas"
     }
@@ -157,31 +157,31 @@
 
   "lists": {
     "empty": {
-      "title": "Nenhum roteiro ainda",
-      "description": "Seja o primeiro a criar um roteiro de ótimos restaurantes!",
-      "cta": "Criar Primeiro Roteiro"
+      "title": "Nenhuma lista ainda",
+      "description": "Seja o primeiro a criar uma lista de melhores restaurantes!",
+      "cta": "Criar primeir lista"
     },
     "search": {
       "noResults": {
-        "title": "Nenhum roteiro encontrado",
-        "description": "Não encontramos roteiros correspondentes a \"{query}\". Tente uma busca diferente ou crie seu próprio roteiro.",
+        "title": "Nenhuma lista encontrada",
+        "description": "Não encontramos rlistas correspondentes a \"{query}\". Tente uma busca diferente ou crie sua própria lista de melhores.",
         "clearSearch": "Limpar busca",
-        "createList": "Criar um Roteiro"
+        "createList": "Criar uma lista de melhores"
       }
     }
   },
 
   "requests": {
-    "title": "Perguntas da Comunidade",
+    "title": "Perguntas da comunidade",
     "subtitle": "Ajude outros a encontrar o lugar perfeito para comer",
-    "createButton": "Fazer uma Pergunta",
+    "createButton": "Fazer uma pergunta",
     "noFilterResults": "Nenhuma pergunta corresponde aos seus filtros",
     "tryDifferentFilters": "Tente ajustar sua busca ou filtros",
     "clearFilters": "Limpar todos os filtros",
     "empty": {
       "title": "Nenhuma pergunta ainda",
       "description": "Seja o primeiro a pedir dicas de restaurantes à comunidade!",
-      "cta": "Pedir Dicas"
+      "cta": "Quer uma dica?"
     },
     "search": {
       "noResults": {
@@ -192,14 +192,14 @@
 
   "createRequest": {
     "modal": {
-      "title": "Pedir Dicas",
+      "title": "Quer uma dica?",
       "subtitle": "Receba sugestões personalizadas da comunidade"
     },
     "stake": {
-      "balance": "Seu Saldo",
-      "amount": "Valor da Recompensa",
+      "balance": "Seu saldo",
+      "amount": "Valor da recompensa",
       "optional": "(opcional)",
-      "noBounty": "Sem Recompensa",
+      "noBounty": "Sem recompensa",
       "noBountyHint": "Dica: Adicionar uma recompensa pode atrair mais respostas e mais rápidas!",
       "winnerReceives": "Vencedor recebe:",
       "platformFee": "Taxa da plataforma:",
@@ -291,55 +291,55 @@
     "tip": "Quanto mais específico você for, melhores dicas receberá. Inclua detalhes como bairros preferidos, faixa de preço ou itens essenciais.",
     "actions": {
       "cancel": "Cancelar",
-      "submit": "Publicar Pergunta ({amount} BOCA)",
-      "submitNoBounty": "Publicar Pergunta",
+      "submit": "Publicar pedido ({amount} BOCA)",
+      "submitNoBounty": "Publicar pedido",
       "creating": "Criando..."
     },
-    "success": "Sua pergunta foi publicada! Você será notificado quando receber dicas.",
-    "error": "Falha ao publicar pergunta. Por favor, tente novamente."
+    "success": "Seu pedido foi publicado! Você será notificado quando receber dicas.",
+    "error": "Falha ao publicar pedido. Por favor, tente novamente."
   },
 
   "listCard": {
-    "badge": "Roteiro",
+    "badge": "Melhores",
     "by": "por",
     "verified": "Verificado",
     "friend": "Amigo",
     "friendOfFriend": "Amigo de Amigo",
     "restaurants": "restaurantes",
     "restaurant": "restaurante",
-    "viewList": "Ver Roteiro",
+    "viewList": "Ver lista",
     "likes": "curtidas",
     "saves": "salvos",
     "like": "Curtir",
     "save": "Salvar",
     "share": "Compartilhar",
     "report": "Denunciar",
-    "reportList": "Denunciar este roteiro",
+    "reportList": "Denunciar esta lista",
     "moreRestaurants": "+{count} mais"
   },
 
   "sidebar": {
     "trending": {
-      "title": "Em Alta",
+      "title": "Em alta",
       "empty": "Nenhum conteúdo em alta ainda",
       "upvotes": "{count} votos positivos"
     },
     "quickActions": {
-      "title": "Ações Rápidas",
-      "createRecommendation": "Criar Recomendação",
-      "createList": "Criar Roteiro",
-      "askRecommendations": "Pedir Dicas",
-      "viewHistory": "Ver Meu Histórico"
+      "title": "Ações rápidas",
+      "createRecommendation": "Criar recomendação",
+      "createList": "Criar lista de melhores",
+      "askRecommendations": "Quer uma dica?",
+      "viewHistory": "Ver meu histórico"
     },
     "diningMemory": {
-      "title": "Sua Memória Gastronômica",
+      "title": "Sua memória gastronômica",
       "recentRecommendations": "Recomendações recentes: {count}",
       "savedLists": "Roteiros salvos: {count}",
       "following": "Seguindo: {count} especialistas",
-      "viewAll": "Ver Todo Histórico"
+      "viewAll": "Ver todo histórico"
     },
     "communityStats": {
-      "title": "Estatísticas da Comunidade",
+      "title": "Estatísticas da comunidade",
       "totalRecommendations": "Total de recomendações: {count}",
       "curatedLists": "Roteiros: {count}",
       "openRequests": "Perguntas abertas: {count}",
@@ -350,8 +350,8 @@
   "loading": {
     "title": "Carregando...",
     "error": {
-      "title": "Erro ao Carregar Conteúdo",
-      "retry": "Tentar Novamente"
+      "title": "Erro ao carregar conteúdo",
+      "retry": "Tentar novamente"
     }
   },
 
