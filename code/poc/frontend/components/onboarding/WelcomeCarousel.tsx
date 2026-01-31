@@ -3,7 +3,7 @@
 // Shows before phone verification - inspired by Beli's onboarding flow
 //
 // Created: Jan 25, 2026
-// Updated: Jan 30, 2026 - New full-bleed image design with food photography
+// Updated: Jan 30, 2026 - Split layout version with food photography
 
 'use client';
 
@@ -26,23 +26,6 @@ const BRAND = {
 // ============================================
 // SLIDE DATA
 // ============================================
-// 
-// IMAGES TO DOWNLOAD (from Unsplash - free to use):
-// 
-// Slide 1 - Pizza sharing:
-//   https://unsplash.com/photos/WcV2YkM3Dls (by Klara Kulikova)
-//   Save as: public/images/onboarding/slide-trust.jpg
-//
-// Slide 2 - Coffee & croissants:
-//   https://unsplash.com/photos/NZMfceSGoQY (by Jez Timms)
-//   Save as: public/images/onboarding/slide-never-lost.jpg
-//
-// Slide 3 - Chef plating (omakase):
-//   https://unsplash.com/photos/KDVGz-qnHfc (by Lucas Law)
-//   Save as: public/images/onboarding/slide-ownership.jpg
-//
-// ============================================
-
 interface Slide {
   id: string;
   title: string;
@@ -50,7 +33,6 @@ interface Slide {
   subtitle: string;
   subtitleKey: string;
   image: string;
-  // Alt text for accessibility
   imageAlt: string;
 }
 
@@ -61,10 +43,7 @@ const slides: Slide[] = [
     titleKey: 'welcome.slide1.title',
     subtitle: 'Find restaurants recommended by people you actually trust — not strangers or algorithms.',
     subtitleKey: 'welcome.slide1.subtitle',
-    // Option A: Local image (recommended for production)
     image: '/images/onboarding/slide-trust.jpg',
-    // Option B: Unsplash URL (convenient for testing)
-    // image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1200&q=80',
     imageAlt: 'Friends sharing pizza around a table',
   },
   {
@@ -74,7 +53,6 @@ const slides: Slide[] = [
     subtitle: "That perfect restaurant rec from your friend? It's saved, searchable, and there when you need it.",
     subtitleKey: 'welcome.slide2.subtitle',
     image: '/images/onboarding/slide-never-lost.jpg',
-    // image: 'https://images.unsplash.com/photo-1481833761820-0509d3217039?w=1200&q=80',
     imageAlt: 'Cozy coffee and croissants at a cafe',
   },
   {
@@ -84,7 +62,6 @@ const slides: Slide[] = [
     subtitle: "Build a taste profile that's yours — portable, private, and always improving.",
     subtitleKey: 'welcome.slide3.subtitle',
     image: '/images/onboarding/slide-ownership.jpg',
-    // image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&q=80',
     imageAlt: 'Chef carefully plating a dish',
   },
 ];
@@ -114,7 +91,6 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onGetStarted, onLogin
     if (index === currentSlide || isTransitioning) return;
     setIsTransitioning(true);
     setCurrentSlide(index);
-    // Reset transition lock after animation
     setTimeout(() => setIsTransitioning(false), 300);
   }, [currentSlide, isTransitioning]);
 
@@ -158,16 +134,16 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onGetStarted, onLogin
 
   return (
     <div 
-      className="min-h-screen flex flex-col relative overflow-hidden"
+      className="min-h-screen flex flex-col bg-[#FFF4E1]"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
       {/* ============================================ */}
-      {/* FULL-BLEED BACKGROUND IMAGE */}
+      {/* IMAGE AREA - Top 40% */}
       {/* ============================================ */}
-      <div className="absolute inset-0">
-        {/* Image with fade transition */}
+      <div className="relative h-[40vh] min-h-[280px] overflow-hidden">
+        {/* Images with fade transition */}
         {slides.map((slide, index) => (
           <div
             key={slide.id}
@@ -175,7 +151,6 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onGetStarted, onLogin
               index === currentSlide ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            {/* Using Next.js Image for optimization */}
             <Image
               src={slide.image}
               alt={slide.imageAlt}
@@ -187,55 +162,47 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onGetStarted, onLogin
           </div>
         ))}
         
-        {/* Gradient overlay - transparent at top, cream at bottom */}
+        {/* Soft gradient at bottom for smooth transition to cream */}
         <div 
-          className="absolute inset-0 pointer-events-none"
+          className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
           style={{
             background: `linear-gradient(to bottom, 
               rgba(255, 244, 225, 0) 0%, 
-              rgba(255, 244, 225, 0.05) 25%,
-              rgba(255, 244, 225, 0.4) 40%,
-              rgba(255, 244, 225, 0.85) 55%,
-              rgba(255, 244, 225, 0.98) 65%,
-              rgba(255, 244, 225, 1) 75%
+              rgba(255, 244, 225, 0.6) 50%,
+              rgba(255, 244, 225, 1) 100%
             )`
           }}
         />
       </div>
 
       {/* ============================================ */}
-      {/* CONTENT OVERLAY */}
+      {/* CONTENT AREA */}
       {/* ============================================ */}
-      <div className="relative flex-1 flex flex-col justify-end z-10">
-        {/* Main content area */}
-        <div className="px-6 pb-2">
-          {/* Logo */}
-          <div className="mb-5 flex justify-center">
-            <div className="flex items-center justify-center">
-              <span className="text-4xl font-bold text-[#1F1E2A]">
-                Boca<span className="text-[#FF644A]">Boca</span>
-              </span>
-            </div>
-          </div>
+      <div className="flex-1 flex flex-col px-6 pt-2">
+        {/* Logo */}
+        <div className="mb-4 flex justify-center">
+          <span className="text-4xl font-bold text-[#1F1E2A]">
+            Boca<span className="text-[#FF644A]">Boca</span>
+          </span>
+        </div>
 
-          {/* Slide Content with fade transition */}
-          <div className="w-full max-w-md mx-auto text-center mb-6">
-            {/* Title */}
-            <h1 
-              className="text-3xl font-bold text-[#1F1E2A] mb-4 leading-tight transition-opacity duration-300"
-              key={`title-${currentSlide}`}
-            >
-              {t(currentSlideData.titleKey) || currentSlideData.title}
-            </h1>
+        {/* Slide Content */}
+        <div className="w-full max-w-md mx-auto text-center flex-1 flex flex-col">
+          {/* Title */}
+          <h1 
+            className="text-3xl font-bold text-[#1F1E2A] mb-4 leading-tight"
+            key={`title-${currentSlide}`}
+          >
+            {t(currentSlideData.titleKey) || currentSlideData.title}
+          </h1>
 
-            {/* Subtitle */}
-            <p 
-              className="text-lg text-[#1F1E2A]/70 leading-relaxed transition-opacity duration-300"
-              key={`subtitle-${currentSlide}`}
-            >
-              {t(currentSlideData.subtitleKey) || currentSlideData.subtitle}
-            </p>
-          </div>
+          {/* Subtitle */}
+          <p 
+            className="text-lg text-[#1F1E2A]/70 leading-relaxed mb-6"
+            key={`subtitle-${currentSlide}`}
+          >
+            {t(currentSlideData.subtitleKey) || currentSlideData.subtitle}
+          </p>
 
           {/* Dots Indicator */}
           <div className="flex items-center justify-center gap-2 mb-6">
@@ -253,44 +220,44 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onGetStarted, onLogin
             ))}
           </div>
         </div>
+      </div>
 
-        {/* ============================================ */}
-        {/* BOTTOM CTA SECTION */}
-        {/* ============================================ */}
-        <div className="px-6 pb-8 pt-2 bg-[#FFF4E1]">
-          {/* Get Started Button */}
-          <button
-            onClick={onGetStarted}
-            className="w-full py-4 px-6 bg-[#FF644A] text-white font-semibold text-lg rounded-2xl shadow-lg hover:bg-[#E65441] active:scale-[0.98] transition-all duration-200"
-          >
-            {t('welcome.getStarted') || 'Get Started'}
-          </button>
+      {/* ============================================ */}
+      {/* BOTTOM CTA SECTION */}
+      {/* ============================================ */}
+      <div className="px-6 pb-8 pt-2 bg-[#FFF4E1]">
+        {/* Get Started Button */}
+        <button
+          onClick={onGetStarted}
+          className="w-full py-4 px-6 bg-[#FF644A] text-white font-semibold text-lg rounded-2xl shadow-lg hover:bg-[#E65441] active:scale-[0.98] transition-all duration-200"
+        >
+          {t('welcome.getStarted') || 'Get Started'}
+        </button>
 
-          {/* Login Link */}
-          <button
-            onClick={onLogin}
-            className="w-full mt-4 py-3 text-[#1F1E2A]/70 font-medium hover:text-[#1F1E2A] transition-colors"
-          >
-            {t('welcome.alreadyHaveAccount') || 'Already have an account?'}{' '}
-            <span className="text-[#FF644A] font-semibold">
-              {t('welcome.logIn') || 'Log in'}
-            </span>
-          </button>
+        {/* Login Link */}
+        <button
+          onClick={onLogin}
+          className="w-full mt-4 py-3 text-[#1F1E2A]/70 font-medium hover:text-[#1F1E2A] transition-colors"
+        >
+          {t('welcome.alreadyHaveAccount') || 'Already have an account?'}{' '}
+          <span className="text-[#FF644A] font-semibold">
+            {t('welcome.logIn') || 'Log in'}
+          </span>
+        </button>
 
-          {/* Terms */}
-          <p className="mt-6 text-xs text-[#1F1E2A]/50 text-center leading-relaxed">
-            {t('welcome.termsPrefix') || 'By continuing, you agree to our'}{' '}
-            <a href="/terms" className="text-[#FF644A] underline">
-              {t('welcome.terms') || 'Terms'}
-            </a>
-            {'. '}
-            {t('welcome.privacyPrefix') || 'You acknowledge receipt and understanding of our'}{' '}
-            <a href="/privacy" className="text-[#FF644A] underline">
-              {t('welcome.privacyPolicy') || 'Privacy Policy'}
-            </a>
-            {'.'}
-          </p>
-        </div>
+        {/* Terms */}
+        <p className="mt-6 text-xs text-[#1F1E2A]/50 text-center leading-relaxed">
+          {t('welcome.termsPrefix') || 'By continuing, you agree to our'}{' '}
+          <a href="/terms" className="text-[#FF644A] underline">
+            {t('welcome.terms') || 'Terms'}
+          </a>
+          {'. '}
+          {t('welcome.privacyPrefix') || 'You acknowledge receipt and understanding of our'}{' '}
+          <a href="/privacy" className="text-[#FF644A] underline">
+            {t('welcome.privacyPolicy') || 'Privacy Policy'}
+          </a>
+          {'.'}
+        </p>
       </div>
     </div>
   );
