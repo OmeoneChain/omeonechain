@@ -182,7 +182,7 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onGetStarted, onLogin
         {/* Logo */}
         <div className="mb-4 flex justify-center">
           <span className="text-4xl font-bold text-[#1F1E2A]">
-            Boca<span className="text-[#FF644A]">Boca</span>
+            BocaBoca
           </span>
         </div>
 

@@ -1,5 +1,6 @@
 // File: code/poc/frontend/components/auth/PhoneEntry.tsx
 // Phone number entry with country code selector for BocaBoca onboarding
+// Updated: Fixed iOS autofill duplicate country code issue
 
 'use client';
 
@@ -57,6 +58,31 @@ export default function PhoneEntry({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Strip country code from a phone number if present
+  const stripCountryCode = (value: string): string => {
+    let digits = value.replace(/\D/g, '');
+    
+    // Check if the number starts with any known country code (without +)
+    for (const country of COUNTRY_CODES) {
+      const codeDigits = country.code.replace('+', '');
+      if (digits.startsWith(codeDigits)) {
+        // If it matches the selected country, strip it
+        if (country.code === selectedCountry.code) {
+          digits = digits.slice(codeDigits.length);
+          break;
+        }
+        // If it matches a different country, switch to that country and strip
+        else {
+          setSelectedCountry(country);
+          digits = digits.slice(codeDigits.length);
+          break;
+        }
+      }
+    }
+    
+    return digits;
+  };
+
   // Format phone number based on country
   const formatPhoneNumber = (value: string, countryCode: string): string => {
     // Remove all non-digits
@@ -81,7 +107,19 @@ export default function PhoneEntry({
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value, selectedCountry.code);
+    const rawValue = e.target.value;
+    
+    // Check if this looks like an autofilled international number
+    // (iOS autofill often includes the country code)
+    const digits = rawValue.replace(/\D/g, '');
+    
+    // If the number is suspiciously long (has country code), strip it
+    let cleanedDigits = digits;
+    if (digits.length > 11) {
+      cleanedDigits = stripCountryCode(rawValue);
+    }
+    
+    const formatted = formatPhoneNumber(cleanedDigits, selectedCountry.code);
     setPhoneNumber(formatted);
     setInternalError(null);
   };
@@ -139,7 +177,7 @@ export default function PhoneEntry({
           className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors"
         >
           <span className="mr-2">←</span>
-          {t('common.back') || 'Voltar'}
+          {t('common.back') || 'Back'}
         </button>
       )}
 
@@ -149,10 +187,10 @@ export default function PhoneEntry({
           <Phone className="w-8 h-8 text-coral-500" />
         </div>
         <h1 className="text-2xl font-bold text-navy-900 mb-2">
-          {t('phoneEntry.title') || 'Qual é o seu número?'}
+          {t('phoneEntry.title') || "What's your number?"}
         </h1>
         <p className="text-gray-600">
-          {t('phoneEntry.subtitle') || 'Vamos enviar um código SMS para verificar seu número'}
+          {t('phoneEntry.subtitle') || "We'll send an SMS code to verify your number"}
         </p>
       </div>
 
@@ -160,7 +198,7 @@ export default function PhoneEntry({
         {/* Phone Input */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {t('phoneEntry.label') || 'Número de telefone'}
+            {t('phoneEntry.label') || 'Phone number'}
           </label>
           
           <div className="flex gap-2">
@@ -214,7 +252,8 @@ export default function PhoneEntry({
                 displayError ? 'border-red-500' : 'border-gray-300'
               }`}
               disabled={isLoading}
-              autoComplete="tel"
+              // Use tel-national to hint iOS to only suggest the national part
+              autoComplete="tel-national"
               autoFocus
             />
           </div>
@@ -241,19 +280,19 @@ export default function PhoneEntry({
           {isLoading ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
-              {t('phoneEntry.sending') || 'Enviando...'}
+              {t('phoneEntry.sending') || 'Sending...'}
             </>
           ) : (
             <>
               <Phone className="w-5 h-5" />
-              {t('phoneEntry.submit') || 'Enviar Código SMS'}
+              {t('phoneEntry.submit') || 'Send SMS Code'}
             </>
           )}
         </button>
 
         {/* Terms */}
         <p className="text-center text-xs text-gray-500">
-          {t('phoneEntry.terms') || 'Ao continuar, você autoriza o BocaBoca a enviar mensagens SMS para este número'}
+          {t('phoneEntry.terms') || 'By continuing, you authorize BocaBoca to send SMS messages to this number'}
         </p>
       </form>
     </div>
