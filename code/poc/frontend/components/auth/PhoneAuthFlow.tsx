@@ -6,7 +6,6 @@
 // Updated: Integrated WelcomeCarousel for better onboarding (Jan 26, 2026)
 // Updated: Fixed async login calls and auth hydration check (Jan 28, 2026)
 // Updated: Fixed AuthMode type mismatch and added defensive null checks (Jan 31, 2026)
-// Updated: Added temporary debug alerts to identify crash location (Jan 31, 2026)
 
 'use client';
 
@@ -47,15 +46,14 @@ interface PhoneAuthFlowProps {
   onComplete?: () => void;
   redirectTo?: string;
   showWelcome?: boolean;
-  // NEW: Allow starting directly at checklist for returning users
   startAtChecklist?: boolean;
 }
 
 // Task ID to route mapping
 const TASK_ROUTES: Record<string, string> = {
-  follow: '/community',      // Find people to follow
-  recommend: '/create',       // Create a recommendation
-  engage: '/discover'        // Find posts to interact with
+  follow: '/community',
+  recommend: '/create',
+  engage: '/discover'
 };
 
 export default function PhoneAuthFlow({
@@ -70,7 +68,6 @@ export default function PhoneAuthFlow({
   
   // Determine initial step based on auth state
   const getInitialStep = (): AuthStep => {
-    // If explicitly starting at checklist or user is already authenticated
     if (startAtChecklist || isAuthenticated) {
       return 'checklist';
     }
@@ -92,7 +89,6 @@ export default function PhoneAuthFlow({
   // Check auth state on mount and update step accordingly
   useEffect(() => {
     if (isHydrated && isAuthenticated && user) {
-      // User is already logged in, show checklist
       setUserName(user.display_name || user.username || 'User');
       setCurrentStep('checklist');
     }
@@ -122,12 +118,11 @@ export default function PhoneAuthFlow({
         throw new Error(data.error || 'Failed to send verification code');
       }
       
-      // Store phone info and navigate to SMS step
       setPhoneState(prev => ({
         ...prev,
         phoneNumber,
         countryCode,
-        formattedPhone: data.phoneNumber // Masked version from API
+        formattedPhone: data.phoneNumber
       }));
       
       setResendCooldown(30);
@@ -161,19 +156,14 @@ export default function PhoneAuthFlow({
       
       const data = await response.json();
       
-      // Debug logging
-      console.log('📱 Verify response:', JSON.stringify(data, null, 2));
-      
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Invalid verification code');
       }
       
-      // Defensive check: ensure we have minimum required data
       if (!data.token) {
         throw new Error('Server response missing authentication token');
       }
       
-      // Store auth data with defensive access
       const userData = data.user || {};
       
       setPhoneState(prev => ({
@@ -183,68 +173,37 @@ export default function PhoneAuthFlow({
         token: data.token
       }));
       
-      // TEMPORARY DEBUG WRAPPER - Shows any error on device
-      try {
-        // If new user, go to profile setup
-        // If returning user, log them in and redirect
-        if (data.isNewUser) {
-          // DEBUG: Alert for new user path
-          alert('DEBUG: New user detected, going to profile setup');
-          
-          setUserName(userData.displayName || userData.display_name || userData.username || 'User');
-          goToStep('profile');
+      if (data.isNewUser) {
+        setUserName(userData.displayName || userData.display_name || userData.username || 'User');
+        goToStep('profile');
+      } else {
+        // Returning user - build safe user data object
+        const safeUserData = {
+          id: userData.id || `phone_${phoneState.phoneNumber}`,
+          phone: userData.phone || phoneState.phoneNumber,
+          username: userData.username || '',
+          display_name: userData.displayName || userData.display_name || userData.username || '',
+          avatar_url: userData.avatarUrl || userData.avatar_url || '',
+          auth_mode: 'email' as const,
+          tokens_earned: userData.tokensEarned || userData.tokens_earned || 0,
+          trust_score: userData.trustScore || userData.trust_score || 0,
+        };
+        
+        await login(data.token, safeUserData, data.refreshToken || undefined);
+        
+        toast.success(t('phoneAuth.welcomeBack') || 'Bem-vindo de volta!');
+        
+        if (onComplete) {
+          onComplete();
         } else {
-          // Returning user - log in and redirect
-          // Defensive checks for user data to prevent crashes
-          const safeUserData = {
-            id: userData.id || `phone_${phoneState.phoneNumber}`,
-            phone: userData.phone || phoneState.phoneNumber,
-            username: userData.username || '',
-            display_name: userData.displayName || userData.display_name || userData.username || '',
-            avatar_url: userData.avatarUrl || userData.avatar_url || '',
-            // Use 'email' as AuthMode since 'phone' is not defined in AuthMode type
-            auth_mode: 'email' as const,
-            tokens_earned: userData.tokensEarned || userData.tokens_earned || 0,
-            trust_score: userData.trustScore || userData.trust_score || 0,
-          };
-          
-          console.log('📱 Logging in with user data:', JSON.stringify(safeUserData, null, 2));
-          
-          // DEBUG: Alert before login
-          alert('DEBUG 1: About to call login()');
-          
-          // IMPORTANT: await the login to ensure auth state is saved before navigation
-          await login(data.token, safeUserData, data.refreshToken || undefined);
-          
-          // DEBUG: Alert after login
-          alert('DEBUG 2: Login succeeded, about to show toast');
-          
-          toast.success(t('phoneAuth.welcomeBack') || 'Bem-vindo de volta!');
-          
-          // DEBUG: Alert before navigation
-          alert('DEBUG 3: Toast shown, about to navigate to ' + (onComplete ? 'onComplete callback' : redirectTo));
-          
-          if (onComplete) {
-            onComplete();
-          } else {
-            router.push(redirectTo);
-          }
-          
-          // DEBUG: Alert after navigation
-          alert('DEBUG 4: Navigation initiated');
+          router.push(redirectTo);
         }
-      } catch (innerErr: any) {
-        // TEMPORARY: Show the actual error on device
-        alert('LOGIN ERROR: ' + (innerErr?.message || innerErr?.toString() || JSON.stringify(innerErr) || 'Unknown error'));
-        console.error('Inner error:', innerErr);
-        throw innerErr;
       }
-      // END TEMPORARY DEBUG
       
     } catch (err: any) {
       console.error('Code verify error:', err);
       setError(err.message || 'Invalid code');
-      throw err; // Re-throw so SMSVerification can clear the code
+      throw err;
     } finally {
       setIsSubmitting(false);
     }
@@ -285,10 +244,6 @@ export default function PhoneAuthFlow({
     setError(null);
     
     try {
-      // Avatar is now uploaded by ProfileSetup component
-      // profileData.avatarUrl contains the IPFS URL (if upload succeeded)
-      
-      // Update user profile via API
       const response = await fetch(`${API_BASE_URL}/auth/profile`, {
         method: 'PATCH',
         headers: {
@@ -308,11 +263,8 @@ export default function PhoneAuthFlow({
         throw new Error(data.error || 'Failed to update profile');
       }
       
-      // Update local user name for checklist
       setUserName(profileData.displayName);
       
-      // Log the user in - IMPORTANT: await to ensure state is saved
-      // Use 'email' as AuthMode since 'phone' is not defined in AuthMode type
       await login(phoneState.token!, {
         id: phoneState.userId || '',
         username: profileData.username || '',
@@ -323,7 +275,6 @@ export default function PhoneAuthFlow({
         trust_score: 0,
       });
       
-      // Go to onboarding checklist
       goToStep('checklist');
       
     } catch (err: any) {
@@ -337,8 +288,6 @@ export default function PhoneAuthFlow({
 
   // Skip profile setup
   const handleProfileSkip = async () => {
-    // Log in with default profile - IMPORTANT: await to ensure state is saved
-    // Use 'email' as AuthMode since 'phone' is not defined in AuthMode type
     await login(phoneState.token!, {
       id: phoneState.userId || '',
       auth_mode: 'email' as const,
@@ -349,11 +298,10 @@ export default function PhoneAuthFlow({
     goToStep('checklist');
   };
 
-  // Handle task click - navigate to relevant page
+  // Handle task click
   const handleTaskClick = (taskId: string) => {
     const route = TASK_ROUTES[taskId];
     if (route) {
-      // Show a helpful toast based on task
       switch (taskId) {
         case 'follow':
           toast.success(t('onboardingChecklist.findPeopleToast') || 'Find people to follow!');
@@ -369,27 +317,26 @@ export default function PhoneAuthFlow({
     }
   };
 
-  // Start onboarding tasks - go to Discover (best for new users)
+  // Start onboarding tasks
   const handleChecklistStart = () => {
     if (onComplete) {
       onComplete();
     } else {
-      router.push('/discover'); // Go to discover to find content
+      router.push('/discover');
     }
   };
 
-  // Skip checklist - ALSO go to Discover (empty feed is useless)
+  // Skip checklist
   const handleChecklistSkip = () => {
     if (onComplete) {
       onComplete();
     } else {
-      router.push('/discover'); // Changed from redirectTo (/feed) to /discover
+      router.push('/discover');
     }
   };
 
   // Handle Apple Sign-in
   const handleAppleSuccess = async (appleUser: any) => {
-    // TODO: Implement Apple sign-in backend flow
     toast.error('Apple Sign-in coming soon!');
   };
 
@@ -405,7 +352,6 @@ export default function PhoneAuthFlow({
   };
 
   // Show loading while auth is hydrating
-  // This prevents showing welcome screen to already-authenticated users
   if (!isHydrated || isLoading) {
     return (
       <div className="min-h-screen bg-cream-50 flex items-center justify-center">
@@ -419,10 +365,8 @@ export default function PhoneAuthFlow({
 
   return (
     <div className="min-h-screen bg-cream-50 flex flex-col">
-      {/* Content */}
       <div className="flex-1 flex items-center justify-center">
         <AnimatePresence mode="wait">
-          {/* Welcome Carousel - 3-slide intro explaining BocaBoca */}
           {currentStep === 'welcome' && (
             <motion.div
               key="welcome"
@@ -440,7 +384,6 @@ export default function PhoneAuthFlow({
             </motion.div>
           )}
 
-          {/* Phone Entry */}
           {currentStep === 'phone' && (
             <motion.div
               key="phone"
@@ -461,7 +404,6 @@ export default function PhoneAuthFlow({
             </motion.div>
           )}
 
-          {/* SMS Verification */}
           {currentStep === 'sms' && (
             <motion.div
               key="sms"
@@ -485,7 +427,6 @@ export default function PhoneAuthFlow({
             </motion.div>
           )}
 
-          {/* Profile Setup - Now with auth context for avatar upload */}
           {currentStep === 'profile' && (
             <motion.div
               key="profile"
@@ -508,7 +449,6 @@ export default function PhoneAuthFlow({
             </motion.div>
           )}
 
-          {/* Onboarding Checklist */}
           {currentStep === 'checklist' && (
             <motion.div
               key="checklist"
@@ -530,7 +470,6 @@ export default function PhoneAuthFlow({
         </AnimatePresence>
       </div>
 
-      {/* Safe area padding for mobile */}
       <div className="h-safe-area-inset-bottom" />
     </div>
   );
