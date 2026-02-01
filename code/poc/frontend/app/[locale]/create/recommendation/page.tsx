@@ -1,6 +1,6 @@
 // app/[locale]/create/recommendation/page.tsx
-// Server component wrapper — loads creation flow client-side only
-// Prevents useState/useTranslations errors during static prerendering
+// Client wrapper — loads creation flow dynamically to avoid prerender crashes
+"use client";
 
 import dynamic from 'next/dynamic';
 
