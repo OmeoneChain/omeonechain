@@ -80,11 +80,18 @@
   },
   "restaurants": {
     "autocomplete": {
-      "placeholder": "Buscar um restaurante...",
+      "modalTitle": "Buscar Restaurante",
+      "placeholder": "Buscar por nome ou endereço...",
       "ariaLabel": "Busca de restaurante",
+      "searchPrompt": "Buscar um restaurante",
+      "searchHint": "Digite o nome ou endereço do restaurante",
       "minCharsHint": "Digite pelo menos 2 caracteres para buscar",
-      "adding": "Adicionando restaurante...",
       "noResults": "Nenhum restaurante encontrado",
+      "tryDifferent": "Tente um nome diferente ou verifique a ortografia",
+      "searching": "Buscando...",
+      "adding": "Adicionando restaurante...",
+      "tryAgain": "Tentar novamente",
+      "resultsCount": "{count, plural, one {1 resultado} other {# resultados}}",
       "errors": {
         "searchFailed": "Falha ao buscar restaurantes. Tente novamente.",
         "addFailed": "Falha ao adicionar restaurante. Tente novamente."

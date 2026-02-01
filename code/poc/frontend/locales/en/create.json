@@ -78,6 +78,26 @@
     "title": "Ask for Recommendations",
     "comingSoonMessage": "Requests are coming soon! You'll be able to ask your network for restaurant suggestions and even set bounties for the best recommendations."
   },
+  "restaurants": {
+    "autocomplete": {
+      "modalTitle": "Find Restaurant",
+      "placeholder": "Search by name or address...",
+      "ariaLabel": "Restaurant search",
+      "searchPrompt": "Search for a restaurant",
+      "searchHint": "Type the restaurant name or address to find it",
+      "minCharsHint": "Type at least 2 characters to search",
+      "noResults": "No restaurants found",
+      "tryDifferent": "Try a different name or check the spelling",
+      "searching": "Searching...",
+      "adding": "Adding restaurant...",
+      "tryAgain": "Try again",
+      "resultsCount": "{count, plural, one {1 result} other {# results}}",
+      "errors": {
+        "searchFailed": "Failed to search restaurants. Please try again.",
+        "addFailed": "Failed to add restaurant. Please try again."
+      }
+    }
+  },
   "autocomplete": {
     "placeholder": "Search for a restaurant...",
     "ariaLabel": "Restaurant search",
