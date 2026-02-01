@@ -223,11 +223,11 @@ export default function RestaurantAutocomplete({
         </div>
       )}
 
-      {/* Suggestions Dropdown */}
+      {/* Suggestions Dropdown — capped at max-h-60 to fit above keyboard on mobile */}
       {isOpen && suggestions.length > 0 && (
         <div
           id="autocomplete-dropdown"
-          className="absolute z-50 w-full mt-1 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] max-h-96 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] max-h-60 overflow-y-auto"
           role="listbox"
         >
           {suggestions.map((suggestion, index) => (

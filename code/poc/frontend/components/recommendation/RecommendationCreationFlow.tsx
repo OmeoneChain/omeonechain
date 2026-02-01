@@ -9,6 +9,7 @@
 // UPDATED: All optional sections visible upfront (Jan 30, 2026)
 // UPDATED: Autosave draft to localStorage (Jan 30, 2026)
 // UPDATED: Scroll-on-focus for restaurant search to avoid keyboard obstruction (Feb 1, 2026)
+// UPDATED: Tighter header spacing for mobile search visibility (Feb 1, 2026)
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -1071,7 +1072,8 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         </div>
       )}
 
-      <div className="max-w-2xl mx-auto px-4 py-8 pb-28">
+      {/* CHANGED: py-8 → py-4 to reduce top padding on mobile */}
+      <div className="max-w-2xl mx-auto px-4 py-4 pb-28">
         <div className="bg-white dark:bg-[#2D2C3A] rounded-2xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] p-6 md:p-8 transition-all duration-300">
           {/* Header with Cancel and Save Status */}
           <div className="flex items-center justify-between mb-4">
@@ -1101,19 +1103,19 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             )}
           </div>
 
-          {/* Title */}
-          <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold text-[#1F1E2A] dark:text-white mb-2">
+          {/* Title — CHANGED: mb-6 → mb-3, text-3xl → text-2xl, text-lg → text-sm */}
+          <div className="text-center mb-3">
+            <h2 className="text-2xl font-bold text-[#1F1E2A] dark:text-white mb-2">
               {t('singleScreen.title') || 'Create a Recommendation'}
             </h2>
-            <p className="text-[#9CA3AF] dark:text-gray-400 text-lg">
+            <p className="text-[#9CA3AF] dark:text-gray-400 text-sm">
               {t('singleScreen.subtitle') || "Restaurant + rating, and you're done."}
             </p>
           </div>
 
-          {/* Location */}
+          {/* Location — CHANGED: mb-6 → mb-3 */}
           {location && (
-            <div className="flex items-center justify-center text-sm text-[#9CA3AF] dark:text-gray-500 mb-6">
+            <div className="flex items-center justify-center text-sm text-[#9CA3AF] dark:text-gray-500 mb-3">
               <MapPin className="h-4 w-4 mr-1" />
               <span>
                 {location.city}, {location.country}
@@ -1121,9 +1123,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             </div>
           )}
 
-          {/* Restaurant: inline autocomplete with scroll-on-focus */}
+          {/* Restaurant: inline autocomplete with scroll-on-focus — CHANGED: mb-6 → mb-4 */}
           {!hasRestaurant ? (
-            <div className="mb-6" id="restaurant-search-section">
+            <div className="mb-4" id="restaurant-search-section">
               <div className="mb-3 text-sm font-semibold text-[#1F1E2A] dark:text-white">
                 {t('singleScreen.restaurantLabel') || 'Restaurant'} <span className="text-[#FF644A]">*</span>
               </div>
