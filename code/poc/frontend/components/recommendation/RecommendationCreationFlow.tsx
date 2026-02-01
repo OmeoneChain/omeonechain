@@ -8,6 +8,7 @@
 // UPDATED: Touch-friendly rating sliders (Jan 25, 2026)
 // UPDATED: All optional sections visible upfront (Jan 30, 2026)
 // UPDATED: Autosave draft to localStorage (Jan 30, 2026)
+// UPDATED: Scroll-on-focus for restaurant search to avoid keyboard obstruction (Feb 1, 2026)
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -25,15 +26,13 @@ import {
   X,
   ArrowLeft,
   Save,
-  Search,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 
 import EnhancedPhotoUpload from './EnhancedPhotoUpload';
-//import RestaurantAutocomplete from '../restaurant/RestaurantAutocomplete';
-import RestaurantSearchModal from '../restaurant/RestaurantSearchModal';
+import RestaurantAutocomplete from '../restaurant/RestaurantAutocomplete';
 import CleanHeader from '../CleanHeader';
 
 import { IOTAService } from '../../src/services/IOTAService';
@@ -335,7 +334,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   const [recoveredDraft, setRecoveredDraft] = useState<SerializableDraft | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [showRestaurantSearch, setShowRestaurantSearch] = useState(false);
 
   const [currentDish, setCurrentDish] = useState<Dish>({
     id: '',
@@ -1123,40 +1121,36 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             </div>
           )}
 
-          {/* Restaurant: tap-to-search trigger → full-screen modal */}
+          {/* Restaurant: inline autocomplete with scroll-on-focus */}
           {!hasRestaurant ? (
-            <div className="mb-6">
+            <div className="mb-6" id="restaurant-search-section">
               <div className="mb-3 text-sm font-semibold text-[#1F1E2A] dark:text-white">
                 {t('singleScreen.restaurantLabel') || 'Restaurant'} <span className="text-[#FF644A]">*</span>
               </div>
-              {/* Tappable search trigger → opens full-screen modal */}
-              <button
-                onClick={() => setShowRestaurantSearch(true)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-[#3D3C4A] rounded-lg bg-white dark:bg-[#353444] text-left flex items-center gap-3 hover:border-[#FF644A] focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+              <div
+                onFocus={() => {
+                  // Scroll search to top of viewport so results aren't hidden by keyboard
+                  setTimeout(() => {
+                    document.getElementById('restaurant-search-section')?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    });
+                  }, 300);
+                }}
               >
-                <Search className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                <span className="text-gray-400 dark:text-gray-500">
-                  {t('steps.restaurant.searchPlaceholder') || 'Search restaurants...'}
-                </span>
-              </button>
-              <p className="text-center text-sm text-[#9CA3AF] dark:text-gray-500 mt-3">
-                {t('steps.restaurant.helpText') || 'Search by name or address to find your restaurant'}
-              </p>
-
-              {/* Full-screen restaurant search modal */}
-              <RestaurantSearchModal
-                isOpen={showRestaurantSearch}
-                onClose={() => setShowRestaurantSearch(false)}
-                onSelect={handleRestaurantSelect}
-                userLocation={
-                  location
-                    ? {
-                        latitude: location.latitude,
-                        longitude: location.longitude,
-                      }
-                    : undefined
-                }
-              />
+                <RestaurantAutocomplete
+                  onSelect={handleRestaurantSelect}
+                  placeholder={t('steps.restaurant.searchPlaceholder')}
+                  userLocation={
+                    location
+                      ? {
+                          latitude: location.latitude,
+                          longitude: location.longitude,
+                        }
+                      : undefined
+                  }
+                />
+              </div>
             </div>
           ) : (
             <div className="mb-6">
