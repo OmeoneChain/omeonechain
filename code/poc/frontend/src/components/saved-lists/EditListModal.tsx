@@ -284,7 +284,7 @@ export default function EditListModal({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="relative bg-white dark:bg-[#2D2C3A] w-full sm:max-w-lg sm:rounded-2xl sm:mx-4 shadow-2xl dark:shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col h-full sm:h-auto sm:max-h-[85vh] rounded-t-2xl sm:rounded-b-2xl overflow-hidden"
+          className="relative bg-white dark:bg-[#2D2C3A] w-full sm:max-w-lg sm:rounded-2xl sm:mx-4 shadow-2xl dark:shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col max-h-[90vh] sm:max-h-[85vh] rounded-t-2xl sm:rounded-b-2xl overflow-hidden"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-[#3D3C4A] flex-shrink-0">
