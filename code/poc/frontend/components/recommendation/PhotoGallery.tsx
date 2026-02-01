@@ -227,10 +227,10 @@ function Lightbox({ photos, initialIndex, onClose }: LightboxProps) {
       <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent">
         <button
           onClick={onClose}
-          className="p-2 text-white/80 hover:text-white active:text-[#FF644A] transition-colors rounded-full bg-black/30 backdrop-blur-sm"
+          className="p-3 text-white hover:text-white active:text-[#FF644A] transition-colors rounded-full bg-black/50 backdrop-blur-sm min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Close"
         >
-          <X className="h-5 w-5" />
+          <X className="h-6 w-6" strokeWidth={2.5} />
         </button>
 
         {hasMultiple && (
