@@ -343,8 +343,22 @@ export default function MapView({
     console.log('[BocaBoca] Fetching tier data for center:', mapCenter);
     try {
       const token = localStorage.getItem('token');
-      // FIXED: Use production URL as fallback instead of localhost
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || 'https://omeonechain-production.up.railway.app';
+      
+      // FIXED: Determine backend URL with validation
+      // Reject dev/localhost URLs in production, always use production URL
+      const PRODUCTION_BACKEND = 'https://omeonechain-production.up.railway.app';
+      let backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || PRODUCTION_BACKEND;
+      
+      // Safety check: reject dev URLs (github.dev, localhost, 127.0.0.1) in production
+      const isDevUrl = backendUrl.includes('github.dev') || 
+                       backendUrl.includes('localhost') || 
+                       backendUrl.includes('127.0.0.1') ||
+                       backendUrl.includes('gitpod.io');
+      
+      if (isDevUrl) {
+        console.warn('[BocaBoca] Dev URL detected in production, using production backend instead:', backendUrl);
+        backendUrl = PRODUCTION_BACKEND;
+      }
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };

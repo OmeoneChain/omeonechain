@@ -545,6 +545,14 @@
       "description": "Isso retornará seus {amount} BOCA apostados.",
       "refunding": "Reembolsando...",
       "confirm": "Confirmar Reembolso"
+    },
+    "sidebar": {
+      "trending": {
+        "title": "Em alta",
+        "empty": "Nenhum conteúdo em alta ainda",
+        "seeAll": "Ver todos em alta",
+        "endOfList": "Mostrando {count} itens em alta"
+      }
     }
   }
 }

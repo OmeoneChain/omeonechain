@@ -511,7 +511,7 @@ export default function TrendingWidget({
           </Link>
         ) : (
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-            {t('sidebar.trending.endOfList', { defaultValue: `Showing ${trendingItems.length} trending items` })}
+            {t('sidebar.trending.endOfList', { count: trendingItems.length })}
           </p>
         )}
       </div>

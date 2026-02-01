@@ -543,6 +543,14 @@
       "description": "This will return your {amount} BOCA stake.",
       "refunding": "Refunding...",
       "confirm": "Confirm Refund"
+    },
+    "sidebar": {
+      "trending": {
+        "title": "Trending",
+        "empty": "No trending content yet",
+        "seeAll": "See all trending",
+        "endOfList": "Showing {count} trending items"
+      }
     }
   }
 }
