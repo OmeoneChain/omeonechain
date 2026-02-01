@@ -25,13 +25,15 @@ import {
   X,
   ArrowLeft,
   Save,
+  Search,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 
 import EnhancedPhotoUpload from './EnhancedPhotoUpload';
-import RestaurantAutocomplete from '../restaurant/RestaurantAutocomplete';
+//import RestaurantAutocomplete from '../restaurant/RestaurantAutocomplete';
+import RestaurantSearchModal from '../restaurant/RestaurantSearchModal';
 import CleanHeader from '../CleanHeader';
 
 import { IOTAService } from '../../src/services/IOTAService';
@@ -47,6 +49,9 @@ import StickyPublishButton from './StickyPublishButton';
 const CS: any = CollapsibleSection as any;
 const RH: any = RestaurantHeader as any;
 const SPB: any = StickyPublishButton as any;
+
+const [isSaving, setIsSaving] = useState(false);
+const [showRestaurantSearch, setShowRestaurantSearch] = useState(false);
 
 // ============================================
 // DRAFT STORAGE KEY
@@ -1120,15 +1125,31 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             </div>
           )}
 
-          {/* Restaurant: Option A inline search when none selected */}
+          {/* Restaurant: tap-to-search trigger → full-screen modal */}
           {!hasRestaurant ? (
             <div className="mb-6">
               <div className="mb-3 text-sm font-semibold text-[#1F1E2A] dark:text-white">
                 {t('singleScreen.restaurantLabel') || 'Restaurant'} <span className="text-[#FF644A]">*</span>
               </div>
-              <RestaurantAutocomplete
+              {/* Tappable search trigger → opens full-screen modal */}
+              <button
+                onClick={() => setShowRestaurantSearch(true)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-[#3D3C4A] rounded-lg bg-white dark:bg-[#353444] text-left flex items-center gap-3 hover:border-[#FF644A] focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
+              >
+                <Search className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                <span className="text-gray-400 dark:text-gray-500">
+                  {t('steps.restaurant.searchPlaceholder') || 'Search restaurants...'}
+                </span>
+              </button>
+              <p className="text-center text-sm text-[#9CA3AF] dark:text-gray-500 mt-3">
+                {t('steps.restaurant.helpText') || 'Search by name or address to find your restaurant'}
+              </p>
+
+              {/* Full-screen restaurant search modal */}
+              <RestaurantSearchModal
+                isOpen={showRestaurantSearch}
+                onClose={() => setShowRestaurantSearch(false)}
                 onSelect={handleRestaurantSelect}
-                placeholder={t('steps.restaurant.searchPlaceholder')}
                 userLocation={
                   location
                     ? {
@@ -1138,9 +1159,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                     : undefined
                 }
               />
-              <p className="text-center text-sm text-[#9CA3AF] dark:text-gray-500 mt-3">
-                {t('steps.restaurant.helpText') || 'Search by name or address to find your restaurant'}
-              </p>
             </div>
           ) : (
             <div className="mb-6">

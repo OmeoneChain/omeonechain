@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { CleanHeader } from '@/components/CleanHeader';
 import SaveToListModal from '@/components/saved-lists/SaveToListModal';
+import PhotoGallery from '@/components/recommendation/PhotoGallery';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 
@@ -61,7 +62,7 @@ interface Recommendation {
   created_at: string;
   is_liked?: boolean;
   is_bookmarked?: boolean;
-  images?: string[];
+  photos?: string[];
 }
 
 interface Comment {
@@ -526,18 +527,12 @@ export default function RecommendationDetailPage({
                 </p>
               )}
 
-              {/* Images */}
-              {recommendation.images && recommendation.images.length > 0 && (
-                <div className="grid grid-cols-2 gap-2 -mx-1">
-                  {recommendation.images.map((image, i) => (
-                    <img
-                      key={i}
-                      src={image}
-                      alt={`Photo ${i + 1}`}
-                      className="w-full h-40 object-cover rounded-lg"
-                    />
-                  ))}
-                </div>
+              {/* Photos */}
+              {recommendation.photos && recommendation.photos.length > 0 && (
+                <PhotoGallery
+                  photos={recommendation.photos}
+                  altPrefix={recommendation.restaurant?.name || 'Restaurant'}
+                />
               )}
 
               {/* Content */}
@@ -561,6 +556,16 @@ export default function RecommendationDetailPage({
                 </div>
               )}
 
+              {/* Photo count badge */}
+              {recommendation.photos && recommendation.photos.length > 0 && (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 dark:bg-[#353444] rounded-full ml-2">
+                  <span className="text-xs">📷</span>
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    {recommendation.photos.length} photo{recommendation.photos.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+              
               {/* Action Bar (icons only, matching feed cards) */}
               <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-[#3D3C4A]">
                 {/* Engagement Stats */}

@@ -106,7 +106,7 @@
   },
 
   "useMyLocation": "Usar Minha Localização",
-  
+
   "listSearch": {
     "placeholder": "Buscar listas por nome, local, culinária, criador ou restaurante...",
     "badge": "Melhores",
@@ -322,7 +322,9 @@
     "trending": {
       "title": "Em alta",
       "empty": "Nenhum conteúdo em alta ainda",
-      "upvotes": "{count} votos positivos"
+      "upvotes": "{count} votos positivos",
+      "seeAll": "Ver todos em alta",
+      "endOfList": "Mostrando {count} itens em alta"
     },
     "quickActions": {
       "title": "Ações rápidas",
@@ -406,21 +408,6 @@
     "recommendations": "recomendações",
     "beFirst": "Seja o primeiro a avaliar",
     "showingOf": "Mostrando {shown} de {total} restaurantes. Aproxime para ver mais."
-  },
-  "search": {
-    "placeholder": "Buscar restaurantes por nome, culinária ou localização..."
-  },
-  "nearMe": "Perto de Mim",
-  "filters": {
-    "title": "Filtros",
-    "cuisine": "Culinária",
-    "priceRange": "Faixa de Preço",
-    "clear": "Limpar todos os filtros"
-  },
-  "results": "Resultados",
-  "noResults": {
-    "title": "Nenhum restaurante encontrado",
-    "description": "Tente ajustar sua busca ou filtros"
   },
   "tipModal": {
     "title": "Enviar Gorjeta",
@@ -545,14 +532,6 @@
       "description": "Isso retornará seus {amount} BOCA apostados.",
       "refunding": "Reembolsando...",
       "confirm": "Confirmar Reembolso"
-    },
-    "sidebar": {
-      "trending": {
-        "title": "Em alta",
-        "empty": "Nenhum conteúdo em alta ainda",
-        "seeAll": "Ver todos em alta",
-        "endOfList": "Mostrando {count} itens em alta"
-      }
     }
   }
 }

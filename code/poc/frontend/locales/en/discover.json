@@ -323,7 +323,9 @@
     "trending": {
       "title": "Trending",
       "empty": "No trending content yet",
-      "upvotes": "{count} upvotes"
+      "upvotes": "{count} upvotes",
+      "seeAll": "See all trending",
+      "endOfList": "Showing {count} trending items"
     },
     "quickActions": {
       "title": "Quick Actions",
@@ -407,18 +409,6 @@
     "recommendations": "recommendations",
     "beFirst": "Be the first to review",
     "showingOf": "Showing {shown} of {total} restaurants. Zoom in to see more."
-  },
-  "nearMe": "Near Me",
-  "filters": {
-    "title": "Filters",
-    "cuisine": "Cuisine",
-    "priceRange": "Price Range",
-    "clear": "Clear all filters"
-  },
-  "results": "Results",
-  "noResults": {
-    "title": "No restaurants found",
-    "description": "Try adjusting your search or filters"
   },
   "tipModal": {
     "title": "Send a Tip",
@@ -543,14 +533,6 @@
       "description": "This will return your {amount} BOCA stake.",
       "refunding": "Refunding...",
       "confirm": "Confirm Refund"
-    },
-    "sidebar": {
-      "trending": {
-        "title": "Trending",
-        "empty": "No trending content yet",
-        "seeAll": "See all trending",
-        "endOfList": "Showing {count} trending items"
-      }
     }
   }
 }
