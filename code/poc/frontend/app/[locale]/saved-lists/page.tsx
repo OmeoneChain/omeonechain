@@ -132,15 +132,15 @@ export default function SavedListsPage() {
     <>
       <CleanHeader />
       <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
-        <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="max-w-2xl mx-auto px-4 py-4 sm:py-6">
 
-          {/* Header — compact, warm */}
-          <div className="flex items-center justify-between mb-6">
+          {/* Header — tight on mobile */}
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-[#1F1E2A] dark:text-gray-100">
+              <h1 className="text-xl sm:text-2xl font-bold text-[#1F1E2A] dark:text-gray-100">
                 {t('pageTitle')}
               </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                 {t('pageDescription')}
               </p>
             </div>
