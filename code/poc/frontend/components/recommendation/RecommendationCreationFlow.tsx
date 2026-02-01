@@ -50,9 +50,6 @@ const CS: any = CollapsibleSection as any;
 const RH: any = RestaurantHeader as any;
 const SPB: any = StickyPublishButton as any;
 
-const [isSaving, setIsSaving] = useState(false);
-const [showRestaurantSearch, setShowRestaurantSearch] = useState(false);
-
 // ============================================
 // DRAFT STORAGE KEY
 // ============================================
@@ -338,6 +335,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   const [recoveredDraft, setRecoveredDraft] = useState<SerializableDraft | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showRestaurantSearch, setShowRestaurantSearch] = useState(false);
 
   const [currentDish, setCurrentDish] = useState<Dish>({
     id: '',
