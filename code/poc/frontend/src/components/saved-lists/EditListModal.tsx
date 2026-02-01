@@ -268,7 +268,7 @@ export default function EditListModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -278,13 +278,13 @@ export default function EditListModal({
           onClick={onClose}
         />
 
-        {/* Modal — full-height on mobile, centered card on desktop */}
+        {/* Modal — centered, scrollable content */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 40 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="relative bg-white dark:bg-[#2D2C3A] w-full sm:max-w-lg sm:rounded-2xl sm:mx-4 shadow-2xl dark:shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col max-h-[90vh] sm:max-h-[85vh] rounded-t-2xl sm:rounded-b-2xl overflow-hidden"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="relative bg-white dark:bg-[#2D2C3A] w-full max-w-lg rounded-2xl shadow-2xl dark:shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col max-h-[85vh] overflow-hidden"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-[#3D3C4A] flex-shrink-0">
