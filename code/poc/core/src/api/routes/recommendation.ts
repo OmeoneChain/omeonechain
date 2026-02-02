@@ -1074,6 +1074,59 @@ router.get('/', async (req: Request, res: Response) => {
       category, cuisine, occasion, hasDishes, limit, offset
     });
 
+    // GET /status - Get user's like/bookmark status for all recommendations
+    router.get('/status', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+        const userId = req.user!.id;
+
+        console.log('📊 Fetching recommendation interaction status for user:', userId);
+
+        // Fetch user's likes
+        const { data: likes, error: likesError } = await supabase
+          .from('recommendation_likes')
+          .select('recommendation_id')
+          .eq('user_id', userId);
+
+        if (likesError) {
+          console.error('❌ Error fetching likes:', likesError);
+          return res.status(500).json({
+            error: 'Failed to fetch likes: ' + likesError.message
+          });
+        }
+
+        // Fetch user's bookmarks
+        const { data: bookmarks, error: bookmarksError } = await supabase
+          .from('recommendation_bookmarks')
+          .select('recommendation_id')
+          .eq('user_id', userId);
+
+        if (bookmarksError) {
+          console.error('❌ Error fetching bookmarks:', bookmarksError);
+          return res.status(500).json({
+            error: 'Failed to fetch bookmarks: ' + bookmarksError.message
+          });
+        }
+
+        const likedIds = likes?.map(l => l.recommendation_id) || [];
+        const bookmarkedIds = bookmarks?.map(b => b.recommendation_id) || [];
+
+        console.log(`✅ Status fetched: ${likedIds.length} likes, ${bookmarkedIds.length} bookmarks`);
+
+        return res.json({
+          success: true,
+          liked: likedIds,
+          bookmarked: bookmarkedIds
+        });
+
+      } catch (error) {
+        console.error('❌ Status endpoint error:', error);
+        return res.status(500).json({
+          error: 'Internal server error: ' + (error as Error).message
+        });
+      }
+    });
+
     // Build query with Trust Score 2.0 relationships
     let query = supabase
       .from('recommendations')
@@ -1353,58 +1406,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 // INTERACTION ENDPOINTS (LIKE/BOOKMARK WITH TWO-TIER TOKEN REWARDS)
 // =============================================================================
 
-// GET /status - Get user's like/bookmark status for all recommendations
-router.get('/status', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
-    const userId = req.user!.id;
 
-    console.log('📊 Fetching recommendation interaction status for user:', userId);
-
-    // Fetch user's likes
-    const { data: likes, error: likesError } = await supabase
-      .from('recommendation_likes')
-      .select('recommendation_id')
-      .eq('user_id', userId);
-
-    if (likesError) {
-      console.error('❌ Error fetching likes:', likesError);
-      return res.status(500).json({
-        error: 'Failed to fetch likes: ' + likesError.message
-      });
-    }
-
-    // Fetch user's bookmarks
-    const { data: bookmarks, error: bookmarksError } = await supabase
-      .from('recommendation_bookmarks')
-      .select('recommendation_id')
-      .eq('user_id', userId);
-
-    if (bookmarksError) {
-      console.error('❌ Error fetching bookmarks:', bookmarksError);
-      return res.status(500).json({
-        error: 'Failed to fetch bookmarks: ' + bookmarksError.message
-      });
-    }
-
-    const likedIds = likes?.map(l => l.recommendation_id) || [];
-    const bookmarkedIds = bookmarks?.map(b => b.recommendation_id) || [];
-
-    console.log(`✅ Status fetched: ${likedIds.length} likes, ${bookmarkedIds.length} bookmarks`);
-
-    return res.json({
-      success: true,
-      liked: likedIds,
-      bookmarked: bookmarkedIds
-    });
-
-  } catch (error) {
-    console.error('❌ Status endpoint error:', error);
-    return res.status(500).json({
-      error: 'Internal server error: ' + (error as Error).message
-    });
-  }
-});
 
 // POST /:id/like - Toggle like on a recommendation (WITH TWO-TIER TOKEN REWARDS)
 router.post('/:id/like', authenticateToken, async (req: Request, res: Response) => {
