@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Autocomplete } from '@react-google-maps/api';
 import { useTranslations } from 'next-intl';
 import { useCapacitor } from '@/hooks/useCapacitor';
+import { useAuthenticatedFetch } from '@/hooks/useAuth';
 
 // =============================================================================
 // TYPES
@@ -194,6 +195,7 @@ export default function MapView({
 }: MapViewProps) {
   const t = useTranslations('discover');
   const { isCapacitor } = useCapacitor();
+  const authenticatedFetch = useAuthenticatedFetch();
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -336,20 +338,17 @@ export default function MapView({
   }, [citySessionToken, createCitySessionToken]);
 
   // =============================================================================
-  // DATA FETCHING
+  // DATA FETCHING — Uses authenticatedFetch for proper tier classification
   // =============================================================================
 
   const fetchBocabocaData = useCallback(async () => {
     console.log('[BocaBoca] Fetching tier data for center:', mapCenter);
     try {
-      const token = localStorage.getItem('token');
-      
-      // FIXED: Determine backend URL with validation
-      // Reject dev/localhost URLs in production, always use production URL
+      // Determine backend URL with validation
       const PRODUCTION_BACKEND = 'https://omeonechain-production.up.railway.app';
       let backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || PRODUCTION_BACKEND;
       
-      // Safety check: reject dev URLs (github.dev, localhost, 127.0.0.1) in production
+      // Safety check: reject dev URLs in production
       const isDevUrl = backendUrl.includes('github.dev') || 
                        backendUrl.includes('localhost') || 
                        backendUrl.includes('127.0.0.1') ||
@@ -359,15 +358,11 @@ export default function MapView({
         console.warn('[BocaBoca] Dev URL detected in production, using production backend instead:', backendUrl);
         backendUrl = PRODUCTION_BACKEND;
       }
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      const response = await fetch(
-        `${backendUrl}/api/recommendations/map?latitude=${mapCenter.lat}&longitude=${mapCenter.lng}&radius_km=50&limit=500`,
-        { headers }
+
+      // Use authenticatedFetch so the backend receives the user's token
+      // and can classify restaurants into my_network / similar_tastes tiers
+      const response = await authenticatedFetch(
+        `${backendUrl}/api/recommendations/map?latitude=${mapCenter.lat}&longitude=${mapCenter.lng}&radius_km=50&limit=500`
       );
 
       if (!response.ok) {
@@ -377,9 +372,10 @@ export default function MapView({
 
       const data = await response.json();
       console.log('[BocaBoca] API response:', data);
+      console.log('[BocaBoca] Tier counts:', data.data?.tier_counts);
       
       if (data.success && data.data?.recommendations) {
-        console.log('[BocaBoca] Loaded', data.data.recommendations.length, 'restaurants with tiers');
+        console.log('[BocaBoca] Loaded', data.data.recommendations.length, 'restaurants with tiers. Personalized:', data.data.is_personalized);
         return data.data.recommendations as BocaBocaRestaurant[];
       }
       console.warn('[BocaBoca] No recommendations in response');
@@ -388,7 +384,7 @@ export default function MapView({
       console.error('[BocaBoca] Error fetching data:', err);
       return [];
     }
-  }, [mapCenter]);
+  }, [mapCenter, authenticatedFetch]);
 
   // =============================================================================
   // DATA PROCESSING
@@ -1154,7 +1150,7 @@ export default function MapView({
           {isCapacitor && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('filters.sourceType', { defaultValue: 'Source Type' })}
+                {t('filters.sourceType')}
               </label>
               <div className="flex items-center gap-1 flex-wrap">
                 {(['my_network', 'similar_tastes', 'community', 'unrated'] as TierType[]).map((tier) => (

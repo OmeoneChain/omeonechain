@@ -732,11 +732,6 @@ const DiscoverPage = () => {
                 }`}
               >
                 {t('tabs.requests')}
-                {discoveryRequests.length > 0 && (
-                  <span className="ml-2 px-2 py-0.5 bg-white bg-opacity-30 text-current text-xs rounded-full">
-                    {discoveryRequests.length}
-                  </span>
-                )}
               </button>
             </div>
             

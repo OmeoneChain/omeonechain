@@ -42,7 +42,8 @@
     "title": "Filtros",
     "cuisine": "Culinária",
     "priceRange": "Faixa de preço",
-    "clear": "Limpar filtros"
+    "clear": "Limpar filtros",
+    "sourceType": "Tipo de fonte"
   },
 
   "results": "Resultados",

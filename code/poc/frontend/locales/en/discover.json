@@ -42,7 +42,8 @@
     "title": "Filters",
     "cuisine": "Cuisine",
     "priceRange": "Price Range",
-    "clear": "Clear filters"
+    "clear": "Clear filters",
+    "sourceType": "Source Type"
   },
 
   "results": "Results",
