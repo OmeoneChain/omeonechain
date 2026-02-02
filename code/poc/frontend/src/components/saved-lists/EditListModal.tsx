@@ -285,7 +285,7 @@ export default function EditListModal({
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="relative bg-white dark:bg-[#2D2C3A] w-full max-w-lg rounded-2xl shadow-2xl dark:shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col overflow-hidden"
-          style={{ maxHeight: '85dvh' }}
+          style={{ maxHeight: '92dvh' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-[#3D3C4A] flex-shrink-0">
