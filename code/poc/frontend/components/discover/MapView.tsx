@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Autocomplete } from '@react-google-maps/api';
 import { useTranslations } from 'next-intl';
 import { useCapacitor } from '@/hooks/useCapacitor';
-import { useAuth, useAuthenticatedFetch } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 
 // =============================================================================
 // TYPES
@@ -195,8 +195,7 @@ export default function MapView({
 }: MapViewProps) {
   const t = useTranslations('discover');
   const { isCapacitor } = useCapacitor();
-  const { isHydrated } = useAuth();
-  const authenticatedFetch = useAuthenticatedFetch();
+  const { isHydrated, token: authToken } = useAuth();
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -344,6 +343,7 @@ export default function MapView({
 
   const fetchBocabocaData = useCallback(async () => {
     console.log('[BocaBoca] Fetching tier data for center:', mapCenter);
+    console.log('[BocaBoca] Auth token present:', !!authToken, '| isHydrated:', isHydrated);
     try {
       // Determine backend URL with validation
       const PRODUCTION_BACKEND = 'https://omeonechain-production.up.railway.app';
@@ -360,10 +360,18 @@ export default function MapView({
         backendUrl = PRODUCTION_BACKEND;
       }
 
-      // Use authenticatedFetch so the backend receives the user's token
-      // and can classify restaurants into my_network / similar_tastes tiers
-      const response = await authenticatedFetch(
-        `${backendUrl}/api/recommendations/map?latitude=${mapCenter.lat}&longitude=${mapCenter.lng}&radius_km=50&limit=500`
+      // Build headers directly from auth context token
+      // (bypasses useAuthenticatedFetch hook chain to avoid stale closure issues)
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch(
+        `${backendUrl}/api/recommendations/map?latitude=${mapCenter.lat}&longitude=${mapCenter.lng}&radius_km=50&limit=500`,
+        { headers }
       );
 
       if (!response.ok) {
@@ -385,7 +393,7 @@ export default function MapView({
       console.error('[BocaBoca] Error fetching data:', err);
       return [];
     }
-  }, [mapCenter, authenticatedFetch]);
+  }, [mapCenter, authToken, isHydrated]);
 
   // =============================================================================
   // DATA PROCESSING
