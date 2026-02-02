@@ -560,7 +560,7 @@ const MainFeed: React.FC = () => {
 
       console.log('📊 Fetching recommendation interaction status...');
 
-      const response = await fetch(`${BACKEND_URL}/recommendations/status`, {
+      const response = await fetch(`${BACKEND_URL}/api/recommendations/status`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -697,7 +697,9 @@ const MainFeed: React.FC = () => {
       }
 
       // Load user's interaction status after feed loads
-      await fetchUserInteractionStatus();
+      // Interaction status (hasUpvoted, isBookmarked, hasReshared) is already
+      // included in each feed item by the /api/feed/mixed endpoint.
+      // No separate fetch needed here.
 
     } catch (error) {
       console.error('❌ Failed to load feed:', error);
