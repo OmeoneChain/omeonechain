@@ -560,7 +560,7 @@ const MainFeed: React.FC = () => {
 
       console.log('📊 Fetching recommendation interaction status...');
 
-      const response = await fetch(`${BACKEND_URL}/api/recommendations/status`, {
+      const response = await fetch(`${BACKEND_URL}/recommendations/status`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
