@@ -491,12 +491,6 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                     </div>
 
                     <Link
-                      href="/dashboard"
-                      className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444]"
-                    >
-                      {t('navigation.dashboard')}
-                    </Link>
-                    <Link
                       href={`/users/${user?.id}`}
                       className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444]"
                     >
@@ -666,13 +660,6 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
 
               {isAuthenticated ? (
                 <>
-                  <Link
-                    href="/dashboard"
-                    className="block py-2 text-gray-600 dark:text-gray-300"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    {t('navigation.dashboard')}
-                  </Link>
                   <Link
                     href={`/users/${user?.id}`}
                     className="block py-2 text-gray-600 dark:text-gray-300"

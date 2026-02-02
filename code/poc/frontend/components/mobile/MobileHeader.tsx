@@ -319,16 +319,7 @@ export function MobileHeader({ className = '' }: MobileHeaderProps) {
               </div>
 
               {/* Menu Items */}
-              <div className="py-1">
-                <Link
-                  href="/dashboard"
-                  onClick={() => setShowProfileMenu(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-[#404050]"
-                >
-                  <Settings size={18} />
-                  <span>{safeT('navigation.dashboard', 'Dashboard')}</span>
-                </Link>
-                
+              <div className="py-1">               
                 <Link
                   href={`/users/${user?.id}`}
                   onClick={() => setShowProfileMenu(false)}
