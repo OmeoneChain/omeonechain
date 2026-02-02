@@ -114,8 +114,8 @@ const TIER_ICONS: Record<TierType, string> = {
 };
 
 const TIER_MARKER_SIZES: Record<TierType, number> = {
-  my_network: 14,
-  similar_tastes: 12,
+  my_network: 10,
+  similar_tastes: 10,
   community: 10,
   unrated: 8,
 };
