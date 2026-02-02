@@ -1,8 +1,8 @@
 // File: code/poc/frontend/app/[locale]/community/page.tsx
-// UPDATED: Dark mode support added
-// UPDATED: BocaBoca Community Page with i18n translations
-// UPDATED: Added Find Friends from Contacts feature
-// FIXED: Profile routes changed from /profile/ to /users/ to match actual page structure
+// V2: Grid layout for Discover People (replaces horizontal carousel)
+// - 2 columns mobile, 3 columns tablet+
+// - Removed HorizontalUserScroll, showAllDiscover toggle
+// - Dark mode + i18n
 
 'use client';
 
@@ -34,12 +34,10 @@ interface User {
   location_city?: string;
 }
 
-interface DiscoverUser extends User {
-  // is_following inherited from User
-}
+interface DiscoverUser extends User {}
 
 // ============================================
-// COMPACT USER CARD (for horizontal scroll)
+// COMPACT USER CARD (for grid)
 // ============================================
 
 interface CompactUserCardProps {
@@ -58,7 +56,7 @@ function CompactUserCard({ user, onFollow, onUnfollow, isLoading, t }: CompactUs
   const handleFollowClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isProcessing) return;
-    
+
     setIsProcessing(true);
     try {
       if (isFollowing) {
@@ -76,24 +74,23 @@ function CompactUserCard({ user, onFollow, onUnfollow, isLoading, t }: CompactUs
   };
 
   const handleCardClick = () => {
-    // FIXED: Changed from /profile/ to /users/ to match actual route
     router.push(`/users/${user.id}`);
   };
 
   return (
-    <div 
+    <div
       onClick={handleCardClick}
-      className="flex-shrink-0 w-[140px] bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-3 cursor-pointer hover:shadow-md hover:border-[#FF644A]/30 dark:hover:border-[#FF644A]/50 transition-all duration-200"
+      className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-3 cursor-pointer hover:shadow-md hover:border-[#FF644A]/30 dark:hover:border-[#FF644A]/50 transition-all duration-200"
     >
       {/* Avatar */}
       <div className="flex justify-center mb-2">
-        <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-[#FF644A] to-[#E65441] flex items-center justify-center">
+        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#FF644A] to-[#E65441] flex items-center justify-center">
           {user.avatar_url ? (
             <Image
               src={user.avatar_url}
               alt={user.display_name || t('user.anonymous')}
-              width={40}
-              height={40}
+              width={44}
+              height={44}
               className="object-cover"
             />
           ) : (
@@ -127,16 +124,20 @@ function CompactUserCard({ user, onFollow, onUnfollow, isLoading, t }: CompactUs
           isFollowing
             ? 'bg-gray-100 dark:bg-[#353444] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#404050]'
             : 'bg-[#FF644A] text-white hover:bg-[#E65441]'
-        } ${(isProcessing || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+        } ${isProcessing || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
-        {isProcessing ? t('actions.processing') : isFollowing ? t('actions.following') : t('actions.follow')}
+        {isProcessing
+          ? t('actions.processing')
+          : isFollowing
+          ? t('actions.following')
+          : t('actions.follow')}
       </button>
     </div>
   );
 }
 
 // ============================================
-// FULL USER CARD (for vertical list / search results)
+// FULL USER CARD (for following list)
 // ============================================
 
 interface UserCardProps {
@@ -155,7 +156,7 @@ function UserCard({ user, onFollow, onUnfollow, isLoading, t }: UserCardProps) {
   const handleFollowClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isProcessing) return;
-    
+
     setIsProcessing(true);
     try {
       if (isFollowing) {
@@ -173,12 +174,11 @@ function UserCard({ user, onFollow, onUnfollow, isLoading, t }: UserCardProps) {
   };
 
   const handleCardClick = () => {
-    // FIXED: Changed from /profile/ to /users/ to match actual route
     router.push(`/users/${user.id}`);
   };
 
   return (
-    <div 
+    <div
       onClick={handleCardClick}
       className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 cursor-pointer hover:shadow-md hover:border-[#FF644A]/30 dark:hover:border-[#FF644A]/50 transition-all duration-200"
     >
@@ -207,7 +207,9 @@ function UserCard({ user, onFollow, onUnfollow, isLoading, t }: UserCardProps) {
               {user.display_name || t('user.anonymous')}
             </h3>
             {user.verification_status === 'verified' && (
-              <span className="text-[#FF644A]" title={t('user.verified')}>✓</span>
+              <span className="text-[#FF644A]" title={t('user.verified')}>
+                ✓
+              </span>
             )}
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
@@ -219,8 +221,14 @@ function UserCard({ user, onFollow, onUnfollow, isLoading, t }: UserCardProps) {
             </p>
           )}
           <div className="flex items-center gap-4 mt-2 text-xs text-gray-400 dark:text-gray-500">
-            <span>{t('user.followerCount', { count: user.followers_count || 0 })}</span>
-            <span>{t('user.recommendationCount', { count: user.recommendations_count || 0 })}</span>
+            <span>
+              {t('user.followerCount', { count: user.followers_count || 0 })}
+            </span>
+            <span>
+              {t('user.recommendationCount', {
+                count: user.recommendations_count || 0,
+              })}
+            </span>
             {user.location_city && <span>📍 {user.location_city}</span>}
           </div>
         </div>
@@ -233,9 +241,13 @@ function UserCard({ user, onFollow, onUnfollow, isLoading, t }: UserCardProps) {
             isFollowing
               ? 'bg-gray-100 dark:bg-[#353444] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#404050]'
               : 'bg-[#FF644A] text-white hover:bg-[#E65441]'
-          } ${(isProcessing || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+          } ${isProcessing || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          {isProcessing ? t('actions.processing') : isFollowing ? t('actions.following') : t('actions.follow')}
+          {isProcessing
+            ? t('actions.processing')
+            : isFollowing
+            ? t('actions.following')
+            : t('actions.follow')}
         </button>
       </div>
     </div>
@@ -254,14 +266,20 @@ interface SearchResultItemProps {
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-function SearchResultItem({ user, onFollow, onUnfollow, onClick, t }: SearchResultItemProps) {
+function SearchResultItem({
+  user,
+  onFollow,
+  onUnfollow,
+  onClick,
+  t,
+}: SearchResultItemProps) {
   const [isFollowing, setIsFollowing] = useState(user.is_following || false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleFollowClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isProcessing) return;
-    
+
     setIsProcessing(true);
     try {
       if (isFollowing) {
@@ -279,7 +297,7 @@ function SearchResultItem({ user, onFollow, onUnfollow, onClick, t }: SearchResu
   };
 
   return (
-    <div 
+    <div
       onClick={onClick}
       className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-[#353444] cursor-pointer transition-colors"
     >
@@ -306,7 +324,8 @@ function SearchResultItem({ user, onFollow, onUnfollow, onClick, t }: SearchResu
           {user.display_name || t('user.anonymous')}
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          @{user.username} · {t('user.followerCount', { count: user.followers_count || 0 })}
+          @{user.username} ·{' '}
+          {t('user.followerCount', { count: user.followers_count || 0 })}
         </p>
       </div>
 
@@ -320,79 +339,12 @@ function SearchResultItem({ user, onFollow, onUnfollow, onClick, t }: SearchResu
             : 'bg-[#FF644A] text-white hover:bg-[#E65441]'
         } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
-        {isProcessing ? t('actions.processing') : isFollowing ? t('actions.following') : t('actions.follow')}
+        {isProcessing
+          ? t('actions.processing')
+          : isFollowing
+          ? t('actions.following')
+          : t('actions.follow')}
       </button>
-    </div>
-  );
-}
-
-// ============================================
-// HORIZONTAL SCROLL SECTION
-// ============================================
-
-interface HorizontalUserScrollProps {
-  users: DiscoverUser[];
-  onFollow: (userId: string) => Promise<void>;
-  onUnfollow: (userId: string) => Promise<void>;
-  isLoading?: boolean;
-  onSeeAll: () => void;
-  t: (key: string, params?: Record<string, string | number>) => string;
-}
-
-function HorizontalUserScroll({ users, onFollow, onUnfollow, isLoading, onSeeAll, t }: HorizontalUserScrollProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  return (
-    <div className="relative">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-[#1F1E2A] dark:text-white">{t('discover.title')}</h2>
-        <button 
-          onClick={onSeeAll}
-          className="text-sm text-[#FF644A] hover:text-[#E65441] font-medium transition-colors"
-        >
-          {t('discover.seeAll')}
-        </button>
-      </div>
-
-      {/* Scrollable container */}
-      <div className="relative">
-        {/* Left fade gradient */}
-        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#FFF4E1] dark:from-[#1F1E2A] to-transparent z-10 pointer-events-none" />
-        
-        {/* Right fade gradient */}
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#FFF4E1] dark:from-[#1F1E2A] to-transparent z-10 pointer-events-none" />
-
-        {/* Scroll area */}
-        <div 
-          ref={scrollRef}
-          className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide px-1"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {users.map((user) => (
-            <CompactUserCard
-              key={user.id}
-              user={user}
-              onFollow={onFollow}
-              onUnfollow={onUnfollow}
-              isLoading={isLoading}
-              t={t}
-            />
-          ))}
-          
-          {users.length === 0 && !isLoading && (
-            <div className="flex-shrink-0 w-full py-8 text-center text-gray-400 dark:text-gray-500">
-              {t('discover.empty.title')}
-            </div>
-          )}
-          
-          {isLoading && (
-            <div className="flex-shrink-0 w-full py-8 text-center text-gray-400 dark:text-gray-500">
-              {t('discover.loading')}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -404,26 +356,27 @@ function HorizontalUserScroll({ users, onFollow, onUnfollow, isLoading, onSeeAll
 export default function CommunityPage() {
   const router = useRouter();
   const t = useTranslations('community');
-  
-  const { 
-    isAuthenticated, 
-    isLoading: authLoading, 
-    user: currentUser, 
-    token 
+
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    user: currentUser,
+    token,
   } = useAuth();
-  
+
   // Tab state
-  const [activeTab, setActiveTab] = useState<'discover' | 'following'>('discover');
-  
+  const [activeTab, setActiveTab] = useState<'discover' | 'following'>(
+    'discover'
+  );
+
   // Discover state
   const [discoverUsers, setDiscoverUsers] = useState<DiscoverUser[]>([]);
-  const [showAllDiscover, setShowAllDiscover] = useState(false);
   const [isLoadingDiscover, setIsLoadingDiscover] = useState(true);
-  
+
   // Following state
   const [followingUsers, setFollowingUsers] = useState<DiscoverUser[]>([]);
   const [isLoadingFollowing, setIsLoadingFollowing] = useState(false);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<DiscoverUser[]>([]);
@@ -436,14 +389,18 @@ export default function CommunityPage() {
   // DATA FETCHING
   // ============================================
 
-  // Fetch discover users (limit 20 for list, sorted by followers)
   const fetchDiscoverUsers = useCallback(async () => {
     setIsLoadingDiscover(true);
     try {
-      const response = await socialApi.discoverUsers(20, undefined, 'followers_count');
+      const response = await socialApi.discoverUsers(
+        20,
+        undefined,
+        'followers_count'
+      );
       if (response.users) {
-        // Filter out users already being followed
-        const notFollowing = response.users.filter((u: DiscoverUser) => !u.is_following);
+        const notFollowing = response.users.filter(
+          (u: DiscoverUser) => !u.is_following
+        );
         setDiscoverUsers(notFollowing);
       }
     } catch (error) {
@@ -453,10 +410,9 @@ export default function CommunityPage() {
     }
   }, []);
 
-  // Fetch following users
   const fetchFollowingUsers = useCallback(async () => {
     if (!currentUser?.id) return;
-    
+
     setIsLoadingFollowing(true);
     try {
       const response = await socialApi.getFollowing(currentUser.id);
@@ -470,7 +426,7 @@ export default function CommunityPage() {
     }
   }, [currentUser?.id]);
 
-  // Search users with debounce
+  // Search with debounce
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
       setSearchResults([]);
@@ -497,10 +453,9 @@ export default function CommunityPage() {
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
 
-  // Initial data fetch
+  // Initial fetch
   useEffect(() => {
     fetchDiscoverUsers();
-    // Also fetch following count for the tab badge
     if (isAuthenticated) {
       fetchFollowingUsers();
     }
@@ -513,11 +468,11 @@ export default function CommunityPage() {
     }
   }, [activeTab, isAuthenticated, fetchFollowingUsers]);
 
-  // Close search dropdown when clicking outside
+  // Close search dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
-        searchDropdownRef.current && 
+        searchDropdownRef.current &&
         !searchDropdownRef.current.contains(event.target as Node) &&
         searchInputRef.current &&
         !searchInputRef.current.contains(event.target as Node)
@@ -531,7 +486,7 @@ export default function CommunityPage() {
   }, []);
 
   // ============================================
-  // FOLLOW/UNFOLLOW HANDLERS
+  // FOLLOW / UNFOLLOW
   // ============================================
 
   const handleFollow = async (userId: string) => {
@@ -539,18 +494,20 @@ export default function CommunityPage() {
       router.push('/login');
       return;
     }
-    
+
     try {
       const response = await socialApi.followUser(userId);
       if (response.success) {
-        // Update local state
-        setDiscoverUsers(prev => prev.map(u => 
-          u.id === userId ? { ...u, is_following: true } : u
-        ));
-        setSearchResults(prev => prev.map(u => 
-          u.id === userId ? { ...u, is_following: true } : u
-        ));
-        // Refresh following list if on that tab
+        setDiscoverUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId ? { ...u, is_following: true } : u
+          )
+        );
+        setSearchResults((prev) =>
+          prev.map((u) =>
+            u.id === userId ? { ...u, is_following: true } : u
+          )
+        );
         if (activeTab === 'following') {
           fetchFollowingUsers();
         }
@@ -564,28 +521,26 @@ export default function CommunityPage() {
     try {
       const response = await socialApi.unfollowUser(userId);
       if (response.success) {
-        // Update local state
-        setDiscoverUsers(prev => prev.map(u => 
-          u.id === userId ? { ...u, is_following: false } : u
-        ));
-        setSearchResults(prev => prev.map(u => 
-          u.id === userId ? { ...u, is_following: false } : u
-        ));
-        setFollowingUsers(prev => prev.filter(u => u.id !== userId));
+        setDiscoverUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId ? { ...u, is_following: false } : u
+          )
+        );
+        setSearchResults((prev) =>
+          prev.map((u) =>
+            u.id === userId ? { ...u, is_following: false } : u
+          )
+        );
+        setFollowingUsers((prev) => prev.filter((u) => u.id !== userId));
       }
     } catch (error) {
       console.error('Error unfollowing user:', error);
     }
   };
 
-  // ============================================
-  // SEARCH RESULT CLICK
-  // ============================================
-
   const handleSearchResultClick = (userId: string) => {
     setShowSearchDropdown(false);
     setSearchQuery('');
-    // FIXED: Changed from /profile/ to /users/ to match actual route
     router.push(`/users/${userId}`);
   };
 
@@ -593,46 +548,47 @@ export default function CommunityPage() {
   // RENDER
   // ============================================
 
-  // Get users for horizontal scroll (max 5, not following)
-  const horizontalUsers = discoverUsers.slice(0, 5);
-  
-  // Get all users for "See All" view
-  const allDiscoverUsers = discoverUsers;
-
   return (
     <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
-      {/* Header */}
       <CleanHeader />
-      
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        
+
+      <div className="max-w-2xl mx-auto px-4 py-4 sm:py-6">
         {/* Page Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#1F1E2A] dark:text-white">{t('page.title')}</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#1F1E2A] dark:text-white">
+            {t('page.title')}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mt-0.5">
             {t('page.subtitle')}
           </p>
         </div>
 
         {/* Search Bar */}
-        <div className="relative mb-6">
+        <div className="relative mb-4 sm:mb-6">
           <div className="relative">
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => searchQuery.length >= 2 && setShowSearchDropdown(true)}
+              onFocus={() =>
+                searchQuery.length >= 2 && setShowSearchDropdown(true)
+              }
               placeholder={t('search.placeholder')}
-              className="w-full px-4 py-3 pl-10 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF644A]/20 focus:border-[#FF644A] transition-all"
+              className="w-full px-4 py-2.5 pl-10 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF644A]/20 focus:border-[#FF644A] transition-all"
             />
-            <svg 
+            <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500"
-              fill="none" 
-              stroke="currentColor" 
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
             {searchQuery && (
               <button
@@ -650,7 +606,7 @@ export default function CommunityPage() {
 
           {/* Search Dropdown */}
           {showSearchDropdown && (
-            <div 
+            <div
               ref={searchDropdownRef}
               className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] z-50 max-h-80 overflow-y-auto"
             >
@@ -680,7 +636,7 @@ export default function CommunityPage() {
           )}
         </div>
 
-        {/* Find Friends from Contacts - NEW SECTION */}
+        {/* Find Friends from Contacts */}
         {isAuthenticated && (
           <FindFriendsSection
             onFollow={handleFollow}
@@ -689,12 +645,9 @@ export default function CommunityPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-4 sm:mb-6">
           <button
-            onClick={() => {
-              setActiveTab('discover');
-              setShowAllDiscover(false);
-            }}
+            onClick={() => setActiveTab('discover')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'discover'
                 ? 'bg-[#FF644A] text-white'
@@ -717,55 +670,39 @@ export default function CommunityPage() {
 
         {/* Tab Content */}
         {activeTab === 'discover' ? (
-          <div className="space-y-6">
-            
-            {/* Horizontal Scroll or Full List */}
-            {!showAllDiscover ? (
-              <>
-                {/* Horizontal Discover Section */}
-                <HorizontalUserScroll
-                  users={horizontalUsers}
-                  onFollow={handleFollow}
-                  onUnfollow={handleUnfollow}
-                  isLoading={isLoadingDiscover}
-                  onSeeAll={() => setShowAllDiscover(true)}
-                  t={t}
-                />
-              </>
+          <div>
+            {/* Section header */}
+            <h2 className="text-base font-semibold text-[#1F1E2A] dark:text-white mb-3">
+              {t('discover.title')}
+            </h2>
+
+            {isLoadingDiscover ? (
+              <div className="py-12 text-center text-gray-400 dark:text-gray-500 text-sm">
+                {t('discover.loading')}
+              </div>
+            ) : discoverUsers.length > 0 ? (
+              /* Grid: 2 cols mobile, 3 cols sm+ */
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {discoverUsers.map((user) => (
+                  <CompactUserCard
+                    key={user.id}
+                    user={user}
+                    onFollow={handleFollow}
+                    onUnfollow={handleUnfollow}
+                    isLoading={isLoadingDiscover}
+                    t={t}
+                  />
+                ))}
+              </div>
             ) : (
-              <>
-                {/* Back button and full list */}
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-[#1F1E2A] dark:text-white">{t('discover.title')}</h2>
-                  <button 
-                    onClick={() => setShowAllDiscover(false)}
-                    className="text-sm text-[#FF644A] hover:text-[#E65441] font-medium transition-colors"
-                  >
-                    {t('discover.backToOverview')}
-                  </button>
-                </div>
-                
-                <div className="space-y-3">
-                  {isLoadingDiscover ? (
-                    <div className="py-12 text-center text-gray-400 dark:text-gray-500">{t('discover.loading')}</div>
-                  ) : allDiscoverUsers.length > 0 ? (
-                    allDiscoverUsers.map((discoverUser) => (
-                      <UserCard
-                        key={discoverUser.id}
-                        user={discoverUser}
-                        onFollow={handleFollow}
-                        onUnfollow={handleUnfollow}
-                        t={t}
-                      />
-                    ))
-                  ) : (
-                    <div className="py-12 text-center">
-                      <p className="text-gray-400 dark:text-gray-500">{t('discover.empty.title')}</p>
-                      <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">{t('discover.empty.subtitle')}</p>
-                    </div>
-                  )}
-                </div>
-              </>
+              <div className="py-12 text-center">
+                <p className="text-gray-400 dark:text-gray-500">
+                  {t('discover.empty.title')}
+                </p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+                  {t('discover.empty.subtitle')}
+                </p>
+              </div>
             )}
           </div>
         ) : (
@@ -773,8 +710,10 @@ export default function CommunityPage() {
           <div className="space-y-3">
             {!isAuthenticated ? (
               <div className="py-12 text-center">
-                <p className="text-gray-500 dark:text-gray-400 mb-4">{t('following.signInRequired.message')}</p>
-                <Link 
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  {t('following.signInRequired.message')}
+                </p>
+                <Link
                   href="/login"
                   className="inline-block px-6 py-2 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441] transition-colors"
                 >
@@ -782,7 +721,9 @@ export default function CommunityPage() {
                 </Link>
               </div>
             ) : isLoadingFollowing ? (
-              <div className="py-12 text-center text-gray-400 dark:text-gray-500">{t('following.loading')}</div>
+              <div className="py-12 text-center text-gray-400 dark:text-gray-500">
+                {t('following.loading')}
+              </div>
             ) : followingUsers.length > 0 ? (
               followingUsers.map((followedUser) => (
                 <UserCard
@@ -795,7 +736,9 @@ export default function CommunityPage() {
               ))
             ) : (
               <div className="py-12 text-center">
-                <p className="text-gray-400 dark:text-gray-500">{t('following.empty.title')}</p>
+                <p className="text-gray-400 dark:text-gray-500">
+                  {t('following.empty.title')}
+                </p>
                 <button
                   onClick={() => setActiveTab('discover')}
                   className="mt-4 px-6 py-2 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441] transition-colors"
