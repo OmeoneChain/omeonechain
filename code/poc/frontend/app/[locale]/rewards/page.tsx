@@ -2,6 +2,15 @@
 // Rewards hub page - Lottery, Photo Contest, Bounties
 // UPDATED: Dark mode support added
 // UPDATED: Full i18n support with useTranslations
+// UPDATED: Mobile-responsive pass (Feb 2, 2026)
+//   - Two-column layout stacks on mobile (lg breakpoint)
+//   - Tab buttons scroll horizontally on mobile
+//   - Title/header sizes scale down for mobile
+//   - All grids collapse to fewer columns on small screens
+//   - Reward rows handle narrow screens without clipping
+//   - Leaderboard scrolls horizontally on mobile
+//   - Sidebar stacks below main content on mobile
+//   - Padding/spacing tightened for mobile
 
 'use client';
 
@@ -130,84 +139,86 @@ export default function RewardsPage() {
   return (
     <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       <CleanHeader />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 text-[#1F1E2A] dark:text-white">
+      {/* MOBILE FIX: Tighter padding on mobile */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Header - MOBILE FIX: Smaller title on mobile */}
+        <div className="mb-4 sm:mb-8">
+          <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-[#1F1E2A] dark:text-white">
             {t('page.title')}
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
+          <p className="text-sm sm:text-lg text-gray-600 dark:text-gray-400">
             {t('page.subtitle')}
           </p>
         </div>
 
-        <div className="flex gap-6">
+        {/* MOBILE FIX: Stack sidebar below on mobile */}
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           {/* Main Content */}
-          <div className="flex-1">
-            {/* Tab Navigation */}
-            <div className="flex gap-2 mb-6">
+          <div className="flex-1 min-w-0">
+            {/* Tab Navigation - MOBILE FIX: Scrollable tabs */}
+            <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                className={`px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'overview'
                     ? 'bg-[#FF644A] text-white'
                     : 'bg-white dark:bg-[#2D2C3A] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
               >
-                <Gift size={18} />
+                <Gift size={16} />
                 <span>{t('tabs.overview')}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('lottery')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                className={`px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'lottery'
                     ? 'bg-[#FF644A] text-white'
                     : 'bg-white dark:bg-[#2D2C3A] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
               >
-                <Trophy size={18} />
+                <Trophy size={16} />
                 <span>{t('tabs.lottery')}</span>
               </button>
               
               <button
                 onClick={() => setActiveTab('photo-contest')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                className={`px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'photo-contest'
                     ? 'bg-[#FF644A] text-white'
                     : 'bg-white dark:bg-[#2D2C3A] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
               >
-                <Camera size={18} />
+                <Camera size={16} />
                 <span>{t('tabs.photoContest')}</span>
               </button>
               
               <button
                 onClick={() => setActiveTab('bounties')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                className={`px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'bounties'
                     ? 'bg-[#FF644A] text-white'
                     : 'bg-white dark:bg-[#2D2C3A] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-[#3D3C4A] hover:bg-gray-50 dark:hover:bg-[#353444]'
                 }`}
               >
-                <Target size={18} />
+                <Target size={16} />
                 <span>{t('tabs.bounties')}</span>
               </button>
             </div>
 
-            {/* Tab Content */}
-            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
+            {/* Tab Content - MOBILE FIX: Less padding */}
+            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#3D3C4A]">
               {/* Error State */}
               {error && (
-                <div className="mb-6 p-4 rounded-lg flex items-center gap-3 bg-[#FFF4E1] dark:bg-red-900/20 border border-[#FFD4CC] dark:border-red-800">
-                  <AlertCircle size={20} className="text-[#E65441] dark:text-red-400" />
-                  <div>
+                <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-start sm:items-center gap-3 bg-[#FFF4E1] dark:bg-red-900/20 border border-[#FFD4CC] dark:border-red-800">
+                  <AlertCircle size={20} className="text-[#E65441] dark:text-red-400 flex-shrink-0 mt-0.5 sm:mt-0" />
+                  <div className="flex-1 min-w-0">
                     <div className="font-medium text-[#1F1E2A] dark:text-white">{t('error.title')}</div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">{error}</div>
                   </div>
                   <button
                     onClick={loadData}
-                    className="ml-auto px-4 py-2 rounded text-sm font-medium hover:opacity-90 bg-[#FF644A] text-white"
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 rounded text-sm font-medium hover:opacity-90 bg-[#FF644A] text-white flex-shrink-0"
                   >
                     {t('error.retry')}
                   </button>
@@ -254,7 +265,7 @@ export default function RewardsPage() {
             </div>
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar - MOBILE FIX: Full width on mobile, stacks below */}
           <Sidebar 
             isAuthenticated={isAuthenticated}
             authMode={authMode}
@@ -268,7 +279,7 @@ export default function RewardsPage() {
 }
 
 // ==========================================
-// SIDEBAR COMPONENT
+// SIDEBAR COMPONENT - MOBILE FIX: Full width on mobile
 // ==========================================
 
 function Sidebar({ 
@@ -286,11 +297,11 @@ function Sidebar({
   const t = useTranslations('rewards');
 
   return (
-    <div className="w-80 space-y-4">
+    <div className="w-full lg:w-80 lg:flex-shrink-0 space-y-4">
       {/* Wallet Status Card */}
       {isAuthenticated ? (
         authMode === 'wallet' ? (
-          <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
+          <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#3D3C4A]">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
                 <Wallet size={20} className="text-blue-600 dark:text-blue-400" />
@@ -323,7 +334,7 @@ function Sidebar({
             )}
           </div>
         ) : (
-          <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border-2 border-[#FF644A]">
+          <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 sm:p-6 border-2 border-[#FF644A]">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#FFE8E3] dark:bg-[#FF644A]/20">
                 <Wallet size={20} className="text-[#FF644A]" />
@@ -352,7 +363,7 @@ function Sidebar({
           </div>
         )
       ) : (
-        <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
+        <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#3D3C4A]">
           <div className="text-center mb-4">
             <div className="font-semibold mb-2 text-[#1F1E2A] dark:text-white">
               {t('sidebar.wallet.guest.title')}
@@ -371,29 +382,29 @@ function Sidebar({
       )}
 
       {/* Quick Stats */}
-      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#3D3C4A]">
         <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
           {t('sidebar.quickStats.title')}
         </h3>
         
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded flex items-center justify-center bg-[#FFE8E3] dark:bg-[#FF644A]/20">
+            <div className="w-8 h-8 rounded flex items-center justify-center bg-[#FFE8E3] dark:bg-[#FF644A]/20 flex-shrink-0">
               <Trophy size={16} className="text-[#FF644A]" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="text-sm text-gray-600 dark:text-gray-400">{t('sidebar.quickStats.nextLottery')}</div>
-              <div className="text-sm font-semibold text-[#1F1E2A] dark:text-white">
+              <div className="text-sm font-semibold text-[#1F1E2A] dark:text-white truncate">
                 {lotteryData ? formatDate(lotteryData.drawing.week_end) : t('sidebar.quickStats.loading')}
               </div>
             </div>
           </div>
           
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded flex items-center justify-center bg-[#BFE2D9] dark:bg-[#BFE2D9]/20">
+            <div className="w-8 h-8 rounded flex items-center justify-center bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 flex-shrink-0">
               <Camera size={16} className="text-[#2D7A5F] dark:text-[#BFE2D9]" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="text-sm text-gray-600 dark:text-gray-400">{t('sidebar.quickStats.prizePool')}</div>
               <div className="text-sm font-semibold text-[#1F1E2A] dark:text-white">
                 {REWARDS.LOTTERY.POOL} BOCA
@@ -405,22 +416,22 @@ function Sidebar({
             className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#353444] -mx-2 px-2 py-1 rounded-lg transition-colors"
             onClick={() => router.push('/discover?tab=requests')}
           >
-            <div className="w-8 h-8 rounded flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+            <div className="w-8 h-8 rounded flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 flex-shrink-0">
               <Target size={16} className="text-blue-600 dark:text-blue-400" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="text-sm text-gray-600 dark:text-gray-400">{t('sidebar.quickStats.discoveryRequests')}</div>
               <div className="text-sm font-semibold text-[#FF644A]">
                 {t('sidebar.quickStats.viewRequests')}
               </div>
             </div>
-            <ArrowRight size={14} className="text-gray-400 dark:text-gray-500" />
+            <ArrowRight size={14} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
           </div>
         </div>
       </div>
 
       {/* How It Works */}
-      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
+      <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#3D3C4A]">
         <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
           {t('sidebar.howItWorks.title')}
         </h3>
@@ -453,30 +464,58 @@ function Sidebar({
 }
 
 // ============================================
-// OVERVIEW TAB COMPONENT
+// REWARD ROW HELPER - Prevents text clipping on mobile
+// ============================================
+const RewardRow = ({
+  label,
+  amount,
+  highlight = false,
+}: {
+  label: string;
+  amount: string;
+  highlight?: boolean;
+}) => (
+  <div
+    className={`flex items-center justify-between gap-3 p-3 rounded-lg ${
+      highlight
+        ? 'bg-[#FF644A]/10 dark:bg-[#FF644A]/20 border border-[#FF644A]/20 dark:border-[#FF644A]/30'
+        : 'bg-gray-50 dark:bg-[#2D2C3A]'
+    }`}
+  >
+    <span className={`text-sm text-gray-700 dark:text-gray-300 min-w-0 ${highlight ? 'font-medium' : ''}`}>
+      {label}
+    </span>
+    <span className="font-bold text-[#FF644A] text-sm whitespace-nowrap flex-shrink-0">
+      {amount}
+    </span>
+  </div>
+);
+
+// ============================================
+// OVERVIEW TAB COMPONENT - MOBILE FIX
 // ============================================
 const OverviewContent = ({ user }: { user?: any }) => {
   const t = useTranslations('rewards');
   const isEmailUser = user?.accountTier === 'email_basic';
   
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-[#1F1E2A] dark:text-white mb-2">
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header - MOBILE FIX: Smaller text */}
+      <div className="text-center mb-4 sm:mb-8">
+        <h2 className="text-lg sm:text-2xl font-bold text-[#1F1E2A] dark:text-white mb-1 sm:mb-2">
           {t('overview.header.title')}
         </h2>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
           {t('overview.header.subtitle')}
         </p>
       </div>
 
-      {/* Wallet Upgrade CTA for Email Users */}
+      {/* Wallet Upgrade CTA for Email Users - MOBILE FIX: Stack on mobile */}
       {isEmailUser && (
-        <div className="bg-gradient-to-r from-[#FF644A] to-[#E65441] rounded-xl p-6 text-white mb-8">
-          <div className="flex items-center justify-between">
+        <div className="bg-gradient-to-r from-[#FF644A] to-[#E65441] rounded-xl p-4 sm:p-6 text-white mb-4 sm:mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-              <h3 className="font-bold text-lg mb-1">{t('overview.upgradeWallet.title')}</h3>
+              <h3 className="font-bold text-base sm:text-lg mb-1">{t('overview.upgradeWallet.title')}</h3>
               <p className="text-white/90 text-sm">
                 {t('overview.upgradeWallet.description', { 
                   walletAmount: REWARDS.CONTENT.CREATE_REC_WALLET, 
@@ -484,116 +523,86 @@ const OverviewContent = ({ user }: { user?: any }) => {
                 })}
               </p>
             </div>
-            <button className="bg-white text-[#FF644A] px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors">
+            <button className="bg-white text-[#FF644A] px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors whitespace-nowrap flex-shrink-0">
               {t('overview.upgradeWallet.cta')}
             </button>
           </div>
         </div>
       )}
 
-      {/* Welcome Rewards */}
-      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+      {/* Welcome Rewards - MOBILE FIX: Tighter padding */}
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-            <Gift className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <div className="w-9 sm:w-10 h-9 sm:h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Gift className="w-4 sm:w-5 h-4 sm:h-5 text-green-600 dark:text-green-400" />
           </div>
-          <div>
-            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.welcome.title')}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="min-w-0">
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white text-sm sm:text-base">{t('overview.welcome.title')}</h3>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
               {t('overview.welcome.subtitle', { total: REWARDS.ONBOARDING.TOTAL })}
             </p>
           </div>
         </div>
-        <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.welcome.follow3')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.ONBOARDING.FOLLOW_3} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.welcome.create5')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.ONBOARDING.CREATE_5_RECS} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.welcome.engage10')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.ONBOARDING.ENGAGE_10} BOCA</span>
-          </div>
+        <div className="grid gap-2 sm:gap-3">
+          <RewardRow label={t('overview.welcome.follow3')} amount={`${REWARDS.ONBOARDING.FOLLOW_3} BOCA`} />
+          <RewardRow label={t('overview.welcome.create5')} amount={`${REWARDS.ONBOARDING.CREATE_5_RECS} BOCA`} />
+          <RewardRow label={t('overview.welcome.engage10')} amount={`${REWARDS.ONBOARDING.ENGAGE_10} BOCA`} />
         </div>
       </div>
 
       {/* Content Creation */}
-      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-[#FFF4E1] dark:bg-[#FF644A]/20 rounded-lg flex items-center justify-center">
-            <Star className="w-5 h-5 text-[#FF644A]" />
+          <div className="w-9 sm:w-10 h-9 sm:h-10 bg-[#FFF4E1] dark:bg-[#FF644A]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Star className="w-4 sm:w-5 h-4 sm:h-5 text-[#FF644A]" />
           </div>
-          <div>
-            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.content.title')}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.content.subtitle')}</p>
+          <div className="min-w-0">
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white text-sm sm:text-base">{t('overview.content.title')}</h3>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('overview.content.subtitle')}</p>
           </div>
         </div>
-        <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.content.createWallet')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.CONTENT.CREATE_REC_WALLET} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.content.createEmail')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.CONTENT.CREATE_REC_EMAIL} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 rounded-lg border border-[#FF644A]/20 dark:border-[#FF644A]/30">
-            <span className="text-gray-700 dark:text-gray-300 font-medium">{t('overview.content.validationBonus')}</span>
-            <span className="font-bold text-[#FF644A]">+{REWARDS.CONTENT.VALIDATION_BONUS} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 rounded-lg border border-[#FF644A]/20 dark:border-[#FF644A]/30">
-            <span className="text-gray-700 dark:text-gray-300 font-medium">{t('overview.content.firstReviewer')}</span>
-            <span className="font-bold text-[#FF644A]">+{REWARDS.CONTENT.FIRST_REVIEWER} BOCA</span>
-          </div>
+        <div className="grid gap-2 sm:gap-3">
+          <RewardRow label={t('overview.content.createWallet')} amount={`${REWARDS.CONTENT.CREATE_REC_WALLET} BOCA`} />
+          <RewardRow label={t('overview.content.createEmail')} amount={`${REWARDS.CONTENT.CREATE_REC_EMAIL} BOCA`} />
+          <RewardRow label={t('overview.content.validationBonus')} amount={`+${REWARDS.CONTENT.VALIDATION_BONUS} BOCA`} highlight />
+          <RewardRow label={t('overview.content.firstReviewer')} amount={`+${REWARDS.CONTENT.FIRST_REVIEWER} BOCA`} highlight />
         </div>
       </div>
 
       {/* Engagement Received */}
-      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <div className="w-9 sm:w-10 h-9 sm:h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+            <MessageSquare className="w-4 sm:w-5 h-4 sm:h-5 text-blue-600 dark:text-blue-400" />
           </div>
-          <div>
-            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.engagement.title')}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.engagement.subtitle')}</p>
-          </div>
-        </div>
-        <div className="grid gap-3 mb-4">
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.engagement.save')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.ENGAGEMENT.SAVE} BOCA × {t('overview.engagement.tier')}</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.engagement.comment')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.ENGAGEMENT.COMMENT} BOCA × {t('overview.engagement.tier')}</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.engagement.helpful')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.ENGAGEMENT.HELPFUL} BOCA</span>
+          <div className="min-w-0">
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white text-sm sm:text-base">{t('overview.engagement.title')}</h3>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('overview.engagement.subtitle')}</p>
           </div>
         </div>
-        {/* Tier Weight Explainer */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-100 dark:border-blue-800">
-          <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">{t('overview.tiers.title')}</h4>
-          <div className="grid grid-cols-3 gap-2 text-sm">
-            <div className="text-center p-2 bg-white dark:bg-[#2D2C3A] rounded">
+        <div className="grid gap-2 sm:gap-3 mb-4">
+          <RewardRow label={t('overview.engagement.save')} amount={`${REWARDS.ENGAGEMENT.SAVE} BOCA × ${t('overview.engagement.tier')}`} />
+          <RewardRow label={t('overview.engagement.comment')} amount={`${REWARDS.ENGAGEMENT.COMMENT} BOCA × ${t('overview.engagement.tier')}`} />
+          <RewardRow label={t('overview.engagement.helpful')} amount={`${REWARDS.ENGAGEMENT.HELPFUL} BOCA`} />
+        </div>
+        {/* Tier Weight Explainer - keeps 3-col but tighter on mobile */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 sm:p-4 border border-blue-100 dark:border-blue-800">
+          <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2 text-sm">{t('overview.tiers.title')}</h4>
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-xs sm:text-sm">
+            <div className="text-center p-1.5 sm:p-2 bg-white dark:bg-[#2D2C3A] rounded">
               <div className="font-bold text-blue-600 dark:text-blue-400">{TIER_WEIGHTS.NEW.weight}×</div>
               <div className="text-gray-600 dark:text-gray-400">{t('overview.tiers.new')}</div>
-              <div className="text-xs text-gray-400 dark:text-gray-500">{t('overview.tiers.newDays')}</div>
+              <div className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">{t('overview.tiers.newDays')}</div>
             </div>
-            <div className="text-center p-2 bg-white dark:bg-[#2D2C3A] rounded">
+            <div className="text-center p-1.5 sm:p-2 bg-white dark:bg-[#2D2C3A] rounded">
               <div className="font-bold text-blue-600 dark:text-blue-400">{TIER_WEIGHTS.ESTABLISHED.weight}×</div>
               <div className="text-gray-600 dark:text-gray-400">{t('overview.tiers.established')}</div>
-              <div className="text-xs text-gray-400 dark:text-gray-500">{t('overview.tiers.establishedDays')}</div>
+              <div className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">{t('overview.tiers.establishedDays')}</div>
             </div>
-            <div className="text-center p-2 bg-white dark:bg-[#2D2C3A] rounded">
+            <div className="text-center p-1.5 sm:p-2 bg-white dark:bg-[#2D2C3A] rounded">
               <div className="font-bold text-blue-600 dark:text-blue-400">{TIER_WEIGHTS.TRUSTED.weight}×</div>
               <div className="text-gray-600 dark:text-gray-400">{t('overview.tiers.trusted')}</div>
-              <div className="text-xs text-gray-400 dark:text-gray-500">{t('overview.tiers.trustedDays')}</div>
+              <div className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">{t('overview.tiers.trustedDays')}</div>
             </div>
           </div>
           <p className="text-xs text-blue-700 dark:text-blue-400 mt-2">
@@ -607,85 +616,77 @@ const OverviewContent = ({ user }: { user?: any }) => {
       </div>
 
       {/* Social Amplification */}
-      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-[#FFF4E1] dark:bg-[#FF644A]/20 rounded-lg flex items-center justify-center">
-            <Share2 className="w-5 h-5 text-[#FF644A]" />
+          <div className="w-9 sm:w-10 h-9 sm:h-10 bg-[#FFF4E1] dark:bg-[#FF644A]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Share2 className="w-4 sm:w-5 h-4 sm:h-5 text-[#FF644A]" />
           </div>
-          <div>
-            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.social.title')}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.social.subtitle')}</p>
+          <div className="min-w-0">
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white text-sm sm:text-base">{t('overview.social.title')}</h3>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('overview.social.subtitle')}</p>
           </div>
         </div>
-        <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.social.boost')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.SOCIAL.BOOST} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.social.reshare')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.SOCIAL.RESHARE} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.social.attribution')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.SOCIAL.ATTRIBUTION} BOCA</span>
-          </div>
+        <div className="grid gap-2 sm:gap-3">
+          <RewardRow label={t('overview.social.boost')} amount={`${REWARDS.SOCIAL.BOOST} BOCA`} />
+          <RewardRow label={t('overview.social.reshare')} amount={`${REWARDS.SOCIAL.RESHARE} BOCA`} />
+          <RewardRow label={t('overview.social.attribution')} amount={`${REWARDS.SOCIAL.ATTRIBUTION} BOCA`} />
         </div>
       </div>
 
-      {/* Weekly Contests */}
-      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+      {/* Weekly Contests - MOBILE FIX: Contest cards stack on mobile */}
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
-            <Trophy className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+          <div className="w-9 sm:w-10 h-9 sm:h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Trophy className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-600 dark:text-yellow-400" />
           </div>
-          <div>
-            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.contests.title')}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.contests.subtitle')}</p>
+          <div className="min-w-0">
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white text-sm sm:text-base">{t('overview.contests.title')}</h3>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('overview.contests.subtitle')}</p>
           </div>
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
+        {/* MOBILE FIX: Stack to 1-col on mobile */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Lottery Card */}
-          <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg border border-purple-200 dark:border-purple-700">
-            <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-2">🎰 {t('overview.contests.lottery.title')}</h4>
-            <p className="text-sm text-purple-700 dark:text-purple-400 mb-3">
+          <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg border border-purple-200 dark:border-purple-700">
+            <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-2 text-sm sm:text-base">🎰 {t('overview.contests.lottery.title')}</h4>
+            <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-400 mb-3">
               {t('overview.contests.lottery.pool', { amount: REWARDS.LOTTERY.POOL })}
             </p>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
+            <div className="space-y-1.5 text-xs sm:text-sm">
+              <div className="flex justify-between gap-2">
                 <span className="text-purple-700 dark:text-purple-400">🥇 {t('overview.contests.first')}</span>
-                <span className="font-bold text-purple-800 dark:text-purple-300">{REWARDS.LOTTERY.FIRST} BOCA + {t('overview.contests.lottery.spotlights', { count: 3 })}</span>
+                <span className="font-bold text-purple-800 dark:text-purple-300 text-right">{REWARDS.LOTTERY.FIRST} BOCA + {t('overview.contests.lottery.spotlights', { count: 3 })}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-purple-700 dark:text-purple-400">🥈 {t('overview.contests.second')}</span>
-                <span className="font-bold text-purple-800 dark:text-purple-300">{REWARDS.LOTTERY.SECOND} BOCA + {t('overview.contests.lottery.spotlights', { count: 2 })}</span>
+                <span className="font-bold text-purple-800 dark:text-purple-300 text-right">{REWARDS.LOTTERY.SECOND} BOCA + {t('overview.contests.lottery.spotlights', { count: 2 })}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-purple-700 dark:text-purple-400">🥉 {t('overview.contests.third')}</span>
-                <span className="font-bold text-purple-800 dark:text-purple-300">{REWARDS.LOTTERY.THIRD} BOCA + {t('overview.contests.lottery.spotlights', { count: 1 })}</span>
+                <span className="font-bold text-purple-800 dark:text-purple-300 text-right">{REWARDS.LOTTERY.THIRD} BOCA + {t('overview.contests.lottery.spotlights', { count: 1 })}</span>
               </div>
             </div>
-            <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">{t('overview.contests.lottery.eligible')}</p>
+            <p className="text-[10px] sm:text-xs text-purple-600 dark:text-purple-400 mt-2">{t('overview.contests.lottery.eligible')}</p>
           </div>
           {/* Photo Contest Card */}
-          <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/20 rounded-lg border border-amber-200 dark:border-amber-700">
-            <h4 className="font-bold text-amber-800 dark:text-amber-300 mb-2">📸 {t('overview.contests.photo.title')}</h4>
-            <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">{t('overview.contests.photo.subtitle')}</p>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
+          <div className="p-3 sm:p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/20 rounded-lg border border-amber-200 dark:border-amber-700">
+            <h4 className="font-bold text-amber-800 dark:text-amber-300 mb-2 text-sm sm:text-base">📸 {t('overview.contests.photo.title')}</h4>
+            <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-400 mb-3">{t('overview.contests.photo.subtitle')}</p>
+            <div className="space-y-1.5 text-xs sm:text-sm">
+              <div className="flex justify-between gap-2">
                 <span className="text-amber-700 dark:text-amber-400">🥇 {t('overview.contests.first')}</span>
-                <span className="font-bold text-amber-800 dark:text-amber-300">{REWARDS.PHOTO_CONTEST.FIRST} BOCA + {t('overview.contests.photo.homepage')}</span>
+                <span className="font-bold text-amber-800 dark:text-amber-300 text-right">{REWARDS.PHOTO_CONTEST.FIRST} BOCA + {t('overview.contests.photo.homepage')}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-amber-700 dark:text-amber-400">🥈 {t('overview.contests.second')}</span>
-                <span className="font-bold text-amber-800 dark:text-amber-300">{REWARDS.PHOTO_CONTEST.SECOND} BOCA + {t('overview.contests.photo.banner')}</span>
+                <span className="font-bold text-amber-800 dark:text-amber-300 text-right">{REWARDS.PHOTO_CONTEST.SECOND} BOCA + {t('overview.contests.photo.banner')}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-amber-700 dark:text-amber-400">🥉 {t('overview.contests.third')}</span>
-                <span className="font-bold text-amber-800 dark:text-amber-300">{REWARDS.PHOTO_CONTEST.THIRD} BOCA + {t('overview.contests.photo.banner')}</span>
+                <span className="font-bold text-amber-800 dark:text-amber-300 text-right">{REWARDS.PHOTO_CONTEST.THIRD} BOCA + {t('overview.contests.photo.banner')}</span>
               </div>
             </div>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+            <p className="text-[10px] sm:text-xs text-amber-600 dark:text-amber-400 mt-2">
               {t('overview.contests.photo.participation', { amount: REWARDS.PHOTO_CONTEST.PARTICIPATION })}
             </p>
           </div>
@@ -693,25 +694,19 @@ const OverviewContent = ({ user }: { user?: any }) => {
       </div>
 
       {/* Bounties */}
-      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-            <Target className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <div className="w-9 sm:w-10 h-9 sm:h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Target className="w-4 sm:w-5 h-4 sm:h-5 text-green-600 dark:text-green-400" />
           </div>
-          <div>
-            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.bounties.title')}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.bounties.subtitle')}</p>
+          <div className="min-w-0">
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white text-sm sm:text-base">{t('overview.bounties.title')}</h3>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('overview.bounties.subtitle')}</p>
           </div>
         </div>
-        <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.bounties.create')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.BOUNTY.MINIMUM} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.bounties.win')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.BOUNTY.WINNER_PERCENT}% {t('overview.bounties.ofPledge')}</span>
-          </div>
+        <div className="grid gap-2 sm:gap-3">
+          <RewardRow label={t('overview.bounties.create')} amount={`${REWARDS.BOUNTY.MINIMUM} BOCA`} />
+          <RewardRow label={t('overview.bounties.win')} amount={`${REWARDS.BOUNTY.WINNER_PERCENT}% ${t('overview.bounties.ofPledge')}`} />
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {t('overview.bounties.fee', { percent: REWARDS.BOUNTY.BURN_PERCENT })}
           </p>
@@ -719,29 +714,20 @@ const OverviewContent = ({ user }: { user?: any }) => {
       </div>
 
       {/* Curation */}
-      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-            <Bookmark className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <div className="w-9 sm:w-10 h-9 sm:h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Bookmark className="w-4 sm:w-5 h-4 sm:h-5 text-blue-600 dark:text-blue-400" />
           </div>
-          <div>
-            <h3 className="font-bold text-[#1F1E2A] dark:text-white">{t('overview.curation.title')}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('overview.curation.subtitle')}</p>
+          <div className="min-w-0">
+            <h3 className="font-bold text-[#1F1E2A] dark:text-white text-sm sm:text-base">{t('overview.curation.title')}</h3>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('overview.curation.subtitle')}</p>
           </div>
         </div>
-        <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.curation.createList')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.CURATION.CREATE_LIST} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.curation.list10')}</span>
-            <span className="font-bold text-[#FF644A]">+{REWARDS.CURATION.LIST_10_SAVES} BOCA</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('overview.curation.list50')}</span>
-            <span className="font-bold text-[#FF644A]">+{REWARDS.CURATION.LIST_50_SAVES} BOCA</span>
-          </div>
+        <div className="grid gap-2 sm:gap-3">
+          <RewardRow label={t('overview.curation.createList')} amount={`${REWARDS.CURATION.CREATE_LIST} BOCA`} />
+          <RewardRow label={t('overview.curation.list10')} amount={`+${REWARDS.CURATION.LIST_10_SAVES} BOCA`} />
+          <RewardRow label={t('overview.curation.list50')} amount={`+${REWARDS.CURATION.LIST_50_SAVES} BOCA`} />
         </div>
       </div>
     </div>
@@ -749,7 +735,7 @@ const OverviewContent = ({ user }: { user?: any }) => {
 };
 
 // ==========================================
-// LOTTERY TAB CONTENT
+// LOTTERY TAB CONTENT - MOBILE FIX
 // ==========================================
 
 function LotteryContent({ 
@@ -770,68 +756,68 @@ function LotteryContent({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2 text-[#1F1E2A] dark:text-white">
+        <h2 className="text-lg sm:text-2xl font-bold mb-1 sm:mb-2 text-[#1F1E2A] dark:text-white">
           {t('lottery.title')}
         </h2>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           {t('lottery.description')}
         </p>
       </div>
 
-      {/* Prize Pool */}
-      <div className="rounded-lg p-6 bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30">
-        <div className="flex items-center justify-between">
+      {/* Prize Pool - MOBILE FIX: Stack on small screens */}
+      <div className="rounded-lg p-4 sm:p-6 bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
           <div>
-            <div className="text-sm mb-1 text-[#E65441] dark:text-[#FF644A]">{t('lottery.prizePool.title')}</div>
-            <div className="text-3xl font-bold text-[#FF644A]">
+            <div className="text-xs sm:text-sm mb-1 text-[#E65441] dark:text-[#FF644A]">{t('lottery.prizePool.title')}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-[#FF644A]">
               {REWARDS.LOTTERY.POOL} BOCA
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-sm mb-1 text-[#E65441] dark:text-[#FF644A]">{t('lottery.prizePool.nextDrawing')}</div>
-            <div className="font-semibold text-[#FF644A]">
+          <div className="sm:text-right">
+            <div className="text-xs sm:text-sm mb-1 text-[#E65441] dark:text-[#FF644A]">{t('lottery.prizePool.nextDrawing')}</div>
+            <div className="font-semibold text-[#FF644A] text-sm sm:text-base">
               {formatDate(data.drawing.week_end)}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Prize Breakdown */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#353444] rounded-lg p-4 text-center border border-gray-200 dark:border-[#3D3C4A]">
-          <div className="text-2xl mb-1">🥇</div>
-          <div className="font-bold text-[#1F1E2A] dark:text-white">
+      {/* Prize Breakdown - keeps 3-col but tighter */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="bg-white dark:bg-[#353444] rounded-lg p-2 sm:p-4 text-center border border-gray-200 dark:border-[#3D3C4A]">
+          <div className="text-xl sm:text-2xl mb-1">🥇</div>
+          <div className="font-bold text-sm sm:text-base text-[#1F1E2A] dark:text-white">
             {REWARDS.LOTTERY.FIRST} BOCA
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">{t('lottery.prizes.first')}</div>
+          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('lottery.prizes.first')}</div>
         </div>
-        <div className="bg-white dark:bg-[#353444] rounded-lg p-4 text-center border border-gray-200 dark:border-[#3D3C4A]">
-          <div className="text-2xl mb-1">🥈</div>
-          <div className="font-bold text-[#1F1E2A] dark:text-white">
+        <div className="bg-white dark:bg-[#353444] rounded-lg p-2 sm:p-4 text-center border border-gray-200 dark:border-[#3D3C4A]">
+          <div className="text-xl sm:text-2xl mb-1">🥈</div>
+          <div className="font-bold text-sm sm:text-base text-[#1F1E2A] dark:text-white">
             {REWARDS.LOTTERY.SECOND} BOCA
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">{t('lottery.prizes.second')}</div>
+          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('lottery.prizes.second')}</div>
         </div>
-        <div className="bg-white dark:bg-[#353444] rounded-lg p-4 text-center border border-gray-200 dark:border-[#3D3C4A]">
-          <div className="text-2xl mb-1">🥉</div>
-          <div className="font-bold text-[#1F1E2A] dark:text-white">
+        <div className="bg-white dark:bg-[#353444] rounded-lg p-2 sm:p-4 text-center border border-gray-200 dark:border-[#3D3C4A]">
+          <div className="text-xl sm:text-2xl mb-1">🥉</div>
+          <div className="font-bold text-sm sm:text-base text-[#1F1E2A] dark:text-white">
             {REWARDS.LOTTERY.THIRD} BOCA
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">{t('lottery.prizes.third')}</div>
+          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('lottery.prizes.third')}</div>
         </div>
       </div>
 
-      {/* Participants Info */}
-      <div className="rounded-lg p-4 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-        <div className="flex items-center gap-3">
-          <Users size={24} className="text-blue-600 dark:text-blue-400" />
+      {/* Participants Info - MOBILE FIX: Responsive flex */}
+      <div className="rounded-lg p-3 sm:p-4 flex items-center justify-between gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Users size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
           <div>
-            <div className="font-semibold text-[#1F1E2A] dark:text-white">
+            <div className="font-semibold text-sm sm:text-base text-[#1F1E2A] dark:text-white">
               {t('lottery.participants.title', { count: data.drawing.total_participants })}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               {t('lottery.participants.eligible', { max: data.drawing.max_participants })}
             </div>
           </div>
@@ -843,7 +829,7 @@ function LotteryContent({
 
       {!isWalletUser && isAuthenticated && (
         <div className="rounded-lg p-4 text-center bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFD4CC] dark:border-[#FF644A]/30">
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             {t('lottery.walletRequired')}
           </p>
         </div>
@@ -853,7 +839,7 @@ function LotteryContent({
 }
 
 // ==========================================
-// LEADERBOARD SECTION
+// LEADERBOARD SECTION - MOBILE FIX: Horizontal scroll
 // ==========================================
 
 function LeaderboardSection({ drawingId }: { drawingId: string }) {
@@ -892,87 +878,92 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-[#1F1E2A] dark:text-white">
+        <h3 className="font-semibold text-[#1F1E2A] dark:text-white text-sm sm:text-base">
           {t('lottery.leaderboard.title')}
         </h3>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
           {t('lottery.leaderboard.topParticipants', { count: Math.min(100, leaderboard.length) })}
         </div>
       </div>
       
-      {/* Table Header */}
-      <div className="grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium rounded-t-lg bg-[#FFF4E1] dark:bg-[#353444] text-gray-600 dark:text-gray-400">
-        <div className="col-span-1">{t('lottery.leaderboard.columns.rank')}</div>
-        <div className="col-span-4">{t('lottery.leaderboard.columns.user')}</div>
-        <div className="col-span-3 text-right">{t('lottery.leaderboard.columns.engagement')}</div>
-        <div className="col-span-2 text-right">{t('lottery.leaderboard.columns.tickets')}</div>
-        <div className="col-span-2 text-right">{t('lottery.leaderboard.columns.status')}</div>
-      </div>
-      
-      {/* Leaderboard Rows */}
-      <div className="space-y-1">
-        {leaderboard.slice(0, 20).map((entry, index) => (
-          <div 
-            key={entry.user.id}
-            className={`grid grid-cols-12 gap-4 items-center p-4 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] ${
-              index < 3 ? 'bg-[#FFF4E1] dark:bg-[#FF644A]/10' : 'bg-white dark:bg-[#2D2C3A]'
-            }`}
-          >
-            {/* Rank */}
-            <div className="col-span-1">
+      {/* MOBILE FIX: Wrap in horizontal scroll container */}
+      <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+        <div className="min-w-[560px]">
+          {/* Table Header */}
+          <div className="grid grid-cols-12 gap-4 px-4 py-2 text-xs sm:text-sm font-medium rounded-t-lg bg-[#FFF4E1] dark:bg-[#353444] text-gray-600 dark:text-gray-400">
+            <div className="col-span-1">{t('lottery.leaderboard.columns.rank')}</div>
+            <div className="col-span-4">{t('lottery.leaderboard.columns.user')}</div>
+            <div className="col-span-3 text-right">{t('lottery.leaderboard.columns.engagement')}</div>
+            <div className="col-span-2 text-right">{t('lottery.leaderboard.columns.tickets')}</div>
+            <div className="col-span-2 text-right">{t('lottery.leaderboard.columns.status')}</div>
+          </div>
+          
+          {/* Leaderboard Rows */}
+          <div className="space-y-1">
+            {leaderboard.slice(0, 20).map((entry, index) => (
               <div 
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                  index === 0 ? 'bg-yellow-400 text-white' : 
-                  index === 1 ? 'bg-gray-400 text-white' : 
-                  index === 2 ? 'bg-amber-600 text-white' : 
-                  'bg-gray-200 dark:bg-[#3D3C4A] text-gray-600 dark:text-gray-400'
+                key={entry.user.id}
+                className={`grid grid-cols-12 gap-4 items-center p-3 sm:p-4 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] ${
+                  index < 3 ? 'bg-[#FFF4E1] dark:bg-[#FF644A]/10' : 'bg-white dark:bg-[#2D2C3A]'
                 }`}
               >
-                {entry.rank}
-              </div>
-            </div>
-            
-            {/* User */}
-            <div className="col-span-4">
-              <div className="font-medium text-[#1F1E2A] dark:text-white">
-                {entry.user.username || `User #${entry.user.id.slice(0, 8)}`}
-              </div>
-              {entry.user.display_name && (
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {entry.user.display_name}
+                {/* Rank */}
+                <div className="col-span-1">
+                  <div 
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm ${
+                      index === 0 ? 'bg-yellow-400 text-white' : 
+                      index === 1 ? 'bg-gray-400 text-white' : 
+                      index === 2 ? 'bg-amber-600 text-white' : 
+                      'bg-gray-200 dark:bg-[#3D3C4A] text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    {entry.rank}
+                  </div>
                 </div>
-              )}
-            </div>
-            
-            {/* Engagement */}
-            <div className="col-span-3 text-right">
-              <div className="font-medium text-[#1F1E2A] dark:text-white">
-                {entry.engagement_score.toFixed(1)}
+                
+                {/* User */}
+                <div className="col-span-4 min-w-0">
+                  <div className="font-medium text-sm text-[#1F1E2A] dark:text-white truncate">
+                    {entry.user.username || `User #${entry.user.id.slice(0, 8)}`}
+                  </div>
+                  {entry.user.display_name && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {entry.user.display_name}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Engagement */}
+                <div className="col-span-3 text-right">
+                  <div className="font-medium text-sm text-[#1F1E2A] dark:text-white">
+                    {entry.engagement_score.toFixed(1)}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{t('lottery.leaderboard.points')}</div>
+                </div>
+                
+                {/* Tickets */}
+                <div className="col-span-2 text-right">
+                  <div className="inline-block px-2 py-1 rounded text-xs sm:text-sm font-semibold bg-[#FFE8E3] dark:bg-[#FF644A]/20 text-[#FF644A]">
+                    {entry.ticket_count}
+                  </div>
+                </div>
+                
+                {/* Status */}
+                <div className="col-span-2 text-right">
+                  {entry.rank <= 100 ? (
+                    <span className="inline-block px-1.5 sm:px-2 py-1 rounded text-[10px] sm:text-xs font-medium bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#2D7A5F] dark:text-[#BFE2D9]">
+                      {t('lottery.leaderboard.eligible')}
+                    </span>
+                  ) : (
+                    <span className="inline-block px-1.5 sm:px-2 py-1 rounded text-[10px] sm:text-xs bg-gray-100 dark:bg-[#3D3C4A] text-gray-500 dark:text-gray-400">
+                      {t('lottery.leaderboard.notEligible')}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{t('lottery.leaderboard.points')}</div>
-            </div>
-            
-            {/* Tickets */}
-            <div className="col-span-2 text-right">
-              <div className="inline-block px-2 py-1 rounded text-sm font-semibold bg-[#FFE8E3] dark:bg-[#FF644A]/20 text-[#FF644A]">
-                {entry.ticket_count}
-              </div>
-            </div>
-            
-            {/* Status */}
-            <div className="col-span-2 text-right">
-              {entry.rank <= 100 ? (
-                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#2D7A5F] dark:text-[#BFE2D9]">
-                  {t('lottery.leaderboard.eligible')}
-                </span>
-              ) : (
-                <span className="inline-block px-2 py-1 rounded text-xs bg-gray-100 dark:bg-[#3D3C4A] text-gray-500 dark:text-gray-400">
-                  {t('lottery.leaderboard.notEligible')}
-                </span>
-              )}
-            </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
       
       {leaderboard.length > 20 && (
@@ -985,7 +976,7 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
 }
 
 // ==========================================
-// PHOTO CONTEST TAB CONTENT
+// PHOTO CONTEST TAB CONTENT - MOBILE FIX
 // ==========================================
 
 function PhotoContestContent({ 
@@ -1043,34 +1034,34 @@ function PhotoContestContent({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2 text-[#1F1E2A] dark:text-white">
+        <h2 className="text-lg sm:text-2xl font-bold mb-1 sm:mb-2 text-[#1F1E2A] dark:text-white">
           {t('photoContest.title')}
         </h2>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           {t('photoContest.description')}
         </p>
       </div>
 
-      {/* Current Phase */}
-      <div className={`rounded-lg p-4 border ${
+      {/* Current Phase - MOBILE FIX: Stack on mobile */}
+      <div className={`rounded-lg p-3 sm:p-4 border ${
         data.round.status === 'voting' 
           ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
           : 'bg-[#FFE8E3] dark:bg-[#FF644A]/20 border-[#FFD4CC] dark:border-[#FF644A]/30'
       }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-[#2D2C3A]">
-              {data.round.status === 'nominations' && <Camera size={20} className="text-[#FF644A]" />}
-              {data.round.status === 'voting' && <Users size={20} className="text-blue-600 dark:text-blue-400" />}
-              {data.round.status === 'completed' && <Trophy size={20} className="text-[#FF644A]" />}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-9 sm:w-10 h-9 sm:h-10 rounded-full flex items-center justify-center bg-white dark:bg-[#2D2C3A] flex-shrink-0">
+              {data.round.status === 'nominations' && <Camera size={18} className="text-[#FF644A]" />}
+              {data.round.status === 'voting' && <Users size={18} className="text-blue-600 dark:text-blue-400" />}
+              {data.round.status === 'completed' && <Trophy size={18} className="text-[#FF644A]" />}
             </div>
             <div>
-              <div className="font-semibold text-[#1F1E2A] dark:text-white">
+              <div className="font-semibold text-sm sm:text-base text-[#1F1E2A] dark:text-white">
                 {getPhaseLabel(data.round.status)}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                 {t('photoContest.phase.stats', { 
                   nominations: data.round.total_nominations, 
                   finalists: data.round.total_finalists 
@@ -1078,69 +1069,69 @@ function PhotoContestContent({
               </div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-500 dark:text-gray-400">{t('photoContest.timeLeft')}</div>
-            <div className="font-semibold text-[#1F1E2A] dark:text-white">
+          <div className="sm:text-right ml-11 sm:ml-0">
+            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('photoContest.timeLeft')}</div>
+            <div className="font-semibold text-sm sm:text-base text-[#1F1E2A] dark:text-white">
               {timeRemaining.days}d {timeRemaining.hours}h
             </div>
           </div>
         </div>
       </div>
 
-      {/* Prizes */}
-      <div className="rounded-lg p-6 bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30">
+      {/* Prizes - MOBILE FIX: Stack on small screens */}
+      <div className="rounded-lg p-4 sm:p-6 bg-[#FFE8E3] dark:bg-[#FF644A]/20 border border-[#FFD4CC] dark:border-[#FF644A]/30">
         <div className="text-center">
-          <div className="text-sm mb-2 text-[#E65441] dark:text-[#FF644A]">{t('photoContest.prizes.title')}</div>
-          <div className="flex items-center justify-center gap-6">
+          <div className="text-xs sm:text-sm mb-2 text-[#E65441] dark:text-[#FF644A]">{t('photoContest.prizes.title')}</div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
             <div>
-              <div className="text-2xl font-bold text-[#FF644A]">{REWARDS.PHOTO_CONTEST.FIRST} BOCA</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{t('photoContest.prizes.first')}</div>
+              <div className="text-xl sm:text-2xl font-bold text-[#FF644A]">{REWARDS.PHOTO_CONTEST.FIRST} BOCA</div>
+              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('photoContest.prizes.first')}</div>
             </div>
             <div>
-              <div className="text-xl font-bold text-[#FF644A]">{REWARDS.PHOTO_CONTEST.SECOND} BOCA</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{t('photoContest.prizes.second')}</div>
+              <div className="text-lg sm:text-xl font-bold text-[#FF644A]">{REWARDS.PHOTO_CONTEST.SECOND} BOCA</div>
+              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('photoContest.prizes.second')}</div>
             </div>
             <div>
-              <div className="text-lg font-bold text-[#FF644A]">{REWARDS.PHOTO_CONTEST.THIRD} BOCA</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{t('photoContest.prizes.third')}</div>
+              <div className="text-base sm:text-lg font-bold text-[#FF644A]">{REWARDS.PHOTO_CONTEST.THIRD} BOCA</div>
+              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('photoContest.prizes.third')}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Contest Timeline */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* Contest Timeline - MOBILE FIX: 2-col on mobile, 4-col on desktop */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="text-center">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${
+          <div className={`w-10 sm:w-12 h-10 sm:h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${
             data.round.status === 'nominations' ? 'bg-[#FF644A]' : 'bg-[#FFE8E3] dark:bg-[#FF644A]/20'
           }`}>
-            <Camera size={20} className={data.round.status === 'nominations' ? 'text-white' : 'text-[#FF644A]'} />
+            <Camera size={18} className={data.round.status === 'nominations' ? 'text-white' : 'text-[#FF644A]'} />
           </div>
-          <div className="font-medium text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.monWed')}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.nominations')}</div>
+          <div className="font-medium text-xs sm:text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.monWed')}</div>
+          <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.nominations')}</div>
         </div>
         <div className="text-center">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 bg-blue-100 dark:bg-blue-900/30">
-            <TrendingUp size={20} className="text-blue-600 dark:text-blue-400" />
+          <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-full flex items-center justify-center mx-auto mb-2 bg-blue-100 dark:bg-blue-900/30">
+            <TrendingUp size={18} className="text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="font-medium text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.thursday')}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.finalists')}</div>
+          <div className="font-medium text-xs sm:text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.thursday')}</div>
+          <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.finalists')}</div>
         </div>
         <div className="text-center">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${
+          <div className={`w-10 sm:w-12 h-10 sm:h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${
             data.round.status === 'voting' ? 'bg-blue-600 dark:bg-blue-500' : 'bg-[#BFE2D9] dark:bg-[#BFE2D9]/20'
           }`}>
-            <Users size={20} className={data.round.status === 'voting' ? 'text-white' : 'text-[#2D7A5F] dark:text-[#BFE2D9]'} />
+            <Users size={18} className={data.round.status === 'voting' ? 'text-white' : 'text-[#2D7A5F] dark:text-[#BFE2D9]'} />
           </div>
-          <div className="font-medium text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.thuSat')}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.voting')}</div>
+          <div className="font-medium text-xs sm:text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.thuSat')}</div>
+          <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.voting')}</div>
         </div>
         <div className="text-center">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 bg-[#FFE8E3] dark:bg-[#FF644A]/20">
-            <Trophy size={20} className="text-[#FF644A]" />
+          <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-full flex items-center justify-center mx-auto mb-2 bg-[#FFE8E3] dark:bg-[#FF644A]/20">
+            <Trophy size={18} className="text-[#FF644A]" />
           </div>
-          <div className="font-medium text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.sunday')}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.winners')}</div>
+          <div className="font-medium text-xs sm:text-sm text-[#1F1E2A] dark:text-white">{t('photoContest.timeline.sunday')}</div>
+          <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">{t('photoContest.timeline.winners')}</div>
         </div>
       </div>
 
@@ -1152,8 +1143,8 @@ function PhotoContestContent({
 
       {/* How to Participate */}
       <div className="space-y-3">
-        <h3 className="font-semibold text-[#1F1E2A] dark:text-white">{t('photoContest.howToParticipate.title')}</h3>
-        <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+        <h3 className="font-semibold text-sm sm:text-base text-[#1F1E2A] dark:text-white">{t('photoContest.howToParticipate.title')}</h3>
+        <div className="space-y-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
           <div className="flex items-start gap-2">
             <span>1.</span>
             <span>{t('photoContest.howToParticipate.step1')}</span>
@@ -1179,7 +1170,7 @@ function PhotoContestContent({
 
       {!isWalletUser && isAuthenticated && (
         <div className="rounded-lg p-4 text-center bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFD4CC] dark:border-[#FF644A]/30">
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             {t('photoContest.walletRequired')}
           </p>
         </div>
@@ -1189,7 +1180,7 @@ function PhotoContestContent({
 }
 
 // ==========================================
-// FINALISTS GRID
+// FINALISTS GRID - MOBILE FIX: 2-col on mobile
 // ==========================================
 
 function FinalistsGrid({ roundId, isWalletUser }: { roundId: string; isWalletUser: boolean }) {
@@ -1240,10 +1231,11 @@ function FinalistsGrid({ roundId, isWalletUser }: { roundId: string; isWalletUse
 
   return (
     <div>
-      <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
+      <h3 className="font-semibold mb-4 text-sm sm:text-base text-[#1F1E2A] dark:text-white">
         {t('photoContest.finalists.title')}
       </h3>
-      <div className="grid grid-cols-3 gap-4">
+      {/* MOBILE FIX: 2-col on mobile, 3-col on sm+ */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {finalists.slice(0, 10).map((finalist) => (
           <div 
             key={finalist.id}
@@ -1258,42 +1250,42 @@ function FinalistsGrid({ roundId, isWalletUser }: { roundId: string; isWalletUse
                 backgroundPosition: 'center'
               }}
             >
-              {!finalist.photo_url && <Camera size={48} className="text-gray-400 dark:text-gray-600" />}
+              {!finalist.photo_url && <Camera size={36} className="text-gray-400 dark:text-gray-600" />}
             </div>
             
             {/* Info */}
-            <div className="p-3">
-              <div className="font-medium mb-1 text-[#1F1E2A] dark:text-white">
+            <div className="p-2 sm:p-3">
+              <div className="font-medium text-xs sm:text-sm mb-1 text-[#1F1E2A] dark:text-white truncate">
                 {finalist.restaurant_name}
               </div>
-              <div className="text-sm mb-2 text-gray-500 dark:text-gray-400">
+              <div className="text-xs mb-2 text-gray-500 dark:text-gray-400 truncate">
                 by @{finalist.username || 'anonymous'}
               </div>
               
               {/* Vote count and button */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs text-gray-600 dark:text-gray-400">
                   {t('photoContest.finalists.votes', { count: finalist.vote_count })}
                 </span>
                 {isWalletUser ? (
                   userVote === finalist.nomination_id ? (
-                    <span className="px-3 py-1 rounded text-sm font-medium bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#2D7A5F] dark:text-[#BFE2D9]">
+                    <span className="px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#2D7A5F] dark:text-[#BFE2D9]">
                       {t('photoContest.finalists.voted')}
                     </span>
                   ) : userVote ? (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                       {t('photoContest.finalists.alreadyVoted')}
                     </span>
                   ) : (
                     <button
                       onClick={() => handleVote(finalist.nomination_id)}
-                      className="px-3 py-1 rounded text-sm font-medium text-white hover:opacity-90 transition-opacity bg-[#FF644A]"
+                      className="px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium text-white hover:opacity-90 transition-opacity bg-[#FF644A]"
                     >
                       {t('photoContest.finalists.vote')}
                     </button>
                   )
                 ) : (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                     {t('photoContest.finalists.loginToVote')}
                   </span>
                 )}
@@ -1315,7 +1307,7 @@ function FinalistsGrid({ roundId, isWalletUser }: { roundId: string; isWalletUse
 }
 
 // ==========================================
-// PAST WINNERS SECTION
+// PAST WINNERS SECTION - MOBILE FIX: 2-col on mobile
 // ==========================================
 
 function PastWinnersSection() {
@@ -1369,10 +1361,11 @@ function PastWinnersSection() {
 
   return (
     <div>
-      <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
+      <h3 className="font-semibold mb-4 text-sm sm:text-base text-[#1F1E2A] dark:text-white">
         {t('photoContest.pastWinners.title')}
       </h3>
-      <div className="grid grid-cols-3 gap-4">
+      {/* MOBILE FIX: 2-col on mobile, 3-col on sm+ */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {winners.map((winner, index) => (
           <div 
             key={index}
@@ -1387,26 +1380,27 @@ function PastWinnersSection() {
                 backgroundPosition: 'center'
               }}
             >
-              {!winner.photo_url && <Camera size={48} className="text-gray-400 dark:text-gray-600" />}
-              <div className="absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center bg-yellow-400">
-                <Trophy size={16} className="text-white" />
+              {!winner.photo_url && <Camera size={36} className="text-gray-400 dark:text-gray-600" />}
+              <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center bg-yellow-400">
+                <Trophy size={12} className="sm:hidden text-white" />
+                <Trophy size={16} className="hidden sm:block text-white" />
               </div>
             </div>
             
             {/* Info */}
-            <div className="p-3">
-              <div className="text-sm mb-1 text-gray-500 dark:text-gray-400">
+            <div className="p-2 sm:p-3">
+              <div className="text-xs sm:text-sm mb-0.5 sm:mb-1 text-gray-500 dark:text-gray-400">
                 {winner.week}
               </div>
-              <div className="font-medium mb-1 text-[#1F1E2A] dark:text-white">
+              <div className="font-medium text-xs sm:text-sm mb-0.5 sm:mb-1 text-[#1F1E2A] dark:text-white truncate">
                 @{winner.username}
               </div>
               {winner.restaurant_name && (
-                <div className="text-xs mb-1 text-gray-600 dark:text-gray-400">
+                <div className="text-[10px] sm:text-xs mb-0.5 sm:mb-1 text-gray-600 dark:text-gray-400 truncate">
                   {winner.restaurant_name}
                 </div>
               )}
-              <div className="text-sm font-semibold text-[#FF644A]">
+              <div className="text-xs sm:text-sm font-semibold text-[#FF644A]">
                 {winner.prize}
               </div>
             </div>
@@ -1424,7 +1418,7 @@ function PastWinnersSection() {
 }
 
 // ==========================================
-// BOUNTIES TAB CONTENT
+// BOUNTIES TAB CONTENT - MOBILE FIX
 // ==========================================
 
 function BountiesContent({ 
@@ -1438,41 +1432,41 @@ function BountiesContent({
   const router = useRouter();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2 text-[#1F1E2A] dark:text-white">
+        <h2 className="text-lg sm:text-2xl font-bold mb-1 sm:mb-2 text-[#1F1E2A] dark:text-white">
           {t('bounties.title')}
         </h2>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           {t('bounties.description')}
         </p>
       </div>
 
-      {/* How Bounties Work */}
-      <div className="rounded-lg p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-        <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">{t('bounties.howItWorks.title')}</h3>
-        <div className="grid grid-cols-3 gap-4 text-sm">
+      {/* How Bounties Work - MOBILE FIX: Stack on mobile */}
+      <div className="rounded-lg p-4 sm:p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+        <h3 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base text-[#1F1E2A] dark:text-white">{t('bounties.howItWorks.title')}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
           <div>
-            <div className="font-medium mb-2 text-blue-600 dark:text-blue-400">
+            <div className="font-medium mb-1 sm:mb-2 text-blue-600 dark:text-blue-400">
               {t('bounties.howItWorks.step1.title')}
             </div>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               {t('bounties.howItWorks.step1.description')}
             </p>
           </div>
           <div>
-            <div className="font-medium mb-2 text-blue-600 dark:text-blue-400">
+            <div className="font-medium mb-1 sm:mb-2 text-blue-600 dark:text-blue-400">
               {t('bounties.howItWorks.step2.title')}
             </div>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               {t('bounties.howItWorks.step2.description')}
             </p>
           </div>
           <div>
-            <div className="font-medium mb-2 text-blue-600 dark:text-blue-400">
+            <div className="font-medium mb-1 sm:mb-2 text-blue-600 dark:text-blue-400">
               {t('bounties.howItWorks.step3.title')}
             </div>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               {t('bounties.howItWorks.step3.description')}
             </p>
           </div>
@@ -1480,57 +1474,51 @@ function BountiesContent({
       </div>
 
       {/* Reward Structure */}
-      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
-        <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
+      <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
+        <h3 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base text-[#1F1E2A] dark:text-white">
           {t('bounties.rewards.title')}
         </h3>
-        <div className="grid gap-3">
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('bounties.rewards.minStake')}</span>
-            <span className="font-bold text-[#FF644A]">{REWARDS.BOUNTY.MINIMUM} BOCA</span>
+        <div className="grid gap-2 sm:gap-3">
+          <RewardRow label={t('bounties.rewards.minStake')} amount={`${REWARDS.BOUNTY.MINIMUM} BOCA`} />
+          <div className="flex items-center justify-between gap-3 p-3 bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 rounded-lg">
+            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium min-w-0">{t('bounties.rewards.winnerReceives')}</span>
+            <span className="font-bold text-[#2D7A5F] dark:text-[#BFE2D9] text-sm whitespace-nowrap flex-shrink-0">{REWARDS.BOUNTY.WINNER_PERCENT}% {t('bounties.rewards.ofStake')}</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300 font-medium">{t('bounties.rewards.winnerReceives')}</span>
-            <span className="font-bold text-[#2D7A5F] dark:text-[#BFE2D9]">{REWARDS.BOUNTY.WINNER_PERCENT}% {t('bounties.rewards.ofStake')}</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#2D2C3A] rounded-lg">
-            <span className="text-gray-700 dark:text-gray-300">{t('bounties.rewards.platformFee')}</span>
-            <span className="font-medium text-gray-600 dark:text-gray-400">{REWARDS.BOUNTY.BURN_PERCENT}% {t('bounties.rewards.burned')}</span>
-          </div>
+          <RewardRow label={t('bounties.rewards.platformFee')} amount={`${REWARDS.BOUNTY.BURN_PERCENT}% ${t('bounties.rewards.burned')}`} />
         </div>
       </div>
 
-      {/* Browse Discovery Requests CTA */}
-      <div className="rounded-xl p-6 bg-gradient-to-br from-[#FF644A]/5 to-[#FF644A]/10 dark:from-[#FF644A]/10 dark:to-[#FF644A]/20 border-2 border-[#FF644A]/20 dark:border-[#FF644A]/30">
-        <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-xl bg-[#FF644A] flex items-center justify-center flex-shrink-0">
-            <Target size={28} className="text-white" />
+      {/* Browse Discovery Requests CTA - MOBILE FIX: Responsive layout */}
+      <div className="rounded-xl p-4 sm:p-6 bg-gradient-to-br from-[#FF644A]/5 to-[#FF644A]/10 dark:from-[#FF644A]/10 dark:to-[#FF644A]/20 border-2 border-[#FF644A]/20 dark:border-[#FF644A]/30">
+        <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-[#FF644A] flex items-center justify-center flex-shrink-0">
+            <Target size={24} className="text-white" />
           </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-lg text-[#1F1E2A] dark:text-white mb-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base sm:text-lg text-[#1F1E2A] dark:text-white mb-1 sm:mb-2">
               {t('bounties.discover.title')}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-3 sm:mb-4">
               {t('bounties.discover.description')}
             </p>
-            <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
-              <li className="flex items-center gap-2">
-                <span className="text-[#FF644A]">•</span>
+            <ul className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-3 sm:mb-4">
+              <li className="flex items-start gap-2">
+                <span className="text-[#FF644A] mt-0.5">•</span>
                 {t('bounties.discover.bullet1')}
               </li>
-              <li className="flex items-center gap-2">
-                <span className="text-[#FF644A]">•</span>
+              <li className="flex items-start gap-2">
+                <span className="text-[#FF644A] mt-0.5">•</span>
                 {t('bounties.discover.bullet2')}
               </li>
-              <li className="flex items-center gap-2">
-                <span className="text-[#FF644A]">•</span>
+              <li className="flex items-start gap-2">
+                <span className="text-[#FF644A] mt-0.5">•</span>
                 {t('bounties.discover.bullet3')}
               </li>
             </ul>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
                 onClick={() => router.push('/discover?tab=requests')}
-                className="px-5 py-2.5 rounded-lg text-white font-medium hover:opacity-90 transition-opacity flex items-center gap-2 bg-[#FF644A]"
+                className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-white font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 bg-[#FF644A] text-sm"
               >
                 {t('bounties.discover.viewRequests')}
                 <ArrowRight size={16} />
@@ -1538,7 +1526,7 @@ function BountiesContent({
               {isAuthenticated && (
                 <button
                   onClick={() => router.push('/discover?tab=requests&create=true')}
-                  className="px-5 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444]"
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444] text-sm"
                 >
                   {t('bounties.discover.createRequest')}
                 </button>
@@ -1551,7 +1539,7 @@ function BountiesContent({
       {/* Wallet Required Notice */}
       {!isWalletUser && isAuthenticated && (
         <div className="rounded-lg p-4 text-center bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFD4CC] dark:border-[#FF644A]/30">
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             {t('bounties.walletRequired')}
           </p>
         </div>
@@ -1560,7 +1548,7 @@ function BountiesContent({
       {/* Not Logged In Notice */}
       {!isAuthenticated && (
         <div className="rounded-lg p-4 text-center bg-gray-50 dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A]">
-          <p className="text-gray-600 dark:text-gray-400 mb-3">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
             {t('bounties.loginRequired')}
           </p>
           <button
