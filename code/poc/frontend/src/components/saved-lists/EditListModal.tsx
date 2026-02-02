@@ -314,46 +314,50 @@ export default function EditListModal({
             )}
 
             <div className="space-y-3 sm:space-y-4">
-              {/* List Name */}
-              <div>
-                <label className="block text-sm font-medium text-[#1F1E2A] dark:text-white mb-1">
-                  {t('edit.fields.name.label')}{' '}
-                  <span className="text-[#E65441]">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={editedList.name}
-                  onChange={(e) =>
-                    setEditedList((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 bg-white dark:bg-[#353444] border border-gray-300 dark:border-[#3D3C4A] rounded-xl text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all text-sm"
-                  placeholder={t('edit.fields.name.placeholder')}
-                  maxLength={100}
-                />
-              </div>
+              {/* List Name — hidden when search is open to save space */}
+              {!showAddRestaurant && (
+                <div>
+                  <label className="block text-sm font-medium text-[#1F1E2A] dark:text-white mb-1">
+                    {t('edit.fields.name.label')}{' '}
+                    <span className="text-[#E65441]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editedList.name}
+                    onChange={(e) =>
+                      setEditedList((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 bg-white dark:bg-[#353444] border border-gray-300 dark:border-[#3D3C4A] rounded-xl text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all text-sm"
+                    placeholder={t('edit.fields.name.placeholder')}
+                    maxLength={100}
+                  />
+                </div>
+              )}
 
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-[#1F1E2A] dark:text-white mb-1">
-                  {t('edit.fields.description.label')}
-                </label>
-                <textarea
-                  value={editedList.description || ''}
-                  onChange={(e) =>
-                    setEditedList((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 bg-white dark:bg-[#353444] border border-gray-300 dark:border-[#3D3C4A] rounded-xl text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all resize-none text-sm"
-                  rows={2}
-                  placeholder={t('edit.fields.description.placeholder')}
-                  maxLength={500}
-                />
-              </div>
+              {/* Description — hidden when search is open to save space */}
+              {!showAddRestaurant && (
+                <div>
+                  <label className="block text-sm font-medium text-[#1F1E2A] dark:text-white mb-1">
+                    {t('edit.fields.description.label')}
+                  </label>
+                  <textarea
+                    value={editedList.description || ''}
+                    onChange={(e) =>
+                      setEditedList((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 bg-white dark:bg-[#353444] border border-gray-300 dark:border-[#3D3C4A] rounded-xl text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all resize-none text-sm"
+                    rows={2}
+                    placeholder={t('edit.fields.description.placeholder')}
+                    maxLength={500}
+                  />
+                </div>
+              )}
 
               {/* Restaurants Section */}
               <div className="border-t border-gray-200 dark:border-[#3D3C4A] pt-3 sm:pt-4">
@@ -403,7 +407,8 @@ export default function EditListModal({
                   </div>
                 )}
 
-                {/* Current Restaurants */}
+                {/* Current Restaurants — hidden during search to maximize space */}
+                {!showAddRestaurant && (
                 <div className="space-y-2">
                   {editedList.items.length === 0 ? (
                     <div className="text-center py-6 bg-[#FFF4E1]/50 dark:bg-[#353444] rounded-xl border-2 border-dashed border-[#FFB3AB] dark:border-[#FF644A]/30">
@@ -516,6 +521,7 @@ export default function EditListModal({
                     ))
                   )}
                 </div>
+                )}
               </div>
             </div>
           </div>
