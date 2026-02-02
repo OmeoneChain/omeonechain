@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Autocomplete } from '@react-google-maps/api';
 import { useTranslations } from 'next-intl';
 import { useCapacitor } from '@/hooks/useCapacitor';
-import { useAuthenticatedFetch } from '@/hooks/useAuth';
+import { useAuth, useAuthenticatedFetch } from '@/hooks/useAuth';
 
 // =============================================================================
 // TYPES
@@ -195,6 +195,7 @@ export default function MapView({
 }: MapViewProps) {
   const t = useTranslations('discover');
   const { isCapacitor } = useCapacitor();
+  const { isHydrated } = useAuth();
   const authenticatedFetch = useAuthenticatedFetch();
 
   const { isLoaded, loadError } = useJsApiLoader({
@@ -441,7 +442,10 @@ export default function MapView({
   }, []);
 
   useEffect(() => {
-    if (!isLoaded || isGeolocating) return;
+    // Wait for auth to hydrate before fetching — otherwise the request
+    // goes out without an Authorization header and the backend returns
+    // Personalized: false (all pins gray / community tier).
+    if (!isLoaded || isGeolocating || !isHydrated) return;
 
     const loadData = async () => {
       setIsLoading(true);
@@ -456,7 +460,7 @@ export default function MapView({
     };
 
     loadData();
-  }, [isLoaded, isGeolocating, fetchBocabocaData]);
+  }, [isLoaded, isGeolocating, isHydrated, fetchBocabocaData]);
 
   // =============================================================================
   // AUTOCOMPLETE BOUNDS
