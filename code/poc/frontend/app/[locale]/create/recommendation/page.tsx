@@ -1,10 +1,15 @@
-// app/[locale]/create/recommendation/page.tsx
-// Simple wrapper to use the existing RecommendationCreationFlow component
 "use client"
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import RecommendationCreationFlow from '@/components/recommendation/RecommendationCreationFlow';
 
 export default function CreateRecommendationPage() {
-  return <RecommendationCreationFlow />;
+  const router = useRouter();
+  
+  return (
+    <RecommendationCreationFlow 
+      onSuccess={() => router.push('/feed')}
+    />
+  );
 }

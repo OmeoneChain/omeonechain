@@ -49,12 +49,12 @@ const CreatePage: React.FC = () => {
   // Success handlers
   const handleCreateListSuccess = (listId: string) => {
     setShowCreateListModal(false);
-    router.push(`/list/${listId}`);
+    router.push('/feed');
   };
 
   const handleCreateRequestSuccess = () => {
     setShowCreateRequestModal(false);
-    router.push('/discover?tab=requests');
+    router.push('/feed');
   };
 
   // Loading state for hydration
