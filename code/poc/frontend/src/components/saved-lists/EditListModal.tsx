@@ -111,13 +111,13 @@ export default function EditListModal({
   // Auto-scroll to search section when it opens
   useEffect(() => {
     if (showAddRestaurant && searchSectionRef.current) {
-      // Small delay to let the DOM render the search section
+      // Delay lets the keyboard finish opening and dvh to recalculate
       const timer = setTimeout(() => {
         searchSectionRef.current?.scrollIntoView({
           behavior: 'smooth',
-          block: 'start',
+          block: 'nearest',
         });
-      }, 100);
+      }, 150);
       return () => clearTimeout(timer);
     }
   }, [showAddRestaurant]);
@@ -284,7 +284,8 @@ export default function EditListModal({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="relative bg-white dark:bg-[#2D2C3A] w-full max-w-lg rounded-2xl shadow-2xl dark:shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col max-h-[85vh] overflow-hidden"
+          className="relative bg-white dark:bg-[#2D2C3A] w-full max-w-lg rounded-2xl shadow-2xl dark:shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col overflow-hidden"
+          style={{ maxHeight: '85dvh' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-[#3D3C4A] flex-shrink-0">
