@@ -2354,6 +2354,10 @@ app.use('/api/diagnostics', diagnosticsRouter);
 
 app.use('/api/feed', feedRoutes);
 
+// Mount the enhanced recommendation routes with Trust Score 2.0 support
+app.use('/api/recommendations', optionalAuth, mapRecommendationsRouter);
+app.use('/api/recommendations', recommendationRoutes);
+
 // =============================================================================
 // 🔥 CRITICAL FIX: MOUNT ROUTER TO APP
 // =============================================================================
@@ -2371,10 +2375,6 @@ app.use('/api/social', optionalAuth, socialRoutes);
 app.use('/api/lists', optionalAuth, guidesRoutes);
 
 app.use('/api/bounty', optionalAuth, bountyRoutes);
-
-// Mount the enhanced recommendation routes with Trust Score 2.0 support
-app.use('/api/recommendations', optionalAuth, mapRecommendationsRouter);
-app.use('/api/recommendations', recommendationRoutes);
 
 // Restaurant search routes
 app.use('/api/restaurants', restaurantRoutes);
