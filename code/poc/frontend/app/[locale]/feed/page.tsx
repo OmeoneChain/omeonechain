@@ -200,7 +200,6 @@ const MainFeed: React.FC = () => {
   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
   const [isLoadingTrending, setIsLoadingTrending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showCreateMenu, setShowCreateMenu] = useState(false);
   const { isCapacitor } = useCapacitor();
 
   const BACKEND_URL = 'https://omeonechain-production.up.railway.app';
@@ -1131,48 +1130,14 @@ const MainFeed: React.FC = () => {
             </button>
           </div>
 
-          {/* Create Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowCreateMenu(!showCreateMenu)}
-              className="flex items-center gap-2 bg-coral text-white px-4 py-2 rounded-lg font-medium hover:bg-coral-dark transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              {t('create')}
-            </button>
-
-            <AnimatePresence>
-              {showCreateMenu && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-2 z-50"
-                >
-                  <button
-                    onClick={() => {
-                      router.push('/create');
-                      setShowCreateMenu(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
-                  >
-                    <ChefHat className="w-4 h-4" />
-                    {t('createMenu.recommendation')}
-                  </button>
-                  <button
-                    onClick={() => {
-                      router.push('/lists/create');
-                      setShowCreateMenu(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444] transition-colors"
-                  >
-                    <Coffee className="w-4 h-4" />
-                    {t('createMenu.list')}
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          {/* Create Recommendation Button */}
+          <button
+            onClick={() => router.push('/create/recommendation')}
+            className="flex items-center gap-2 bg-coral text-white px-4 py-2 rounded-lg font-medium hover:bg-coral-dark transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            {t('create')}
+          </button>
         </div>
 
         {/* Main Content Grid */}
