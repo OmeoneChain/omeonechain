@@ -192,6 +192,7 @@ interface Recommendation {
 interface RecommendationCardProps {
   recommendation: Recommendation;
   variant?: 'default' | 'creation-preview';
+  currentUserId?: string;
   showAuthor?: boolean;
   showTokenRewards?: boolean;
   showBlockchainInfo?: boolean;
@@ -241,6 +242,7 @@ function extractLocationFromAddress(address?: string): string {
 const RecommendationCard: React.FC<RecommendationCardProps> = ({
   recommendation,
   variant = 'default',
+  currentUserId,
   showAuthor = true,
   showTokenRewards = false,
   showBlockchainInfo = false,
@@ -394,7 +396,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   // ============================================================================
 
   const getSocialConnectionText = (author: Author) => {
-    if (author.socialDistance === 1) return t('card.social.yourFriend');
+    if (author.socialDistance === 1) return t('card.social.following');
     return t('card.social.friendOfFriend');
   };
 
@@ -467,13 +469,18 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
             )}
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span className={cn(
-              "px-1.5 py-0.5 rounded-full font-medium",
-              getSocialConnectionColor(recommendation.author)
-            )}>
-              {getSocialConnectionText(recommendation.author)}
-            </span>
-            <span>·</span>
+            {/* Only show social badge if not viewing own content */}
+            {currentUserId !== recommendation.author.id && recommendation.author.socialDistance && (
+              <>
+                <span className={cn(
+                  "px-1.5 py-0.5 rounded-full font-medium",
+                  getSocialConnectionColor(recommendation.author)
+                )}>
+                  {getSocialConnectionText(recommendation.author)}
+                </span>
+                <span>·</span>
+              </>
+            )}
             <span>{timeAgo(recommendation.createdAt)}</span>
           </div>
         </div>

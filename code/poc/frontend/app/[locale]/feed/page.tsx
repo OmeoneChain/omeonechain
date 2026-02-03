@@ -1191,6 +1191,7 @@ const MainFeed: React.FC = () => {
                           <RecommendationCard
                             key={`trending-${item.data.id}-${index}`}
                             recommendation={item.data}
+                            currentUserId={user?.id}
                             variant="default"
                             showAuthor={true}
                             showTokenRewards={false}
@@ -1233,6 +1234,7 @@ const MainFeed: React.FC = () => {
                       />
                       <RecommendationCard
                         recommendation={item.data}
+                        currentUserId={user?.id}
                         variant="default"
                         showAuthor={true}
                         showTokenRewards={false}
@@ -1257,6 +1259,7 @@ const MainFeed: React.FC = () => {
                     <RecommendationCard
                       key={`rec-${item.data.id}-${index}`}
                       recommendation={item.data}
+                      currentUserId={user?.id}
                       variant="default"
                       showAuthor={true}
                       showTokenRewards={false}

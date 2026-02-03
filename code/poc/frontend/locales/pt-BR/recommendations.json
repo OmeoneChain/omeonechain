@@ -166,6 +166,7 @@
     "moreCount": "+{count} mais",
     "onChainVerified": "Verificado on-chain",
     "social": {
+      "following": "Seguindo",
       "yourFriend": "Seu amigo",
       "friendOfFriend": "Amigo de amigo"
     },
