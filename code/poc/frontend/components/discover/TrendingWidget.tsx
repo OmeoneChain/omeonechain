@@ -412,7 +412,7 @@ export default function TrendingWidget({
 
   // Main Render
   return (
-    <div className={`bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] overflow-hidden ${className}`}>
+    <div className={`bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] overflow-hidden max-h-[65vh] md:max-h-none flex flex-col ${className}`}>
       {/* Header */}
       <div className="flex items-center gap-2 p-4 pb-3">
         <TrendingUp className="w-5 h-5 text-[#FF644A]" />
@@ -422,7 +422,7 @@ export default function TrendingWidget({
       </div>
 
       {/* Trending Items */}
-      <div className="px-4 space-y-3">
+      <div className="px-4 space-y-3 overflow-y-auto flex-1 min-h-0">
         {trendingItems.map((item) => {
           const typeConfig = TYPE_CONFIG[item.type];
           const TypeIcon = typeConfig.icon;
@@ -500,7 +500,7 @@ export default function TrendingWidget({
       </div>
 
       {/* Footer - Visual termination with optional "See All" link */}
-      <div className="mt-3 pt-3 pb-4 px-4 border-t border-gray-100 dark:border-[#3D3C4A]">
+      <div className="mt-3 pt-3 pb-4 px-4 border-t border-gray-100 dark:border-[#3D3C4A] flex-shrink-0">
         {showSeeAll && totalCount > itemCount ? (
           <Link
             href="/feed"
