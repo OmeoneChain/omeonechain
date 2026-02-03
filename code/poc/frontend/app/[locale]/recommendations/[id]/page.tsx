@@ -114,7 +114,10 @@ export default function RecommendationDetailPage({
     if (!recommendationId) return;
     
     try {
-      setIsLoading(true);
+      // Only show loading spinner on initial load, not on re-fetches
+      if (!recommendation) {
+        setIsLoading(true);
+      }
       setError(null);
       
       const headers: HeadersInit = {
