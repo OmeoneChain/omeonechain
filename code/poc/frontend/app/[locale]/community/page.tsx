@@ -554,11 +554,11 @@ export default function CommunityPage() {
 
       <div className="max-w-2xl mx-auto px-4 py-4 sm:py-6">
         {/* Page Header */}
-        <div className="mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-[#1F1E2A] dark:text-white">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#1F1E2A] dark:text-white">
             {t('page.title')}
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mt-0.5">
+          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
             {t('page.subtitle')}
           </p>
         </div>
@@ -681,18 +681,43 @@ export default function CommunityPage() {
                 {t('discover.loading')}
               </div>
             ) : discoverUsers.length > 0 ? (
-              /* Grid: 2 cols mobile, 3 cols sm+ */
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {discoverUsers.map((user) => (
-                  <CompactUserCard
-                    key={user.id}
-                    user={user}
-                    onFollow={handleFollow}
-                    onUnfollow={handleUnfollow}
-                    isLoading={isLoadingDiscover}
-                    t={t}
-                  />
-                ))}
+              /* Horizontal carousel: 2 rows, scroll horizontally */
+              <div className="relative">
+                <div 
+                  className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {/* Group users into pages of 6 (2 rows × 3 cols on mobile shows as 2×2 visible) */}
+                  {Array.from({ length: Math.ceil(discoverUsers.length / 6) }).map((_, pageIndex) => (
+                    <div 
+                      key={pageIndex} 
+                      className="flex-shrink-0 snap-start grid grid-cols-2 sm:grid-cols-3 gap-3"
+                      style={{ width: 'calc(100% - 24px)' }}
+                    >
+                      {discoverUsers.slice(pageIndex * 6, pageIndex * 6 + 6).map((user) => (
+                        <CompactUserCard
+                          key={user.id}
+                          user={user}
+                          onFollow={handleFollow}
+                          onUnfollow={handleUnfollow}
+                          isLoading={isLoadingDiscover}
+                          t={t}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                {/* Scroll indicator dots */}
+                {discoverUsers.length > 6 && (
+                  <div className="flex justify-center gap-1.5 mt-2">
+                    {Array.from({ length: Math.ceil(discoverUsers.length / 6) }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600"
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="py-12 text-center">
