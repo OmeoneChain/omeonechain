@@ -224,7 +224,7 @@ function Lightbox({ photos, initialIndex, onClose }: LightboxProps) {
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
       {/* ── Top bar ── */}
-      <div className="relative z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent">
+      <div className="relative z-10 flex items-center justify-between px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] bg-gradient-to-b from-black/60 to-transparent">
         <button
           onClick={onClose}
           className="p-3 text-white hover:text-white active:text-[#FF644A] transition-colors rounded-full bg-black/50 backdrop-blur-sm min-w-[44px] min-h-[44px] flex items-center justify-center"
