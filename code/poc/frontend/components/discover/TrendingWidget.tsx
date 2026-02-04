@@ -546,7 +546,7 @@ export default function TrendingWidget({
       </div>
 
       {/* Footer - Visual termination with optional "See All" link */}
-      <div className="mt-3 pt-3 pb-4 px-4 border-t border-gray-100 dark:border-[#3D3C4A] flex-shrink-0">
+      <div className={`mt-3 pt-3 px-4 border-t border-gray-100 dark:border-[#3D3C4A] flex-shrink-0 ${isCapacitor ? 'pb-3' : 'pb-4'}`}>
         {showSeeAll && totalCount > itemCount ? (
           <Link
             href="/feed"
@@ -561,9 +561,6 @@ export default function TrendingWidget({
           </p>
         )}
       </div>
-      
-      {/* Extra bottom padding for mobile safe area */}
-      <div className={isCapacitor ? "h-4" : "h-2"} />
     </div>
   );
 }
