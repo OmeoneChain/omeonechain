@@ -450,7 +450,7 @@ export default function TrendingWidget({
   return (
     <div 
       className={`bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] overflow-hidden ${
-        isCapacitor ? '' : 'max-h-[65vh] flex flex-col'
+        isCapacitor ? 'mb-6' : 'max-h-[65vh] flex flex-col'
       } ${className}`}
     >
       {/* Header */}
