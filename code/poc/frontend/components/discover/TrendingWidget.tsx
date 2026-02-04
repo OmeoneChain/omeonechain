@@ -1,11 +1,11 @@
 // File: code/poc/frontend/components/discover/TrendingWidget.tsx
 // Trending Widget - Shows mixed content types (recommendations, guides, requests)
 // based on engagement metrics
-// UPDATED: Fixed mobile scroll instability by removing internal scroll on Capacitor
+// UPDATED: Fixed mobile scroll instability and loading state flickering
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
@@ -129,11 +129,162 @@ export default function TrendingWidget({
   const [trendingItems, setTrendingItems] = useState<TrendingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0); // Track total available items
+  const [totalCount, setTotalCount] = useState<number>(0);
+
+  // Refs to prevent loading flicker on re-fetches
+  const hasLoadedInitialData = useRef(false);
+  const isFetching = useRef(false);
+
+  // Fallback: Fetch from individual endpoints and merge/sort by engagement
+  const fetchFromIndividualSources = useCallback(async (authToken: string | null): Promise<TrendingItem[]> => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    const results: TrendingItem[] = [];
+
+    // Fetch recommendations
+    try {
+      const recResponse = await fetch(
+        `${API_BASE_URL}/recommendations/trending?limit=${itemCount}`,
+        { headers }
+      );
+      if (recResponse.ok) {
+        const recData = await recResponse.json();
+        if (recData.success && recData.recommendations) {
+          recData.recommendations.forEach((rec: any) => {
+            results.push({
+              id: rec.id,
+              type: 'recommendation',
+              title: rec.title,
+              subtitle: rec.restaurant?.name || rec.restaurant_name,
+              author: {
+                id: rec.author?.id || rec.author_id,
+                username: rec.author?.username || 'user',
+                display_name: rec.author?.display_name || rec.author?.username || 'User',
+                avatar_url: rec.author?.avatar_url,
+              },
+              engagement: {
+                likes: rec.likes_count || 0,
+                comments: rec.comments_count || 0,
+              },
+              created_at: rec.created_at,
+              restaurant_name: rec.restaurant?.name || rec.restaurant_name,
+            });
+          });
+        }
+      }
+    } catch (e) {
+      console.log('[TrendingWidget] Could not fetch recommendations');
+    }
+
+    // Fetch guides/lists
+    try {
+      const listResponse = await fetch(
+        `${API_BASE_URL}/lists?limit=${itemCount}&sort=popular`,
+        { headers }
+      );
+      if (listResponse.ok) {
+        const listData = await listResponse.json();
+        if (listData.success && listData.lists) {
+          listData.lists.forEach((list: any) => {
+            results.push({
+              id: list.id,
+              type: 'guide',
+              title: list.title,
+              subtitle: `${list.restaurant_count || 0} places`,
+              author: {
+                id: list.created_by || list.author?.id,
+                username: list.author?.username || 'user',
+                display_name: list.author?.display_name || list.author?.username || 'User',
+                avatar_url: list.author?.avatar_url || list.author?.avatar,
+              },
+              engagement: {
+                likes: list.likes_count || 0,
+                saves: list.saves_count || 0,
+              },
+              created_at: list.created_at,
+              restaurant_count: list.restaurant_count,
+            });
+          });
+        }
+      }
+    } catch (e) {
+      console.log('[TrendingWidget] Could not fetch lists');
+    }
+
+    // Fetch discovery requests
+    try {
+      const reqResponse = await fetch(
+        `${API_BASE_URL}/discovery/requests?limit=${itemCount}&status=open`,
+        { headers }
+      );
+      if (reqResponse.ok) {
+        const reqData = await reqResponse.json();
+        if (reqData.success && reqData.requests) {
+          reqData.requests.forEach((req: any) => {
+            results.push({
+              id: req.id,
+              type: 'request',
+              title: req.title,
+              subtitle: req.location || req.cuisine_type,
+              author: {
+                id: req.creator?.id || req.creator_id,
+                username: req.creator?.username || 'user',
+                display_name: req.creator?.display_name || req.creator?.username || 'User',
+                avatar_url: req.creator?.avatar_url,
+              },
+              engagement: {
+                responses: req.response_count || 0,
+                comments: req.comments_count || 0,
+              },
+              created_at: req.created_at,
+              location: req.location,
+              has_bounty: (req.stake_amount || req.bounty_amount || 0) > 0,
+              bounty_amount: req.stake_amount || req.bounty_amount || 0,
+            });
+          });
+        }
+      }
+    } catch (e) {
+      console.log('[TrendingWidget] Could not fetch requests');
+    }
+
+    // Sort by total engagement (likes + comments + responses + saves)
+    results.sort((a, b) => {
+      const aEngagement = (a.engagement.likes || 0) + (a.engagement.comments || 0) + 
+                        (a.engagement.responses || 0) + (a.engagement.saves || 0);
+      const bEngagement = (b.engagement.likes || 0) + (b.engagement.comments || 0) + 
+                        (b.engagement.responses || 0) + (b.engagement.saves || 0);
+      
+      // If engagement is equal, sort by recency
+      if (bEngagement === aEngagement) {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      return bEngagement - aEngagement;
+    });
+
+    return results;
+  }, [itemCount]);
 
   // Fetch trending data from backend
   const fetchTrendingData = useCallback(async () => {
-    setIsLoading(true);
+    // Prevent concurrent fetches
+    if (isFetching.current) {
+      console.log('[TrendingWidget] Already fetching, skipping...');
+      return;
+    }
+
+    isFetching.current = true;
+
+    // Only show loading spinner on initial load, not on background refreshes
+    if (!hasLoadedInitialData.current) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
@@ -156,7 +307,9 @@ export default function TrendingWidget({
         if (data.success && data.items) {
           setTrendingItems(data.items);
           setTotalCount(data.total_count || data.items.length);
+          hasLoadedInitialData.current = true;
           setIsLoading(false);
+          isFetching.current = false;
           console.log(`[TrendingWidget] Loaded ${data.items.length} trending items`);
           return;
         }
@@ -164,168 +317,47 @@ export default function TrendingWidget({
 
       // Fallback: fetch from individual endpoints and merge
       console.log('[TrendingWidget] Unified endpoint not available, fetching from individual sources...');
-      await fetchFromIndividualSources();
-
-    } catch (err) {
-      console.error('[TrendingWidget] Error fetching trending data:', err);
-      // Try fallback
-      await fetchFromIndividualSources();
-    }
-  }, [token, itemCount]);
-
-  // Fallback: Fetch from individual endpoints and merge/sort by engagement
-  const fetchFromIndividualSources = async () => {
-    try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+      const results = await fetchFromIndividualSources(token);
       
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const results: TrendingItem[] = [];
-
-      // Fetch recommendations
-      try {
-        const recResponse = await fetch(
-          `${API_BASE_URL}/recommendations/trending?limit=${itemCount}`,
-          { headers }
-        );
-        if (recResponse.ok) {
-          const recData = await recResponse.json();
-          if (recData.success && recData.recommendations) {
-            recData.recommendations.forEach((rec: any) => {
-              results.push({
-                id: rec.id,
-                type: 'recommendation',
-                title: rec.title,
-                subtitle: rec.restaurant?.name || rec.restaurant_name,
-                author: {
-                  id: rec.author?.id || rec.author_id,
-                  username: rec.author?.username || 'user',
-                  display_name: rec.author?.display_name || rec.author?.username || 'User',
-                  avatar_url: rec.author?.avatar_url,
-                },
-                engagement: {
-                  likes: rec.likes_count || 0,
-                  comments: rec.comments_count || 0,
-                },
-                created_at: rec.created_at,
-                restaurant_name: rec.restaurant?.name || rec.restaurant_name,
-              });
-            });
-          }
-        }
-      } catch (e) {
-        console.log('[TrendingWidget] Could not fetch recommendations');
-      }
-
-      // Fetch guides/lists
-      try {
-        const listResponse = await fetch(
-          `${API_BASE_URL}/lists?limit=${itemCount}&sort=popular`,
-          { headers }
-        );
-        if (listResponse.ok) {
-          const listData = await listResponse.json();
-          if (listData.success && listData.lists) {
-            listData.lists.forEach((list: any) => {
-              results.push({
-                id: list.id,
-                type: 'guide',
-                title: list.title,
-                subtitle: `${list.restaurant_count || 0} places`,
-                author: {
-                  id: list.created_by || list.author?.id,
-                  username: list.author?.username || 'user',
-                  display_name: list.author?.display_name || list.author?.username || 'User',
-                  avatar_url: list.author?.avatar_url || list.author?.avatar,
-                },
-                engagement: {
-                  likes: list.likes_count || 0,
-                  saves: list.saves_count || 0,
-                },
-                created_at: list.created_at,
-                restaurant_count: list.restaurant_count,
-              });
-            });
-          }
-        }
-      } catch (e) {
-        console.log('[TrendingWidget] Could not fetch lists');
-      }
-
-      // Fetch discovery requests
-      try {
-        const reqResponse = await fetch(
-          `${API_BASE_URL}/discovery/requests?limit=${itemCount}&status=open`,
-          { headers }
-        );
-        if (reqResponse.ok) {
-          const reqData = await reqResponse.json();
-          if (reqData.success && reqData.requests) {
-            reqData.requests.forEach((req: any) => {
-              results.push({
-                id: req.id,
-                type: 'request',
-                title: req.title,
-                subtitle: req.location || req.cuisine_type,
-                author: {
-                  id: req.creator?.id || req.creator_id,
-                  username: req.creator?.username || 'user',
-                  display_name: req.creator?.display_name || req.creator?.username || 'User',
-                  avatar_url: req.creator?.avatar_url,
-                },
-                engagement: {
-                  responses: req.response_count || 0,
-                  comments: req.comments_count || 0,
-                },
-                created_at: req.created_at,
-                location: req.location,
-                has_bounty: (req.stake_amount || req.bounty_amount || 0) > 0,
-                bounty_amount: req.stake_amount || req.bounty_amount || 0,
-              });
-            });
-          }
-        }
-      } catch (e) {
-        console.log('[TrendingWidget] Could not fetch requests');
-      }
-
-      // Sort by total engagement (likes + comments + responses + saves)
-      results.sort((a, b) => {
-        const aEngagement = (a.engagement.likes || 0) + (a.engagement.comments || 0) + 
-                          (a.engagement.responses || 0) + (a.engagement.saves || 0);
-        const bEngagement = (b.engagement.likes || 0) + (b.engagement.comments || 0) + 
-                          (b.engagement.responses || 0) + (b.engagement.saves || 0);
-        
-        // If engagement is equal, sort by recency
-        if (bEngagement === aEngagement) {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        }
-        return bEngagement - aEngagement;
-      });
-
-      // Track total before slicing
       setTotalCount(results.length);
-
-      // Take top items
       setTrendingItems(results.slice(0, itemCount));
-      setIsLoading(false);
-
+      hasLoadedInitialData.current = true;
+      
       if (results.length === 0) {
         setError('No trending content available');
       }
 
     } catch (err) {
-      console.error('[TrendingWidget] Error in fallback fetch:', err);
-      setError('Failed to load trending content');
+      console.error('[TrendingWidget] Error fetching trending data:', err);
+      
+      // Try fallback
+      try {
+        const results = await fetchFromIndividualSources(token);
+        setTotalCount(results.length);
+        setTrendingItems(results.slice(0, itemCount));
+        hasLoadedInitialData.current = true;
+        
+        if (results.length === 0) {
+          setError('No trending content available');
+        }
+      } catch (fallbackErr) {
+        console.error('[TrendingWidget] Fallback also failed:', fallbackErr);
+        setError('Failed to load trending content');
+      }
+    } finally {
       setIsLoading(false);
+      isFetching.current = false;
     }
-  };
+  }, [token, itemCount, fetchFromIndividualSources]);
 
+  // Only fetch once on mount, or when token becomes available for the first time
   useEffect(() => {
+    // If we already have data, don't refetch just because token changed
+    if (hasLoadedInitialData.current && trendingItems.length > 0) {
+      console.log('[TrendingWidget] Already have data, skipping refetch');
+      return;
+    }
+    
     fetchTrendingData();
   }, [fetchTrendingData]);
 
@@ -368,8 +400,8 @@ export default function TrendingWidget({
   // RENDER
   // =============================================================================
 
-  // Loading State
-  if (isLoading) {
+  // Loading State - only show on true initial load
+  if (isLoading && !hasLoadedInitialData.current) {
     return (
       <div className={`bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] p-4 ${className}`}>
         <div className="flex items-center gap-2 mb-4">
