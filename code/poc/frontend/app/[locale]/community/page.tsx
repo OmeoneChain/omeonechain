@@ -552,7 +552,7 @@ export default function CommunityPage() {
     <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       <CleanHeader />
 
-      <div className="max-w-2xl mx-auto px-4 py-4 sm:py-6">
+      <div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
         {/* Page Header */}
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#1F1E2A] dark:text-white">
