@@ -1,7 +1,7 @@
 // File: code/poc/frontend/components/discover/TrendingWidget.tsx
 // Trending Widget - Shows mixed content types (recommendations, guides, requests)
 // based on engagement metrics
-// UPDATED: Added "See All" footer and visual termination for better UX
+// UPDATED: Fixed mobile scroll instability by removing internal scroll on Capacitor
 
 'use client';
 
@@ -9,6 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
+import { useCapacitor } from '@/hooks/useCapacitor';
 import { TrendingUp, MessageCircle, Heart, Users, MapPin, HelpCircle, BookOpen, Utensils, ChevronRight } from 'lucide-react';
 
 // =============================================================================
@@ -123,6 +124,7 @@ export default function TrendingWidget({
 }: TrendingWidgetProps) {
   const t = useTranslations('discover');
   const { token } = useAuth();
+  const { isCapacitor } = useCapacitor();
   
   const [trendingItems, setTrendingItems] = useState<TrendingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -411,10 +413,16 @@ export default function TrendingWidget({
   }
 
   // Main Render
+  // On mobile (Capacitor): No internal scroll - let page handle scrolling
+  // On desktop: Keep max-height and internal scroll for sidebar
   return (
-    <div className={`bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] overflow-hidden max-h-[65vh] md:max-h-none flex flex-col ${className}`}>
+    <div 
+      className={`bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm border border-gray-200 dark:border-[#3D3C4A] overflow-hidden ${
+        isCapacitor ? '' : 'max-h-[65vh] flex flex-col'
+      } ${className}`}
+    >
       {/* Header */}
-      <div className="flex items-center gap-2 p-4 pb-3">
+      <div className="flex items-center gap-2 p-4 pb-3 flex-shrink-0">
         <TrendingUp className="w-5 h-5 text-[#FF644A]" />
         <h3 className="font-semibold text-[#1F1E2A] dark:text-white">
           {t('sidebar.trending.title', { defaultValue: 'Trending' })}
@@ -422,7 +430,13 @@ export default function TrendingWidget({
       </div>
 
       {/* Trending Items */}
-      <div className="px-4 space-y-3 overflow-y-auto flex-1 min-h-0">
+      {/* Mobile: no overflow, no flex-1, just normal flow */}
+      {/* Desktop: scrollable with flex-1 */}
+      <div 
+        className={`px-4 space-y-3 ${
+          isCapacitor ? '' : 'overflow-y-auto flex-1 min-h-0'
+        }`}
+      >
         {trendingItems.map((item) => {
           const typeConfig = TYPE_CONFIG[item.type];
           const TypeIcon = typeConfig.icon;
@@ -517,7 +531,7 @@ export default function TrendingWidget({
       </div>
       
       {/* Extra bottom padding for mobile safe area */}
-      <div className="h-2" />
+      <div className={isCapacitor ? "h-4" : "h-2"} />
     </div>
   );
 }
