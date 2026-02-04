@@ -38,6 +38,10 @@
 
   "nearMe": "Perto de Mim",
 
+  "loading": "Carregando restaurantes...",
+
+  "geolocating": "Encontrando sua localização...",
+
   "filters": {
     "title": "Filtros",
     "cuisine": "Culinária",

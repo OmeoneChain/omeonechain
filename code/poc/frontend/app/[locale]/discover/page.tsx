@@ -575,8 +575,11 @@ const DiscoverPage = () => {
     }
   };
 
-  const fetchData = async () => {
-    setIsLoadingData(true);
+  const fetchData = async (isInitialLoad = false) => {
+    // Only show loading spinner on initial load, not on background refreshes
+    if (isInitialLoad) {
+      setIsLoadingData(true);
+    }
     setError(null);
     
     try {
@@ -596,7 +599,9 @@ const DiscoverPage = () => {
   };
 
   useEffect(() => {
-    fetchData();
+    // Only show loading state on first load when we have no data yet
+    const isInitialLoad = curatedLists.length === 0 && discoveryRequests.length === 0;
+    fetchData(isInitialLoad);
   }, [user]);
 
   // Context-aware Quick Actions (only used on web/desktop)

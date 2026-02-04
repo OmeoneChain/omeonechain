@@ -38,6 +38,10 @@
 
   "nearMe": "Near Me",
 
+  "loading": "Loading restaurants...",
+  
+  "geolocating": "Finding your location...",
+
   "filters": {
     "title": "Filters",
     "cuisine": "Cuisine",

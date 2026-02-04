@@ -253,6 +253,8 @@ export default function MapView({
   // Refs
   const searchInputRef = useRef<HTMLInputElement>(null);
   const cityInputRef = useRef<HTMLInputElement>(null);
+  const hasLoadedInitialData = useRef(false);
+  const lastFetchedCenter = useRef<{ lat: number; lng: number } | null>(null);
 
   // =============================================================================
   // AUTO-GEOLOCATION ON MOUNT
@@ -341,7 +343,17 @@ export default function MapView({
   // DATA FETCHING — Uses authenticatedFetch for proper tier classification
   // =============================================================================
 
-  const fetchBocabocaData = useCallback(async () => {
+  const fetchBocabocaData = useCallback(async (): Promise<BocaBocaRestaurant[]> => {
+    // Skip if center hasn't changed significantly (within ~100m)
+    if (lastFetchedCenter.current) {
+      const latDiff = Math.abs(lastFetchedCenter.current.lat - mapCenter.lat);
+      const lngDiff = Math.abs(lastFetchedCenter.current.lng - mapCenter.lng);
+      if (latDiff < 0.001 && lngDiff < 0.001) {
+        console.log('[BocaBoca] Skipping fetch - center unchanged');
+        return bocabocaRestaurants; // Return existing data
+      }
+    }
+
     console.log('[BocaBoca] Fetching tier data for center:', mapCenter);
     console.log('[BocaBoca] Auth token present:', !!authToken, '| isHydrated:', isHydrated);
     try {
@@ -385,6 +397,8 @@ export default function MapView({
       
       if (data.success && data.data?.recommendations) {
         console.log('[BocaBoca] Loaded', data.data.recommendations.length, 'restaurants with tiers. Personalized:', data.data.is_personalized);
+        // Track last successful fetch center
+        lastFetchedCenter.current = { ...mapCenter };
         return data.data.recommendations as BocaBocaRestaurant[];
       }
       console.warn('[BocaBoca] No recommendations in response');
@@ -393,7 +407,7 @@ export default function MapView({
       console.error('[BocaBoca] Error fetching data:', err);
       return [];
     }
-  }, [mapCenter, authToken, isHydrated]);
+  }, [mapCenter, authToken, isHydrated, bocabocaRestaurants]);
 
   // =============================================================================
   // DATA PROCESSING
@@ -456,10 +470,15 @@ export default function MapView({
     if (!isLoaded || isGeolocating || !isHydrated) return;
 
     const loadData = async () => {
-      setIsLoading(true);
+      // Only show loading spinner on initial load, not on background refreshes
+      if (!hasLoadedInitialData.current) {
+        setIsLoading(true);
+      }
+      
       try {
         const bbData = await fetchBocabocaData();
         setBocabocaRestaurants(bbData);
+        hasLoadedInitialData.current = true;
       } catch (err) {
         setError('Failed to load restaurant data');
       } finally {
@@ -601,6 +620,9 @@ export default function MapView({
     
     // Reset session token
     setCitySessionToken(null);
+    
+    // Reset the last fetched center to force a new fetch for the new city
+    lastFetchedCenter.current = null;
 
     console.log('[MapView] Changed city to:', shortName, { lat, lng });
   }, [cityAutocomplete, mapRef]);
@@ -686,6 +708,8 @@ export default function MapView({
           setIsGeolocating(false);
           // Close modal on mobile after selecting location
           setShowLocationModal(false);
+          // Reset last fetched center to force new fetch
+          lastFetchedCenter.current = null;
         },
         (error) => {
           clearTimeout(timeoutId);
@@ -1583,15 +1607,22 @@ export default function MapView({
         </div>
       )}
 
-      {/* Loading Indicator - Non-blocking, shown above map */}
-      {(isLoading || isGeolocating) && (
+      {/* Loading Indicator - Non-blocking, shown above map - ONLY on initial load */}
+      {isLoading && !hasLoadedInitialData.current && (
         <div className="flex items-center justify-center gap-2 py-2 px-4 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-sm">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF644A]"></div>
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {isGeolocating 
-              ? t('geolocating', { defaultValue: 'Finding your location...' })
-              : t('loading', { defaultValue: 'Loading...' })
-            }
+            {t('loading', { defaultValue: 'Loading restaurants...' })}
+          </span>
+        </div>
+      )}
+
+      {/* Geolocating indicator - separate from data loading */}
+      {isGeolocating && (
+        <div className="flex items-center justify-center gap-2 py-2 px-4 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-sm">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF644A]"></div>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {t('geolocating', { defaultValue: 'Finding your location...' })}
           </span>
         </div>
       )}
