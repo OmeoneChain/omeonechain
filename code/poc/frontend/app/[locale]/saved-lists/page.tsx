@@ -132,11 +132,11 @@ export default function SavedListsPage() {
     <>
       <CleanHeader />
       <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
-        <div className="max-w-2xl mx-auto px-4 py-4 sm:py-6">
+        <div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
 
           {/* Header */}
-          <div className="flex items-center justify-between mb-6 sm:mb-8">
-            <div>
+          <div className="flex items-start justify-between mb-6 sm:mb-8">
+            <div className="pr-4">
               <h1 className="text-2xl sm:text-3xl font-bold text-[#1F1E2A] dark:text-gray-100">
                 {t('pageTitle')}
               </h1>
