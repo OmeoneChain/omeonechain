@@ -56,6 +56,8 @@ interface CuratedList {
   tags?: string[];
   isBookmarked?: boolean;
   hasLiked?: boolean;
+  coverImage?: string;  // User-uploaded or Google Places cover image
+  coverImageSource?: 'google_places' | 'user_upload' | null;
 }
 
 interface ListCardProps {
@@ -238,10 +240,49 @@ const ListCard: React.FC<ListCardProps> = ({
     return computed || getTimeRecentText();
   };
 
-  // Get the first restaurant image if available
-  const heroImage = list.preview.find(r => r.image)?.image;
+  // Get the cover image: prioritize coverImage, then first restaurant image
+  const coverImage = list.coverImage || list.preview.find(r => r.image)?.image;
   const gradient = getCategoryGradient(list.category);
   const emoji = getCategoryEmoji(list.category);
+
+  // ============================================
+  // IMPROVED GRADIENT FALLBACK COMPONENT
+  // A more designed placeholder when no photo is available
+  // ============================================
+  const GradientFallback: React.FC<{ 
+    height?: string; 
+    showLargeIcon?: boolean;
+  }> = ({ height = 'h-32 sm:h-36', showLargeIcon = false }) => (
+    <div className={cn(
+      "relative overflow-hidden",
+      height,
+      `bg-gradient-to-br ${gradient}`
+    )}>
+      {/* Subtle noise texture overlay */}
+      <div 
+        className="absolute inset-0 opacity-[0.08] mix-blend-overlay"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+        }}
+      />
+      
+      {/* Decorative circles for visual interest */}
+      <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
+      <div className="absolute -bottom-12 -left-12 w-40 h-40 rounded-full bg-black/10 blur-3xl" />
+      
+      {/* Center icon with frosted glass effect */}
+      {showLargeIcon && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/30">
+            <span className="text-4xl">{emoji}</span>
+          </div>
+        </div>
+      )}
+      
+      {/* Gradient overlay for text readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+    </div>
+  );
 
   // ============================================
   // FEED VARIANT - Optimized for mixed content feeds
@@ -377,51 +418,93 @@ const ListCard: React.FC<ListCardProps> = ({
         )}
 
         <Link href={`/list/${list.id}`} className="block">
-          {/* Hero Section - Gradient with title overlay */}
+          {/* Hero Section - Image or Gradient Fallback */}
           <div className="relative">
-            <div className={cn(
-              "relative h-32 sm:h-36 overflow-hidden",
-              `bg-gradient-to-br ${gradient}`
-            )}>
-              {/* Decorative pattern */}
-              <div className="absolute inset-0 opacity-20">
-                <div className="absolute top-2 right-4 text-4xl opacity-50">{emoji}</div>
-                <div className="absolute bottom-8 right-8 text-6xl opacity-30">{emoji}</div>
-              </div>
-              
-              {/* Gradient overlay for text readability */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-              
-              {/* List type indicator - small badge top-left */}
-              <div className="absolute top-3 left-3">
-                <span className="px-2 py-1 bg-white/90 dark:bg-white/95 backdrop-blur-sm text-navy text-xs font-medium rounded-full shadow-sm flex items-center gap-1">
-                  <ListIcon size={11} />
-                  List
-                </span>
-              </div>
-              
-              {/* Title overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <h3 className="text-white font-bold text-lg sm:text-xl leading-tight mb-1 drop-shadow-lg">
-                  {list.title}
-                </h3>
-                <div className="flex items-center gap-2 text-white/90 text-sm">
-                  <span className="flex items-center gap-1">
-                    <Utensils size={13} />
-                    {list.restaurantCount} {list.restaurantCount === 1 ? 'restaurant' : 'restaurants'}
+            {coverImage ? (
+              /* Photo-based hero */
+              <div className="relative h-32 sm:h-36 overflow-hidden">
+                <Image
+                  src={coverImage}
+                  alt={list.title}
+                  fill
+                  className="object-cover"
+                />
+                {/* Gradient overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                
+                {/* List type indicator - small badge top-left */}
+                <div className="absolute top-3 left-3">
+                  <span className="px-2 py-1 bg-white/90 dark:bg-white/95 backdrop-blur-sm text-navy text-xs font-medium rounded-full shadow-sm flex items-center gap-1">
+                    <ListIcon size={11} />
+                    List
                   </span>
-                  {list.neighborhood && (
-                    <>
-                      <span className="text-white/50">•</span>
-                      <span className="flex items-center gap-1">
-                        <MapPin size={13} />
-                        {list.neighborhood}
-                      </span>
-                    </>
-                  )}
+                </div>
+                
+                {/* Title overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <h3 className="text-white font-bold text-lg sm:text-xl leading-tight mb-1 drop-shadow-lg">
+                    {list.title}
+                  </h3>
+                  <div className="flex items-center gap-2 text-white/90 text-sm">
+                    <span className="flex items-center gap-1">
+                      <Utensils size={13} />
+                      {list.restaurantCount} {list.restaurantCount === 1 ? 'restaurant' : 'restaurants'}
+                    </span>
+                    {list.neighborhood && (
+                      <>
+                        <span className="text-white/50">•</span>
+                        <span className="flex items-center gap-1">
+                          <MapPin size={13} />
+                          {list.neighborhood}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Improved gradient fallback */
+              <div className="relative">
+                <GradientFallback height="h-32 sm:h-36" showLargeIcon={false} />
+                
+                {/* List type indicator - small badge top-left */}
+                <div className="absolute top-3 left-3">
+                  <span className="px-2 py-1 bg-white/90 dark:bg-white/95 backdrop-blur-sm text-navy text-xs font-medium rounded-full shadow-sm flex items-center gap-1">
+                    <ListIcon size={11} />
+                    List
+                  </span>
+                </div>
+                
+                {/* Category emoji badge - top right for visual interest */}
+                <div className="absolute top-3 right-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
+                    <span className="text-xl">{emoji}</span>
+                  </div>
+                </div>
+                
+                {/* Title overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <h3 className="text-white font-bold text-lg sm:text-xl leading-tight mb-1 drop-shadow-lg">
+                    {list.title}
+                  </h3>
+                  <div className="flex items-center gap-2 text-white/90 text-sm">
+                    <span className="flex items-center gap-1">
+                      <Utensils size={13} />
+                      {list.restaurantCount} {list.restaurantCount === 1 ? 'restaurant' : 'restaurants'}
+                    </span>
+                    {list.neighborhood && (
+                      <>
+                        <span className="text-white/50">•</span>
+                        <span className="flex items-center gap-1">
+                          <MapPin size={13} />
+                          {list.neighborhood}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Content Section */}
@@ -509,95 +592,154 @@ const ListCard: React.FC<ListCardProps> = ({
         <Link href={`/list/${list.id}`} className="block">
           {/* Hero Section */}
           <div className="relative">
-            {/* Background - Image or Gradient */}
-            <div className={cn(
-              "relative h-48 sm:h-56 overflow-hidden",
-              !heroImage && `bg-gradient-to-br ${gradient}`
-            )}>
-              {heroImage ? (
+            {coverImage ? (
+              /* Photo-based hero */
+              <div className="relative h-48 sm:h-56 overflow-hidden">
                 <Image
-                  src={heroImage}
+                  src={coverImage}
                   alt={list.title}
                   fill
                   className="object-cover"
                 />
-              ) : (
-                /* Decorative pattern for gradient background */
-                <div className="absolute inset-0 opacity-20">
-                  <div className="absolute top-4 left-4 text-6xl opacity-50">{emoji}</div>
-                  <div className="absolute bottom-8 right-8 text-8xl opacity-30">{emoji}</div>
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-9xl opacity-20">{emoji}</div>
-                </div>
-              )}
-              
-              {/* Gradient overlay for text readability */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              
-              {/* Category badge */}
-              {list.category && (
-                <div className="absolute top-4 left-4">
-                  <span className="px-3 py-1.5 bg-white/90 dark:bg-white/95 backdrop-blur-sm text-navy text-xs font-semibold rounded-full shadow-sm">
-                    {emoji} {list.category}
-                  </span>
-                </div>
-              )}
-              
-              {/* Menu button */}
-              {showActions && (
-                <div className="absolute top-4 right-4">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowMenu(!showMenu);
-                    }}
-                    className="p-2 bg-white/90 dark:bg-white/95 backdrop-blur-sm rounded-full hover:bg-white transition-colors shadow-sm"
-                  >
-                    <MoreHorizontal size={16} className="text-gray-600" />
-                  </button>
-                  
-                  {/* Dropdown menu */}
-                  {showMenu && (
-                    <div className="absolute right-0 top-10 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-1 z-20 min-w-[140px]">
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          onReport?.(list.id);
-                          setShowMenu(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center text-red-600 dark:text-red-400"
-                      >
-                        <Flag size={14} className="mr-2" />
-                        {getReportText()}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Title overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-5">
-                <h3 className="text-white font-bold text-xl sm:text-2xl leading-tight mb-2 drop-shadow-lg">
-                  {list.title}
-                </h3>
-                <div className="flex items-center gap-3 text-white/90 text-sm">
-                  <span className="flex items-center gap-1.5">
-                    <Utensils size={14} />
-                    {list.restaurantCount} {list.restaurantCount === 1 ? 'restaurant' : 'restaurants'}
-                  </span>
-                  {list.neighborhood && (
-                    <>
-                      <span className="text-white/50">•</span>
-                      <span className="flex items-center gap-1.5">
-                        <MapPin size={14} />
-                        {list.neighborhood}
-                      </span>
-                    </>
-                  )}
+                {/* Gradient overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                
+                {/* Category badge */}
+                {list.category && (
+                  <div className="absolute top-4 left-4">
+                    <span className="px-3 py-1.5 bg-white/90 dark:bg-white/95 backdrop-blur-sm text-navy text-xs font-semibold rounded-full shadow-sm">
+                      {emoji} {list.category}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Menu button */}
+                {showActions && (
+                  <div className="absolute top-4 right-4">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowMenu(!showMenu);
+                      }}
+                      className="p-2 bg-white/90 dark:bg-white/95 backdrop-blur-sm rounded-full hover:bg-white transition-colors shadow-sm"
+                    >
+                      <MoreHorizontal size={16} className="text-gray-600" />
+                    </button>
+                    
+                    {/* Dropdown menu */}
+                    {showMenu && (
+                      <div className="absolute right-0 top-10 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-1 z-20 min-w-[140px]">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onReport?.(list.id);
+                            setShowMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center text-red-600 dark:text-red-400"
+                        >
+                          <Flag size={14} className="mr-2" />
+                          {getReportText()}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Title overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-5">
+                  <h3 className="text-white font-bold text-xl sm:text-2xl leading-tight mb-2 drop-shadow-lg">
+                    {list.title}
+                  </h3>
+                  <div className="flex items-center gap-3 text-white/90 text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <Utensils size={14} />
+                      {list.restaurantCount} {list.restaurantCount === 1 ? 'restaurant' : 'restaurants'}
+                    </span>
+                    {list.neighborhood && (
+                      <>
+                        <span className="text-white/50">•</span>
+                        <span className="flex items-center gap-1.5">
+                          <MapPin size={14} />
+                          {list.neighborhood}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Improved gradient fallback */
+              <div className="relative">
+                <GradientFallback height="h-48 sm:h-56" showLargeIcon={true} />
+                
+                {/* Category badge */}
+                {list.category && (
+                  <div className="absolute top-4 left-4">
+                    <span className="px-3 py-1.5 bg-white/90 dark:bg-white/95 backdrop-blur-sm text-navy text-xs font-semibold rounded-full shadow-sm">
+                      {emoji} {list.category}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Menu button */}
+                {showActions && (
+                  <div className="absolute top-4 right-4">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowMenu(!showMenu);
+                      }}
+                      className="p-2 bg-white/90 dark:bg-white/95 backdrop-blur-sm rounded-full hover:bg-white transition-colors shadow-sm"
+                    >
+                      <MoreHorizontal size={16} className="text-gray-600" />
+                    </button>
+                    
+                    {/* Dropdown menu */}
+                    {showMenu && (
+                      <div className="absolute right-0 top-10 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-1 z-20 min-w-[140px]">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onReport?.(list.id);
+                            setShowMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center text-red-600 dark:text-red-400"
+                        >
+                          <Flag size={14} className="mr-2" />
+                          {getReportText()}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Title overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-5">
+                  <h3 className="text-white font-bold text-xl sm:text-2xl leading-tight mb-2 drop-shadow-lg">
+                    {list.title}
+                  </h3>
+                  <div className="flex items-center gap-3 text-white/90 text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <Utensils size={14} />
+                      {list.restaurantCount} {list.restaurantCount === 1 ? 'restaurant' : 'restaurants'}
+                    </span>
+                    {list.neighborhood && (
+                      <>
+                        <span className="text-white/50">•</span>
+                        <span className="flex items-center gap-1.5">
+                          <MapPin size={14} />
+                          {list.neighborhood}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Content Section */}

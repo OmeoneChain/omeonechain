@@ -137,6 +137,7 @@ interface CuratedList {
   tags?: string[];
   isBookmarked?: boolean;
   hasLiked?: boolean;
+  coverImage?: string;
 }
 
 // NEW: Reshare interface
@@ -367,7 +368,8 @@ const MainFeed: React.FC = () => {
           })),
           tags: item.tags || [],
           isBookmarked: item.isBookmarked || false,
-          hasLiked: item.is_liked || false
+          hasLiked: item.is_liked || false,
+          coverImage: item.cover_image_url || null
         };
         
         return { type: 'list', data: listData };

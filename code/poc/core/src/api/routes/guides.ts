@@ -2,12 +2,14 @@
 // List routes: CRUD operations, interactions, and user profile integration
 // COMPLETE: All list functionality consolidated from server.ts
 // FIXED: Response field names match frontend expectations
+// UPDATED: 2026-02-05 - Added cover image auto-population from Google Places
 
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { getRewardService } from '../../services/reward-service';
+import { getGooglePlacesCacheService } from '../../services/google-places-cache';
 
 /**
  * Check and award list/guide milestone rewards
@@ -243,6 +245,8 @@ router.get('/', optionalAuth, async (req: express.Request, res: express.Response
         author_id,
         likes_count,
         bookmarks_count,
+        cover_image_url,
+        cover_image_source,
         created_at,
         updated_at,
         guide_items (
@@ -318,6 +322,8 @@ router.get('/', optionalAuth, async (req: express.Request, res: express.Response
         visibility: list.is_public ? 'public' : 'private',
         created_by: list.author_id,
         author_id: list.author_id,
+        cover_image_url: list.cover_image_url || null,
+        cover_image_source: list.cover_image_source || null,
         created_at: list.created_at,
         updated_at: list.updated_at,
         restaurant_count: list.guide_items?.length || 0,
@@ -464,6 +470,20 @@ router.post('/', authenticate, async (req: express.Request, res: express.Respons
     // Check for 5+ items milestone reward
     await checkGuideMilestoneRewards(newList.id, newList.author_id, 0, createdItems.length);
 
+    // Auto-populate cover image from first restaurant's Google Places photo
+    let coverImageUrl: string | null = null;
+    try {
+      const cacheService = getGooglePlacesCacheService();
+      const coverResult = await cacheService.setGuideCoverImage(newList.id);
+      if (coverResult.success && coverResult.coverImageUrl) {
+        coverImageUrl = coverResult.coverImageUrl;
+        console.log(`🖼️ Auto-set cover image for guide "${newList.title}" from ${coverResult.restaurantName}`);
+      }
+    } catch (coverError) {
+      console.warn('⚠️ Failed to auto-set cover image:', coverError);
+      // Non-fatal error, continue with guide creation
+    }
+
     res.status(201).json({
       success: true,
       list: {
@@ -474,7 +494,8 @@ router.post('/', authenticate, async (req: express.Request, res: express.Respons
         created_by: newList.author_id,
         created_at: newList.created_at,
         updated_at: newList.updated_at,
-        restaurant_count: createdItems.length
+        restaurant_count: createdItems.length,
+        cover_image_url: coverImageUrl
       },
       restaurant_ids: validatedData.restaurant_ids,
       message: `List "${newList.title}" created successfully with ${createdItems.length} restaurants`
@@ -707,6 +728,20 @@ router.post('/from-saved-list', authenticate, async (req: express.Request, res: 
 
     console.log(`✅ Added ${createdItems.length} restaurants to guide`);
 
+    // Auto-populate cover image from first restaurant's Google Places photo
+    let coverImageUrl: string | null = null;
+    try {
+      const cacheService = getGooglePlacesCacheService();
+      const coverResult = await cacheService.setGuideCoverImage(newGuide.id);
+      if (coverResult.success && coverResult.coverImageUrl) {
+        coverImageUrl = coverResult.coverImageUrl;
+        console.log(`🖼️ Auto-set cover image for guide "${newGuide.title}" from ${coverResult.restaurantName}`);
+      }
+    } catch (coverError) {
+      console.warn('⚠️ Failed to auto-set cover image:', coverError);
+      // Non-fatal error, continue with guide creation
+    }
+
     // 6. Return success response
     res.status(201).json({
       success: true,
@@ -723,6 +758,7 @@ router.post('/from-saved-list', authenticate, async (req: express.Request, res: 
         created_at: newGuide.created_at,
         updated_at: newGuide.updated_at,
         restaurant_count: createdItems.length,
+        cover_image_url: coverImageUrl,
         likes_count: 0,
         bookmarks_count: 0
       },
@@ -956,6 +992,8 @@ router.get('/:listId', optionalAuth, async (req: express.Request, res: express.R
       tags: list.tags || [],
       neighborhood: list.city || '',
       visibility: list.visibility || (list.is_public ? 'public' : 'private'),
+      cover_image_url: list.cover_image_url || null,
+      cover_image_source: list.cover_image_source || null,
       likes_count: list.likes_count || 0,
       bookmarks_count: list.bookmarks_count || 0,
       user_has_liked: hasLiked,           // FIXED: renamed from hasLiked

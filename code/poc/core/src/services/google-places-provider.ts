@@ -8,6 +8,8 @@ import { RestaurantSearchProvider, RestaurantSearchResult } from './restaurant-p
  * 
  * Critical: This provider NEVER returns rating data to align with Zesto's
  * "verified social trust beats anonymous crowds" philosophy.
+ * 
+ * UPDATED: 2026-02-05 - Added getPlacePhoto method for fetching restaurant photos
  */
 
 interface GoogleAddressComponent {
@@ -220,6 +222,90 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
     } catch (error) {
       console.error('Google Places nearby search error:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get the first photo URL for a place
+   * Returns a URL that can be used directly in <img> tags
+   * 
+   * Cost: $7 per 1,000 requests (Place Photos SKU)
+   * 
+   * @param placeId - Google Place ID
+   * @param maxWidth - Maximum width in pixels (default 800)
+   * @param maxHeight - Maximum height in pixels (default 600)
+   * @returns Photo URL string or null if no photo available
+   */
+  async getPlacePhoto(
+    placeId: string, 
+    maxWidth: number = 800, 
+    maxHeight: number = 600
+  ): Promise<string | null> {
+    try {
+      // First, fetch place details with photos field only (minimal cost)
+      const response = await fetch(`${this.baseUrl}/places/${placeId}`, {
+        method: 'GET',
+        headers: {
+          'X-Goog-Api-Key': this.apiKey,
+          'X-Goog-FieldMask': 'photos'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log(`📷 No place found for placeId: ${placeId}`);
+          return null;
+        }
+        const errorText = await response.text();
+        throw new Error(`Google Places API error (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      // Check if photos exist
+      if (!data.photos || data.photos.length === 0) {
+        console.log(`📷 No photos available for placeId: ${placeId}`);
+        return null;
+      }
+
+      // Get the first photo's resource name
+      // Format: "places/{placeId}/photos/{photoReference}"
+      const photoName = data.photos[0].name;
+      
+      console.log(`📷 Fetching photo for place ${placeId}...`);
+      
+      // Fetch the actual photo URL using the media endpoint
+      // skipHttpRedirect=true returns JSON with photoUri instead of redirecting to image
+      const photoResponse = await fetch(
+        `${this.baseUrl}/${photoName}/media?maxHeightPx=${maxHeight}&maxWidthPx=${maxWidth}&skipHttpRedirect=true`,
+        {
+          method: 'GET',
+          headers: {
+            'X-Goog-Api-Key': this.apiKey,
+          }
+        }
+      );
+
+      if (!photoResponse.ok) {
+        const errorText = await photoResponse.text();
+        console.error(`📷 Google Places Photo API error (${photoResponse.status}): ${errorText}`);
+        return null;
+      }
+
+      const photoData = await photoResponse.json();
+      
+      // photoUri contains the actual image URL (hosted by Google)
+      const photoUrl = photoData.photoUri || null;
+      
+      if (photoUrl) {
+        console.log(`📷 Successfully fetched photo URL for place ${placeId}`);
+      }
+      
+      return photoUrl;
+      
+    } catch (error) {
+      console.error('📷 Google Places photo fetch error:', error);
+      return null;
     }
   }
 
