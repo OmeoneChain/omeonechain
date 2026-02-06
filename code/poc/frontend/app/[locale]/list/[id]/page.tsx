@@ -326,6 +326,9 @@ export default function CuratedListDetailPage() {
     alert(locale === 'pt-BR' ? 'Funcionalidade de denúncia em breve' : 'Report functionality coming soon');
   };
 
+  // State for cache busting (forces image reload after cover change)
+  const [coverCacheBuster, setCoverCacheBuster] = useState(0);
+
   // Handler for cover update success
   const handleCoverUpdateSuccess = (newCoverUrl: string, source?: string) => {
     if (list) {
@@ -334,6 +337,8 @@ export default function CuratedListDetailPage() {
         cover_image_url: newCoverUrl || undefined,
         cover_image_source: source || 'user_upload'
       });
+      // Increment cache buster to force image reload
+      setCoverCacheBuster(prev => prev + 1);
     }
   };
 
@@ -466,7 +471,7 @@ export default function CuratedListDetailPage() {
           )}>
             {list.cover_image_url && (
               <Image
-                src={list.cover_image_url}
+                src={`${list.cover_image_url}${coverCacheBuster ? `?v=${coverCacheBuster}` : ''}`}
                 alt={list.title}
                 fill
                 className="object-cover"
