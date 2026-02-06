@@ -417,7 +417,7 @@ const MainFeed: React.FC = () => {
       };
       return { type: 'recommendation', data: recData };
     });
-  }, [calculateTimeAgo, t]);
+  }, [calculateTimeAgo, t, user?.id]);
 
   // Transform recommendations-only endpoint data (fallback)
   // NOTE: This fallback endpoint might still return array format, so keep extraction logic
