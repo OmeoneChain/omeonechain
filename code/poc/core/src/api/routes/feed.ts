@@ -183,6 +183,8 @@ function formatFeedItem(item: any): any {
         city: item.city || '',
         tags: item.tags || [],
         best_for: item.best_for || '',
+        cover_image_url: item.cover_image_url || null,
+        cover_image_source: item.cover_image_source || null,
         creator: {
           id: item.author_id,
           username: item.creator?.username || item.users?.username || 'Unknown User',
@@ -431,6 +433,7 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
       .select(`
         id, title, description, author_id, category, city, tags, best_for,
         likes_count, bookmarks_count, created_at, is_public,
+        cover_image_url, cover_image_source,
         users!author_id(id, username, display_name, avatar_url, trust_score)
       `)
       .eq('author_id', userId)
@@ -752,6 +755,7 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
         .select(`
           id, title, description, author_id, category, city, tags, best_for,
           likes_count, bookmarks_count, created_at, is_public,
+          cover_image_url, cover_image_source,
           users!author_id(id, username, display_name, avatar_url, trust_score)
         `)
         .in('author_id', followingIds)
