@@ -1233,7 +1233,23 @@ router.delete('/:listId/cover', authenticate, async (req: express.Request, res: 
 
     console.log(`🖼️ Resetting cover image for guide "${guide.title}" (${listId}) to auto-generated...`);
 
-    // Use the existing service to re-fetch from Google Places
+    // IMPORTANT: First clear the cover_image_source so setGuideCoverImage won't skip it
+    // (that function respects user_upload and won't override it)
+    const { error: clearError } = await supabase
+      .from('food_guides')
+      .update({
+        cover_image_url: null,
+        cover_image_source: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', listId);
+
+    if (clearError) {
+      console.error('🖼️ Error clearing cover before reset:', clearError);
+      return res.status(500).json({ success: false, error: 'Failed to reset cover image' });
+    }
+
+    // Now use the existing service to re-fetch from Google Places
     const cacheService = getGooglePlacesCacheService();
     const coverResult = await cacheService.setGuideCoverImage(listId);
 
@@ -1248,21 +1264,7 @@ router.delete('/:listId/cover', authenticate, async (req: express.Request, res: 
         message: 'Cover image reset to auto-generated photo'
       });
     } else {
-      // If no Google Places photo available, clear the cover entirely
-      const { error: updateError } = await supabase
-        .from('food_guides')
-        .update({
-          cover_image_url: null,
-          cover_image_source: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', listId);
-
-      if (updateError) {
-        console.error('🖼️ Error clearing guide cover:', updateError);
-        return res.status(500).json({ success: false, error: 'Failed to reset cover image' });
-      }
-
+      // If no Google Places photo available, cover is already cleared
       console.log(`🖼️ Cover cleared (no Google Places photo available)`);
       
       res.json({
