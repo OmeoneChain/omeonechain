@@ -3,13 +3,89 @@
 // COMPLETE: All list functionality consolidated from server.ts
 // FIXED: Response field names match frontend expectations
 // UPDATED: 2026-02-05 - Added cover image auto-population from Google Places
+// UPDATED: 2026-02-06 - Added PATCH /:listId/cover endpoint for user-uploaded covers
 
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import multer from 'multer';
 import { getRewardService } from '../../services/reward-service';
 import { getGooglePlacesCacheService } from '../../services/google-places-cache';
+
+// =============================================================================
+// MULTER CONFIGURATION FOR COVER IMAGE UPLOADS
+// =============================================================================
+
+const uploadCoverImage = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max
+    files: 1
+  },
+  fileFilter: (req: any, file: any, cb: any) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Cover image must be JPEG, PNG, or WebP'));
+    }
+  }
+});
+
+// =============================================================================
+// PINATA CONFIGURATION FOR IPFS UPLOADS
+// =============================================================================
+
+const PINATA_API_KEY = process.env.PINATA_API_KEY || '';
+const PINATA_SECRET_KEY = process.env.PINATA_SECRET_KEY || '';
+const PINATA_GATEWAY = 'https://gateway.pinata.cloud/ipfs/';
+
+// Helper function to upload to Pinata
+async function uploadCoverToPinata(
+  buffer: Buffer,
+  filename: string,
+  mimeType: string,
+  metadata?: Record<string, string>
+): Promise<string> {
+  const FormData = (await import('form-data')).default;
+  const axios = (await import('axios')).default;
+
+  const formData = new FormData();
+  formData.append('file', buffer, {
+    filename: filename,
+    contentType: mimeType
+  });
+
+  const pinataMetadata = JSON.stringify({
+    name: filename,
+    keyvalues: {
+      platform: 'bocaboca',
+      type: 'guide-cover',
+      uploadedAt: new Date().toISOString(),
+      ...metadata
+    }
+  });
+  formData.append('pinataMetadata', pinataMetadata);
+
+  const pinataOptions = JSON.stringify({ cidVersion: 0 });
+  formData.append('pinataOptions', pinataOptions);
+
+  const response = await axios.post(
+    'https://api.pinata.cloud/pinning/pinFileToIPFS',
+    formData,
+    {
+      maxBodyLength: Infinity,
+      headers: {
+        ...formData.getHeaders(),
+        'pinata_api_key': PINATA_API_KEY,
+        'pinata_secret_api_key': PINATA_SECRET_KEY,
+      }
+    }
+  );
+
+  return response.data.IpfsHash;
+}
 
 /**
  * Check and award list/guide milestone rewards
@@ -1020,6 +1096,107 @@ router.get('/:listId', optionalAuth, async (req: express.Request, res: express.R
     res.status(500).json({
       success: false,
       error: 'Failed to fetch list details'
+    });
+  }
+});
+
+// =============================================================================
+// COVER IMAGE UPLOAD ENDPOINT
+// =============================================================================
+
+/**
+ * PATCH /:listId/cover - Upload a new cover image for a guide (owner only)
+ * 
+ * Request: multipart/form-data with 'cover' field containing image file
+ * Response: { success: true, cover_image_url: "https://...", cover_image_source: "user_upload" }
+ */
+router.patch('/:listId/cover', authenticate, uploadCoverImage.single('cover'), async (req: express.Request, res: express.Response) => {
+  try {
+    const { listId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    // Check if Pinata is configured
+    if (!PINATA_API_KEY || !PINATA_SECRET_KEY) {
+      console.error('🖼️ Cover upload error: Pinata not configured');
+      return res.status(500).json({
+        success: false,
+        error: 'Image storage not configured'
+      });
+    }
+
+    // Verify the user owns this guide
+    const { data: guide, error: guideError } = await supabase
+      .from('food_guides')
+      .select('id, author_id, title')
+      .eq('id', listId)
+      .single();
+
+    if (guideError || !guide) {
+      return res.status(404).json({ success: false, error: 'Guide not found' });
+    }
+
+    if (guide.author_id !== userId) {
+      return res.status(403).json({ success: false, error: 'Only the guide owner can update the cover image' });
+    }
+
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ success: false, error: 'No image file provided' });
+    }
+
+    console.log(`🖼️ Uploading cover image for guide "${guide.title}" (${listId})...`);
+
+    // Upload to Pinata
+    const filename = `bocaboca-guide-cover-${listId}-${Date.now()}.${file.mimetype.split('/')[1] || 'jpg'}`;
+    
+    const startTime = Date.now();
+    const cid = await uploadCoverToPinata(
+      file.buffer,
+      filename,
+      file.mimetype,
+      {
+        guideId: listId,
+        userId: userId
+      }
+    );
+    const duration = Date.now() - startTime;
+
+    const coverImageUrl = `${PINATA_GATEWAY}${cid}`;
+
+    // Update the guide with the new cover image
+    const { error: updateError } = await supabase
+      .from('food_guides')
+      .update({
+        cover_image_url: coverImageUrl,
+        cover_image_source: 'user_upload',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', listId);
+
+    if (updateError) {
+      console.error('🖼️ Error updating guide cover:', updateError);
+      return res.status(500).json({ success: false, error: 'Failed to update guide' });
+    }
+
+    console.log(`🖼️ Cover image uploaded: ${cid} (${duration}ms) -> ${coverImageUrl}`);
+
+    res.json({
+      success: true,
+      cover_image_url: coverImageUrl,
+      cover_image_source: 'user_upload',
+      cid: cid
+    });
+
+  } catch (error: any) {
+    console.error('🖼️ Cover image upload error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to upload cover image'
     });
   }
 });

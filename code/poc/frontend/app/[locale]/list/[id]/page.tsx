@@ -1,12 +1,14 @@
 // app/[locale]/list/[id]/page.tsx
 // Curated List (Guide) Detail Page - PUBLIC view of community-created food guides
 // UPDATED: Dark mode support added
+// UPDATED: 2026-02-06 - Added Change Cover functionality for guide owners
 // ✅ Calls /api/lists/[id] endpoint (guides.ts routes)
 // ✅ Public - no auth required to view (optionalAuth)
 // ✅ Shows creator attribution
 // ✅ Heart icon for likes, Bookmark icon for quick save
 // ✅ "Add to List" via three-dot menu (opens SaveToListModal)
 // ✅ Individual restaurant save via three-dot menu
+// ✅ Change Cover button for guide owners
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
@@ -36,6 +38,7 @@ import { motion } from 'framer-motion';
 import { cn, timeAgo } from '@/lib/utils';
 import CleanHeader from '@/components/CleanHeader';
 import SaveToListModal from '@/components/saved-lists/SaveToListModal';
+import ChangeCoverModal from '@/components/guides/ChangeCoverModal';
 
 interface RestaurantPhoto {
   id: string;
@@ -109,6 +112,12 @@ export default function CuratedListDetailPage() {
   const [isLiking, setIsLiking] = useState(false);
   const [isBookmarking, setIsBookmarking] = useState(false);
   
+  // Current user state (for owner check)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // Change cover modal state
+  const [showChangeCoverModal, setShowChangeCoverModal] = useState(false);
+  
   // Three-dot menu state for the guide
   const [showGuideMenu, setShowGuideMenu] = useState(false);
   const guideMenuRef = useRef<HTMLDivElement>(null);
@@ -124,6 +133,23 @@ export default function CuratedListDetailPage() {
     isOpen: boolean;
     restaurantId: number | null;
   }>({ isOpen: false, restaurantId: null });
+
+  // Check if current user is the owner
+  const isOwner = currentUserId && list?.creator?.id === currentUserId;
+
+  // Get current user ID from token
+  useEffect(() => {
+    const token = localStorage.getItem('omeone_auth_token');
+    if (token) {
+      try {
+        // Decode JWT to get user ID (basic decode, not verification)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setCurrentUserId(payload.userId || payload.sub || payload.id || null);
+      } catch (e) {
+        console.log('Could not decode token');
+      }
+    }
+  }, []);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -299,6 +325,16 @@ export default function CuratedListDetailPage() {
     alert(locale === 'pt-BR' ? 'Funcionalidade de denúncia em breve' : 'Report functionality coming soon');
   };
 
+  // Handler for cover update success
+  const handleCoverUpdateSuccess = (newCoverUrl: string) => {
+    if (list) {
+      setList({
+        ...list,
+        cover_image_url: newCoverUrl
+      });
+    }
+  };
+
   // Translations
   const t = {
     en: {
@@ -321,6 +357,7 @@ export default function CuratedListDetailPage() {
       addToList: 'Add to List',
       report: 'Report',
       viewRestaurant: 'View Restaurant',
+      changeCover: 'Change Cover',
     },
     'pt-BR': {
       backToDiscover: 'Voltar para Descobrir',
@@ -342,6 +379,7 @@ export default function CuratedListDetailPage() {
       addToList: 'Adicionar à Lista',
       report: 'Denunciar',
       viewRestaurant: 'Ver Restaurante',
+      changeCover: 'Alterar Capa',
     }
   }[locale] || {
     backToDiscover: 'Back to Discover',
@@ -363,6 +401,7 @@ export default function CuratedListDetailPage() {
     addToList: 'Add to List',
     report: 'Report',
     viewRestaurant: 'View Restaurant',
+    changeCover: 'Change Cover',
   };
 
   if (loading) {
@@ -415,7 +454,7 @@ export default function CuratedListDetailPage() {
         </div>
 
         {/* Hero Section */}
-        <div className="relative">
+        <div className="relative group">
           {/* Cover Image or Gradient */}
           <div className={cn(
             "h-48 sm:h-64 w-full relative",
@@ -433,6 +472,17 @@ export default function CuratedListDetailPage() {
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+            
+            {/* Change Cover Button - Owner Only */}
+            {isOwner && (
+              <button
+                onClick={() => setShowChangeCoverModal(true)}
+                className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 bg-black/50 hover:bg-black/70 text-white text-sm font-medium rounded-lg backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 sm:opacity-100"
+              >
+                <Camera size={16} />
+                <span className="hidden sm:inline">{t.changeCover}</span>
+              </button>
+            )}
           </div>
 
           {/* Content overlay */}
@@ -830,6 +880,18 @@ export default function CuratedListDetailPage() {
           onSave={() => {
             setSaveRestaurantModal({ isOpen: false, restaurantId: null });
           }}
+        />
+      )}
+
+      {/* Change Cover Modal */}
+      {showChangeCoverModal && list && (
+        <ChangeCoverModal
+          isOpen={showChangeCoverModal}
+          onClose={() => setShowChangeCoverModal(false)}
+          onSuccess={handleCoverUpdateSuccess}
+          guideId={list.id}
+          guideTitle={list.title}
+          currentCoverUrl={list.cover_image_url}
         />
       )}
     </>
