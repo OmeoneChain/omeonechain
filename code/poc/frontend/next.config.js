@@ -1,6 +1,7 @@
 // File: code/poc/frontend/next.config.js
 // Updated with conditional static export for mobile builds
 // Updated: Added build ID for deployment cache-busting (Jan 31, 2026)
+// Updated: Added Google Places photo domain (Feb 6, 2026)
 
 const withNextIntl = require('next-intl/plugin')('./i18n.ts');
 
@@ -99,6 +100,12 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'dweb.link',
         pathname: '/ipfs/**',
+      },
+      // Google Places photos
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
       },
       // Other external sources
       {
