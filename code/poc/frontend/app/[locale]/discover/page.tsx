@@ -460,7 +460,8 @@ const DiscoverPage = () => {
         location: r.city || 'Brasília'
       })),
       isBookmarked: bookmarkedLists.has(list.id.toString()),
-      hasLiked: likedLists.has(list.id.toString())
+      hasLiked: likedLists.has(list.id.toString()),
+      coverImage: list.cover_image_url || null
     };
   };
 
@@ -538,7 +539,8 @@ const DiscoverPage = () => {
               saves_count: list.saves_count || 0,
               is_featured: false,
               best_for: list.tags?.join(',') || 'dining,food,restaurants',
-              created_at: list.created_at
+              created_at: list.created_at,
+              cover_image_url: list.cover_image_url || null
             };
           })
         );

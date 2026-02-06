@@ -349,7 +349,7 @@ const MainFeed: React.FC = () => {
             avatar: item.creator?.avatar_url || '👨‍🍳',
             verified: false,
             followers: 0,
-            socialDistance: 1
+            socialDistance: item.creator?.id === user?.id ? undefined : 1
           },
           restaurantCount: item.restaurant_count || 0,
           saves: item.save_count || 0,
