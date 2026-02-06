@@ -1201,6 +1201,87 @@ router.patch('/:listId/cover', authenticate, uploadCoverImage.single('cover'), a
   }
 });
 
+/**
+ * DELETE /:listId/cover - Reset cover image to auto-generated (Google Places photo)
+ * 
+ * This removes the user-uploaded cover and reverts to the automatically
+ * selected photo from the first restaurant in the guide.
+ */
+router.delete('/:listId/cover', authenticate, async (req: express.Request, res: express.Response) => {
+  try {
+    const { listId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    // Verify the user owns this guide
+    const { data: guide, error: guideError } = await supabase
+      .from('food_guides')
+      .select('id, author_id, title, cover_image_source')
+      .eq('id', listId)
+      .single();
+
+    if (guideError || !guide) {
+      return res.status(404).json({ success: false, error: 'Guide not found' });
+    }
+
+    if (guide.author_id !== userId) {
+      return res.status(403).json({ success: false, error: 'Only the guide owner can reset the cover image' });
+    }
+
+    console.log(`🖼️ Resetting cover image for guide "${guide.title}" (${listId}) to auto-generated...`);
+
+    // Use the existing service to re-fetch from Google Places
+    const cacheService = getGooglePlacesCacheService();
+    const coverResult = await cacheService.setGuideCoverImage(listId);
+
+    if (coverResult.success && coverResult.coverImageUrl) {
+      console.log(`🖼️ Cover reset to Google Places photo from ${coverResult.restaurantName}: ${coverResult.coverImageUrl}`);
+      
+      res.json({
+        success: true,
+        cover_image_url: coverResult.coverImageUrl,
+        cover_image_source: 'google_places',
+        restaurant_name: coverResult.restaurantName,
+        message: 'Cover image reset to auto-generated photo'
+      });
+    } else {
+      // If no Google Places photo available, clear the cover entirely
+      const { error: updateError } = await supabase
+        .from('food_guides')
+        .update({
+          cover_image_url: null,
+          cover_image_source: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', listId);
+
+      if (updateError) {
+        console.error('🖼️ Error clearing guide cover:', updateError);
+        return res.status(500).json({ success: false, error: 'Failed to reset cover image' });
+      }
+
+      console.log(`🖼️ Cover cleared (no Google Places photo available)`);
+      
+      res.json({
+        success: true,
+        cover_image_url: null,
+        cover_image_source: null,
+        message: 'Cover image cleared (no auto-generated photo available)'
+      });
+    }
+
+  } catch (error: any) {
+    console.error('🖼️ Cover reset error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to reset cover image'
+    });
+  }
+});
+
 // POST /:listId/like - Toggle like on a list
 router.post('/:listId/like', authenticate, async (req: express.Request, res: express.Response) => {
   try {

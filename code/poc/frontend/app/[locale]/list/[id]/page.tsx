@@ -89,6 +89,7 @@ interface CuratedListDetail {
   restaurants: Restaurant[];
   creator: Creator;
   cover_image_url?: string;
+  cover_image_source?: string;
   photos?: RestaurantPhoto[];
   icon?: string;
 }
@@ -326,11 +327,12 @@ export default function CuratedListDetailPage() {
   };
 
   // Handler for cover update success
-  const handleCoverUpdateSuccess = (newCoverUrl: string) => {
+  const handleCoverUpdateSuccess = (newCoverUrl: string, source?: string) => {
     if (list) {
       setList({
         ...list,
-        cover_image_url: newCoverUrl
+        cover_image_url: newCoverUrl || undefined,
+        cover_image_source: source || 'user_upload'
       });
     }
   };
@@ -892,6 +894,7 @@ export default function CuratedListDetailPage() {
           guideId={list.id}
           guideTitle={list.title}
           currentCoverUrl={list.cover_image_url}
+          currentCoverSource={list.cover_image_source}
         />
       )}
     </>

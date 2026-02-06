@@ -4,17 +4,18 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { X, Upload, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { X, Upload, Camera, Image as ImageIcon, Loader2, RotateCcw } from 'lucide-react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChangeCoverModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (newCoverUrl: string) => void;
+  onSuccess: (newCoverUrl: string, source?: string) => void;
   guideId: string;
   guideTitle: string;
   currentCoverUrl?: string;
+  currentCoverSource?: string;
 }
 
 export default function ChangeCoverModal({
@@ -23,11 +24,13 @@ export default function ChangeCoverModal({
   onSuccess,
   guideId,
   guideTitle,
-  currentCoverUrl
+  currentCoverUrl,
+  currentCoverSource
 }: ChangeCoverModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -119,7 +122,7 @@ export default function ChangeCoverModal({
       const data = await response.json();
       console.log('✅ Cover image uploaded:', data);
       
-      onSuccess(data.cover_image_url);
+      onSuccess(data.cover_image_url, 'user_upload');
       handleClose();
 
     } catch (err) {
@@ -127,6 +130,43 @@ export default function ChangeCoverModal({
       setError(err instanceof Error ? err.message : 'Failed to upload image');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    const token = localStorage.getItem('omeone_auth_token');
+    if (!token) {
+      setError('Please log in to reset the cover image');
+      return;
+    }
+
+    setIsResetting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/lists/${guideId}/cover`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to reset cover image');
+      }
+
+      const data = await response.json();
+      console.log('✅ Cover image reset:', data);
+      
+      onSuccess(data.cover_image_url || '', data.cover_image_source || 'google_places');
+      handleClose();
+
+    } catch (err) {
+      console.error('Cover reset error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to reset image');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -304,6 +344,22 @@ export default function ChangeCoverModal({
                 <span className="font-medium">Tip:</span> Landscape images (16:9 or wider) work best for guide covers.
               </p>
             </div>
+
+            {/* Reset to Auto Option - Only show if user has uploaded a custom cover */}
+            {currentCoverSource === 'user_upload' && (
+              <div className="text-center">
+                <button
+                  onClick={handleReset}
+                  disabled={isResetting || isUploading}
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A] transition-colors underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isResetting ? 'Resetting...' : 'Reset to auto-generated photo'}
+                </button>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Uses the photo from your first restaurant
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
