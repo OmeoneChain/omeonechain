@@ -247,12 +247,11 @@ const ListCard: React.FC<ListCardProps> = ({
 
   // ============================================
   // IMPROVED GRADIENT FALLBACK COMPONENT
-  // A more designed placeholder when no photo is available
+  // A clean, premium placeholder when no photo is available
   // ============================================
   const GradientFallback: React.FC<{ 
     height?: string; 
-    showLargeIcon?: boolean;
-  }> = ({ height = 'h-32 sm:h-36', showLargeIcon = false }) => (
+  }> = ({ height = 'h-32 sm:h-36' }) => (
     <div className={cn(
       "relative overflow-hidden",
       height,
@@ -269,15 +268,6 @@ const ListCard: React.FC<ListCardProps> = ({
       {/* Decorative circles for visual interest */}
       <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
       <div className="absolute -bottom-12 -left-12 w-40 h-40 rounded-full bg-black/10 blur-3xl" />
-      
-      {/* Center icon with frosted glass effect */}
-      {showLargeIcon && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/30">
-            <span className="text-4xl">{emoji}</span>
-          </div>
-        </div>
-      )}
       
       {/* Gradient overlay for text readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
@@ -465,7 +455,7 @@ const ListCard: React.FC<ListCardProps> = ({
             ) : (
               /* Improved gradient fallback */
               <div className="relative">
-                <GradientFallback height="h-32 sm:h-36" showLargeIcon={false} />
+                <GradientFallback height="h-32 sm:h-36" />
                 
                 {/* List type indicator - small badge top-left */}
                 <div className="absolute top-3 left-3">
@@ -473,13 +463,6 @@ const ListCard: React.FC<ListCardProps> = ({
                     <ListIcon size={11} />
                     List
                   </span>
-                </div>
-                
-                {/* Category emoji badge - top right for visual interest */}
-                <div className="absolute top-3 right-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
-                    <span className="text-xl">{emoji}</span>
-                  </div>
                 </div>
                 
                 {/* Title overlay */}
@@ -672,7 +655,7 @@ const ListCard: React.FC<ListCardProps> = ({
             ) : (
               /* Improved gradient fallback */
               <div className="relative">
-                <GradientFallback height="h-48 sm:h-56" showLargeIcon={true} />
+                <GradientFallback height="h-48 sm:h-56" />
                 
                 {/* Category badge */}
                 {list.category && (
