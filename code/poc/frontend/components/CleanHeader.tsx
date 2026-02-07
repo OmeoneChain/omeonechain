@@ -6,6 +6,7 @@
 // REMOVED: Non-functional global search bar
 // FIXED: Moved all hooks before conditional returns to fix React Error #300
 // FIXED: Avatar image display - now shows uploaded avatar instead of just initials (Jan 30, 2026)
+// UPDATED: Removed BocaBoca text next to logo, Connect Wallet now secondary style (Feb 7, 2026)
 
 'use client';
 
@@ -70,7 +71,6 @@ const UserAvatar = ({
     if (!user) return null;
     const avatarUrl = user.avatar_url || user.avatarUrl || user.avatar;
     if (!avatarUrl) return null;
-    // Check if it's a real uploaded avatar (not a generated placeholder)
     if (avatarUrl.includes('dicebear') || avatarUrl.includes('default-avatar')) {
       return null;
     }
@@ -248,7 +248,6 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
 
     loadBalance();
 
-    // Subscribe to optimistic updates
     if (isAuthenticated && user?.id) {
       const unsubscribe = tokenBalanceService.onBalanceChange((newBalance) => {
         console.log('💰 Header: Balance updated optimistically:', newBalance);
@@ -263,7 +262,6 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
   // CONDITIONAL RETURNS - After all hooks
   // ============================================
   
-  // Mobile detection - return mobile components when in Capacitor
   if (isCapacitor) {
     return (
       <>
@@ -299,6 +297,7 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
     return user.display_name || user.displayName || user.username || user.name || 'User';
   };
 
+  // UPDATED: Connect Wallet is now outlined/secondary, Sign Up is text link
   const AuthButtons = ({ mobile = false }: { mobile?: boolean }) => (
     <>
       {!isAuthenticated && (
@@ -311,7 +310,7 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
       )}
       <button 
         onClick={handleConnectWallet}
-        className={`${mobile ? 'w-full' : ''} text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 bg-[#FF644A]`}
+        className={`${mobile ? 'w-full' : ''} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 border-2 border-[#FF644A] text-[#FF644A] hover:bg-[#FF644A]/10 dark:hover:bg-[#FF644A]/20`}
       >
         <Wallet size={16} />
         {t('header.connectWallet')}
@@ -322,7 +321,7 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
             handleSignUp();
             setIsMobileMenuOpen(false);
           }}
-          className="w-full px-4 py-2 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-[#2D2C3A] transition-colors flex items-center justify-center gap-2 border-2 border-[#FF644A] text-[#FF644A]"
+          className="w-full px-4 py-2 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-[#2D2C3A] transition-colors flex items-center justify-center gap-2 border-2 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
         >
           <Mail size={16} />
           {t('header.emailSignUp')}
@@ -336,11 +335,9 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
       <header className={`bg-white dark:bg-[#1F1E2A] border-b border-gray-200 dark:border-[#3D3C4A] sticky top-0 z-40 ${className}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center gap-3">
+            {/* UPDATED: Logo only, no text */}
+            <Link href="/" className="flex items-center">
               <BocaBocaLogo size={32} />
-              <span className="font-bold text-xl hidden sm:inline text-[#1F1E2A] dark:text-white">
-                BocaBoca
-              </span>
             </Link>
             <div className="animate-pulse h-8 w-24 bg-gray-200 dark:bg-[#353444] rounded"></div>
           </div>
@@ -354,12 +351,9 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
       <header className={`bg-white dark:bg-[#1F1E2A] border-b border-gray-200 dark:border-[#3D3C4A] sticky top-0 z-40 ${className}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-3">
+            {/* UPDATED: Logo only, no text */}
+            <Link href="/" className="flex items-center">
               <BocaBocaLogo size={32} />
-              <span className="font-bold text-xl hidden sm:inline text-[#1F1E2A] dark:text-white">
-                BocaBoca
-              </span>
             </Link>
 
             {/* Navigation Links */}
@@ -416,12 +410,10 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
 
             {/* Right Side Actions */}
             <div className="hidden md:flex items-center gap-3">
-              {/* Language Switcher */}
               <LanguageSwitcher />
 
               {isAuthenticated && <NotificationBell />}
 
-              {/* Token Balance Display - Links to My Rewards */}
               {isAuthenticated && (
                 <Link
                   href="/my-rewards"
@@ -477,7 +469,6 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                         </span>
                       </div>
           
-                      {/* Token balance in dropdown */}
                       {authMode === 'wallet' && (
                         <div className="mt-2 pt-2 border-t border-gray-100 dark:border-[#3D3C4A]">
                           <div className="flex items-center justify-between">
@@ -503,7 +494,6 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                       {t('navigation.savedLists')}
                     </Link>
 
-                    {/* Theme Toggle */}
                     <button
                       onClick={toggleTheme}
                       className="w-full text-left px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center justify-between"
@@ -568,12 +558,10 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
             className="md:hidden bg-white dark:bg-[#1F1E2A] border-b border-gray-200 dark:border-[#3D3C4A]"
           >
             <div className="px-4 py-4 space-y-3">
-              {/* Language Switcher in Mobile Menu */}
               <div className="flex justify-center py-2">
                 <LanguageSwitcher />
               </div>
 
-              {/* Theme Toggle in Mobile Menu */}
               <button
                 onClick={toggleTheme}
                 className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-[#2D2C3A]"
@@ -595,7 +583,6 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                 </div>
               </button>
 
-              {/* Token balance in mobile menu - Links to My Rewards */}
               {isAuthenticated && (
                 <Link
                   href="/my-rewards"

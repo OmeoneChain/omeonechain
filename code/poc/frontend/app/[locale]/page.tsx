@@ -1,12 +1,14 @@
-// app/[locale]/page.tsx - Landing page with OAuth callback support and full i18n
-// FIXED: Uses isHydrated to prevent landing page flash for authenticated mobile users
-// Updated with BocaBoca branding
+// app/[locale]/page.tsx - Landing page with carousel design
+// REDESIGNED: Matches mobile WelcomeCarousel with side-by-side desktop layout
+// Keeps all auth/OAuth/redirect logic intact
+// Updated: Feb 7, 2026
 
 "use client"
 
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import CleanHeader from '@/components/CleanHeader';
 import Logo from '@/components/Logo';
@@ -14,33 +16,111 @@ import { useAuth } from '@/hooks/useAuth';
 import AuthService from '@/services/auth';
 import { useTranslations } from 'next-intl';
 import { useCapacitor } from '@/hooks/useCapacitor';
-import { Star, Clock, UserCheck, AlertTriangle, Search, Shield, Users, TrendingUp } from 'lucide-react';
 
+// ============================================
+// SLIDE DATA - Same as mobile WelcomeCarousel
+// ============================================
+interface Slide {
+  id: string;
+  titleKey: string;
+  subtitleKey: string;
+  fallbackTitle: string;
+  fallbackSubtitle: string;
+  image: string;
+  imageAlt: string;
+}
+
+const slides: Slide[] = [
+  {
+    id: 'trust',
+    titleKey: 'welcome.slide1.title',
+    subtitleKey: 'welcome.slide1.subtitle',
+    fallbackTitle: "Trust Your Network's Taste",
+    fallbackSubtitle: 'Find restaurants recommended by people you actually trust — not strangers or algorithms.',
+    image: '/images/onboarding/slide-trust.jpg',
+    imageAlt: 'Friends sharing pizza around a table',
+  },
+  {
+    id: 'never-lost',
+    titleKey: 'welcome.slide2.title',
+    subtitleKey: 'welcome.slide2.subtitle',
+    fallbackTitle: 'Never Lost in the Scroll',
+    fallbackSubtitle: "That perfect restaurant rec from your friend? It's saved, searchable, and there when you need it.",
+    image: '/images/onboarding/slide-never-lost.jpg',
+    imageAlt: 'Cozy coffee and croissants at a cafe',
+  },
+  {
+    id: 'ownership',
+    titleKey: 'welcome.slide3.title',
+    subtitleKey: 'welcome.slide3.subtitle',
+    fallbackTitle: 'Your Taste, Your Data',
+    fallbackSubtitle: "Build a taste profile that's yours — portable, private, and always improving.",
+    image: '/images/onboarding/slide-ownership.jpg',
+    imageAlt: 'Chef carefully plating a dish',
+  },
+];
+
+// ============================================
+// MAIN LANDING PAGE COMPONENT
+// ============================================
 const LandingPage: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   
-  // CRITICAL: Use isHydrated to know when auth check is complete
+  // Auth
   const { isAuthenticated, isLoading, isHydrated } = useAuth() as any;
   const router = useRouter();
   const t = useTranslations('landing');
+  const tOnboarding = useTranslations('onboarding');
   const { isCapacitor } = useCapacitor();
 
-  // Mount effect
+  // ============================================
+  // CAROUSEL LOGIC
+  // ============================================
+  const goToSlide = useCallback((index: number) => {
+    if (index === currentSlide || isTransitioning) return;
+    setIsTransitioning(true);
+    setCurrentSlide(index);
+    setTimeout(() => setIsTransitioning(false), 400);
+  }, [currentSlide, isTransitioning]);
+
+  const nextSlide = useCallback(() => {
+    goToSlide((currentSlide + 1) % slides.length);
+  }, [currentSlide, goToSlide]);
+
+  // Auto-advance every 5 seconds
+  useEffect(() => {
+    if (!mounted) return;
+    const timer = setInterval(nextSlide, 5000);
+    return () => clearInterval(timer);
+  }, [mounted, nextSlide]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') goToSlide((currentSlide + 1) % slides.length);
+      if (e.key === 'ArrowLeft') goToSlide((currentSlide - 1 + slides.length) % slides.length);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentSlide, goToSlide]);
+
+  // ============================================
+  // AUTH & REDIRECT LOGIC (preserved from original)
+  // ============================================
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // FIXED: Redirect authenticated users AFTER hydration is complete
-  // This prevents the landing page from showing while we check stored tokens
   useEffect(() => {
     if (mounted && isHydrated && isAuthenticated) {
       console.log('🔄 Landing: User is authenticated, redirecting to feed...');
-      router.replace('/feed'); // Use replace to prevent back button returning to landing
+      router.replace('/feed');
     }
   }, [mounted, isHydrated, isAuthenticated, router]);
 
-  // MOBILE: Redirect to onboarding if running in Capacitor and not authenticated
   useEffect(() => {
     if (mounted && isHydrated && isCapacitor && !isAuthenticated && !isLoading) {
       console.log('📱 Mobile: Redirecting unauthenticated user to onboarding...');
@@ -48,11 +128,9 @@ const LandingPage: React.FC = () => {
     }
   }, [mounted, isHydrated, isCapacitor, isAuthenticated, isLoading, router]);
 
-  // Handle OAuth callback - only runs after mounted
   useEffect(() => {
     if (!mounted) return;
     
-    // Only process if there's actually OAuth data in the URL
     const hash = window.location.hash;
     if (!hash || (!hash.includes('auth_token') && !hash.includes('auth_success') && !hash.includes('auth_error'))) {
       return;
@@ -82,11 +160,9 @@ const LandingPage: React.FC = () => {
     }
   }, [mounted]);
 
-  // ==========================================================================
-  // LOADING STATES - Critical for preventing landing page flash
-  // ==========================================================================
-
-  // Show loading while processing OAuth
+  // ============================================
+  // LOADING STATES
+  // ============================================
   if (isProcessingOAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF4E1] dark:bg-[#1F1E2A]">
@@ -99,13 +175,10 @@ const LandingPage: React.FC = () => {
     );
   }
 
-  // CRITICAL: Show loading while checking stored auth (before hydration completes)
-  // This is what prevents the landing page flash on mobile app launch
   if (!mounted || !isHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF4E1] dark:bg-[#1F1E2A]">
         <div className="text-center">
-          {/* BocaBoca logo or spinner */}
           <div className="mb-6">
             <Logo size="lg" variant="icon" />
           </div>
@@ -117,7 +190,6 @@ const LandingPage: React.FC = () => {
     );
   }
 
-  // If authenticated after hydration, show redirect loading (this is brief, router.replace is async)
   if (isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF4E1] dark:bg-[#1F1E2A]">
@@ -129,497 +201,192 @@ const LandingPage: React.FC = () => {
     );
   }
 
-  // ==========================================================================
-  // MAIN LANDING PAGE - Only shown for unauthenticated users
-  // ==========================================================================
+  // ============================================
+  // CURRENT SLIDE DATA
+  // ============================================
+  const slide = slides[currentSlide];
 
+  // ============================================
+  // MAIN LANDING PAGE
+  // ============================================
   return (
-    <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
+    <div className="min-h-screen flex flex-col bg-[#FFF4E1] dark:bg-[#1F1E2A]">
       <CleanHeader />
 
-      {/* Hero Section */}
-      <section className="py-12 sm:py-16 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="space-y-4 sm:space-y-6"
-          >
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-[#1F1E2A] dark:text-gray-100">
-              {t('hero.title')}
-            </h1>
-            <p className="text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed px-4 text-[#666666] dark:text-gray-400">
-              {t.rich('hero.subtitle', {
-                br: () => <br className="hidden sm:block" />
-              })}
-            </p>
-          </motion.div>
-
-          {/* Quote Banner */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="py-6 px-8 rounded-2xl mx-4 sm:mx-0 shadow-[0_4px_20px_rgba(255,100,74,0.3)]"
-            style={{
-              background: 'linear-gradient(135deg, #FFB3AB 0%, #FF644A 100%)'
-            }}
-          >
-            <p className="text-lg sm:text-xl md:text-2xl font-medium text-white leading-relaxed">
-              {t('quote.main')}
-            </p>
-            <p className="text-sm sm:text-base text-white/80 mt-3">
-              {t('quote.tagline')}
-            </p>
-          </motion.div>
-
-          {/* Comparison Box */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 p-6 sm:p-8 bg-white/60 dark:bg-[#2D2C3A]/60 backdrop-blur-sm rounded-2xl mx-4 sm:mx-0 border border-[#E5E5E5] dark:border-[#3D3C4A]"
-          >
-            <div className="text-center sm:text-left">
-              <p className="text-sm mb-2 text-[#666666] dark:text-gray-400">{t('comparison.instead')}</p>
-              <div className="flex items-center justify-center sm:justify-start gap-1 text-[#999999] dark:text-gray-500">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star key={star} size={16} fill="currentColor" />
-                ))}
-                <span className="ml-2 text-sm">{t('comparison.stars')}</span>
+      {/* ============================================ */}
+      {/* HERO CAROUSEL SECTION                       */}
+      {/* Desktop: side-by-side | Mobile: stacked     */}
+      {/* ============================================ */}
+      <main className="flex-1 flex flex-col">
+        <section className="flex-1 flex flex-col md:flex-row items-stretch max-w-7xl w-full mx-auto">
+          
+          {/* ============================== */}
+          {/* IMAGE SIDE (left on desktop)   */}
+          {/* ============================== */}
+          <div className="relative w-full md:w-1/2 h-[40vh] md:h-auto md:min-h-[calc(100vh-64px-180px)]">
+            {slides.map((s, index) => (
+              <div
+                key={s.id}
+                className={`absolute inset-0 transition-opacity duration-500 ease-in-out ${
+                  index === currentSlide ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <Image
+                  src={s.image}
+                  alt={s.imageAlt}
+                  fill
+                  className="object-cover md:rounded-br-3xl md:rounded-bl-none"
+                  priority={index === 0}
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
               </div>
-              <p className="text-xs mt-1 text-[#999999] dark:text-gray-500">{t('comparison.starsNote')}</p>
+            ))}
+            
+            {/* Gradient fade - bottom on mobile, right edge on desktop */}
+            <div 
+              className="absolute bottom-0 left-0 right-0 h-24 md:hidden pointer-events-none"
+              style={{
+                background: 'linear-gradient(to bottom, rgba(255,244,225,0) 0%, rgba(255,244,225,0.7) 50%, rgba(255,244,225,1) 100%)'
+              }}
+            />
+            <div 
+              className="hidden md:block absolute top-0 right-0 bottom-0 w-24 pointer-events-none"
+              style={{
+                background: 'linear-gradient(to right, rgba(255,244,225,0) 0%, rgba(255,244,225,0.5) 60%, rgba(255,244,225,1) 100%)'
+              }}
+            />
+          </div>
+
+          {/* ============================== */}
+          {/* CONTENT SIDE (right on desktop)*/}
+          {/* ============================== */}
+          <div className="w-full md:w-1/2 flex flex-col justify-center px-6 md:px-12 lg:px-16 py-8 md:py-12">
+            
+            {/* BocaBoca wordmark */}
+            <div className="mb-2">
+              <span className="text-3xl md:text-4xl font-bold text-[#1F1E2A] dark:text-gray-100">
+                BocaBoca
+              </span>
             </div>
 
-            <div className="text-2xl text-[#999999] dark:text-gray-500">→</div>
+            {/* Slide title - animated */}
+            <AnimatePresence mode="wait">
+              <motion.h1
+                key={`title-${currentSlide}`}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.35 }}
+                className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1F1E2A] dark:text-gray-100 leading-tight mb-4"
+              >
+                {tOnboarding(slide.titleKey) || slide.fallbackTitle}
+              </motion.h1>
+            </AnimatePresence>
 
-            <div className="text-center sm:text-left">
-              <p className="text-sm mb-3 text-[#666666] dark:text-gray-400">{t('comparison.youGet')}</p>
-              <div className="flex flex-wrap justify-center sm:justify-start gap-2">
-                <div className="px-3 py-2 rounded-lg text-center min-w-[90px] bg-[#FFE8E3] dark:bg-[#FF644A]/20 border-2 border-[#FF644A]">
-                  <Users size={14} className="mx-auto mb-1 text-[#FF644A]" />
-                  <div className="text-xl font-bold text-[#FF644A]">8.3</div>
-                  <div className="text-xs whitespace-nowrap text-[#FF644A]">Your Network</div>
-                </div>
-                <div className="px-3 py-2 rounded-lg text-center min-w-[90px] bg-[#F5F5F5] dark:bg-[#353444] border border-[#E5E5E5] dark:border-[#3D3C4A]">
-                  <Star size={14} className="mx-auto mb-1 text-[#666666] dark:text-gray-400" />
-                  <div className="text-xl font-bold text-[#1F1E2A] dark:text-gray-100">8.5</div>
-                  <div className="text-xs whitespace-nowrap text-[#666666] dark:text-gray-400">Similar Taste</div>
-                </div>
-                <div className="px-3 py-2 rounded-lg text-center min-w-[90px] bg-[#F5F5F5] dark:bg-[#353444] border border-[#E5E5E5] dark:border-[#3D3C4A]">
-                  <TrendingUp size={14} className="mx-auto mb-1 text-[#666666] dark:text-gray-400" />
-                  <div className="text-xl font-bold text-[#1F1E2A] dark:text-gray-100">7.2</div>
-                  <div className="text-xs whitespace-nowrap text-[#666666] dark:text-gray-400">All Reviews</div>
-                </div>
-              </div>
+            {/* Slide subtitle - animated */}
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={`subtitle-${currentSlide}`}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.35, delay: 0.05 }}
+                className="text-base sm:text-lg text-[#1F1E2A]/70 dark:text-gray-400 leading-relaxed mb-8 max-w-md"
+              >
+                {tOnboarding(slide.subtitleKey) || slide.fallbackSubtitle}
+              </motion.p>
+            </AnimatePresence>
+
+            {/* Dot indicators */}
+            <div className="flex items-center gap-2.5 mb-10">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={`h-2.5 rounded-full transition-all duration-300 ${
+                    index === currentSlide
+                      ? 'bg-[#1F1E2A] dark:bg-gray-100 w-7'
+                      : 'bg-[#1F1E2A]/25 dark:bg-gray-100/25 w-2.5 hover:bg-[#1F1E2A]/40 dark:hover:bg-gray-100/40'
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
             </div>
-          </motion.div>
-        </div>
-      </section>
 
-      {/* Problem Section - DESKTOP ONLY */}
-      <section className="hidden md:block py-12 sm:py-16 px-4 sm:px-6 bg-white/40 dark:bg-[#2D2C3A]/40">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-[#1F1E2A] dark:text-gray-100">
-              {t('problem.title')}
-            </h2>
-            <p className="text-base sm:text-lg max-w-2xl mx-auto px-4 text-[#666666] dark:text-gray-400">
-              {t('problem.subtitle')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-center p-6 rounded-xl bg-white dark:bg-[#2D2C3A] border border-[#E5E5E5] dark:border-[#3D3C4A]"
-            >
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4 bg-[#FEE2E2] dark:bg-red-900/30">
-                <AlertTriangle size={32} className="text-[#EF4444]" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#1F1E2A] dark:text-gray-100">
-                {t('problem.trustCollapsed.title')}
-              </h3>
-              <p className="text-sm sm:text-base leading-relaxed text-[#666666] dark:text-gray-400">
-                {t.rich('problem.trustCollapsed.description', {
-                  strong: (chunks) => <strong>{chunks}</strong>
-                })}
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-center p-6 rounded-xl bg-white dark:bg-[#2D2C3A] border border-[#E5E5E5] dark:border-[#3D3C4A]"
-            >
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4 bg-[#E0E7FF] dark:bg-indigo-900/30">
-                <Clock size={32} className="text-[#6366F1]" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#1F1E2A] dark:text-gray-100">
-                {t('problem.lostInScroll.title')}
-              </h3>
-              <p className="text-sm sm:text-base leading-relaxed text-[#666666] dark:text-gray-400">
-                {t('problem.lostInScroll.description')}
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-center p-6 rounded-xl bg-white dark:bg-[#2D2C3A] border border-[#E5E5E5] dark:border-[#3D3C4A]"
-            >
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4 bg-[#FEF3C7] dark:bg-amber-900/30">
-                <Star size={32} className="text-[#F59E0B]" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#1F1E2A] dark:text-gray-100">
-                {t('problem.ratingsLostMeaning.title')}
-              </h3>
-              <p className="text-sm sm:text-base leading-relaxed text-[#666666] dark:text-gray-400">
-                {t('problem.ratingsLostMeaning.description')}
-              </p>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Solution Section - DESKTOP ONLY */}
-      <section className="hidden md:block py-12 sm:py-16 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-[#1F1E2A] dark:text-gray-100">
-              {t('solution.title')}
-            </h2>
-            <p className="text-base sm:text-lg max-w-2xl mx-auto px-4 text-[#666666] dark:text-gray-400">
-              {t('solution.subtitle')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-center p-6 rounded-xl bg-white dark:bg-[#2D2C3A] hover:shadow-lg dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all border border-[#E5E5E5] dark:border-[#3D3C4A]"
-            >
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4 bg-[#FFE8E3] dark:bg-[#FF644A]/20">
-                <UserCheck size={32} className="text-[#FF644A]" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#1F1E2A] dark:text-gray-100">
-                {t('solution.trust.title')}
-              </h3>
-              <p className="text-sm sm:text-base leading-relaxed text-[#666666] dark:text-gray-400">
-                {t('solution.trust.description')}
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-center p-6 rounded-xl bg-white dark:bg-[#2D2C3A] hover:shadow-lg dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all border border-[#E5E5E5] dark:border-[#3D3C4A]"
-            >
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4 bg-[#E8F5E3] dark:bg-green-900/30">
-                <Search size={32} className="text-[#4CAF50]" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#1F1E2A] dark:text-gray-100">
-                {t('solution.neverLost.title')}
-              </h3>
-              <p className="text-sm sm:text-base leading-relaxed text-[#666666] dark:text-gray-400">
-                {t('solution.neverLost.description')}
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-center p-6 rounded-xl bg-white dark:bg-[#2D2C3A] hover:shadow-lg dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all border border-[#E5E5E5] dark:border-[#3D3C4A]"
-            >
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4 bg-[#F3E5F5] dark:bg-purple-900/30">
-                <Shield size={32} className="text-[#9C27B0]" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-3 text-[#1F1E2A] dark:text-gray-100">
-                {t('solution.ownProfile.title')}
-              </h3>
-              <p className="text-sm sm:text-base leading-relaxed text-[#666666] dark:text-gray-400">
-                {t('solution.ownProfile.description')}
-              </p>
-            </motion.div>
-          </div>
-
-          {/* Concrete Example */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="mt-8 sm:mt-12 p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#2D2C3A] text-center border-2 border-[#FF644A]"
-          >
-            <p className="text-base sm:text-lg mb-2 text-[#666666] dark:text-gray-400">
-              {t('solution.example.intro')}
-            </p>
-            <p className="text-xl sm:text-2xl font-semibold text-[#1F1E2A] dark:text-gray-100">
-              {t.rich('solution.example.quote', {
-                green: (chunks) => <span className="text-[#4CAF50] font-semibold">{chunks}</span>,
-                red: (chunks) => <span className="text-[#EF4444] font-semibold">{chunks}</span>
-              })}
-            </p>
-            <p className="text-sm mt-3 text-[#999999] dark:text-gray-500">
-              {t('solution.example.attribution')}
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Why Now Section - DESKTOP ONLY */}
-      <section className="hidden md:block py-12 sm:py-16 px-4 sm:px-6 bg-white/40 dark:bg-[#2D2C3A]/40">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-[#1F1E2A] dark:text-gray-100">
-              {t('whyNow.title')}
-            </h2>
-            <p className="text-base sm:text-lg max-w-2xl mx-auto px-4 text-[#666666] dark:text-gray-400">
-              {t('whyNow.subtitle')}
-            </p>
-          </div>
-
-          <div className="space-y-6">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              className="p-6 rounded-xl bg-white dark:bg-[#2D2C3A] flex items-start gap-4 border border-[#E5E5E5] dark:border-[#3D3C4A]"
-            >
-              <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-[#FF644A]">
-                1
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2 text-[#1F1E2A] dark:text-gray-100">
-                  {t('whyNow.aiCheap.title')}
-                </h3>
-                <p className="text-sm sm:text-base leading-relaxed text-[#666666] dark:text-gray-400">
-                  {t('whyNow.aiCheap.description')}
-                </p>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="p-6 rounded-xl bg-white dark:bg-[#2D2C3A] flex items-start gap-4 border border-[#E5E5E5] dark:border-[#3D3C4A]"
-            >
-              <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-[#FF644A]">
-                2
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2 text-[#1F1E2A] dark:text-gray-100">
-                  {t('whyNow.awareness.title')}
-                </h3>
-                <p className="text-sm sm:text-base leading-relaxed text-[#666666] dark:text-gray-400">
-                  {t('whyNow.awareness.description')}
-                </p>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="p-6 rounded-xl bg-white dark:bg-[#2D2C3A] flex items-start gap-4 border border-[#E5E5E5] dark:border-[#3D3C4A]"
-            >
-              <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-[#FF644A]">
-                3
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2 text-[#1F1E2A] dark:text-gray-100">
-                  {t('whyNow.infrastructure.title')}
-                </h3>
-                <p className="text-sm sm:text-base leading-relaxed text-[#666666] dark:text-gray-400">
-                  {t('whyNow.infrastructure.description')}
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Key Differentiators Section */}
-      <section className="py-12 sm:py-16 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-[#1F1E2A] dark:text-gray-100">
-              {t('differentiators.title')}
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="p-6 rounded-xl text-center bg-[#FFE8E3] dark:bg-[#FF644A]/20"
-            >
-              <div className="text-3xl mb-3">🎯</div>
-              <h3 className="text-base sm:text-lg font-semibold mb-2 text-[#1F1E2A] dark:text-gray-100">
-                {t('differentiators.trust.title')}
-              </h3>
-              <p className="text-sm text-[#666666] dark:text-gray-400">
-                {t('differentiators.trust.description')}
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="p-6 rounded-xl text-center bg-[#E8F5E3] dark:bg-green-900/20"
-            >
-              <div className="text-3xl mb-3">🔍</div>
-              <h3 className="text-base sm:text-lg font-semibold mb-2 text-[#1F1E2A] dark:text-gray-100">
-                {t('differentiators.neverLost.title')}
-              </h3>
-              <p className="text-sm text-[#666666] dark:text-gray-400">
-                {t('differentiators.neverLost.description')}
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="p-6 rounded-xl text-center bg-[#F3E5F5] dark:bg-purple-900/20"
-            >
-              <div className="text-3xl mb-3">🔐</div>
-              <h3 className="text-base sm:text-lg font-semibold mb-2 text-[#1F1E2A] dark:text-gray-100">
-                {t('differentiators.ownProfile.title')}
-              </h3>
-              <p className="text-sm text-[#666666] dark:text-gray-400">
-                {t('differentiators.ownProfile.description')}
-              </p>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-12 sm:py-16 px-4 sm:px-6 bg-white/40 dark:bg-[#2D2C3A]/40">
-        <div className="max-w-3xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="space-y-6"
-          >
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1F1E2A] dark:text-gray-100">
-              {t('cta.title')}
-            </h2>
-            <p className="text-base sm:text-lg leading-relaxed text-[#666666] dark:text-gray-400">
-              {t('cta.subtitle')}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            {/* CTA Buttons */}
+            <div className="space-y-4 max-w-sm">
               <Link
                 href="/onboarding"
-                className="px-8 py-3 rounded-lg font-semibold text-white transition-all hover:opacity-90 bg-[#FF644A]"
+                className="block w-full py-4 px-6 bg-[#FF644A] text-white font-semibold text-lg rounded-2xl shadow-lg hover:bg-[#E65441] active:scale-[0.98] transition-all duration-200 text-center"
               >
-                {t('cta.getStarted')}
+                {tOnboarding('welcome.getStarted') || 'Get Started'}
               </Link>
+
               <Link
-                href="/discover"
-                className="px-8 py-3 rounded-lg font-semibold transition-all bg-white dark:bg-[#2D2C3A] text-[#FF644A] border-2 border-[#FF644A] hover:bg-gray-50 dark:hover:bg-[#353444]"
+                href="/onboarding"
+                className="block w-full py-3 text-[#1F1E2A]/70 dark:text-gray-400 font-medium hover:text-[#1F1E2A] dark:hover:text-gray-200 transition-colors text-center"
               >
-                {t('cta.exploreDemo')}
+                {tOnboarding('welcome.alreadyHaveAccount') || 'Already have an account?'}{' '}
+                <span className="text-[#FF644A] font-semibold">
+                  {tOnboarding('welcome.logIn') || 'Log in'}
+                </span>
               </Link>
             </div>
-          </motion.div>
-        </div>
-      </section>
 
-      {/* Footer */}
-      <footer className="py-8 sm:py-12 px-4 sm:px-6 border-t border-[#E5E5E5] dark:border-[#3D3C4A] bg-white dark:bg-[#2D2C3A]">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
-            <div className="col-span-2 md:col-span-1 space-y-4">
-              <Logo size="md" variant="full" />
-              <p className="text-xs sm:text-sm leading-relaxed text-[#666666] dark:text-gray-400">
-                {t('footer.tagline')}
-              </p>
-            </div>
-
-            <div>
-              <h4 className="text-sm sm:text-base font-semibold mb-3 sm:mb-4 text-[#1F1E2A] dark:text-gray-100">
-                {t('footer.platform')}
-              </h4>
-              <div className="space-y-2 text-xs sm:text-sm">
-                <Link href="/discover" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.discover')}
-                </Link>
-                <Link href="/create" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.create')}
-                </Link>
-                <Link href="/community" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.community')}
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-sm sm:text-base font-semibold mb-3 sm:mb-4 text-[#1F1E2A] dark:text-gray-100">
-                {t('footer.learn')}
-              </h4>
-              <div className="space-y-2 text-xs sm:text-sm">
-                <a href="#" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.howItWorks')}
-                </a>
-                <a href="#" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.trustScores')}
-                </a>
-                <a href="#" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.tokenRewards')}
-                </a>
-                <a href="https://bocaboca.xyz/whitepaper" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.whitePaper')}
-                </a>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-sm sm:text-base font-semibold mb-3 sm:mb-4 text-[#1F1E2A] dark:text-gray-100">
-                {t('footer.community')}
-              </h4>
-              <div className="space-y-2 text-xs sm:text-sm">
-                <a href="#" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.discord')}
-                </a>
-                <a href="https://twitter.com/BocaBocaX" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.twitter')}
-                </a>
-                <a href="#" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.github')}
-                </a>
-                <a href="#" className="block transition-colors text-[#666666] dark:text-gray-400 hover:text-[#FF644A] dark:hover:text-[#FF644A]">
-                  {t('footer.blog')}
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-[#E5E5E5] dark:border-[#3D3C4A]">
-            <p className="text-xs sm:text-sm text-[#999999] dark:text-gray-500">
-              {t('footer.copyright')}
+            {/* Terms */}
+            <p className="mt-8 text-xs text-[#1F1E2A]/40 dark:text-gray-500 leading-relaxed max-w-sm">
+              {tOnboarding('welcome.termsPrefix') || 'By continuing, you agree to our'}{' '}
+              <Link href="/terms" className="text-[#FF644A] underline hover:opacity-80">
+                {tOnboarding('welcome.terms') || 'Terms'}
+              </Link>
+              {'. '}
+              {tOnboarding('welcome.privacyPrefix') || 'You acknowledge receipt and understanding of our'}{' '}
+              <Link href="/privacy" className="text-[#FF644A] underline hover:opacity-80">
+                {tOnboarding('welcome.privacyPolicy') || 'Privacy Policy'}
+              </Link>
+              {'.'}
             </p>
-            <div className="flex gap-4 sm:gap-6 text-xs sm:text-sm text-[#999999] dark:text-gray-500">
-              <Link href="/privacy" className="hover:opacity-70 transition-opacity">{t('footer.privacy')}</Link>
-              <Link href="/terms" className="hover:opacity-70 transition-opacity">{t('footer.terms')}</Link>
-              <a href="#" className="hover:opacity-70 transition-opacity">{t('footer.status')}</a>
+          </div>
+        </section>
+
+        {/* ============================================ */}
+        {/* MINIMAL FOOTER                              */}
+        {/* ============================================ */}
+        <footer className="py-6 px-6 border-t border-[#E5E5E5]/60 dark:border-[#3D3C4A]/60">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Logo size="sm" variant="icon" />
+              <span className="text-sm text-[#999999] dark:text-gray-500">
+                © {new Date().getFullYear()} BocaBoca
+              </span>
+            </div>
+            <div className="flex flex-wrap justify-center gap-5 text-sm text-[#999999] dark:text-gray-500">
+              <Link href="/terms" className="hover:text-[#FF644A] transition-colors">
+                {t('footer.terms')}
+              </Link>
+              <Link href="/privacy" className="hover:text-[#FF644A] transition-colors">
+                {t('footer.privacy')}
+              </Link>
+              <a 
+                href="https://bocaboca.xyz/litepaper" 
+                className="hover:text-[#FF644A] transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Litepaper
+              </a>
+              <a 
+                href="https://twitter.com/BocaBocaX" 
+                className="hover:text-[#FF644A] transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                𝕏 Twitter
+              </a>
             </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </main>
     </div>
   );
 };
