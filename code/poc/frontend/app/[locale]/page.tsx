@@ -1,6 +1,7 @@
 // app/[locale]/page.tsx - Landing page with carousel design
 // REDESIGNED: Matches mobile WelcomeCarousel with side-by-side desktop layout
-// Keeps all auth/OAuth/redirect logic intact
+// No header for unauthenticated users - clean conversion-focused experience
+// All users flow through Get Started → phone signup → wallet upgrade later
 // Updated: Feb 7, 2026
 
 "use client"
@@ -10,7 +11,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import CleanHeader from '@/components/CleanHeader';
 import Logo from '@/components/Logo';
 import { useAuth } from '@/hooks/useAuth';
 import AuthService from '@/services/auth';
@@ -207,11 +207,26 @@ const LandingPage: React.FC = () => {
   const slide = slides[currentSlide];
 
   // ============================================
-  // MAIN LANDING PAGE
+  // MAIN LANDING PAGE - No header, conversion-focused
   // ============================================
   return (
     <div className="min-h-screen flex flex-col bg-[#FFF4E1] dark:bg-[#1F1E2A]">
-      <CleanHeader />
+
+      {/* ============================================ */}
+      {/* SUBTLE LOGO - Top left, no navigation       */}
+      {/* ============================================ */}
+      <div className="absolute top-0 left-0 z-10 p-4 md:p-6">
+        <Link href="/" aria-label="BocaBoca home">
+          <Image
+            src="/BocaBoca_Logo.png"
+            alt="BocaBoca"
+            width={36}
+            height={36}
+            className="object-contain"
+            priority
+          />
+        </Link>
+      </div>
 
       {/* ============================================ */}
       {/* HERO CAROUSEL SECTION                       */}
@@ -223,7 +238,7 @@ const LandingPage: React.FC = () => {
           {/* ============================== */}
           {/* IMAGE SIDE (left on desktop)   */}
           {/* ============================== */}
-          <div className="relative w-full md:w-1/2 h-[40vh] md:h-auto md:min-h-[calc(100vh-64px-180px)]">
+          <div className="relative w-full md:w-1/2 h-[40vh] md:h-auto md:min-h-[calc(100vh-80px)]">
             {slides.map((s, index) => (
               <div
                 key={s.id}
@@ -235,7 +250,7 @@ const LandingPage: React.FC = () => {
                   src={s.image}
                   alt={s.imageAlt}
                   fill
-                  className="object-cover md:rounded-br-3xl md:rounded-bl-none"
+                  className="object-cover"
                   priority={index === 0}
                   sizes="(max-width: 768px) 100vw, 50vw"
                 />
@@ -354,12 +369,9 @@ const LandingPage: React.FC = () => {
         {/* ============================================ */}
         <footer className="py-6 px-6 border-t border-[#E5E5E5]/60 dark:border-[#3D3C4A]/60">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-3">
-              <Logo size="sm" variant="icon" />
-              <span className="text-sm text-[#999999] dark:text-gray-500">
-                © {new Date().getFullYear()} BocaBoca
-              </span>
-            </div>
+            <span className="text-sm text-[#999999] dark:text-gray-500">
+              © {new Date().getFullYear()} BocaBoca
+            </span>
             <div className="flex flex-wrap justify-center gap-5 text-sm text-[#999999] dark:text-gray-500">
               <Link href="/terms" className="hover:text-[#FF644A] transition-colors">
                 {t('footer.terms')}
