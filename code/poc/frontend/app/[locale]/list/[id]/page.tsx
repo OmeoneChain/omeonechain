@@ -322,7 +322,9 @@ export default function CuratedListDetailPage() {
   };
 
   const handleRestaurantClick = (restaurantId: string | number) => {
-    router.push(`/${locale}/restaurant/${restaurantId}`);
+    // Pass guide context so restaurant page can show "Back to Guide" link
+    const guideContext = list ? `?fromGuide=${list.id}&guideName=${encodeURIComponent(list.title)}` : '';
+    router.push(`/${locale}/restaurant/${restaurantId}${guideContext}`);
   };
 
   const handleReport = () => {
@@ -748,9 +750,9 @@ export default function CuratedListDetailPage() {
                           {/* Phase 2: Larger photo with attribution */}
                           {photoUrl ? (
                             <div className="relative">
-                              {/* Large Photo - taller aspect ratio */}
+                              {/* Photo - balanced size */}
                               <div 
-                                className="relative aspect-[4/3] sm:aspect-[3/2] cursor-pointer"
+                                className="relative aspect-[16/9] cursor-pointer"
                                 onClick={() => handleRestaurantClick(restaurant.id)}
                               >
                                 <Image
@@ -788,12 +790,12 @@ export default function CuratedListDetailPage() {
                               )}
                             </div>
                           ) : (
-                            /* Fallback: Gradient with number - matching aspect ratio */
+                            /* Fallback: Compact gradient with number */
                             <div 
-                              className="relative aspect-[4/3] sm:aspect-[3/2] bg-gradient-to-br from-[#FF644A] to-[#FFB088] flex items-center justify-center cursor-pointer"
+                              className="relative h-20 bg-gradient-to-br from-[#FF644A] to-[#FFB088] flex items-center justify-center cursor-pointer"
                               onClick={() => handleRestaurantClick(restaurant.id)}
                             >
-                              <span className="text-white font-bold text-3xl">
+                              <span className="text-white font-bold text-2xl">
                                 {restaurant.position || index + 1}
                               </span>
                             </div>

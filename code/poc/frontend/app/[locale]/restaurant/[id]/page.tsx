@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   ArrowLeft,
   Heart,
@@ -649,8 +650,14 @@ function LocationMap({ restaurant, title }: { restaurant: Restaurant; title: str
 export default function RestaurantDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations('restaurant');
   const restaurantId = params?.id as string;
+  const locale = params?.locale as string || 'en';
+
+  // Get guide context from URL params (for "Back to Guide" navigation)
+  const fromGuideId = searchParams.get('fromGuide');
+  const guideName = searchParams.get('guideName');
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [recommendations, setRecommendations] = useState<TieredRecommendations | null>(null);
@@ -916,14 +923,26 @@ export default function RestaurantDetailPage() {
       <CleanHeader />
 
       <main className="px-4 py-6 max-w-2xl mx-auto">
-        {/* BACK LINK */}
-        <button 
-          onClick={handleBack} 
-          className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#FF644A] mb-4 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">{t('back')}</span>
-        </button>
+        {/* BACK NAVIGATION - Shows "Back to Guide" if coming from a guide, otherwise generic back */}
+        {fromGuideId && guideName ? (
+          <Link 
+            href={`/${locale}/list/${fromGuideId}`}
+            className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#FF644A] mb-4 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm">
+              Back to <span className="font-medium">{decodeURIComponent(guideName)}</span>
+            </span>
+          </Link>
+        ) : (
+          <button 
+            onClick={handleBack} 
+            className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#FF644A] mb-4 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm">{t('back')}</span>
+          </button>
+        )}
 
         {/* RESTAURANT INFO SECTION */}
         <section className="mb-6">
