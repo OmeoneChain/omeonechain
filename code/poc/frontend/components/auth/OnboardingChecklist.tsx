@@ -14,6 +14,7 @@ import {
   MessageSquare, 
   CheckCircle2, 
   Circle,
+  ChevronDown,
   ChevronRight,
   Coins,
   Sparkles,
