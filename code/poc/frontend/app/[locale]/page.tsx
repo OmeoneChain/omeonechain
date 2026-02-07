@@ -2,6 +2,7 @@
 // REDESIGNED: Matches mobile WelcomeCarousel with side-by-side desktop layout
 // No header for unauthenticated users - clean conversion-focused experience
 // All users flow through Get Started → phone signup → wallet upgrade later
+// FIX: Get Started links to /onboarding?step=phone to skip redundant carousel
 // Updated: Feb 7, 2026
 
 "use client"
@@ -328,17 +329,17 @@ const LandingPage: React.FC = () => {
               ))}
             </div>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons - Link to /onboarding?step=phone to skip carousel */}
             <div className="space-y-4 max-w-sm">
               <Link
-                href="/onboarding"
+                href="/onboarding?step=phone"
                 className="block w-full py-4 px-6 bg-[#FF644A] text-white font-semibold text-lg rounded-2xl shadow-lg hover:bg-[#E65441] active:scale-[0.98] transition-all duration-200 text-center"
               >
                 {tOnboarding('welcome.getStarted') || 'Get Started'}
               </Link>
 
               <Link
-                href="/onboarding"
+                href="/onboarding?step=phone"
                 className="block w-full py-3 text-[#1F1E2A]/70 dark:text-gray-400 font-medium hover:text-[#1F1E2A] dark:hover:text-gray-200 transition-colors text-center"
               >
                 {tOnboarding('welcome.alreadyHaveAccount') || 'Already have an account?'}{' '}

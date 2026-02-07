@@ -6,6 +6,7 @@
 // Updated: Integrated WelcomeCarousel for better onboarding (Jan 26, 2026)
 // Updated: Fixed async login calls and auth hydration check (Jan 28, 2026)
 // Updated: Fixed AuthMode type mismatch and added defensive null checks (Jan 31, 2026)
+// Updated: Consistent BocaBoca cream background (#FFF4E1) across all steps (Feb 7, 2026)
 
 'use client';
 
@@ -354,17 +355,17 @@ export default function PhoneAuthFlow({
   // Show loading while auth is hydrating
   if (!isHydrated || isLoading) {
     return (
-      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coral-500 mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF644A] mx-auto mb-4"></div>
+          <p className="text-[#666666] dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream-50 flex flex-col">
+    <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A] flex flex-col">
       <div className="flex-1 flex items-center justify-center">
         <AnimatePresence mode="wait">
           {currentStep === 'welcome' && (
