@@ -14,6 +14,243 @@ import { getRewardService } from '../../services/reward-service';
 import { getGooglePlacesCacheService } from '../../services/google-places-cache';
 
 // =============================================================================
+// IPFS GATEWAY FOR PHOTO URLS
+// =============================================================================
+
+const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/';
+
+// =============================================================================
+// RESTAURANT PHOTO HELPERS FOR GUIDES (Phase 2)
+// =============================================================================
+
+interface RestaurantPhotoInfo {
+  photo_url: string | null;
+  photo_source: 'creator_recommendation' | 'community_recommendation' | 'google_places' | null;
+  photo_contributor?: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  };
+  photo_recommendation_id?: string;
+}
+
+/**
+ * Check if a recommendation has a valid photo
+ */
+function hasValidPhoto(rec: any): boolean {
+  if (rec.photos && Array.isArray(rec.photos) && rec.photos.length > 0) {
+    return true;
+  }
+  if (rec.image_url && typeof rec.image_url === 'string' && rec.image_url.length > 0) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Extract the first photo URL from a recommendation
+ */
+function extractPhotoUrl(rec: any): string | null {
+  // Check photos array first
+  if (rec.photos && Array.isArray(rec.photos) && rec.photos.length > 0) {
+    const firstPhoto = rec.photos[0];
+    
+    // If it's already a full URL
+    if (typeof firstPhoto === 'string' && firstPhoto.startsWith('http')) {
+      return firstPhoto;
+    }
+    
+    // If it's an object with url property
+    if (typeof firstPhoto === 'object' && firstPhoto.url) {
+      return firstPhoto.url;
+    }
+    
+    // If it's an IPFS hash
+    if (typeof firstPhoto === 'string') {
+      return `${IPFS_GATEWAY}${firstPhoto}`;
+    }
+  }
+  
+  // Fallback to image_url
+  if (rec.image_url) {
+    if (rec.image_url.startsWith('http')) {
+      return rec.image_url;
+    }
+    return `${IPFS_GATEWAY}${rec.image_url}`;
+  }
+  
+  return null;
+}
+
+/**
+ * Get the best photo for a restaurant in a guide context
+ * 
+ * Priority order:
+ * 1. Guide creator's own recommendation photo (if they recommended this restaurant)
+ * 2. Most upvoted recommendation's photo (leverages existing engagement)
+ * 3. Most recent recommendation photo (any contributor)
+ * 4. Google Places photo (from cache)
+ * 5. null (frontend will show gradient fallback)
+ */
+async function getRestaurantPhotoForGuide(
+  restaurantId: number,
+  guideCreatorId: string,
+  supabaseClient: any
+): Promise<RestaurantPhotoInfo> {
+  try {
+    // Step 1: Check if guide creator has a recommendation for this restaurant with photos
+    const { data: creatorRec, error: creatorError } = await supabaseClient
+      .from('recommendations')
+      .select(`
+        id,
+        photos,
+        image_url,
+        author_id,
+        users:author_id (
+          id,
+          username,
+          display_name,
+          avatar_url
+        )
+      `)
+      .eq('restaurant_id', restaurantId)
+      .eq('author_id', guideCreatorId)
+      .limit(1)
+      .maybeSingle();
+
+    if (!creatorError && creatorRec && hasValidPhoto(creatorRec)) {
+      const photoUrl = extractPhotoUrl(creatorRec);
+      if (photoUrl) {
+        return {
+          photo_url: photoUrl,
+          photo_source: 'creator_recommendation',
+          photo_contributor: {
+            id: creatorRec.users?.id || guideCreatorId,
+            username: creatorRec.users?.username || 'Unknown',
+            display_name: creatorRec.users?.display_name || null,
+            avatar_url: creatorRec.users?.avatar_url || null
+          },
+          photo_recommendation_id: creatorRec.id
+        };
+      }
+    }
+
+    // Step 2: Get most upvoted recommendation with photos
+    const { data: upvotedRecs, error: upvotedError } = await supabaseClient
+      .from('recommendations')
+      .select(`
+        id,
+        photos,
+        image_url,
+        author_id,
+        likes_count,
+        users:author_id (
+          id,
+          username,
+          display_name,
+          avatar_url
+        )
+      `)
+      .eq('restaurant_id', restaurantId)
+      .order('likes_count', { ascending: false })
+      .limit(5);
+
+    if (!upvotedError && upvotedRecs) {
+      for (const rec of upvotedRecs) {
+        if (hasValidPhoto(rec)) {
+          const photoUrl = extractPhotoUrl(rec);
+          if (photoUrl) {
+            return {
+              photo_url: photoUrl,
+              photo_source: 'community_recommendation',
+              photo_contributor: {
+                id: rec.users?.id || rec.author_id,
+                username: rec.users?.username || 'Unknown',
+                display_name: rec.users?.display_name || null,
+                avatar_url: rec.users?.avatar_url || null
+              },
+              photo_recommendation_id: rec.id
+            };
+          }
+        }
+      }
+    }
+
+    // Step 3: Get most recent recommendation with photos (fallback)
+    const { data: recentRecs, error: recentError } = await supabaseClient
+      .from('recommendations')
+      .select(`
+        id,
+        photos,
+        image_url,
+        author_id,
+        users:author_id (
+          id,
+          username,
+          display_name,
+          avatar_url
+        )
+      `)
+      .eq('restaurant_id', restaurantId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (!recentError && recentRecs) {
+      for (const rec of recentRecs) {
+        if (hasValidPhoto(rec)) {
+          const photoUrl = extractPhotoUrl(rec);
+          if (photoUrl) {
+            return {
+              photo_url: photoUrl,
+              photo_source: 'community_recommendation',
+              photo_contributor: {
+                id: rec.users?.id || rec.author_id,
+                username: rec.users?.username || 'Unknown',
+                display_name: rec.users?.display_name || null,
+                avatar_url: rec.users?.avatar_url || null
+              },
+              photo_recommendation_id: rec.id
+            };
+          }
+        }
+      }
+    }
+
+    // Step 4: Try Google Places cached photo
+    const { data: cachedPlace, error: cacheError } = await supabaseClient
+      .from('google_places_cache')
+      .select('photo_url')
+      .eq('restaurant_id', restaurantId)
+      .not('photo_url', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (!cacheError && cachedPlace?.photo_url) {
+      return {
+        photo_url: cachedPlace.photo_url,
+        photo_source: 'google_places',
+        photo_contributor: undefined,
+        photo_recommendation_id: undefined
+      };
+    }
+
+    // Step 5: No photo found
+    return {
+      photo_url: null,
+      photo_source: null
+    };
+
+  } catch (error) {
+    console.error(`Error fetching photo for restaurant ${restaurantId}:`, error);
+    return {
+      photo_url: null,
+      photo_source: null
+    };
+  }
+}
+
+// =============================================================================
 // MULTER CONFIGURATION FOR COVER IMAGE UPLOADS
 // =============================================================================
 
@@ -1035,6 +1272,35 @@ router.get('/:listId', optionalAuth, async (req: express.Request, res: express.R
 
     console.log(`📍 Found ${restaurants.length} restaurants`);
 
+    // Phase 2: Fetch photos for each restaurant with attribution
+    console.log(`📸 Fetching photos for ${restaurants.length} restaurants...`);
+    const restaurantIds = restaurants.map(r => r.id);
+    
+    const photoPromises = restaurantIds.map(async (restaurantId: number) => {
+      const photoInfo = await getRestaurantPhotoForGuide(restaurantId, list.author_id, supabase);
+      return { restaurantId, photoInfo };
+    });
+    
+    const photoResults = await Promise.all(photoPromises);
+    const photoMap = new Map<number, RestaurantPhotoInfo>();
+    for (const { restaurantId, photoInfo } of photoResults) {
+      photoMap.set(restaurantId, photoInfo);
+    }
+
+    // Enhance restaurants with photo data
+    const restaurantsWithPhotos = restaurants.map(restaurant => {
+      const photoInfo = photoMap.get(restaurant.id);
+      return {
+        ...restaurant,
+        photo_url: photoInfo?.photo_url || null,
+        photo_source: photoInfo?.photo_source || null,
+        photo_contributor: photoInfo?.photo_contributor || null,
+        photo_recommendation_id: photoInfo?.photo_recommendation_id || null
+      };
+    });
+
+    console.log(`📸 Photos fetched: ${photoResults.filter(p => p.photoInfo.photo_url).length}/${restaurants.length} have photos`);
+
     let hasLiked = false;
     let isBookmarked = false;
 
@@ -1084,10 +1350,10 @@ router.get('/:listId', optionalAuth, async (req: express.Request, res: express.R
         profile_photo_url: creatorData?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=foodexpert`,
         reputation_score: creatorData?.reputation_score || 0
       },
-      restaurants: restaurants  // FIXED: renamed from list_restaurants
+      restaurants: restaurantsWithPhotos  // Phase 2: includes photo_url, photo_source, photo_contributor
     };
 
-    console.log(`✅ Sending response with ${restaurants.length} restaurants`);
+    console.log(`✅ Sending response with ${restaurantsWithPhotos.length} restaurants`);
 
     res.json(response);
 

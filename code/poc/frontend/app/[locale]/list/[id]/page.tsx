@@ -60,6 +60,15 @@ interface Restaurant {
   photos?: RestaurantPhoto[];
   cover_photo_url?: string;
   photo_url?: string;
+  // Phase 2: Photo with attribution
+  photo_source?: 'creator_recommendation' | 'community_recommendation' | 'google_places' | null;
+  photo_contributor?: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null;
+  photo_recommendation_id?: string | null;
 }
 
 interface Creator {
@@ -721,9 +730,12 @@ export default function CuratedListDetailPage() {
                 {list.restaurants && list.restaurants.length > 0 ? (
                   <div className="space-y-4">
                     {list.restaurants.map((restaurant, index) => {
-                      const photoUrl = restaurant.cover_photo_url || 
-                                       restaurant.photo_url || 
+                      // Phase 2: Use photo_url from backend (with attribution)
+                      const photoUrl = restaurant.photo_url || 
+                                       restaurant.cover_photo_url || 
                                        (restaurant.photos && restaurant.photos[0]?.url);
+                      const hasAttribution = restaurant.photo_contributor && 
+                                             restaurant.photo_source !== 'google_places';
                       
                       return (
                         <motion.div
@@ -733,122 +745,146 @@ export default function CuratedListDetailPage() {
                           transition={{ duration: 0.3, delay: index * 0.05 }}
                           className="group bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] hover:border-[#FF644A] dark:hover:border-[#FF644A] hover:shadow-lg dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all overflow-hidden relative"
                         >
-                          <div className="flex items-stretch">
-                            {/* Number Badge / Photo */}
-                            <div 
-                              className="w-20 sm:w-24 relative flex-shrink-0 cursor-pointer"
-                              onClick={() => handleRestaurantClick(restaurant.id)}
-                            >
-                              {photoUrl ? (
-                                <>
-                                  <Image
-                                    src={photoUrl}
-                                    alt={restaurant.name}
-                                    fill
-                                    className="object-cover"
-                                  />
-                                  <div className="absolute top-2 left-2 w-7 h-7 bg-[#FF644A] rounded-full flex items-center justify-center shadow-md">
-                                    <span className="text-white font-bold text-sm">
-                                      {restaurant.position || index + 1}
-                                    </span>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-[#FF644A] to-[#FFB088] flex items-center justify-center min-h-[80px]">
-                                  <span className="text-white font-bold text-2xl">
+                          {/* Phase 2: Larger photo with attribution */}
+                          {photoUrl ? (
+                            <div className="relative">
+                              {/* Large Photo */}
+                              <div 
+                                className="relative h-40 sm:h-48 cursor-pointer"
+                                onClick={() => handleRestaurantClick(restaurant.id)}
+                              >
+                                <Image
+                                  src={photoUrl}
+                                  alt={restaurant.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                                {/* Number Badge */}
+                                <div className="absolute top-3 left-3 w-8 h-8 bg-[#FF644A] rounded-full flex items-center justify-center shadow-lg">
+                                  <span className="text-white font-bold text-sm">
                                     {restaurant.position || index + 1}
                                   </span>
+                                </div>
+                                {/* Gradient overlay at bottom */}
+                                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
+                              </div>
+                              
+                              {/* Photo Attribution */}
+                              {hasAttribution && restaurant.photo_contributor && (
+                                <Link
+                                  href={`/${locale}/profile/${restaurant.photo_contributor.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="absolute bottom-2 left-3 flex items-center gap-1.5 text-white/90 hover:text-white text-xs transition-colors"
+                                >
+                                  <Camera size={12} />
+                                  <span>@{restaurant.photo_contributor.username}</span>
+                                </Link>
+                              )}
+                              {restaurant.photo_source === 'google_places' && (
+                                <div className="absolute bottom-2 left-3 flex items-center gap-1.5 text-white/70 text-xs">
+                                  <Camera size={12} />
+                                  <span>Google</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            /* Fallback: Gradient with number */
+                            <div 
+                              className="relative h-24 bg-gradient-to-br from-[#FF644A] to-[#FFB088] flex items-center justify-center cursor-pointer"
+                              onClick={() => handleRestaurantClick(restaurant.id)}
+                            >
+                              <span className="text-white font-bold text-3xl">
+                                {restaurant.position || index + 1}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Content */}
+                          <div 
+                            className="p-4 cursor-pointer"
+                            onClick={() => handleRestaurantClick(restaurant.id)}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <h3 className="font-semibold text-[#1F1E2A] dark:text-white text-base group-hover:text-[#FF644A] transition-colors">
+                                {restaurant.name}
+                              </h3>
+                            </div>
+                            
+                            {/* Cuisine & Location */}
+                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2 flex-wrap">
+                              {restaurant.cuisine_type && (
+                                <span className="px-2 py-0.5 bg-[#FFF4E1] dark:bg-[#FF644A]/20 text-[#FF644A] rounded-full text-xs font-medium">
+                                  {restaurant.cuisine_type}
+                                </span>
+                              )}
+                              {restaurant.neighborhood && (
+                                <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                                  <MapPin size={12} />
+                                  <span className="text-xs">{restaurant.neighborhood}</span>
                                 </div>
                               )}
                             </div>
                             
-                            {/* Content */}
-                            <div 
-                              className="flex-1 p-4 cursor-pointer"
-                              onClick={() => handleRestaurantClick(restaurant.id)}
+                            {/* Creator's Notes */}
+                            {restaurant.notes && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 italic border-l-2 border-[#FFE4D6] dark:border-[#FF644A]/30 pl-3 mt-2">
+                                "{restaurant.notes}"
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Three-Dot Menu for Restaurant */}
+                          <div className="absolute top-3 right-3 z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenRestaurantMenuId(
+                                  openRestaurantMenuId === restaurant.id ? null : restaurant.id
+                                );
+                              }}
+                              className="p-1.5 bg-white/90 dark:bg-[#2D2C3A]/90 backdrop-blur-sm rounded-full hover:bg-white dark:hover:bg-[#2D2C3A] transition-colors shadow-sm"
                             >
-                              <div className="flex items-start justify-between gap-2 mb-1">
-                                <h3 className="font-semibold text-[#1F1E2A] dark:text-white text-base group-hover:text-[#FF644A] transition-colors">
-                                  {restaurant.name}
-                                </h3>
-                              </div>
-                              
-                              {/* Cuisine & Location */}
-                              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2 flex-wrap">
-                                {restaurant.cuisine_type && (
-                                  <span className="px-2 py-0.5 bg-[#FFF4E1] dark:bg-[#FF644A]/20 text-[#FF644A] rounded-full text-xs font-medium">
-                                    {restaurant.cuisine_type}
-                                  </span>
-                                )}
-                                {restaurant.neighborhood && (
-                                  <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                                    <MapPin size={12} />
-                                    <span className="text-xs">{restaurant.neighborhood}</span>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              {/* Creator's Notes */}
-                              {restaurant.notes && (
-                                <p className="text-sm text-gray-600 dark:text-gray-400 italic border-l-2 border-[#FFE4D6] dark:border-[#FF644A]/30 pl-3 mt-2">
-                                  "{restaurant.notes}"
-                                </p>
-                              )}
-                            </div>
+                              <MoreHorizontal size={16} className="text-gray-600 dark:text-gray-400" />
+                            </button>
 
-                            {/* Three-Dot Menu for Restaurant */}
-                            <div className="absolute top-2 right-2 z-10">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenRestaurantMenuId(
-                                    openRestaurantMenuId === restaurant.id ? null : restaurant.id
-                                  );
-                                }}
-                                className="p-1.5 bg-white/90 dark:bg-[#2D2C3A]/90 backdrop-blur-sm rounded-full hover:bg-white dark:hover:bg-[#2D2C3A] transition-colors shadow-sm"
+                            {/* Restaurant Dropdown Menu */}
+                            {openRestaurantMenuId === restaurant.id && (
+                              <div 
+                                data-restaurant-menu="true"
+                                className="absolute right-0 top-8 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] py-1 z-20 min-w-[180px]"
                               >
-                                <MoreHorizontal size={16} className="text-gray-600 dark:text-gray-400" />
-                              </button>
-
-                              {/* Restaurant Dropdown Menu */}
-                              {openRestaurantMenuId === restaurant.id && (
-                                <div 
-                                  data-restaurant-menu="true"
-                                  className="absolute right-0 top-8 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-xl shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] py-1 z-20 min-w-[180px]"
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddRestaurantToList(restaurant.id);
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-gray-700 dark:text-gray-300"
                                 >
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleAddRestaurantToList(restaurant.id);
-                                    }}
-                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-gray-700 dark:text-gray-300"
-                                  >
-                                    <FolderPlus size={16} className="text-[#FF644A]" />
-                                    {t.addToList}
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleRestaurantClick(restaurant.id);
-                                    }}
-                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-gray-700 dark:text-gray-300"
-                                  >
-                                    <ExternalLink size={16} className="text-gray-500 dark:text-gray-400" />
-                                    {t.viewRestaurant}
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
+                                  <FolderPlus size={16} className="text-[#FF644A]" />
+                                  {t.addToList}
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRestaurantClick(restaurant.id);
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-gray-700 dark:text-gray-300"
+                                >
+                                  <ExternalLink size={16} className="text-gray-500 dark:text-gray-400" />
+                                  {t.viewRestaurant}
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                       handleReportRestaurant(restaurant.id);
-                                    }}
-                                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-red-600 dark:text-red-400"
-                                  >
-                                    <Flag size={16} />
-                                    {t.report}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-3 text-red-600 dark:text-red-400"
+                                >
+                                  <Flag size={16} />
+                                  {t.report}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </motion.div>
                       );
