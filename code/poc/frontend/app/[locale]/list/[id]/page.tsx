@@ -748,9 +748,9 @@ export default function CuratedListDetailPage() {
                           {/* Phase 2: Larger photo with attribution */}
                           {photoUrl ? (
                             <div className="relative">
-                              {/* Large Photo */}
+                              {/* Large Photo - taller aspect ratio */}
                               <div 
-                                className="relative h-40 sm:h-48 cursor-pointer"
+                                className="relative aspect-[4/3] sm:aspect-[3/2] cursor-pointer"
                                 onClick={() => handleRestaurantClick(restaurant.id)}
                               >
                                 <Image
@@ -788,9 +788,9 @@ export default function CuratedListDetailPage() {
                               )}
                             </div>
                           ) : (
-                            /* Fallback: Gradient with number */
+                            /* Fallback: Gradient with number - matching aspect ratio */
                             <div 
-                              className="relative h-24 bg-gradient-to-br from-[#FF644A] to-[#FFB088] flex items-center justify-center cursor-pointer"
+                              className="relative aspect-[4/3] sm:aspect-[3/2] bg-gradient-to-br from-[#FF644A] to-[#FFB088] flex items-center justify-center cursor-pointer"
                               onClick={() => handleRestaurantClick(restaurant.id)}
                             >
                               <span className="text-white font-bold text-3xl">
