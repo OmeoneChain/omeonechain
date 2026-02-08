@@ -1,9 +1,11 @@
 // app/[locale]/create/page.tsx - Hub for content creation
+// Updated: Reads ?action=list or ?action=request query param to auto-open modals
+// This allows Quick Actions widgets to deep-link directly to creation flows (Feb 8, 2026)
 "use client"
 
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import CleanHeader from '@/components/CleanHeader';
 import dynamic from 'next/dynamic';
 import { PenSquare, ListOrdered, HelpCircle, ChevronRight, Sparkles } from 'lucide-react';
@@ -22,6 +24,7 @@ const CreateRequestModal = dynamic(
 const CreatePage: React.FC = () => {
   const t = useTranslations('create');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   
   // Modal states
@@ -31,6 +34,17 @@ const CreatePage: React.FC = () => {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Auto-open modal if ?action= param is present (from Quick Actions widget)
+  useEffect(() => {
+    if (!mounted) return;
+    const action = searchParams.get('action');
+    if (action === 'list') {
+      setShowCreateListModal(true);
+    } else if (action === 'request') {
+      setShowCreateRequestModal(true);
+    }
+  }, [mounted, searchParams]);
 
   const handleOptionClick = (option: string) => {
     switch (option) {

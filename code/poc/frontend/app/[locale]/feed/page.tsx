@@ -11,7 +11,8 @@ import {
   Coffee,
   Search,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  HelpCircle
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -1318,27 +1319,25 @@ const MainFeed: React.FC = () => {
                 <h3 className="font-semibold text-navy dark:text-white mb-4">{t('quickActions.title')}</h3>
                 <div className="space-y-2">
                   <button
-                    onClick={() => router.push('/create')}
+                    onClick={() => router.push('/create/recommendation')}
                     className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
                   >
                     <ChefHat className="w-5 h-5" />
                     <span className="font-medium">{t('quickActions.createRecommendation')}</span>
                   </button>
                   <button
-                    onClick={() => router.push('/lists/create')}
+                    onClick={() => router.push('/create?action=list')}
                     className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
                   >
                     <Coffee className="w-5 h-5" />
                     <span className="font-medium">{t('quickActions.createList')}</span>
                   </button>
                   <button
-                    onClick={() => router.push('/discover')}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-[#353444] hover:bg-gray-100 dark:hover:bg-[#404050] text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                    onClick={() => router.push('/create?action=request')}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <span className="font-medium">{t('quickActions.discover')}</span>
+                    <HelpCircle className="w-5 h-5" />
+                    <span className="font-medium">{t('quickActions.request') || 'Request'}</span>
                   </button>
                 </div>
               </div>
