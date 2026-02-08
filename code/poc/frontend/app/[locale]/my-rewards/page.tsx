@@ -1,6 +1,7 @@
 // File: code/poc/frontend/app/[locale]/my-rewards/page.tsx
 // Mobile-optimized rewards tracking page for BocaBoca
 // Shows: Balance, recent activity, ways to earn, wallet upgrade prompt
+// UPDATED: Fixed wallet connect - opens modal instead of broken /settings/wallet (Feb 8, 2026)
 //
 // =============================================================================
 // DARK MODE PATTERNS:
@@ -42,6 +43,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import WalletConnect from '@/components/auth/WalletConnect';
 import CleanHeader from '@/components/CleanHeader';
 import tokenBalanceService from '@/services/TokenBalanceService';
 import apiClient from '@/services/api';
@@ -482,7 +484,7 @@ function ComingSoonSection() {
 
 export default function MyRewardsPage() {
   const router = useRouter();
-  const { isAuthenticated, user, authMode, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, user, authMode, isLoading: authLoading, login, refreshAuth } = useAuth();
   
   // State
   const [balance, setBalance] = useState<number>(0);
@@ -493,6 +495,7 @@ export default function MyRewardsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showWalletConnect, setShowWalletConnect] = useState(false);
 
   // Determine if user is phone-only (no wallet)
   const isPhoneOnly = authMode !== 'wallet';
@@ -548,10 +551,9 @@ export default function MyRewardsPage() {
     fetchHistory();
   }, [isAuthenticated, user?.id]);
 
-  // Handle wallet connect
+  // Handle wallet connect - open modal
   const handleConnectWallet = () => {
-    // Navigate to wallet connection flow
-    router.push('/settings/wallet');
+    setShowWalletConnect(true);
   };
 
   // Handle show more (load more events in-place)
@@ -633,6 +635,40 @@ export default function MyRewardsPage() {
           <ComingSoonSection />
         </div>
       </div>
+
+      {/* WalletConnect Modal */}
+      <AnimatePresence>
+        {showWalletConnect && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative"
+            >
+              <WalletConnect 
+                onSuccess={async (token, userData) => {
+                  console.log('✅ MyRewards: Wallet connection successful!');
+                  try {
+                    setShowWalletConnect(false);
+                    login(token, userData);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await refreshAuth();
+                    // Stay on my-rewards page - balance will refresh
+                  } catch (error) {
+                    console.error('❌ Error during post-auth processing:', error);
+                    window.location.reload();
+                  }
+                }}
+                onCancel={() => {
+                  console.log('❌ Wallet connection cancelled');
+                  setShowWalletConnect(false);
+                }}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
