@@ -1,12 +1,16 @@
 // code/poc/frontend/components/auth/WalletConnect.tsx
-// ENHANCED DEBUG VERSION with comprehensive logging and null safety
+// Wallet connection modal for BocaBoca
+// UPDATED: Rebranded to BocaBoca design system (Feb 8, 2026)
+//   - Coral primary (#FF644A), cream accents (#FFF4E1, #FFE8E3)
+//   - Full dark mode support
+//   - Cleaned up dev debug UI
 // UPDATED: Internationalized with next-intl
 
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Wallet, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
+import { Wallet, Loader2, ExternalLink, AlertCircle, Shield } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { WalletManager, AuthAPI, createAuthMessage } from '@/lib/auth';
 
@@ -228,32 +232,36 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
   const isMetaMaskAvailable = WalletManager.isMetaMaskAvailable();
 
   return (
-    <div className={`max-w-md mx-auto p-6 bg-white rounded-lg border ${className}`}>
+    <div className={`max-w-md mx-auto p-6 bg-white dark:bg-[#2D2C3A] rounded-2xl border border-gray-200 dark:border-[#3D3C4A] shadow-xl ${className}`}>
+      {/* Header */}
       <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Wallet className="w-8 h-8 text-blue-600" />
+        <div className="w-16 h-16 bg-[#FFF4E1] dark:bg-[#FF644A]/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Wallet className="w-8 h-8 text-[#FF644A]" />
         </div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+        <h2 className="text-xl font-bold text-[#1F1E2A] dark:text-white mb-2">
           {t('auth.walletConnect.title')}
         </h2>
-        <p className="text-gray-600 text-sm">
+        <p className="text-gray-600 dark:text-gray-400 text-sm">
           {t('auth.walletConnect.subtitle')}
         </p>
       </div>
 
+      {/* Error State */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+        <div className="mb-4 p-3 bg-[#FFE8E3] dark:bg-red-900/20 border border-[#FFD4CC] dark:border-red-800 rounded-xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-[#E65441] dark:text-red-400 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm text-red-800 font-medium mb-1">{t('auth.walletConnect.connectionFailed')}</p>
-            <p className="text-sm text-red-700">{error}</p>
+            <p className="text-sm text-[#1F1E2A] dark:text-white font-medium mb-1">
+              {t('auth.walletConnect.connectionFailed')}
+            </p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">{error}</p>
             {error.includes('server') && (
-              <p className="text-xs text-red-600 mt-2">
+              <p className="text-xs text-[#E65441] dark:text-red-400 mt-2">
                 {t('auth.walletConnect.hints.serverCheck')}
               </p>
             )}
             {error.includes('mismatch') && (
-              <p className="text-xs text-red-600 mt-2">
+              <p className="text-xs text-[#E65441] dark:text-red-400 mt-2">
                 {t('auth.walletConnect.hints.mismatchHint')}
               </p>
             )}
@@ -261,43 +269,47 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
         </div>
       )}
 
+      {/* Dev-only: Clear auth data */}
       {process.env.NODE_ENV === 'development' && (
         <button
           onClick={() => {
             clearAllAuthData();
             toast.success(t('auth.walletConnect.debug.cleared'));
           }}
-          className="w-full mb-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+          className="w-full mb-2 px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#3D3C4A] rounded-lg hover:bg-gray-50 dark:hover:bg-[#353444]"
         >
           🧹 {t('auth.walletConnect.debug.clearData')}
         </button>
       )}
 
+      {/* Main Action Area */}
       {!isMetaMaskAvailable ? (
+        /* MetaMask Not Installed */
         <div className="text-center">
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800 mb-2">
+          <div className="mb-4 p-4 bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFD4CC] dark:border-[#FF644A]/30 rounded-xl">
+            <p className="text-sm text-[#1F1E2A] dark:text-white font-medium mb-1">
               {t('auth.wallet.noWallet')}
             </p>
-            <p className="text-xs text-yellow-700">
+            <p className="text-xs text-gray-600 dark:text-gray-400">
               {t('auth.wallet.installWallet')}
             </p>
           </div>
           
           <button
             onClick={handleInstallMetaMask}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#FF644A] text-white rounded-xl hover:bg-[#E65441] transition-colors font-medium"
           >
             <ExternalLink className="w-5 h-5" />
             {t('auth.walletConnect.installMetaMask')}
           </button>
         </div>
       ) : (
+        /* MetaMask Available — Connect Button */
         <div>
           <button
             onClick={handleConnect}
             disabled={isConnecting}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors font-medium"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-[#FF644A] text-white rounded-xl hover:bg-[#E65441] disabled:bg-[#FF644A]/50 disabled:cursor-not-allowed transition-colors font-medium text-[15px]"
           >
             {isConnecting ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -307,21 +319,22 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
             {isConnecting ? getStepText() : t('auth.walletConnect.connectMetaMask')}
           </button>
 
+          {/* In-progress status */}
           {isConnecting && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center gap-2 text-sm text-blue-800">
-                <Loader2 className="w-4 h-4 animate-spin" />
+            <div className="mt-4 p-3 bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFD4CC] dark:border-[#FF644A]/30 rounded-xl">
+              <div className="flex items-center gap-2 text-sm text-[#1F1E2A] dark:text-white">
+                <Loader2 className="w-4 h-4 animate-spin text-[#FF644A]" />
                 <span>{getStepText()}</span>
               </div>
               
               {step === 'signing' && (
-                <p className="text-xs text-blue-600 mt-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
                   {t('auth.walletConnect.hints.checkExtension')}
                 </p>
               )}
               
               {step === 'verifying' && (
-                <p className="text-xs text-blue-600 mt-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
                   {t('auth.walletConnect.hints.verifying')}
                 </p>
               )}
@@ -330,48 +343,52 @@ const WalletConnect: React.FC<WalletConnectProps> = ({
         </div>
       )}
 
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <p className="text-xs text-gray-500 text-center mb-3">
+      {/* Other Wallet Options (coming soon) */}
+      <div className="mt-6 pt-4 border-t border-gray-200 dark:border-[#3D3C4A]">
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-3">
           {t('auth.walletConnect.moreOptions')}
         </p>
         
         <div className="grid grid-cols-2 gap-2">
           <button
             disabled
-            className="flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-400 border border-gray-200 rounded-lg cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-[#3D3C4A] rounded-xl cursor-not-allowed bg-gray-50 dark:bg-[#353444]"
           >
             {t('auth.wallet.walletConnect')}
           </button>
           <button
             disabled
-            className="flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-400 border border-gray-200 rounded-lg cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-[#3D3C4A] rounded-xl cursor-not-allowed bg-gray-50 dark:bg-[#353444]"
           >
             {t('auth.wallet.coinbase')}
           </button>
         </div>
       </div>
 
+      {/* Cancel Button */}
       {onCancel && (
         <button
           onClick={handleCancel}
-          className="w-full mt-4 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+          className="w-full mt-4 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#1F1E2A] dark:hover:text-white transition-colors font-medium"
         >
           {isConnecting ? t('auth.walletConnect.cancelConnection') : t('common.cancel')}
         </button>
       )}
 
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-        <p className="text-xs text-gray-600 leading-relaxed">
-          🔒 <strong>{t('auth.walletConnect.security.title')}</strong> {t('auth.walletConnect.security.description')}
+      {/* Security Notice */}
+      <div className="mt-4 p-3 bg-[#FFF4E1] dark:bg-[#353444] rounded-xl flex items-start gap-2.5">
+        <Shield className="w-4 h-4 text-[#2D7A5F] dark:text-[#BFE2D9] flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+          <strong className="text-[#1F1E2A] dark:text-white">{t('auth.walletConnect.security.title')}</strong>{' '}
+          {t('auth.walletConnect.security.description')}
         </p>
       </div>
 
+      {/* Dev Debug Panel - only in development */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-gray-500">
-          <p>Debug: Backend should be running on port 3001</p>
-          <p>API endpoint: /api/auth/challenge</p>
+        <div className="mt-3 p-2 bg-gray-100 dark:bg-[#353444] rounded-lg text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+          <p>Backend: port 3001 | API: /api/auth/challenge</p>
           <p>Account change detection: Active</p>
-          <p className="mt-1 text-blue-600 font-medium">Check browser console for detailed logs</p>
         </div>
       )}
     </div>
