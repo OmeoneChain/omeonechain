@@ -10,7 +10,6 @@ import {
   ChefHat,
   Coffee,
   Search,
-  TrendingUp,
   Sparkles,
   HelpCircle
 } from 'lucide-react';
@@ -26,6 +25,7 @@ import { useAuth } from '@/hooks/useAuth';
 import tokenBalanceService from '@/services/TokenBalanceService';
 import toast from 'react-hot-toast';
 import { useCapacitor } from '@/hooks/useCapacitor';
+import TrendingWidget from '@/components/discover/TrendingWidget';
 
 // Recommendation interface (same as before)
 interface Recommendation {
@@ -198,9 +198,7 @@ const MainFeed: React.FC = () => {
   const t = useTranslations('feed');
   
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
-  const [trendingItems, setTrendingItems] = useState<FeedItem[]>([]);
   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
-  const [isLoadingTrending, setIsLoadingTrending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { isCapacitor } = useCapacitor();
 
@@ -496,61 +494,6 @@ const MainFeed: React.FC = () => {
     });
   }, [user?.id, t]);
 
-  // NEW: Fetch trending content when feed is empty
-  const loadTrendingContent = useCallback(async () => {
-    try {
-      setIsLoadingTrending(true);
-      const token = localStorage.getItem('omeone_auth_token');
-      
-      if (!token) {
-        console.log('❌ No token for trending fetch');
-        return;
-      }
-
-      console.log('🔥 Fetching trending content for empty feed...');
-
-      // Try discover endpoint first (public recommendations)
-      const response = await fetch(`${BACKEND_URL}/api/discover?limit=10`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Loaded trending content:', data);
-        
-        if (data.success && data.recommendations) {
-          const transformedItems = transformRecommendationsData(data.recommendations);
-          setTrendingItems(transformedItems);
-        }
-      } else {
-        console.warn('⚠️ Discover endpoint failed, trying recommendations...');
-        
-        // Fallback to general recommendations
-        const recResponse = await fetch(`${BACKEND_URL}/api/recommendations?limit=10`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (recResponse.ok) {
-          const recData = await recResponse.json();
-          const transformedItems = transformRecommendationsData(recData.recommendations || []);
-          setTrendingItems(transformedItems);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Failed to load trending content:', error);
-    } finally {
-      setIsLoadingTrending(false);
-    }
-  }, [BACKEND_URL, transformRecommendationsData]);
-
   // Fetch user's interaction status for recommendations
   const fetchUserInteractionStatus = useCallback(async () => {
     try {
@@ -593,24 +536,6 @@ const MainFeed: React.FC = () => {
               }
             };
           } else if (item.type === 'reshare') {
-            return {
-              ...item,
-              data: {
-                ...item.data,
-                isBookmarked: data.bookmarked?.includes(item.data.id) || false,
-                hasUpvoted: data.liked?.includes(item.data.id) || false,
-                hasReshared: data.reshared?.includes(item.data.id) || false
-              }
-            };
-          }
-          return item;
-        })
-      );
-
-      // Also update trending items if they exist
-      setTrendingItems(items => 
-        items.map(item => {
-          if (item.type === 'recommendation') {
             return {
               ...item,
               data: {
@@ -673,11 +598,6 @@ const MainFeed: React.FC = () => {
         const transformedItems = transformRecommendationsData(recData.recommendations || []);
         setFeedItems(transformedItems);
         
-        // If feed is empty, load trending content
-        if (transformedItems.length === 0) {
-          await loadTrendingContent();
-        }
-        
       } else {
         const data = await response.json();
         console.log('✅ Loaded mixed feed:', data);
@@ -686,32 +606,18 @@ const MainFeed: React.FC = () => {
           const transformedItems = transformMixedFeed(data.feed);
           setFeedItems(transformedItems);
           console.log(`📊 Feed contains ${transformedItems.filter(i => i.type === 'recommendation').length} recommendations, ${transformedItems.filter(i => i.type === 'reshare').length} reshares, ${transformedItems.filter(i => i.type === 'list').length} lists, and ${transformedItems.filter(i => i.type === 'request').length} requests`);
-          
-          // If feed is empty, load trending content
-          if (transformedItems.length === 0) {
-            await loadTrendingContent();
-          }
         } else {
           setFeedItems([]);
-          // Load trending content for empty feed
-          await loadTrendingContent();
         }
       }
-
-      // Load user's interaction status after feed loads
-      // Interaction status (hasUpvoted, isBookmarked, hasReshared) is already
-      // included in each feed item by the /api/feed/mixed endpoint.
-      // No separate fetch needed here.
 
     } catch (error) {
       console.error('❌ Failed to load feed:', error);
       setFeedItems([]);
-      // Load trending content even on error
-      await loadTrendingContent();
     } finally {
       setIsLoadingFeed(false);
     }
-  }, [BACKEND_URL, transformMixedFeed, transformRecommendationsData, fetchUserInteractionStatus, loadTrendingContent]);
+  }, [BACKEND_URL, transformMixedFeed, transformRecommendationsData, fetchUserInteractionStatus]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -725,10 +631,9 @@ const MainFeed: React.FC = () => {
     setIsRefreshing(false);
   };
 
-  // Recommendation interactions (same as before)
+  // Recommendation interactions
   const handleSaveRecommendation = async (id: string) => {
-    // Update both feed items and trending items
-    const updateItems = (items: FeedItem[]) => 
+    setFeedItems(items => 
       items.map(item => {
         if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
           return {
@@ -744,10 +649,8 @@ const MainFeed: React.FC = () => {
           };
         }
         return item;
-      });
-
-    setFeedItems(updateItems);
-    setTrendingItems(updateItems);
+      })
+    );
 
     try {
       const token = localStorage.getItem('omeone_auth_token');
@@ -766,7 +669,7 @@ const MainFeed: React.FC = () => {
       if (data.tokens_earned && data.tokens_earned > 0) {
         toast.success(t('toast.saved', { tokens: data.tokens_earned.toFixed(2) }));
 
-        // 🚀 NEW: Trigger optimistic balance update
+        // 🚀 Trigger optimistic balance update
         if (user?.id) {
           await tokenBalanceService.optimisticUpdate(user.id, data.tokens_earned);
         }
@@ -774,7 +677,7 @@ const MainFeed: React.FC = () => {
     } catch (error) {
       console.error('❌ Failed to save recommendation:', error);
       // Revert on error
-      const revertItems = (items: FeedItem[]) => 
+      setFeedItems(items => 
         items.map(item => {
           if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
             return {
@@ -790,16 +693,13 @@ const MainFeed: React.FC = () => {
             };
           }
           return item;
-        });
-      
-      setFeedItems(revertItems);
-      setTrendingItems(revertItems);
+        })
+      );
     }
   };
 
   const handleUpvoteRecommendation = async (id: string) => {
-    // Update both feed items and trending items
-    const updateItems = (items: FeedItem[]) => 
+    setFeedItems(items => 
       items.map(item => {
         if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
           return {
@@ -815,10 +715,8 @@ const MainFeed: React.FC = () => {
           };
         }
         return item;
-      });
-
-    setFeedItems(updateItems);
-    setTrendingItems(updateItems);
+      })
+    );
 
     try {
       const token = localStorage.getItem('omeone_auth_token');
@@ -837,7 +735,7 @@ const MainFeed: React.FC = () => {
       if (data.tokens_earned && data.tokens_earned > 0) {
         toast.success(t('toast.liked', { tokens: data.tokens_earned.toFixed(2) }));
 
-        // 🚀 NEW: Trigger optimistic balance update
+        // 🚀 Trigger optimistic balance update
         if (user?.id) {
           await tokenBalanceService.optimisticUpdate(user.id, data.tokens_earned);
         }
@@ -845,7 +743,7 @@ const MainFeed: React.FC = () => {
     } catch (error) {
       console.error('❌ Failed to like recommendation:', error);
       // Revert on error
-      const revertItems = (items: FeedItem[]) => 
+      setFeedItems(items => 
         items.map(item => {
           if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
             return {
@@ -861,14 +759,11 @@ const MainFeed: React.FC = () => {
             };
           }
           return item;
-        });
-      
-      setFeedItems(revertItems);
-      setTrendingItems(revertItems);
+        })
+      );
     }
   };
 
-  // ADD THIS NEW FUNCTION HERE:
   const handleReshare = async (id: string, comment?: string) => {
     // Backend already awards tokens (0.2 BOCA to resharer + 0.1 BOCA attribution)
     // Just refresh balance to show the update
@@ -877,7 +772,7 @@ const MainFeed: React.FC = () => {
     }
   };
 
-  // Request interactions (NEW)
+  // Request interactions
   const handleBookmarkRequest = async (id: string) => {
     setFeedItems(items =>
       items.map(item => {
@@ -927,7 +822,7 @@ const MainFeed: React.FC = () => {
     }
   };
 
-  // List interactions (same as before)
+  // List interactions
   const handleSaveList = async (listId: string | number) => {
     const id = listId.toString();
     
@@ -1101,19 +996,6 @@ const MainFeed: React.FC = () => {
     </motion.div>
   );
 
-  // ============================================================================
-  // TRENDING SECTION HEADER
-  // ============================================================================
-  const TrendingSectionHeader = () => (
-    <div className="flex items-center gap-3 mb-4 mt-2">
-      <div className="flex items-center gap-2 text-coral">
-        <TrendingUp className="w-5 h-5" />
-        <span className="font-semibold">{t('emptyFeed.trendingTitle') || 'Trending in Your Area'}</span>
-      </div>
-      <div className="flex-1 h-px bg-gray-200 dark:bg-[#3D3C4A]" />
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-cream dark:bg-[#1F1E2A]">
       <CleanHeader />
@@ -1163,65 +1045,9 @@ const MainFeed: React.FC = () => {
               ))
             ) : isFeedEmpty ? (
               // ================================================================
-              // EMPTY FEED: Show CTA Box + Trending Content
+              // EMPTY FEED: Show CTA Box (trending handled by sidebar widget)
               // ================================================================
-              <>
-                <EmptyFeedCTA />
-                
-                {/* Trending Section */}
-                {isLoadingTrending ? (
-                  <div className="space-y-4">
-                    <TrendingSectionHeader />
-                    {[1, 2].map(i => (
-                      <div key={i} className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A] animate-pulse">
-                        <div className="flex gap-3 mb-4">
-                          <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                          <div className="flex-1">
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
-                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                          </div>
-                        </div>
-                        <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      </div>
-                    ))}
-                  </div>
-                ) : trendingItems.length > 0 ? (
-                  <>
-                    <TrendingSectionHeader />
-                    {trendingItems.map((item, index) => {
-                      if (item.type === 'recommendation') {
-                        return (
-                          <RecommendationCard
-                            key={`trending-${item.data.id}-${index}`}
-                            recommendation={item.data}
-                            currentUserId={user?.id}
-                            variant="default"
-                            showAuthor={true}
-                            showTokenRewards={false}
-                            showBlockchainInfo={false}
-                            showActions={true}
-                            onSave={handleSaveRecommendation}
-                            onUpvote={handleUpvoteRecommendation}
-                            onShare={handleShare}
-                            onAuthorClick={(authorId) => router.push(`/users/${authorId}`)}
-                            onLocationClick={(location) => {
-                              if (location.restaurant_id) {
-                                router.push(`/restaurant/${location.restaurant_id}`);
-                              }
-                            }}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
-                  </>
-                ) : (
-                  // No trending content either - show simple message
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    <p className="text-sm">{t('emptyFeed.noTrending') || 'Be the first to share a recommendation!'}</p>
-                  </div>
-                )}
-              </>
+              <EmptyFeedCTA />
             ) : (
               // ================================================================
               // NORMAL FEED: Show user's feed items
@@ -1342,84 +1168,74 @@ const MainFeed: React.FC = () => {
                 </div>
               </div>
 
-            {/* Trending Now */}
-            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-navy dark:text-white">{t('trending.title')}</h3>
-                <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                {t('trending.empty')}
-              </div>
-            </div>
+              {/* Trending Now - Uses shared TrendingWidget component */}
+              <TrendingWidget itemCount={3} />
 
-            {/* Your Dining Memory - Gradient card stays the same */}
-            <div className="bg-gradient-to-br from-[#FFB3AB] to-[#FF644A] rounded-xl border border-coral p-6">
-              <h3 className="font-semibold text-white mb-4">{t('diningMemory.title')}</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white">{t('diningMemory.recentRecommendations')}</span>
-                  <span className="font-semibold text-white">
-                    {feedItems.filter(i => i.type === 'recommendation').length}
-                  </span>
+              {/* Your Dining Memory - Gradient card */}
+              <div className="bg-gradient-to-br from-[#FFB3AB] to-[#FF644A] rounded-xl border border-coral p-6">
+                <h3 className="font-semibold text-white mb-4">{t('diningMemory.title')}</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-white">{t('diningMemory.recentRecommendations')}</span>
+                    <span className="font-semibold text-white">
+                      {feedItems.filter(i => i.type === 'recommendation').length}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-white">{t('diningMemory.savedLists')}</span>
+                    <span className="font-semibold text-white">0</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-white">{t('diningMemory.following')}</span>
+                    <span className="font-semibold text-white">{t('diningMemory.foodExperts', { count: 2 })}</span>
+                  </div>
+                  <button
+                    onClick={() => router.push(`/users/${user?.id}`)}
+                    className="w-full mt-4 px-4 py-2 text-white border border-white/30 bg-white/10 rounded-lg hover:bg-white/20 font-medium text-sm transition-colors"
+                  >
+                    {t('diningMemory.viewHistory')}
+                  </button>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white">{t('diningMemory.savedLists')}</span>
-                  <span className="font-semibold text-white">0</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white">{t('diningMemory.following')}</span>
-                  <span className="font-semibold text-white">{t('diningMemory.foodExperts', { count: 2 })}</span>
-                </div>
-                <button
-                  onClick={() => router.push(`/users/${user?.id}`)}
-                  className="w-full mt-4 px-4 py-2 text-white border border-white/30 bg-white/10 rounded-lg hover:bg-white/20 font-medium text-sm transition-colors"
-                >
-                  {t('diningMemory.viewHistory')}
-                </button>
               </div>
-            </div>
 
-            {/* Community Stats */}
-            <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
-              <h3 className="font-semibold text-navy dark:text-white mb-4">{t('communityStats.title')}</h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FFE8E4] dark:bg-[#FF644A]/20 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-coral" />
+              {/* Community Stats */}
+              <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
+                <h3 className="font-semibold text-navy dark:text-white mb-4">{t('communityStats.title')}</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#FFE8E4] dark:bg-[#FF644A]/20 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-coral" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.activeMembers')}</p>
+                      <p className="font-semibold text-navy dark:text-white">{t('communityStats.growingDaily')}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.activeMembers')}</p>
-                    <p className="font-semibold text-navy dark:text-white">{t('communityStats.growingDaily')}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                      <ChefHat className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.recommendations')}</p>
+                      <p className="font-semibold text-navy dark:text-white">
+                        {t('communityStats.inFeed', { count: recommendationCount })}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <ChefHat className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.recommendations')}</p>
-                    <p className="font-semibold text-navy dark:text-white">
-                      {t('communityStats.inFeed', { count: recommendationCount })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FFE8E4] dark:bg-[#FF644A]/20 flex items-center justify-center">
-                    <Coffee className="w-5 h-5 text-coral" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.curatedLists')}</p>
-                    <p className="font-semibold text-navy dark:text-white">
-                      {t('communityStats.available', { count: listCount })}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#FFE8E4] dark:bg-[#FF644A]/20 flex items-center justify-center">
+                      <Coffee className="w-5 h-5 text-coral" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.curatedLists')}</p>
+                      <p className="font-semibold text-navy dark:text-white">
+                        {t('communityStats.available', { count: listCount })}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
           )}
         </div>
       </div>

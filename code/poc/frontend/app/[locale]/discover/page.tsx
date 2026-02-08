@@ -183,7 +183,7 @@ const DiscoverPage = () => {
   }, []);
 
   const handleCreateRecommendation = () => {
-    router.push('/create');
+    router.push('/create/recommendation');
   };
 
   const handleCreateList = () => {
@@ -336,14 +336,6 @@ const DiscoverPage = () => {
 
   const handleReportRequest = (requestId: string) => {
     toast.success(t('toast.reportSubmitted'));
-  };
-
-  const handleViewHistory = () => {
-    if (user) {
-      router.push(`/users/${user.id}/history`);
-    } else {
-      router.push('/login');
-    }
   };
 
   const handleRestaurantClick = (restaurantId: number) => {
@@ -981,12 +973,6 @@ const DiscoverPage = () => {
                       {action.label}
                     </button>
                   ))}
-                  <button 
-                    onClick={handleViewHistory}
-                    className="w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-[#FF644A] font-medium transition-colors text-center"
-                  >
-                    {t('sidebar.quickActions.viewHistory')}
-                  </button>
                 </div>
               </div>
             )}
