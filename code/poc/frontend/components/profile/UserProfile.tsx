@@ -4,6 +4,8 @@
 // FIXED: Token refresh loop - now uses tokenRef to prevent infinite re-renders
 // FIXED: Follow/unfollow now uses socialApi for consistency with Community page
 // FIXED: Button colors updated to BocaBoca brand coral (#FF644A)
+// FIXED: Removed Tokens Earned from stats row (redundant with header widget)
+// FIXED: Added pb-24 for mobile bottom nav clearance
 //
 // =============================================================================
 // DARK MODE PATTERNS USED IN THIS FILE:
@@ -1855,11 +1857,11 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   };
 
   // -------------------------------
-  // Loading / not found (preserved with dark mode)
+  // Loading / not found (preserved with dark mode + pb-24 for mobile nav clearance)
   // -------------------------------
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-6 pb-24">
         <div className="animate-pulse">
           <div className="flex items-start gap-6 mb-8">
             <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-full" />
@@ -1881,7 +1883,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
   if (!user) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-6 pb-24">
         <div className="text-center">
           <User className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('profile.header.userNotFound')}</h3>
@@ -1905,7 +1907,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6 pb-24">
       {/* Compact Profile Header */}
       <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-[#3D3C4A] p-4 mb-4">
         <div className="flex items-start gap-4">
@@ -1993,7 +1995,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
           </div>
         </div>
 
-        {/* Compact Stats Row (clickable -> tab routing) */}
+        {/* Compact Stats Row — 3 stats only (Tokens Earned removed, shown in header widget) */}
         <div className="flex items-center justify-around mt-4 pt-4 border-t border-gray-100 dark:border-[#3D3C4A]">
           <button
             onClick={() => {
@@ -2027,21 +2029,6 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
             <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{user.following}</div>
             <div className="text-xs text-gray-500 dark:text-gray-500">{t('profile.stats.following')}</div>
           </button>
-
-          {isOwnProfile && (
-            <button
-              onClick={() => {
-                setActiveTab('settings');
-                setSettingsSubTab('rewards');
-              }}
-              className="text-center hover:bg-gray-50 dark:hover:bg-[#353444] px-4 py-2 rounded-lg transition-colors"
-            >
-              <div className="text-lg font-bold text-orange-600 dark:text-[#FF644A]">
-                {tokenBalanceLoading ? '...' : tokenBalance.toFixed(1)}
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-500">{t('profile.stats.tokensEarned')}</div>
-            </button>
-          )}
         </div>
       </div>
 
