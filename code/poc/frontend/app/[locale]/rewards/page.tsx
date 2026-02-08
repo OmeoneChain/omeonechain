@@ -3,22 +3,17 @@
 // UPDATED: Dark mode support added
 // UPDATED: Full i18n support with useTranslations
 // UPDATED: Mobile-responsive pass (Feb 2, 2026)
-//   - Two-column layout stacks on mobile (lg breakpoint)
-//   - Tab buttons scroll horizontally on mobile
-//   - Title/header sizes scale down for mobile
-//   - All grids collapse to fewer columns on small screens
-//   - Reward rows handle narrow screens without clipping
-//   - Leaderboard scrolls horizontally on mobile
-//   - Sidebar stacks below main content on mobile
-//   - Padding/spacing tightened for mobile
+// UPDATED: Fixed wallet connect flow - replaced broken /dashboard link (Feb 8, 2026)
 
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trophy, Camera, Target, Wallet, ArrowRight, TrendingUp, Clock, Users, AlertCircle, Gift, Star, MessageSquare, Share2, Bookmark } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
+import WalletConnect from '@/components/auth/WalletConnect';
 import lotteryApiService, { LotteryStandings } from '@/services/LotteryApiService';
 import photoContestApiService, { PhotoContestCurrent } from '@/services/PhotoContestApiService';
 import CleanHeader from '@/components/CleanHeader';
@@ -84,11 +79,12 @@ type TabType = 'overview' | 'lottery' | 'photo-contest' | 'bounties';
 export default function RewardsPage() {
   const router = useRouter();
   const t = useTranslations('rewards');
-  const { isAuthenticated, user, authMode } = useAuth();
+  const { isAuthenticated, user, authMode, login, refreshAuth } = useAuth();
   
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null); 
+  const [showWalletConnect, setShowWalletConnect] = useState(false);
 
   // Lottery data
   const [lotteryData, setLotteryData] = useState<LotteryStandings | null>(null);
@@ -123,6 +119,10 @@ export default function RewardsPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConnectWallet = () => {
+    setShowWalletConnect(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -233,7 +233,7 @@ export default function RewardsPage() {
               ) : (
                 <>
                   {activeTab === 'overview' && (
-                    <OverviewContent user={user} />
+                    <OverviewContent user={user} onConnectWallet={handleConnectWallet} />
                   )}
                   
                   {activeTab === 'lottery' && (
@@ -271,9 +271,44 @@ export default function RewardsPage() {
             authMode={authMode}
             lotteryData={lotteryData}
             formatDate={formatDate}
+            onConnectWallet={handleConnectWallet}
           />
         </div>
       </div>
+
+      {/* WalletConnect Modal */}
+      <AnimatePresence>
+        {showWalletConnect && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative"
+            >
+              <WalletConnect 
+                onSuccess={async (token, userData) => {
+                  console.log('✅ Rewards: Wallet connection successful!');
+                  try {
+                    setShowWalletConnect(false);
+                    login(token, userData);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await refreshAuth();
+                    // Stay on rewards page - user can now earn
+                  } catch (error) {
+                    console.error('❌ Error during post-auth processing:', error);
+                    window.location.reload();
+                  }
+                }}
+                onCancel={() => {
+                  console.log('❌ Wallet connection cancelled');
+                  setShowWalletConnect(false);
+                }}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -286,12 +321,14 @@ function Sidebar({
   isAuthenticated, 
   authMode, 
   lotteryData, 
-  formatDate 
+  formatDate,
+  onConnectWallet
 }: { 
   isAuthenticated: boolean;
   authMode: string | null;
   lotteryData: LotteryStandings | null;
   formatDate: (date: string) => string;
+  onConnectWallet: () => void;
 }) {
   const router = useRouter();
   const t = useTranslations('rewards');
@@ -354,7 +391,7 @@ function Sidebar({
             </p>
             
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={onConnectWallet}
               className="w-full px-4 py-2 rounded-lg text-white font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 bg-[#FF644A]"
             >
               <span>{t('sidebar.wallet.upgrade.cta')}</span>
@@ -373,7 +410,7 @@ function Sidebar({
             </p>
           </div>
           <button
-            onClick={() => router.push('/signup')}
+            onClick={() => router.push('/onboarding?step=phone')}
             className="w-full px-4 py-2 rounded-lg text-white font-medium hover:opacity-90 transition-opacity bg-[#FF644A]"
           >
             {t('sidebar.wallet.guest.cta')}
@@ -494,7 +531,7 @@ const RewardRow = ({
 // ============================================
 // OVERVIEW TAB COMPONENT - MOBILE FIX
 // ============================================
-const OverviewContent = ({ user }: { user?: any }) => {
+const OverviewContent = ({ user, onConnectWallet }: { user?: any; onConnectWallet: () => void }) => {
   const t = useTranslations('rewards');
   const isEmailUser = user?.accountTier === 'email_basic';
   
@@ -523,7 +560,10 @@ const OverviewContent = ({ user }: { user?: any }) => {
                 })}
               </p>
             </div>
-            <button className="bg-white text-[#FF644A] px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors whitespace-nowrap flex-shrink-0">
+            <button 
+              onClick={onConnectWallet}
+              className="bg-white text-[#FF644A] px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors whitespace-nowrap flex-shrink-0"
+            >
               {t('overview.upgradeWallet.cta')}
             </button>
           </div>
@@ -1552,7 +1592,7 @@ function BountiesContent({
             {t('bounties.loginRequired')}
           </p>
           <button
-            onClick={() => router.push('/signup')}
+            onClick={() => router.push('/onboarding?step=phone')}
             className="px-4 py-2 rounded-lg text-white font-medium hover:opacity-90 transition-opacity bg-[#FF644A]"
           >
             {t('bounties.signUp')}
