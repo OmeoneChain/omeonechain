@@ -56,7 +56,7 @@ export default function ProfilePage() {
   if (user) {
     return (
       <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
-        <div className="max-w-4xl mx-auto pt-6 pb-24 px-4">
+        <div className="max-w-4xl mx-auto pt-6 pb-32 px-4">
           <h1 className="text-3xl font-bold text-[#1F1E2A] dark:text-white mb-6">
             {t('title')}
           </h1>
