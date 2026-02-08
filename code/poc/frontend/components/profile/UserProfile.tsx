@@ -2225,6 +2225,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         onSave={handleProfileSave}
       />
     </div>
+  </div>
   );
 }
 
