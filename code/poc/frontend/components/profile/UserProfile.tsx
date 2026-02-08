@@ -1907,7 +1907,8 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto p-6 pb-32">
+    <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
+      <div className="max-w-4xl mx-auto p-6 pb-32">
       {/* Compact Profile Header */}
       <div className="bg-white dark:bg-[#2D2C3A] rounded-xl shadow-sm dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-[#3D3C4A] p-4 mb-4">
         <div className="flex items-start gap-4">
