@@ -27,7 +27,8 @@
     "title": "Quick Actions",
     "createRecommendation": "Create Recommendation",
     "createList": "Create List",
-    "discover": "Discover"
+    "discover": "Discover",
+    "request": "Request"
   },
   "trending": {
     "title": "Trending Now",
