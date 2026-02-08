@@ -224,11 +224,11 @@ function WalletUpgradeCard({ onConnect }: { onConnect: () => void }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
-      className="rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800/50 p-4"
+      className="rounded-xl bg-[#FFF4E1] dark:bg-[#FF644A]/10 border-2 border-[#FF644A]/30 dark:border-[#FF644A]/40 p-4"
     >
       <div className="flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-800/30">
-          <Wallet size={20} className="text-blue-600 dark:text-blue-400" />
+        <div className="p-2 rounded-lg bg-[#FFE8E3] dark:bg-[#FF644A]/20">
+          <Wallet size={20} className="text-[#FF644A]" />
         </div>
         <div className="flex-1">
           <h3 className="font-semibold text-[#1F1E2A] dark:text-gray-100 text-sm">
@@ -239,7 +239,7 @@ function WalletUpgradeCard({ onConnect }: { onConnect: () => void }) {
           </p>
           <button
             onClick={onConnect}
-            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FF644A] hover:bg-[#E65441] text-white text-xs font-medium rounded-lg transition-colors"
           >
             Connect Wallet
             <ArrowRight size={14} />
