@@ -305,6 +305,39 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 /**
+ * PUT /api/saved-lists/:id/reorder
+ * Reorder items in a saved list
+ */
+router.put('/:id/reorder', async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    const { id } = req.params;
+    const { items } = req.body;
+
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({
+        success: false,
+        error: 'items array is required with { itemId, position } objects'
+      });
+    }
+
+    const savedListsService = new SavedListsService(req.app.locals.db);
+    await savedListsService.reorderItems(id, userId, items);
+
+    res.json({
+      success: true,
+      message: 'Items reordered successfully'
+    });
+  } catch (error) {
+    console.error('Error reordering list items:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reorder items'
+    });
+  }
+});
+
+/**
  * DELETE /api/saved-lists/:id
  * Delete saved list (cannot delete default list)
  */

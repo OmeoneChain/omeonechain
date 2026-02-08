@@ -146,6 +146,7 @@ export default function EditListModal({
     setError(null);
 
     try {
+      // 1. Update list metadata
       const response = await fetch(
         `${API_BASE_URL}/saved-lists/${editedList.id}`,
         {
@@ -165,6 +166,30 @@ export default function EditListModal({
 
       if (!response.ok) {
         throw new Error('Failed to update list');
+      }
+
+      // 2. Save item order
+      if (editedList.items.length > 0) {
+        const reorderResponse = await fetch(
+          `${API_BASE_URL}/saved-lists/${editedList.id}/reorder`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('omeone_auth_token')}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              items: editedList.items.map((item, index) => ({
+                itemId: item.itemId || item.id.toString(),
+                position: index + 1,
+              })),
+            }),
+          }
+        );
+
+        if (!reorderResponse.ok) {
+          console.error('Failed to save item order');
+        }
       }
 
       onUpdate(editedList);

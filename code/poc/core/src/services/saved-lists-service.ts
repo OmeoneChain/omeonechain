@@ -380,7 +380,7 @@ class SavedListsService {
       -- Then join from recommendations to their restaurants
       LEFT JOIN restaurants rec_r ON rec.restaurant_id = rec_r.id
       WHERE sli.list_id = $1
-      ORDER BY sli.added_at DESC`,
+      ORDER BY sli.priority ASC, sli.added_at ASC`,
       [listId]
     );
 
@@ -472,6 +472,49 @@ class SavedListsService {
     );
 
     return result.rows.length > 0;
+  }
+
+  /**
+   * Reorder items in a list
+   */
+  async reorderItems(
+    listId: string,
+    userId: string,
+    items: Array<{ itemId: string; position: number }>
+  ): Promise<boolean> {
+    // Verify user owns the list
+    const list = await this.db.query(
+      'SELECT id FROM user_saved_lists WHERE id = $1 AND user_id = $2',
+      [listId, userId]
+    );
+    if (list.rows.length === 0) throw new Error('List not found');
+
+    const client = await this.db.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const item of items) {
+        await client.query(
+          `UPDATE saved_list_items 
+           SET priority = $1 
+           WHERE id = $2 AND list_id = $3`,
+          [item.position, item.itemId, listId]
+        );
+      }
+
+      await client.query(
+        'UPDATE user_saved_lists SET updated_at = NOW() WHERE id = $1',
+        [listId]
+      );
+
+      await client.query('COMMIT');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /**
