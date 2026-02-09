@@ -156,6 +156,8 @@ interface Recommendation {
   category?: string;
   location: Location;
   author: Author;
+  is_edited?: boolean;
+  edited_at?: string;
   
   overall_rating: number;
   dishes?: Dish[];
@@ -482,6 +484,14 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
               </>
             )}
             <span>{timeAgo(recommendation.createdAt)}</span>
+            {(recommendation as any).is_edited && (
+              <>
+                <span>·</span>
+                <span className="text-gray-400 dark:text-gray-500 italic">
+                  {t('card.edited') || 'edited'}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </button>

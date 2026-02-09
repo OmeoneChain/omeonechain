@@ -143,6 +143,19 @@
     }
   },
 
+  "edit": {
+    "title": "Edit Recommendation",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "restaurantLocked": "Restaurant cannot be changed after publishing",
+    "success": "Changes saved!",
+    "successEdited": "Changes saved (marked as edited)",
+    "error": "Failed to save changes",
+    "loadError": "Failed to load recommendation",
+    "notFound": "Recommendation not found",
+    "notAuthorized": "You can only edit your own recommendations"
+  },
+
   "card": {
     "addToList": "Add to List",
     "trustScore": "Trust Score",
@@ -156,6 +169,8 @@
     "comment": "Comment",
     "boost": "Boost",
     "edit": "Edit",
+    "edited": "edited",
+    "editedAt": "Edited {time}",
     "report": "Report",
     "previewMode": "Preview Mode - Ready to Publish",
     "person": "person",
@@ -203,6 +218,7 @@
     "publish": {
       "bonusHint": "Tip: some bonuses are unlocked with validation and community engagement",
       "publishing": "Publishing...",
+      "saving": "Saving...",
       "button": "Publish",
       "bonusEarned": "Bonus available after validation.",
       "disabledReason": {

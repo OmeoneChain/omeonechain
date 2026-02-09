@@ -143,6 +143,19 @@
     }
   },
 
+  "edit": {
+    "title": "Editar Recomendação",
+    "saveChanges": "Salvar Alterações",
+    "saving": "Salvando...",
+    "restaurantLocked": "O restaurante não pode ser alterado após a publicação",
+    "success": "Alterações salvas!",
+    "successEdited": "Alterações salvas (marcado como editado)",
+    "error": "Falha ao salvar alterações",
+    "loadError": "Falha ao carregar recomendação",
+    "notFound": "Recomendação não encontrada",
+    "notAuthorized": "Você só pode editar suas próprias recomendações"
+  }
+
   "card": {
     "addToList": "Adicionar à Lista",
     "trustScore": "Trust Score",
@@ -156,6 +169,8 @@
     "comment": "Comentar",
     "boost": "Impulsionar",
     "edit": "Editar",
+    "edited": "editado",
+    "editedAt": "Editado {time}",
     "report": "Denunciar",
     "previewMode": "Modo Prévia - Pronto para Publicar",
     "person": "pessoa",
@@ -204,6 +219,7 @@
       "bonusHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
       "publishing": "Publicando...",
       "button": "Publicar",
+      "saving": "Salvando...",
       "bonusEarned": "Bônus disponível após validação.",
       "disabledReason": {
         "noRestaurant": "Selecione um restaurante para publicar",

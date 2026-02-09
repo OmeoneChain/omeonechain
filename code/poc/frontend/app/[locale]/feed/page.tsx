@@ -21,6 +21,7 @@ import RecommendationCard from '@/components/RecommendationCard';
 import ListCard from '@/components/ListCard';
 import ReshareHeader from '@/components/ReshareHeader';
 import RequestCard from '@/components/discover/RequestCard';
+import EditRecommendationModal from '@/components/recommendation/EditRecommendationModal';
 import { useAuth } from '@/hooks/useAuth';
 import tokenBalanceService from '@/services/TokenBalanceService';
 import toast from 'react-hot-toast';
@@ -104,6 +105,8 @@ interface Recommendation {
   verificationStatus?: 'verified' | 'unverified' | 'flagged';
   canEdit?: boolean;
   canDelete?: boolean;
+  is_edited?: boolean;
+  edited_at?: string;
 }
 
 // List interface (same as before)
@@ -202,6 +205,9 @@ const MainFeed: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { isCapacitor } = useCapacitor();
 
+  // Change 2.3: Edit modal state
+  const [editingRecommendationId, setEditingRecommendationId] = useState<string | null>(null);
+
   const BACKEND_URL = 'https://omeonechain-production.up.railway.app';
 
   useEffect(() => {
@@ -285,6 +291,8 @@ const MainFeed: React.FC = () => {
           isBookmarked: item.isBookmarked || false,
           hasUpvoted: item.hasUpvoted || false,
           hasReshared: item.hasReshared || false,
+          is_edited: item.is_edited || false,
+          edited_at: item.edited_at,
           canEdit: false, // User can't edit reshared content
           canDelete: false
         };
@@ -412,7 +420,12 @@ const MainFeed: React.FC = () => {
         tags: item.tags || [],
         isBookmarked: item.isBookmarked || false,
         hasUpvoted: item.hasUpvoted || false,
-        hasReshared: item.hasReshared || false
+        hasReshared: item.hasReshared || false,
+        is_edited: item.is_edited || false,
+        edited_at: item.edited_at,
+        // Change 2.4: Set canEdit based on current user
+        canEdit: (item.author?.id === user?.id) || (item.author_id === user?.id),
+        canDelete: (item.author?.id === user?.id) || (item.author_id === user?.id)
       };
       return { type: 'recommendation', data: recData };
     });
@@ -487,6 +500,8 @@ const MainFeed: React.FC = () => {
         isBookmarked: false,
         hasUpvoted: false,
         hasReshared: false,
+        is_edited: rec.is_edited || false,
+        edited_at: rec.edited_at,
         canEdit: rec.author_id === user?.id,
         canDelete: rec.author_id === user?.id
       };
@@ -770,6 +785,13 @@ const MainFeed: React.FC = () => {
     if (user?.id) {
       await tokenBalanceService.forceRefreshBalance(user.id);
     }
+  };
+
+  // Change 2.3: Handle edit success — close modal and refresh feed
+  const handleEditSuccess = (id: string) => {
+    setEditingRecommendationId(null);
+    // Refresh the feed to show updated content
+    loadFeedData();
   };
 
   // Request interactions
@@ -1097,6 +1119,7 @@ const MainFeed: React.FC = () => {
                       onSave={handleSaveRecommendation}
                       onUpvote={handleUpvoteRecommendation}
                       onShare={handleShare}
+                      onEdit={(id) => setEditingRecommendationId(id)}
                       onAuthorClick={(authorId) => router.push(`/users/${authorId}`)}
                       onLocationClick={(location) => {
                         if (location.restaurant_id) {
@@ -1239,6 +1262,16 @@ const MainFeed: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Change 2.3: Edit Recommendation Modal */}
+      {editingRecommendationId && (
+        <EditRecommendationModal
+          recommendationId={editingRecommendationId}
+          isOpen={true}
+          onClose={() => setEditingRecommendationId(null)}
+          onSuccess={handleEditSuccess}
+        />
+      )}
     </div>
   );
 };

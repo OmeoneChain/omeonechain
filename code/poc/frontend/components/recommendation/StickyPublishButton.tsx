@@ -51,6 +51,9 @@ interface StickyPublishButtonProps {
    * White Paper v1.0 launch: wallet recommendation = 5.0 BOCA.
    */
   baseReward?: number;
+
+  /** Optional override for the button label (e.g., "Save Changes" in edit mode) */
+  publishLabel?: string;
 }
 
 export function StickyPublishButton({
@@ -61,6 +64,7 @@ export function StickyPublishButton({
   disabledReason,
   t,
   baseReward = 5.0,
+  publishLabel,
 }: StickyPublishButtonProps) {
   // ---- Defensive translation wrapper (prevents "t is not a function") ----
   const tt =
@@ -111,7 +115,12 @@ export function StickyPublishButton({
           {isPublishing ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span>{tt('singleScreen.publish.publishing')}</span>
+              <span>{publishLabel ? (tt('singleScreen.publish.saving') || 'Saving...') : tt('singleScreen.publish.publishing')}</span>
+            </>
+          ) : publishLabel ? (
+            <>
+              <span>{publishLabel}</span>
+              <ArrowRight className="w-5 h-5" />
             </>
           ) : (
             <>

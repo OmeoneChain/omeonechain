@@ -4,18 +4,16 @@
 // FIXED: Compress images BEFORE size check (Jan 30, 2026)
 // FIXED: Better compression for large photos from phone cameras
 // NEW: Crop/reposition modal before upload (Feb 8, 2026)
-//   - 4:3 aspect ratio enforcement for consistent feed appearance
-//   - Pinch-to-zoom and drag on mobile
-//   - Applies to both camera capture and gallery selection
+// NEW: Re-crop support for existing IPFS photos in edit mode (Feb 8, 2026)
 
 import React, { useState, useRef, useCallback } from 'react';
-import { Camera, Upload, X, Loader, FileImage, AlertCircle, RotateCw, ZoomIn, ZoomOut, Check } from 'lucide-react';
+import { Camera, Upload, X, Loader, FileImage, AlertCircle, ZoomIn, ZoomOut, Check, Crop } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-hot-toast';
 import Cropper from 'react-easy-crop';
 import type { Area, Point } from 'react-easy-crop';
 
-// Safe import of Capacitor - won't crash if not available
+// Safe import of Capacitor
 let CapacitorCore: any = null;
 try {
   CapacitorCore = require('@capacitor/core').Capacitor;
@@ -31,25 +29,35 @@ interface PhotoData {
   timestamp: Date;
 }
 
+/** Existing photos loaded from the server during edit mode */
+export interface ExistingPhoto {
+  cid: string | null;   // IPFS CID (null if it's a plain URL)
+  url: string;          // Full URL to display
+  caption?: string;
+  tag?: string | null;
+  isModified?: boolean; // true if user re-cropped this photo
+  newFile?: File;       // the re-cropped File (if modified)
+}
+
 interface PhotoUploadProps {
   photos: PhotoData[];
   onPhotosChange: (photos: PhotoData[]) => void;
   maxPhotos?: number;
   maxSizeBytes?: number;
   maxSizeBeforeCompressionMB?: number;
+  /** Existing photos from server (edit mode only) */
+  existingPhotos?: ExistingPhoto[];
+  onExistingPhotosChange?: (photos: ExistingPhoto[]) => void;
 }
 
 interface CropState {
   imageUrl: string;
-  originalFile: File;
+  originalFile?: File;       // present for new photos
+  existingIndex?: number;    // present for re-cropping existing photos
 }
 
 // ─── Crop Helper ─────────────────────────────────────────────────────
 
-/**
- * Takes an image URL and a pixel-area crop rectangle,
- * returns a new File containing only the cropped region.
- */
 async function getCroppedImageFile(
   imageSrc: string,
   pixelCrop: Area,
@@ -62,7 +70,6 @@ async function getCroppedImageFile(
   canvas.width = pixelCrop.width;
   canvas.height = pixelCrop.height;
 
-  // White background for any transparency
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -92,7 +99,7 @@ async function getCroppedImageFile(
         resolve(file);
       },
       'image/jpeg',
-      0.92 // High quality — compression happens later in processFile
+      0.92
     );
   });
 }
@@ -153,7 +160,7 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
         </button>
       </div>
 
-      {/* Crop area — fills available space */}
+      {/* Crop area */}
       <div className="relative flex-1">
         <Cropper
           image={imageUrl}
@@ -167,19 +174,14 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
           cropShape="rect"
           objectFit="contain"
           style={{
-            containerStyle: {
-              background: '#000',
-            },
-            cropAreaStyle: {
-              border: '2px solid rgba(255, 100, 74, 0.8)',
-            },
+            containerStyle: { background: '#000' },
+            cropAreaStyle: { border: '2px solid rgba(255, 100, 74, 0.8)' },
           }}
         />
       </div>
 
       {/* Bottom controls */}
       <div className="px-6 py-4 bg-black/80 backdrop-blur-sm border-t border-white/10">
-        {/* Zoom slider */}
         <div className="flex items-center gap-3">
           <ZoomOut className="h-4 w-4 text-white/60 flex-shrink-0" />
           <input
@@ -216,15 +218,18 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
   maxPhotos = 5,
   maxSizeBytes = 2 * 1024 * 1024,
   maxSizeBeforeCompressionMB = 50,
+  existingPhotos = [],
+  onExistingPhotosChange,
 }) => {
   const t = useTranslations('recommendations');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
-
-  // Crop state — when set, the crop modal is shown
   const [cropState, setCropState] = useState<CropState | null>(null);
+
+  // Total photos = existing (not removed) + new
+  const totalPhotoCount = existingPhotos.length + photos.length;
 
   // ── Compression (unchanged) ──────────────────────────────────────
 
@@ -236,7 +241,6 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 
       img.onload = () => {
         let { width, height } = img;
-
         if (width > height && width > maxDimension) {
           height = (height * maxDimension) / width;
           width = maxDimension;
@@ -244,14 +248,11 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
           width = (width * maxDimension) / height;
           height = maxDimension;
         }
-
         canvas.width = width;
         canvas.height = height;
-
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
-
         canvas.toBlob(
           (blob) => {
             if (blob) {
@@ -259,9 +260,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
                 type: 'image/jpeg',
                 lastModified: Date.now(),
               });
-              console.log(
-                `📷 Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB (${Math.round((1 - compressedFile.size / file.size) * 100)}% reduction)`
-              );
+              console.log(`📷 Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
               resolve(compressedFile);
             } else {
               reject(new Error('Failed to compress image'));
@@ -271,24 +270,13 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
           quality
         );
       };
-
-      img.onerror = () => {
-        console.warn('Image load failed, using original file');
-        resolve(file);
-      };
-
+      img.onerror = () => { resolve(file); };
       img.src = URL.createObjectURL(file);
     });
   };
 
   const compressToTargetSize = async (file: File, targetSizeBytes: number): Promise<File> => {
-    const originalSizeMB = file.size / 1024 / 1024;
-    console.log(`📷 Processing ${file.name}: ${originalSizeMB.toFixed(2)}MB`);
-
-    if (file.size <= targetSizeBytes && file.type === 'image/jpeg') {
-      console.log(`📷 File already small enough, keeping original`);
-      return file;
-    }
+    if (file.size <= targetSizeBytes && file.type === 'image/jpeg') return file;
 
     const attempts = [
       { quality: 0.85, maxDim: 1200 },
@@ -299,157 +287,154 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
     ];
 
     let compressedFile = file;
-
     for (const attempt of attempts) {
       setProcessingStatus(`Compressing (${Math.round(attempt.quality * 100)}% quality)...`);
       compressedFile = await compressImage(file, attempt.quality, attempt.maxDim);
-
-      if (compressedFile.size <= targetSizeBytes) {
-        console.log(`📷 Success at quality ${attempt.quality}, dimension ${attempt.maxDim}`);
-        return compressedFile;
-      }
+      if (compressedFile.size <= targetSizeBytes) return compressedFile;
     }
-
-    console.warn(`📷 Could not compress below target, best: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
     return compressedFile;
   };
 
-  // ── Process a single file (compress + validate) ──────────────────
+  // ── Process a single file ────────────────────────────────────────
 
   const processFile = async (file: File): Promise<PhotoData | null> => {
     try {
       const maxBeforeBytes = maxSizeBeforeCompressionMB * 1024 * 1024;
       if (file.size > maxBeforeBytes) {
-        toast.error(
-          t('photoUpload.errors.tooLarge', { name: file.name, max: maxSizeBeforeCompressionMB }) ||
-            `${file.name} is too large (max ${maxSizeBeforeCompressionMB}MB)`
-        );
+        toast.error(`${file.name} is too large (max ${maxSizeBeforeCompressionMB}MB)`);
         return null;
       }
-
       setProcessingStatus(`Processing ${file.name}...`);
       const compressedFile = await compressToTargetSize(file, maxSizeBytes);
-
       const finalSizeMB = compressedFile.size / 1024 / 1024;
       if (compressedFile.size > maxSizeBytes * 1.5) {
-        toast.error(
-          t('photoUpload.errors.compressionFailed', { name: file.name }) ||
-            `${file.name} is still too large after compression (${finalSizeMB.toFixed(1)}MB). Try a smaller image.`
-        );
+        toast.error(`${file.name} is still too large after compression (${finalSizeMB.toFixed(1)}MB).`);
         return null;
       } else if (compressedFile.size > maxSizeBytes) {
-        toast(`${file.name}: ${finalSizeMB.toFixed(1)}MB (larger than ideal)`, {
-          icon: '⚠️',
-          duration: 3000,
-        });
+        toast(`${file.name}: ${finalSizeMB.toFixed(1)}MB (larger than ideal)`, { icon: '⚠️', duration: 3000 });
       }
-
-      const photoData: PhotoData = {
+      return {
         file: compressedFile,
         preview: URL.createObjectURL(compressedFile),
         timestamp: new Date(),
       };
-
-      return photoData;
     } catch (error) {
       console.error('Error processing file:', error);
-      toast.error(
-        t('photoUpload.errors.processingFailed', { name: file.name }) || `Failed to process ${file.name}`
-      );
+      toast.error(`Failed to process ${file.name}`);
       return null;
     }
   };
 
-  // ── Open crop modal for a file ───────────────────────────────────
+  // ── Crop modal — for new photos ──────────────────────────────────
 
   const openCropModal = (file: File) => {
     const imageUrl = URL.createObjectURL(file);
     setCropState({ imageUrl, originalFile: file });
   };
 
-  // ── Handle crop confirm — process the cropped result ─────────────
+  // ── Crop modal — for existing photos (re-crop) ──────────────────
+
+  const openRecropModal = (index: number) => {
+    const photo = existingPhotos[index];
+    if (!photo) return;
+    // Use the existing URL (Pinata gateway) — CORS should work
+    setCropState({ imageUrl: photo.url, existingIndex: index });
+  };
+
+  // ── Handle crop confirm ──────────────────────────────────────────
 
   const handleCropConfirm = useCallback(
     async (croppedAreaPixels: Area) => {
       if (!cropState) return;
 
       setIsProcessing(true);
-      setProcessingStatus('Cropping photo...');
 
       try {
-        // Generate cropped file from the original image
-        const croppedFile = await getCroppedImageFile(
-          cropState.imageUrl,
-          croppedAreaPixels,
-          cropState.originalFile.name.replace(/\.[^/.]+$/, '-cropped.jpg')
-        );
+        if (cropState.existingIndex !== undefined) {
+          // ── RE-CROP of an existing photo ──
+          setProcessingStatus('Re-cropping photo...');
 
-        console.log(
-          `✂️ Cropped: ${(cropState.originalFile.size / 1024 / 1024).toFixed(2)}MB → ${(croppedFile.size / 1024 / 1024).toFixed(2)}MB`
-        );
+          const croppedFile = await getCroppedImageFile(
+            cropState.imageUrl,
+            croppedAreaPixels,
+            `recrop-${Date.now()}.jpg`
+          );
 
-        // Now compress and validate
-        const photoData = await processFile(croppedFile);
-        if (photoData) {
-          onPhotosChange([...photos, photoData]);
-          toast.success(t('photoUpload.success.added', { count: 1 }) || 'Photo added!');
+          // Compress the re-cropped file
+          const compressedFile = await compressToTargetSize(croppedFile, maxSizeBytes);
+          const newPreviewUrl = URL.createObjectURL(compressedFile);
+
+          // Update the existing photo entry
+          const updatedExisting = [...existingPhotos];
+          updatedExisting[cropState.existingIndex] = {
+            ...updatedExisting[cropState.existingIndex],
+            url: newPreviewUrl,        // Show re-cropped preview
+            isModified: true,          // Flag for re-upload on save
+            newFile: compressedFile,   // The file to upload
+          };
+          onExistingPhotosChange?.(updatedExisting);
+
+          toast.success(t('photoUpload.success.recropped') || 'Photo re-cropped!');
+        } else if (cropState.originalFile) {
+          // ── CROP of a new photo ──
+          setProcessingStatus('Cropping photo...');
+
+          const croppedFile = await getCroppedImageFile(
+            cropState.imageUrl,
+            croppedAreaPixels,
+            cropState.originalFile.name.replace(/\.[^/.]+$/, '-cropped.jpg')
+          );
+
+          const photoData = await processFile(croppedFile);
+          if (photoData) {
+            onPhotosChange([...photos, photoData]);
+            toast.success(t('photoUpload.success.added', { count: 1 }) || 'Photo added!');
+          }
         }
       } catch (error) {
         console.error('Crop failed:', error);
         toast.error(t('photoUpload.errors.cropFailed') || 'Failed to crop photo. Please try again.');
       } finally {
-        // Clean up
-        URL.revokeObjectURL(cropState.imageUrl);
+        // Clean up — only revoke if it was a local blob URL (not an IPFS URL)
+        if (cropState.originalFile) {
+          URL.revokeObjectURL(cropState.imageUrl);
+        }
         setCropState(null);
         setIsProcessing(false);
         setProcessingStatus('');
       }
     },
-    [cropState, photos, onPhotosChange, t]
+    [cropState, photos, existingPhotos, onPhotosChange, onExistingPhotosChange, t]
   );
 
-  // ── Handle crop cancel ───────────────────────────────────────────
-
   const handleCropCancel = useCallback(() => {
-    if (cropState) {
+    if (cropState?.originalFile) {
       URL.revokeObjectURL(cropState.imageUrl);
     }
     setCropState(null);
   }, [cropState]);
 
-  // ── File selection (for drag-drop and the fallback file input) ───
+  // ── File selection ───────────────────────────────────────────────
 
   const handleFileSelect = useCallback(
     async (files: FileList) => {
-      if (photos.length >= maxPhotos) {
+      if (totalPhotoCount >= maxPhotos) {
         toast.error(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
         return;
       }
-
-      const fileArray = Array.from(files);
-
-      // Filter to only images
-      const imageFiles = fileArray.filter((file) => {
+      const imageFiles = Array.from(files).filter((file) => {
         if (!file.type.startsWith('image/')) {
           toast.error(t('photoUpload.errors.notImage', { name: file.name }));
           return false;
         }
         return true;
       });
-
       if (imageFiles.length === 0) return;
 
-      // For a single image, open the crop modal
-      // For multiple images, crop them one by one (first one now, queue not needed for MVP)
-      const filesToProcess = imageFiles.slice(0, maxPhotos - photos.length);
-
+      const filesToProcess = imageFiles.slice(0, maxPhotos - totalPhotoCount);
       if (filesToProcess.length === 1) {
-        // Single photo — open crop modal
         openCropModal(filesToProcess[0]);
       } else {
-        // Multiple photos — open crop modal for first one
-        // Remaining will need to be added via subsequent taps
-        // (Cropping multiple in sequence would need a queue; keeping it simple for now)
         openCropModal(filesToProcess[0]);
         if (filesToProcess.length > 1) {
           toast(
@@ -460,130 +445,92 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         }
       }
     },
-    [photos, maxPhotos, t]
+    [totalPhotoCount, maxPhotos, t]
   );
 
-  // ── Capacitor Camera capture ─────────────────────────────────────
+  // ── Capacitor Camera ─────────────────────────────────────────────
 
   const handleCameraCapture = useCallback(async () => {
-    if (photos.length >= maxPhotos) {
+    if (totalPhotoCount >= maxPhotos) {
       toast.error(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
       return;
     }
-
     const isNative = CapacitorCore?.isNativePlatform?.() ?? false;
 
     if (isNative) {
       try {
-        console.log('📱 Attempting Capacitor Camera for photo capture');
-
         const { Camera: CapacitorCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-
         if (typeof CapacitorCamera?.getPhoto !== 'function') {
-          console.log('⚠️ Camera plugin not available, falling back to file input');
           fileInputRef.current?.click();
           return;
         }
-
-        // Check permissions
         try {
           const permissions = await CapacitorCamera.checkPermissions();
-          console.log('📷 Camera permissions:', permissions);
-
           if (permissions.camera === 'denied') {
             const requested = await CapacitorCamera.requestPermissions();
             if (requested.camera === 'denied') {
-              toast.error(
-                t('photoUpload.errors.cameraPermission') || 'Camera permission required. Please enable in Settings.'
-              );
+              toast.error('Camera permission required. Please enable in Settings.');
               fileInputRef.current?.click();
               return;
             }
           }
-        } catch (permError) {
-          console.log('⚠️ Permission check failed, trying anyway:', permError);
-        }
+        } catch (permError) { /* try anyway */ }
 
         const image = await CapacitorCamera.getPhoto({
-          quality: 90, // Slightly higher since we'll crop + compress later
-          allowEditing: false, // We handle editing ourselves now
+          quality: 90,
+          allowEditing: false,
           resultType: CameraResultType.DataUrl,
           source: CameraSource.Camera,
-          width: 2400, // Larger capture — crop will reduce
+          width: 2400,
           height: 2400,
         });
 
         if (image.dataUrl) {
-          console.log('✅ Photo captured — opening crop modal');
-
-          // Convert data URL to File, then open crop modal
           const response = await fetch(image.dataUrl);
           const blob = await response.blob();
           const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
           openCropModal(file);
         }
       } catch (error: any) {
-        console.error('❌ Camera error:', error);
-
-        if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
-          console.log('📷 User cancelled photo capture');
-          return;
-        }
-
-        console.log('⚠️ Camera failed, falling back to file input');
+        if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) return;
         fileInputRef.current?.click();
       }
     } else {
-      // Web — use file input with camera capture
-      console.log('🌐 Using file input for web platform');
       fileInputRef.current?.click();
     }
-  }, [photos, maxPhotos, t]);
+  }, [totalPhotoCount, maxPhotos, t]);
 
-  // ── Capacitor Gallery selection ──────────────────────────────────
+  // ── Capacitor Gallery ────────────────────────────────────────────
 
   const handleGallerySelect = useCallback(async () => {
-    if (photos.length >= maxPhotos) {
+    if (totalPhotoCount >= maxPhotos) {
       toast.error(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
       return;
     }
-
     const isNative = CapacitorCore?.isNativePlatform?.() ?? false;
 
     if (isNative) {
       try {
-        console.log('📱 Attempting Capacitor Camera for gallery selection');
-
         const { Camera: CapacitorCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-
         if (typeof CapacitorCamera?.getPhoto !== 'function') {
-          console.log('⚠️ Camera plugin not available, falling back to file input');
           galleryInputRef.current?.click();
           return;
         }
-
-        // Check photo library permissions
         try {
           const permissions = await CapacitorCamera.checkPermissions();
           if (permissions.photos === 'denied') {
             const requested = await CapacitorCamera.requestPermissions();
             if (requested.photos === 'denied') {
-              toast.error(
-                t('photoUpload.errors.galleryPermission') ||
-                  'Photo library permission required. Please enable in Settings.'
-              );
+              toast.error('Photo library permission required. Please enable in Settings.');
               galleryInputRef.current?.click();
               return;
             }
           }
-        } catch (permError) {
-          console.log('⚠️ Permission check failed, trying anyway:', permError);
-        }
+        } catch (permError) { /* try anyway */ }
 
         const image = await CapacitorCamera.getPhoto({
           quality: 90,
-          allowEditing: false, // We handle editing ourselves
+          allowEditing: false,
           resultType: CameraResultType.DataUrl,
           source: CameraSource.Photos,
           width: 2400,
@@ -591,69 +538,58 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         });
 
         if (image.dataUrl) {
-          console.log('✅ Photo selected from gallery — opening crop modal');
-
           const response = await fetch(image.dataUrl);
           const blob = await response.blob();
           const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
           openCropModal(file);
         }
       } catch (error: any) {
-        console.error('❌ Gallery error:', error);
-
-        if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
-          console.log('📷 User cancelled gallery selection');
-          return;
-        }
-
-        console.log('⚠️ Gallery selection failed, falling back to file input');
+        if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) return;
         galleryInputRef.current?.click();
       }
     } else {
-      console.log('🌐 Using file input for gallery');
       galleryInputRef.current?.click();
     }
-  }, [photos, maxPhotos, t]);
+  }, [totalPhotoCount, maxPhotos, t]);
 
   // ── Drag & drop ──────────────────────────────────────────────────
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      if (e.dataTransfer.files) {
-        handleFileSelect(e.dataTransfer.files);
-      }
+      if (e.dataTransfer.files) handleFileSelect(e.dataTransfer.files);
     },
     [handleFileSelect]
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
+  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); }, []);
 
-  // ── Remove photo ─────────────────────────────────────────────────
+  // ── Remove photos ────────────────────────────────────────────────
 
-  const removePhoto = (index: number) => {
+  const removeNewPhoto = (index: number) => {
     const newPhotos = [...photos];
     URL.revokeObjectURL(newPhotos[index].preview);
     newPhotos.splice(index, 1);
     onPhotosChange(newPhotos);
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
+  const removeExistingPhoto = (index: number) => {
+    const updated = [...existingPhotos];
+    updated.splice(index, 1);
+    onExistingPhotosChange?.(updated);
   };
+
+  const triggerFileInput = () => { fileInputRef.current?.click(); };
 
   // ── Calculated values ────────────────────────────────────────────
 
-  const totalSizeMB = photos.reduce((sum, p) => sum + p.file.size, 0) / 1024 / 1024;
+  const newPhotoSizeMB = photos.reduce((sum, p) => sum + p.file.size, 0) / 1024 / 1024;
 
   // ── Render ───────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4">
-      {/* ── Crop Modal (portal-like fullscreen overlay) ── */}
+      {/* Crop Modal */}
       {cropState && (
         <CropModal
           imageUrl={cropState.imageUrl}
@@ -663,39 +599,76 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         />
       )}
 
-      {/* ── Photo Grid ── */}
+      {/* Photo Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        {photos.map((photo, index) => (
-          <div key={index} className="relative group">
+        {/* Existing photos (edit mode) */}
+        {existingPhotos.map((photo, index) => (
+          <div key={`existing-${index}`} className="relative group">
             <img
-              src={photo.preview}
-              alt={t('photoUpload.photoAlt', { number: index + 1 })}
+              src={photo.url}
+              alt={`Photo ${index + 1}`}
               className="w-full aspect-[4/3] object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
+              crossOrigin="anonymous"
             />
+
+            {/* Modified badge */}
+            {photo.isModified && (
+              <div className="absolute top-2 left-2 bg-[#FF644A] text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
+                {t('photoUpload.recropped') || 'Re-cropped'}
+              </div>
+            )}
+
+            {/* Re-crop button */}
+            <button
+              onClick={() => openRecropModal(index)}
+              className="absolute bottom-2 left-2 bg-black/60 text-white rounded-lg p-1.5 hover:bg-black/80 transition-colors shadow-lg"
+              title={t('photoUpload.recrop') || 'Re-crop'}
+            >
+              <Crop className="h-3.5 w-3.5" />
+            </button>
 
             {/* Delete button */}
             <button
-              onClick={() => removePhoto(index)}
+              onClick={() => removeExistingPhoto(index)}
               className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-opacity shadow-lg"
             >
               <X className="h-4 w-4" />
             </button>
-
-            {/* File size indicator */}
-            <div className="absolute bottom-1 left-1">
-              <div
-                className={`text-white text-xs px-1.5 py-0.5 rounded ${
-                  photo.file.size > maxSizeBytes ? 'bg-yellow-500' : 'bg-black bg-opacity-60'
-                }`}
-              >
-                {(photo.file.size / 1024 / 1024).toFixed(1)}MB
-              </div>
-            </div>
           </div>
         ))}
 
-        {/* Add Photo Button (drag & drop zone) */}
-        {photos.length < maxPhotos && (
+        {/* New photos */}
+        {photos.map((photo, index) => (
+          <div key={`new-${index}`} className="relative group">
+            <img
+              src={photo.preview}
+              alt={t('photoUpload.photoAlt', { number: existingPhotos.length + index + 1 })}
+              className="w-full aspect-[4/3] object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
+            />
+            <button
+              onClick={() => removeNewPhoto(index)}
+              className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-opacity shadow-lg"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="absolute bottom-1 left-1">
+              <div className={`text-white text-xs px-1.5 py-0.5 rounded ${
+                photo.file.size > maxSizeBytes ? 'bg-yellow-500' : 'bg-black bg-opacity-60'
+              }`}>
+                {(photo.file.size / 1024 / 1024).toFixed(1)}MB
+              </div>
+            </div>
+            {/* "New" badge in edit mode */}
+            {existingPhotos.length > 0 && (
+              <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
+                {t('photoUpload.new') || 'New'}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Add Photo Button */}
+        {totalPhotoCount < maxPhotos && (
           <div
             onClick={triggerFileInput}
             onDrop={handleDrop}
@@ -725,48 +698,40 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         )}
       </div>
 
-      {/* ── Hidden File Inputs ── */}
+      {/* Hidden File Inputs */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         capture="environment"
         onChange={(e) => {
-          if (e.target.files) {
-            handleFileSelect(e.target.files);
-            e.target.value = '';
-          }
+          if (e.target.files) { handleFileSelect(e.target.files); e.target.value = ''; }
         }}
         className="hidden"
       />
-
       <input
         ref={galleryInputRef}
         type="file"
         accept="image/*"
         multiple
         onChange={(e) => {
-          if (e.target.files) {
-            handleFileSelect(e.target.files);
-            e.target.value = '';
-          }
+          if (e.target.files) { handleFileSelect(e.target.files); e.target.value = ''; }
         }}
         className="hidden"
       />
 
-      {/* ── Photo Info ── */}
-      {photos.length > 0 && (
+      {/* Photo Info */}
+      {totalPhotoCount > 0 && (
         <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-          <p>📸 {t('photoUpload.info.photoCount', { count: photos.length, max: maxPhotos })}</p>
-          <p className={totalSizeMB > 5 ? 'text-yellow-600 dark:text-yellow-400' : ''}>
-            💾 {t('photoUpload.info.totalSize', { size: totalSizeMB.toFixed(1) })}
-            {totalSizeMB > 5 && ' ⚠️'}
-          </p>
+          <p>📸 {t('photoUpload.info.photoCount', { count: totalPhotoCount, max: maxPhotos })}</p>
+          {existingPhotos.length > 0 && photos.length > 0 && (
+            <p>({existingPhotos.length} existing · {photos.length} new)</p>
+          )}
         </div>
       )}
 
-      {/* ── Size Warning ── */}
-      {totalSizeMB > 8 && (
+      {/* Size Warning */}
+      {newPhotoSizeMB > 8 && (
         <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
           <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
           <p className="text-xs text-yellow-700 dark:text-yellow-300">
@@ -775,8 +740,8 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         </div>
       )}
 
-      {/* ── Mobile Camera/Gallery Buttons ── */}
-      {photos.length < maxPhotos && (
+      {/* Camera/Gallery Buttons */}
+      {totalPhotoCount < maxPhotos && (
         <div className="flex space-x-3">
           <button
             onClick={handleCameraCapture}

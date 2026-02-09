@@ -10,6 +10,7 @@
 // UPDATED: Autosave draft to localStorage (Jan 30, 2026)
 // UPDATED: Scroll-on-focus for restaurant search to avoid keyboard obstruction (Feb 1, 2026)
 // UPDATED: Tighter header spacing for mobile search visibility (Feb 1, 2026)
+// UPDATED: Edit mode support — editMode prop, PATCH endpoint, locked restaurant (Feb 9, 2026)
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -226,12 +227,40 @@ interface RecommendationDraft {
   cuisine_type?: string;
 }
 
+interface EditData {
+  id: string;
+  restaurant: any;
+  title: string;
+  body: string;
+  category: string;
+  overall_rating: number;
+  cuisine_type?: string;
+  context_tags: string[];
+  dishes: any[];
+  aspects: any;
+  context: any;
+  existingPhotos: Array<{
+    cid: string | null;
+    url: string;
+    caption?: string;
+    tag?: string | null;
+    isModified?: boolean;
+    newFile?: File;
+  }>;
+  photoTagging: any[];
+  created_at: string;
+  blockchain_status?: string;
+}
+
 interface RecommendationCreationFlowProps {
   onSuccess?: (recommendationId: string) => void;
   onError?: (error: Error) => void;
   onCancel?: () => void;
   isSubmitting?: boolean;
   setIsSubmitting?: (loading: boolean) => void;
+  /** Edit mode — if true, pre-fills form from editData */
+  editMode?: boolean;
+  editData?: EditData;
 }
 
 const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
@@ -240,6 +269,8 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   onCancel,
   isSubmitting = false,
   setIsSubmitting,
+  editMode = false,
+  editData,
 }) => {
   const t = useTranslations('recommendations');
   const router = useRouter();
@@ -325,6 +356,11 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     context_tags: [],
     cuisine_type: '',
   });
+
+  // Edit mode: existing photos from server (IPFS)
+  const [existingPhotos, setExistingPhotos] = useState<
+    Array<{ cid: string | null; url: string; caption?: string; tag?: string | null; isModified?: boolean; newFile?: File }>
+  >(editData?.existingPhotos || []);
 
   const [isLoading, setIsLoading] = useState(false);
   const [iotaService, setIotaService] = useState<IOTAService | null>(null);
@@ -510,6 +546,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
   // Check for saved draft on mount
   useEffect(() => {
+    if (editMode) return; // Don't show draft recovery when editing
     const savedDraft = loadDraftFromStorage();
     if (savedDraft && savedDraft.restaurant) {
       // Only show recovery if there's meaningful content
@@ -524,6 +561,26 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       }
     }
   }, []);
+
+  // Pre-fill form in edit mode
+  useEffect(() => {
+    if (editMode && editData) {
+      setDraft({
+        restaurant: editData.restaurant,
+        title: editData.title || '',
+        body: editData.body || '',
+        category: editData.category || '',
+        overall_rating: editData.overall_rating || 7,
+        dishes: editData.dishes || [],
+        aspects: editData.aspects || null,
+        context: editData.context || null,
+        photos: [], // New photos start empty; existing tracked separately
+        context_tags: editData.context_tags || [],
+        cuisine_type: editData.cuisine_type || '',
+      });
+      setExistingPhotos(editData.existingPhotos || []);
+    }
+  }, [editMode, editData]);
 
   // Autosave draft when content changes (debounced)
   useEffect(() => {
@@ -787,6 +844,95 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
     try {
       const currentUser = getCurrentUser();
+
+      // ── EDIT MODE: PATCH existing recommendation ──
+      if (editMode && editData?.id) {
+        // Upload NEW photos + RE-CROPPED existing photos
+        let allPhotoCids: string[] = [];
+
+        // 1. Keep unchanged existing photos (their original CIDs)
+        const unchangedCids = existingPhotos
+          .filter(p => !p.isModified && p.cid)
+          .map(p => p.cid as string);
+
+        // 2. Upload re-cropped existing photos
+        const recropPhotos = existingPhotos.filter(p => p.isModified && p.newFile);
+        let recropCids: string[] = [];
+        if (recropPhotos.length > 0) {
+          try {
+            const recropFormData = new FormData();
+            recropPhotos.forEach(p => recropFormData.append('photos', p.newFile!));
+            const token = localStorage.getItem('omeone_auth_token');
+            const recropRes = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/upload/photos`,
+              { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: recropFormData }
+            );
+            const recropData = await recropRes.json();
+            recropCids = recropData.cids || [];
+          } catch (err) {
+            console.warn('Re-crop upload failed:', err);
+          }
+        }
+
+        // 3. Upload brand new photos
+        let newPhotoCids: string[] = [];
+        if (draft.photos.length > 0) {
+          try {
+            newPhotoCids = await uploadPhotosToIPFS(draft.photos);
+          } catch (err) {
+            console.warn('New photo upload failed:', err);
+          }
+        }
+
+        allPhotoCids = [...unchangedCids, ...recropCids, ...newPhotoCids];
+
+        const editPayload: any = {
+          title: draft.title.trim() || undefined,
+          content: draft.body.trim() || undefined,
+          category: draft.category?.trim() || undefined,
+          overall_rating: draft.overall_rating,
+          context_tags: draft.context_tags,
+          cuisine_type: draft.cuisine_type,
+          photos: allPhotoCids.length > 0 ? allPhotoCids : undefined,
+          dishes: draft.dishes.length > 0
+            ? draft.dishes.map(dish => ({
+                name: dish.name,
+                rating: dish.rating,
+                notes: dish.notes,
+                would_order_again: dish.would_order_again,
+              }))
+            : undefined,
+          aspects: draft.aspects || undefined,
+          context: draft.context || undefined,
+        };
+
+        const response = await fetch(`${API_BASE_URL}/api/recommendations/${editData.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + localStorage.getItem('omeone_auth_token'),
+          },
+          body: JSON.stringify(editPayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Edit failed with status ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        toast.success(
+          result.within_grace_period
+            ? (t('edit.savedSilently') || 'Changes saved!')
+            : (t('edit.savedWithFlag') || 'Changes saved (marked as edited)'),
+          { duration: 4000, icon: '✅' }
+        );
+
+        onSuccess?.(editData.id);
+        return; // Skip the normal POST flow below
+      }
+      // ── END EDIT MODE ──
 
       let photoHashes: string[] = [];
       if (draft.photos.length > 0) {
@@ -1106,7 +1252,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
           {/* Title — CHANGED: mb-6 → mb-3, text-3xl → text-2xl, text-lg → text-sm */}
           <div className="text-center mb-3">
             <h2 className="text-2xl font-bold text-[#1F1E2A] dark:text-white mb-2">
-              {t('singleScreen.title') || 'Create a Recommendation'}
+              {editMode
+                ? (t('edit.title') || 'Edit Recommendation')
+                : (t('singleScreen.title') || 'Create a Recommendation')}
             </h2>
             <p className="text-[#9CA3AF] dark:text-gray-400 text-sm">
               {t('singleScreen.subtitle') || "Restaurant + rating, and you're done."}
@@ -1124,6 +1272,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
           )}
 
           {/* Restaurant: inline autocomplete with scroll-on-focus — CHANGED: mb-6 → mb-4 */}
+          {/* Change 1.6: Lock restaurant in edit mode */}
           {!hasRestaurant ? (
             <div className="mb-4" id="restaurant-search-section">
               <div className="mb-3 text-sm font-semibold text-[#1F1E2A] dark:text-white">
@@ -1156,7 +1305,16 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             </div>
           ) : (
             <div className="mb-6">
-              <RH restaurant={draft.restaurant} onChangeRestaurant={handleChangeRestaurant} onEdit={handleChangeRestaurant} />
+              <RH
+                restaurant={draft.restaurant}
+                onChangeRestaurant={editMode ? undefined : handleChangeRestaurant}
+                onEdit={editMode ? undefined : handleChangeRestaurant}
+              />
+              {editMode && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 text-center">
+                  {t('edit.restaurantLocked') || 'Restaurant cannot be changed after publishing'}
+                </p>
+              )}
             </div>
           )}
 
@@ -1464,11 +1622,17 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
               <CS
                 title={t('singleScreen.sections.photos') || 'Photos'}
                 icon={<span className="text-lg">📷</span>}
-                badgeCount={draft.photos.length}
-                defaultOpen={draft.photos.length > 0}
+                badgeCount={draft.photos.length + existingPhotos.length}
+                defaultOpen={draft.photos.length > 0 || existingPhotos.length > 0}
               >
                 <div className="space-y-4">
-                  <EnhancedPhotoUpload photos={draft.photos} onPhotosChange={handlePhotosChange} maxPhotos={5} />
+                  <EnhancedPhotoUpload
+                    photos={draft.photos}
+                    onPhotosChange={handlePhotosChange}
+                    maxPhotos={5}
+                    existingPhotos={existingPhotos}
+                    onExistingPhotosChange={setExistingPhotos}
+                  />
 
                   {draft.photos.length > 0 && (
                     <p className="text-xs text-green-600 dark:text-green-400">
@@ -1861,13 +2025,14 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         </div>
       )}
 
-      {/* Sticky Publish Button */}
+      {/* Sticky Publish Button — Change 1.10: Edit mode text + hide rewards */}
       <SPB
         disabled={!canPublish}
         disabledReason={t('singleScreen.publishHint') || 'Select a restaurant and rating to publish'}
         onPublish={handleSubmit}
         isPublishing={isLoading || isSubmitting}
-        estimatedReward={calculateExpectedRewards()}
+        estimatedReward={editMode ? undefined : calculateExpectedRewards()}
+        publishLabel={editMode ? (t('edit.saveChanges') || 'Save Changes') : undefined}
         t={t}
       />
     </div>

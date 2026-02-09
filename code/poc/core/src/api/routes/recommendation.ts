@@ -1389,6 +1389,255 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
   }
 });
 
+// =============================================================================
+// PATCH /:id — Edit a recommendation (ADD THIS AFTER THE router.put STUB)
+// =============================================================================
+// - Author-only (must own the recommendation)
+// - 15-minute grace period: edits within 15 min are silent (no "edited" flag)
+// - After 15 min: sets is_edited = true, edited_at = NOW()
+// - Restaurant is LOCKED (cannot be changed)
+// - If already hashed on-chain, edit is database-only (original hash preserved)
+
+router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    console.log(`✏️ PATCH /api/recommendations/${id} by user ${userId}`);
+
+    // 1. Fetch existing recommendation and verify ownership
+    const { data: existing, error: fetchError } = await supabase
+      .from('recommendations')
+      .select('id, author_id, created_at, restaurant_id, blockchain_status')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ success: false, error: 'Recommendation not found' });
+    }
+
+    if (existing.author_id !== userId) {
+      return res.status(403).json({ success: false, error: 'You can only edit your own recommendations' });
+    }
+
+    // 2. Determine if we're within the 15-minute grace period
+    const createdAt = new Date(existing.created_at);
+    const now = new Date();
+    const minutesSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+    const withinGracePeriod = minutesSinceCreation <= 15;
+
+    console.log(`⏱️ Minutes since creation: ${minutesSinceCreation.toFixed(1)}, grace period: ${withinGracePeriod}`);
+
+    // 3. Extract fields from request body (restaurant_id intentionally excluded — locked)
+    const {
+      title,
+      content,
+      category,
+      overall_rating,
+      context_tags,
+      cuisine_type,
+      dishes,
+      aspects,
+      context,
+      photos,         // Array of IPFS CIDs (final state after add/remove/re-crop)
+      photo_tagging,  // Updated tagging info
+    } = req.body;
+
+    // 4. Build the update payload — only include fields that were explicitly sent
+    const updatePayload: Record<string, any> = {
+      updated_at: now.toISOString(),
+    };
+
+    if (title !== undefined) updatePayload.title = title;
+    if (content !== undefined) updatePayload.content = content;
+    if (category !== undefined) updatePayload.category = category;
+    if (overall_rating !== undefined) updatePayload.overall_rating = overall_rating;
+    if (context_tags !== undefined) updatePayload.context_tags = context_tags;
+    if (cuisine_type !== undefined) updatePayload.cuisine_type = cuisine_type;
+    if (photos !== undefined) updatePayload.photos = photos;
+
+    // 5. Set the edited flag if outside grace period
+    if (!withinGracePeriod) {
+      updatePayload.is_edited = true;
+      updatePayload.edited_at = now.toISOString();
+    }
+
+    // 6. If already hashed on-chain, note it was edited post-hash (database-only edit)
+    if (existing.blockchain_status === 'confirmed' && !withinGracePeriod) {
+      console.log(`⚠️ Recommendation ${id} was already hashed on-chain. Edit is database-only.`);
+      updatePayload.post_hash_edit = true;
+    }
+
+    // 7. Update the recommendation row
+    const { data: updated, error: updateError } = await supabase
+      .from('recommendations')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('❌ Failed to update recommendation:', updateError);
+      return res.status(500).json({ success: false, error: 'Failed to update recommendation' });
+    }
+
+    // 8. Update dishes (if provided) — delete-and-reinsert pattern
+    if (dishes !== undefined) {
+      // Delete existing dishes
+      const { error: deleteDisheError } = await supabase
+        .from('dishes')
+        .delete()
+        .eq('recommendation_id', id);
+
+      if (deleteDisheError) {
+        console.warn('⚠️ Failed to delete existing dishes:', deleteDisheError);
+      }
+
+      // Insert updated dishes
+      if (Array.isArray(dishes) && dishes.length > 0) {
+        const dishInserts = dishes.map((dish: any) => ({
+          recommendation_id: id,
+          name: dish.name,
+          rating: dish.rating,
+          notes: dish.notes || null,
+          would_order_again: dish.would_order_again !== undefined ? dish.would_order_again : true,
+          estimated_price: dish.estimated_price || null,
+          dietary_tags: dish.dietary_tags || null,
+        }));
+
+        const { error: dishError } = await supabase
+          .from('dishes')
+          .insert(dishInserts);
+
+        if (dishError) {
+          console.warn('⚠️ Failed to insert updated dishes:', dishError);
+        } else {
+          console.log(`✅ Updated ${dishInserts.length} dishes`);
+        }
+      }
+    }
+
+    // 9. Update aspects (if provided) — upsert pattern
+    if (aspects !== undefined) {
+      const { error: aspectError } = await supabase
+        .from('restaurant_aspects')
+        .upsert({
+          recommendation_id: id,
+          ambiance: aspects.ambiance,
+          service: aspects.service,
+          value_for_money: aspects.value_for_money,
+          noise_level: aspects.noise_level || null,
+          wait_time_minutes: aspects.wait_time_minutes || null,
+        }, {
+          onConflict: 'recommendation_id'
+        });
+
+      if (aspectError) {
+        console.warn('⚠️ Failed to update aspects:', aspectError);
+      } else {
+        console.log('✅ Updated aspects');
+      }
+    }
+
+    // 10. Update context (if provided) — upsert pattern
+    if (context !== undefined) {
+      const { error: contextError } = await supabase
+        .from('contextual_factors')
+        .upsert({
+          recommendation_id: id,
+          occasion: context.occasion,
+          party_size: context.party_size,
+          time_of_visit: context.time_of_visit ? new Date(context.time_of_visit).toISOString() : null,
+          meal_type: context.meal_type || null,
+          day_of_week: context.day_of_week || null,
+          total_spent: context.total_spent || null,
+          visit_duration_minutes: context.visit_duration_minutes || null,
+        }, {
+          onConflict: 'recommendation_id'
+        });
+
+      if (contextError) {
+        console.warn('⚠️ Failed to update context:', contextError);
+      } else {
+        console.log('✅ Updated context');
+      }
+    }
+
+    // 11. Update photo tagging (if provided) — delete-and-reinsert for this recommendation
+    if (photo_tagging !== undefined && Array.isArray(photo_tagging) && photo_tagging.length > 0) {
+      // Delete existing photo records for this recommendation
+      const { error: deletePhotoError } = await supabase
+        .from('restaurant_photos')
+        .delete()
+        .eq('recommendation_id', id);
+
+      if (deletePhotoError) {
+        console.warn('⚠️ Failed to delete existing photos:', deletePhotoError);
+      }
+
+      // Insert updated photo records
+      const photoInserts = photo_tagging.map((pt: any) => {
+        let tagType = 'other';
+        let dishName: string | null = null;
+
+        if (pt.tag === 'skip' || !pt.tag) {
+          tagType = 'other';
+        } else if (pt.tag === 'dish' && pt.dish_name) {
+          tagType = 'dish';
+          dishName = pt.dish_name;
+        } else if (pt.tag.startsWith('dish:')) {
+          tagType = 'dish';
+          const dishId = pt.tag.replace('dish:', '');
+          const dish = dishes?.find((d: any) => d.id === dishId || d.name === dishId);
+          dishName = dish?.name || pt.description || dishId;
+        } else if (['vibe', 'menu', 'drink', 'food', 'other'].includes(pt.tag)) {
+          tagType = pt.tag;
+        }
+
+        return {
+          restaurant_id: existing.restaurant_id,
+          recommendation_id: id,
+          user_id: userId,
+          ipfs_hash: pt.cid,
+          tag_type: tagType,
+          dish_name: dishName,
+          caption: pt.description || pt.other || null,
+        };
+      });
+
+      if (photoInserts.length > 0) {
+        const { error: photoError } = await supabase
+          .from('restaurant_photos')
+          .insert(photoInserts);
+
+        if (photoError) {
+          console.warn('⚠️ Failed to insert updated photos:', photoError);
+        } else {
+          console.log(`✅ Updated ${photoInserts.length} photo records`);
+        }
+      }
+    }
+
+    console.log(`✅ Recommendation ${id} updated successfully (grace period: ${withinGracePeriod}, edited flag: ${!withinGracePeriod})`);
+
+    res.json({
+      success: true,
+      recommendation: updated,
+      within_grace_period: withinGracePeriod,
+      is_edited: !withinGracePeriod,
+    });
+
+  } catch (error) {
+    console.error('❌ Edit recommendation error:', error);
+    res.status(500).json({ success: false, error: 'Failed to edit recommendation' });
+  }
+});
+
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     return res.status(501).json({
