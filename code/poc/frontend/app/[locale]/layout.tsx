@@ -58,7 +58,7 @@ export default async function RootLayout({
                 reverseOrder={false}
                 gutter={8}
                 containerClassName=""
-                containerStyle={{ top: 60 }}
+                containerStyle={{ top: 70 }}
                 toastOptions={{
                   duration: 4000,
                   style: {
