@@ -154,7 +154,7 @@
     "loadError": "Falha ao carregar recomendação",
     "notFound": "Recomendação não encontrada",
     "notAuthorized": "Você só pode editar suas próprias recomendações"
-  }
+  },
 
   "card": {
     "addToList": "Adicionar à Lista",
