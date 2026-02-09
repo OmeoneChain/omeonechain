@@ -5,6 +5,7 @@
 // FIXED: Better compression for large photos from phone cameras
 // NEW: Crop/reposition modal before upload (Feb 8, 2026)
 // NEW: Re-crop support for existing IPFS photos in edit mode (Feb 8, 2026)
+// FIXED: Safe area insets for iPhone, free-pan cropping (Feb 9, 2026)
 
 import React, { useState, useRef, useCallback } from 'react';
 import { Camera, Upload, X, Loader, FileImage, AlertCircle, ZoomIn, ZoomOut, Check, Crop } from 'lucide-react';
@@ -140,11 +141,14 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm border-b border-white/10">
+      {/* Header — with safe area inset for iPhone notch/Dynamic Island */}
+      <div
+        className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm border-b border-white/10"
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)' }}
+      >
         <button
           onClick={onCancel}
-          className="text-white/80 hover:text-white px-3 py-1.5 rounded-lg transition-colors text-sm font-medium"
+          className="text-white/80 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm font-medium min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           {t('photoUpload.crop.cancel') || 'Cancel'}
         </button>
@@ -153,20 +157,23 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
         </span>
         <button
           onClick={handleConfirm}
-          className="bg-[#FF644A] text-white px-4 py-1.5 rounded-lg hover:bg-[#E65441] transition-colors text-sm font-medium flex items-center gap-1.5"
+          className="bg-[#FF644A] text-white px-4 py-2 rounded-lg hover:bg-[#E65441] transition-colors text-sm font-medium flex items-center gap-1.5 min-h-[44px]"
         >
           <Check className="h-4 w-4" />
           {t('photoUpload.crop.confirm') || 'Done'}
         </button>
       </div>
 
-      {/* Crop area */}
+      {/* Crop area — free panning enabled */}
       <div className="relative flex-1">
         <Cropper
           image={imageUrl}
           crop={crop}
           zoom={zoom}
+          minZoom={0.5}
+          maxZoom={4}
           aspect={4 / 3}
+          restrictPosition={false}
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropComplete}
@@ -180,14 +187,17 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
         />
       </div>
 
-      {/* Bottom controls */}
-      <div className="px-6 py-4 bg-black/80 backdrop-blur-sm border-t border-white/10">
+      {/* Bottom controls — with safe area inset for iPhone home bar */}
+      <div
+        className="px-6 py-4 bg-black/80 backdrop-blur-sm border-t border-white/10"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 16px)' }}
+      >
         <div className="flex items-center gap-3">
           <ZoomOut className="h-4 w-4 text-white/60 flex-shrink-0" />
           <input
             type="range"
-            min={1}
-            max={3}
+            min={0.5}
+            max={4}
             step={0.05}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
@@ -203,7 +213,7 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
           <ZoomIn className="h-4 w-4 text-white/60 flex-shrink-0" />
         </div>
         <p className="text-white/40 text-xs text-center mt-2">
-          {t('photoUpload.crop.hint') || 'Pinch or drag to adjust · 4:3 frame'}
+          {t('photoUpload.crop.hint') || 'Drag to reposition · Pinch to zoom · 4:3 frame'}
         </p>
       </div>
     </div>
