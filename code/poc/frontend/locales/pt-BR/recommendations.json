@@ -6,7 +6,6 @@
     "addNewRestaurant": "Adicionar Novo Restaurante",
     "reviewAndPublish": "Revisar & Publicar",
     "addTextAndPhotos": "Adicionar Texto & Fotos",
-
     "restaurant": {
       "name": "Nome do restaurante",
       "address": "Endereço",
@@ -14,7 +13,6 @@
       "createNew": "Criar Novo",
       "creating": "Criando..."
     },
-
     "rating": {
       "overall": "Avaliação Geral",
       "labels": {
@@ -31,7 +29,6 @@
         "10": "Perfeito"
       }
     },
-
     "contextTags": {
       "title": "Tags de Contexto",
       "placeholder": "Adicione tags personalizadas: #vegano #petfriendly",
@@ -40,9 +37,7 @@
       "quick": "Rápido",
       "celebration": "Celebração"
     },
-
     "optionalDetails": "Detalhes opcionais (clique para expandir):",
-
     "dishes": {
       "title": "Pratos Individuais",
       "addDish": "Adicionar Prato",
@@ -52,7 +47,6 @@
       "wouldOrderAgain": "Pediria novamente",
       "wouldNotOrderAgain": "Não pediria novamente"
     },
-
     "aspects": {
       "title": "Aspectos do Restaurante",
       "ambiance": "Ambiente e Decoração",
@@ -64,7 +58,6 @@
       "moderate": "Moderado",
       "loud": "Barulhento"
     },
-
     "context": {
       "title": "Contexto da Visita",
       "occasion": "Ocasião",
@@ -89,7 +82,6 @@
         "late_night": "Madrugada"
       }
     },
-
     "preview": {
       "title": "Título da Recomendação",
       "titlePlaceholder": "ex: Melhor pizza napolitana de Brasília!",
@@ -100,7 +92,6 @@
       "photos": "Fotos (até 5)",
       "photoBonus": "Bônus: +{amount} TOK por {count} foto(s)"
     },
-
     "categories": {
       "breakfast": "Café da Manhã",
       "lunch": "Almoço",
@@ -111,7 +102,6 @@
       "quickBite": "Lanche Rápido",
       "lateNight": "Madrugada"
     },
-
     "summary": {
       "title": "Resumo Trust Score 2.0",
       "overallRating": "Avaliação Geral",
@@ -121,7 +111,6 @@
       "occasion": "Ocasião",
       "partySize": "Pessoas"
     },
-
     "submit": {
       "publish": "Publicar",
       "publishAndEarn": "Publicar & Ganhar {amount} BOCA",
@@ -129,12 +118,10 @@
       "success": "Recomendação publicada! Você ganhou {amount} BOCA",
       "error": "Erro ao criar recomendação"
     },
-
     "validation": {
       "fillRequiredFields": "Por favor, preencha todos os campos obrigatórios (título e texto da recomendação)",
       "fillRestaurantDetails": "Por favor, preencha nome e endereço do restaurante"
     },
-
     "priceRanges": {
       "budget": "€ - Econômico (até R$ 30)",
       "moderate": "€€ - Moderado (R$ 30-60)",
@@ -142,7 +129,6 @@
       "veryExpensive": "€€€€ - Muito Caro (R$ 120+)"
     }
   },
-
   "edit": {
     "title": "Editar Recomendação",
     "saveChanges": "Salvar Alterações",
@@ -153,9 +139,10 @@
     "error": "Falha ao salvar alterações",
     "loadError": "Falha ao carregar recomendação",
     "notFound": "Recomendação não encontrada",
-    "notAuthorized": "Você só pode editar suas próprias recomendações"
+    "notAuthorized": "Você só pode editar suas próprias recomendações",
+    "savedSilently": "Alterações salvas!",
+    "savedWithFlag": "Alterações salvas (marcado como editado)"
   },
-
   "card": {
     "addToList": "Adicionar à Lista",
     "trustScore": "Trust Score",
@@ -202,7 +189,6 @@
     "restored": "Rascunho restaurado!",
     "photosNotRecovered": "Nota: {count} foto(s) não puderam ser recuperadas. Por favor, adicione-as novamente."
   },
-
   "singleScreen": {
     "readyToPublish": "Tudo pronto!",
     "optionalHint": "Opcional:",
@@ -244,7 +230,6 @@
       "discard": "Descartar"
     }
   },
-
   "photos": {
     "tagging": {
       "title": "Marcar fotos (opcional)",
@@ -262,7 +247,6 @@
       "drink": "Bebida"
     }
   },
-
   "reshare": {
     "title": "Compartilhar com Comentário",
     "addThoughts": "Adicione seus pensamentos (opcional)",
@@ -276,7 +260,6 @@
     "removed": "Compartilhamento removido",
     "failed": "Falha ao atualizar compartilhamento"
   },
-
   "occasions": {
     "dateNight": "Encontro Romântico",
     "familyDinner": "Jantar em Família",
@@ -285,7 +268,6 @@
     "businessLunch": "Almoço de Trabalho",
     "casual": "Casual"
   },
-
   "mealTypes": {
     "breakfast": "Café da Manhã",
     "brunch": "Brunch",
@@ -293,7 +275,6 @@
     "dinner": "Jantar",
     "lateNight": "Madrugada"
   },
-
   "aspects": {
     "title": "Aspectos do Restaurante",
     "ambiance": "Ambiente",
@@ -304,7 +285,6 @@
     "minutesPlaceholder": "Minutos",
     "minutes": "min"
   },
-
   "ratings": {
     "0": "Horrível",
     "1": "Evitar",
@@ -318,7 +298,6 @@
     "9": "Excelente",
     "10": "Excepcional"
   },
-
   "photoUpload": {
     "location": {
       "getting": "Obtendo localização...",
@@ -349,9 +328,14 @@
       "totalSize": "Tamanho total: {size}MB"
     },
     "takePhoto": "Tirar Foto",
-    "fromGallery": "Da Galeria"
+    "fromGallery": "Da Galeria",
+    "crop": {
+      "title": "Ajustar Foto",
+      "cancel": "Cancelar",
+      "confirm": "Pronto",
+      "hint": "Arraste para reposicionar · Pinça para zoom · Quadro 4:3"
+    }
   },
-
   "categories": {
     "breakfast": "Café da Manhã",
     "lunch": "Almoço",
@@ -362,27 +346,23 @@
     "snack": "Lanche Rápido",
     "lateNight": "Madrugada"
   },
-
   "noiseLevel": {
     "quiet": "Silencioso",
     "moderate": "Moderado",
     "loud": "Barulhento"
   },
-
   "priceRanges": {
     "budget": "€ - Econômico (até R$ 15)",
     "moderate": "€€ - Moderado (R$ 15-30)",
     "expensive": "€€€ - Caro (R$ 30-60)",
     "veryExpensive": "€€€€ - Muito Caro (R$ 60+)"
   },
-
   "contextTags": {
     "romantic": "Romântico",
     "family": "Família",
     "quick": "Rápido",
     "celebration": "Celebração"
   },
-
   "steps": {
     "restaurant": {
       "title": "Escolha um Restaurante",
@@ -425,7 +405,6 @@
       "photoBonus": "Bônus: +{bonus} TOK por {count} foto(s)"
     }
   },
-
   "newRestaurant": {
     "title": "Adicionar Novo Restaurante",
     "namePlaceholder": "Nome do restaurante",
@@ -438,7 +417,6 @@
       "createFailed": "Erro ao criar restaurante: {error}"
     }
   },
-
   "dishes": {
     "title": "Pratos Individuais",
     "addDish": "Adicionar Prato",
@@ -451,7 +429,6 @@
       "enterName": "Por favor, insira o nome do prato"
     }
   },
-
   "context": {
     "title": "Contexto da Visita",
     "occasion": "Ocasião",
@@ -462,7 +439,6 @@
     "totalSpent": "Gasto Total",
     "visitDuration": "Duração da Visita"
   },
-
   "summary": {
     "title": "📊 Resumo Trust Score 2.0",
     "overallRating": "Avaliação Geral:",
@@ -471,7 +447,6 @@
     "aspects": "Aspectos:",
     "context": "Contexto:"
   },
-
   "rewards": {
     "title": "💰 Recompensas Esperadas",
     "baseReward": "Recompensa base: 1.00 TOK",
@@ -482,19 +457,16 @@
     "tagsBonus": "Bônus de tags: +{bonus} TOK",
     "total": "Total estimado: {total} TOK"
   },
-
   "connection": {
     "testing": "Testando conexão IOTA Rebased...",
     "connected": "IOTA Rebased conectado! ({contracts}/5 contratos ativos)",
     "fallback": "IOTA modo limitado - funcionalidade básica disponível"
   },
-
   "auth": {
     "required": "Autenticação Necessária",
     "connectWalletMessage": "Você precisa conectar sua carteira para criar recomendações e ganhar tokens.",
     "connectWallet": "Conectar Carteira"
   },
-
   "actions": {
     "cancel": "Cancelar",
     "add": "Adicionar",
@@ -510,18 +482,15 @@
     "publishAndEarn": "Publicar & Ganhar {tokens} BOCA",
     "done": "Concluído"
   },
-
   "errors": {
     "noUserLoggedIn": "Nenhum usuário logado - por favor conecte sua carteira primeiro",
     "iotaConnectionLimited": "Conexão IOTA limitada. Usando modo fallback.",
     "connectWalletFirst": "Por favor, conecte sua carteira antes de criar recomendações",
     "createFailed": "Erro ao criar recomendação: {error}"
   },
-
   "validation": {
     "fillRequired": "Por favor, preencha todos os campos obrigatórios (título e texto da recomendação)"
   },
-
   "success": {
     "published": "🎉 Recomendação publicada! Você ganhou {tokens} BOCA"
   }

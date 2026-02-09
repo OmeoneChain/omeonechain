@@ -6,7 +6,6 @@
     "addNewRestaurant": "Add New Restaurant",
     "reviewAndPublish": "Review & Publish",
     "addTextAndPhotos": "Add Text & Photos",
-
     "restaurant": {
       "name": "Restaurant name",
       "address": "Address",
@@ -14,7 +13,6 @@
       "createNew": "Create New",
       "creating": "Creating..."
     },
-
     "rating": {
       "overall": "Overall Rating",
       "labels": {
@@ -31,7 +29,6 @@
         "10": "Perfect"
       }
     },
-
     "contextTags": {
       "title": "Context Tags",
       "placeholder": "Add custom tags: #vegan #petfriendly",
@@ -40,9 +37,7 @@
       "quick": "Quick",
       "celebration": "Celebration"
     },
-
     "optionalDetails": "Optional details (click to expand):",
-
     "dishes": {
       "title": "Individual Dishes",
       "addDish": "Add Dish",
@@ -52,7 +47,6 @@
       "wouldOrderAgain": "Would order again",
       "wouldNotOrderAgain": "Would not order again"
     },
-
     "aspects": {
       "title": "Restaurant Aspects",
       "ambiance": "Ambiance & Decor",
@@ -64,7 +58,6 @@
       "moderate": "Moderate",
       "loud": "Loud"
     },
-
     "context": {
       "title": "Visit Context",
       "occasion": "Occasion",
@@ -89,7 +82,6 @@
         "late_night": "Late Night"
       }
     },
-
     "preview": {
       "title": "Recommendation Title",
       "titlePlaceholder": "e.g., Best Neapolitan pizza in town!",
@@ -100,7 +92,6 @@
       "photos": "Photos (up to 5)",
       "photoBonus": "Bonus: +{amount} TOK for {count} photo(s)"
     },
-
     "categories": {
       "breakfast": "Breakfast",
       "lunch": "Lunch",
@@ -111,7 +102,6 @@
       "quickBite": "Quick Bite",
       "lateNight": "Late Night"
     },
-
     "summary": {
       "title": "Trust Score 2.0 Summary",
       "overallRating": "Overall Rating",
@@ -121,7 +111,6 @@
       "occasion": "Occasion",
       "partySize": "Party Size"
     },
-
     "submit": {
       "publish": "Publish",
       "publishAndEarn": "Publish & Earn {amount} BOCA",
@@ -129,12 +118,10 @@
       "success": "Recommendation published! You earned {amount} BOCA",
       "error": "Error creating recommendation"
     },
-
     "validation": {
       "fillRequiredFields": "Please fill in all required fields (title and recommendation text)",
       "fillRestaurantDetails": "Please fill in restaurant name and address"
     },
-
     "priceRanges": {
       "budget": "€ - Budget (up to $30)",
       "moderate": "€€ - Moderate ($30-60)",
@@ -142,7 +129,6 @@
       "veryExpensive": "€€€€ - Very Expensive ($120+)"
     }
   },
-
   "edit": {
     "title": "Edit Recommendation",
     "saveChanges": "Save Changes",
@@ -153,9 +139,10 @@
     "error": "Failed to save changes",
     "loadError": "Failed to load recommendation",
     "notFound": "Recommendation not found",
-    "notAuthorized": "You can only edit your own recommendations"
+    "notAuthorized": "You can only edit your own recommendations",
+    "savedSilently": "Changes saved!",
+    "savedWithFlag": "Changes saved (marked as edited)"
   },
-
   "card": {
     "addToList": "Add to List",
     "trustScore": "Trust Score",
@@ -202,7 +189,6 @@
     "restored": "Draft restored!",
     "photosNotRecovered": "Note: {count} photo(s) could not be recovered. Please re-add them."
   },
-
   "singleScreen": {
     "readyToPublish": "Good to go!",
     "optionalHint": "Optional:",
@@ -244,7 +230,6 @@
       "discard": "Discard"
     }
   },
-
   "photos": {
     "tagging": {
       "title": "Tag photos (optional)",
@@ -262,7 +247,6 @@
       "drink": "Drink"
     }
   },
-
   "reshare": {
     "title": "Quote Reshare",
     "addThoughts": "Add your thoughts (optional)",
@@ -276,7 +260,6 @@
     "removed": "Reshare removed",
     "failed": "Failed to update reshare"
   },
-
   "occasions": {
     "dateNight": "Date Night",
     "familyDinner": "Family Dinner",
@@ -285,7 +268,6 @@
     "businessLunch": "Business Lunch",
     "casual": "Casual"
   },
-
   "mealTypes": {
     "breakfast": "Breakfast",
     "brunch": "Brunch",
@@ -293,7 +275,6 @@
     "dinner": "Dinner",
     "lateNight": "Late Night"
   },
-
   "aspects": {
     "title": "Restaurant Aspects",
     "ambiance": "Ambiance",
@@ -304,7 +285,6 @@
     "minutesPlaceholder": "Minutes",
     "minutes": "min"
   },
-
   "ratings": {
     "0": "Horrible",
     "1": "Avoid",
@@ -318,7 +298,6 @@
     "9": "Excellent",
     "10": "Outstanding"
   },
-
   "photoUpload": {
     "location": {
       "getting": "Getting location...",
@@ -349,9 +328,14 @@
       "totalSize": "Total size: {size}MB"
     },
     "takePhoto": "Take Photo",
-    "fromGallery": "From Gallery"
+    "fromGallery": "From Gallery",
+    "crop": {
+      "title": "Adjust Photo",
+      "cancel": "Cancel",
+      "confirm": "Done",
+      "hint": "Drag to reposition · Pinch to zoom · 4:3 frame"
+    }
   },
-
   "categories": {
     "breakfast": "Breakfast",
     "lunch": "Lunch",
@@ -362,27 +346,23 @@
     "snack": "Quick Snack",
     "lateNight": "Late Night"
   },
-
   "noiseLevel": {
     "quiet": "Quiet",
     "moderate": "Moderate",
     "loud": "Loud"
   },
-
   "priceRanges": {
     "budget": "€ - Budget (up to $15)",
     "moderate": "€€ - Moderate ($15-30)",
     "expensive": "€€€ - Expensive ($30-60)",
     "veryExpensive": "€€€€ - Very Expensive ($60+)"
   },
-
   "contextTags": {
     "romantic": "Romantic",
     "family": "Family",
     "quick": "Quick",
     "celebration": "Celebration"
   },
-
   "steps": {
     "restaurant": {
       "title": "Choose a Restaurant",
@@ -425,7 +405,6 @@
       "photoBonus": "Bonus: +{bonus} TOK for {count} photo(s)"
     }
   },
-
   "newRestaurant": {
     "title": "Add New Restaurant",
     "namePlaceholder": "Restaurant name",
@@ -438,7 +417,6 @@
       "createFailed": "Error creating restaurant: {error}"
     }
   },
-
   "dishes": {
     "title": "Individual Dishes",
     "addDish": "Add Dish",
@@ -451,7 +429,6 @@
       "enterName": "Please enter the dish name"
     }
   },
-
   "context": {
     "title": "Visit Context",
     "occasion": "Occasion",
@@ -462,7 +439,6 @@
     "totalSpent": "Total Spent",
     "visitDuration": "Visit Duration"
   },
-
   "summary": {
     "title": "📊 Trust Score 2.0 Summary",
     "overallRating": "Overall Rating:",
@@ -471,7 +447,6 @@
     "aspects": "Aspects:",
     "context": "Context:"
   },
-
   "rewards": {
     "title": "💰 Expected Rewards",
     "baseReward": "Base reward: 1.00 TOK",
@@ -482,19 +457,16 @@
     "tagsBonus": "Tags bonus: +{bonus} TOK",
     "total": "Estimated total: {total} TOK"
   },
-
   "connection": {
     "testing": "Testing IOTA Rebased connection...",
     "connected": "IOTA Rebased connected! ({contracts}/5 active contracts)",
     "fallback": "IOTA limited mode - basic functionality available"
   },
-
   "auth": {
     "required": "Authentication Required",
     "connectWalletMessage": "You need to connect your wallet to create recommendations and earn tokens.",
     "connectWallet": "Connect Wallet"
   },
-
   "actions": {
     "cancel": "Cancel",
     "add": "Add",
@@ -510,18 +482,15 @@
     "publishAndEarn": "Publish & Earn {tokens} BOCA",
     "done": "Done"
   },
-
   "errors": {
     "noUserLoggedIn": "No user logged in - please connect your wallet first",
     "iotaConnectionLimited": "IOTA connection limited. Using fallback mode.",
     "connectWalletFirst": "Please connect your wallet before creating recommendations",
     "createFailed": "Error creating recommendation: {error}"
   },
-
   "validation": {
     "fillRequired": "Please fill in all required fields (title and recommendation text)"
   },
-
   "success": {
     "published": "🎉 Recommendation published! You earned {tokens} BOCA"
   }
