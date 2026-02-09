@@ -60,6 +60,8 @@ interface Recommendation {
   comments_count: number;
   reshares_count: number;
   created_at: string;
+  is_edited?: boolean;
+  edited_at?: string;
   is_liked?: boolean;
   is_bookmarked?: boolean;
   photos?: string[];
@@ -437,6 +439,11 @@ export default function RecommendationDetailPage({
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       @{recommendation.author?.username} · {formatTimeAgo(recommendation.created_at)}
+                      {recommendation.is_edited && (
+                        <span className="ml-1 text-gray-400 dark:text-gray-500" title={recommendation.edited_at ? `Edited ${formatTimeAgo(recommendation.edited_at)}` : undefined}>
+                          · ✏️ edited
+                        </span>
+                      )}
                     </p>
                   </div>
                 </Link>
