@@ -52,7 +52,7 @@ const EditRecommendationModal: React.FC<EditRecommendationModalProps> = ({
         
         // Fetch the full recommendation data
         const response = await fetch(
-          `${API_BASE_URL}/api/recommendations/${recommendationId}`,
+          `${API_BASE_URL}/recommendations/${recommendationId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

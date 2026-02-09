@@ -505,6 +505,7 @@
     "save": "Save",
     "yes": "Yes",
     "no": "No",
+    "close": "Close",
     "publishing": "Publishing...",
     "publishAndEarn": "Publish & Earn {tokens} BOCA",
     "done": "Done"
