@@ -669,17 +669,25 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   };
 
   const renderContent = () => {
-    if (!hasContent) return null;
-
     return (
       <div 
-        className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed cursor-pointer"
+        className="text-sm cursor-pointer"
         onClick={handleNavigateToDetail}
       >
-        <span className="line-clamp-2">{recommendation.content}</span>
-        {isLongContent && (
-          <span className="text-coral hover:text-[#E65441] font-medium ml-1">
-            {t('card.readMore')}
+        {hasContent ? (
+          <>
+            <span className="text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2">
+              {recommendation.content}
+            </span>
+            {isLongContent && (
+              <span className="text-coral hover:text-[#E65441] font-medium ml-1">
+                {t('card.readMore')}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500 hover:text-coral transition-colors">
+            {t('card.viewMore') || 'View & reply'} →
           </span>
         )}
       </div>
@@ -832,7 +840,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
           className="flex items-center gap-1 hover:text-coral transition-colors"
         >
           <MessageCircle size={14} />
-          <span>{commentCount > 0 ? commentCount : t('card.comment') || 'Reply'}</span>
+          <span>{commentCount}</span>
         </button>
         
         {reshareCount > 0 && (
