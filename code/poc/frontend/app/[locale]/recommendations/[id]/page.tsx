@@ -413,7 +413,7 @@ export default function RecommendationDetailPage({
       <CleanHeader />
       
       <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
-        <div className="max-w-2xl mx-auto px-4 py-4">
+        <div className="max-w-2xl mx-auto px-4 py-4 pb-28">
           {/* Back Button */}
           <button
             onClick={() => router.back()}
@@ -784,7 +784,7 @@ export default function RecommendationDetailPage({
                 </div>
 
                 {/* Extra padding for keyboard on mobile */}
-                <div className="h-16" />
+                <div className="h-4" />
               </div>
             </div>
           </div>
