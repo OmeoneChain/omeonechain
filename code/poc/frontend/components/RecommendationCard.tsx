@@ -487,8 +487,8 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
             {(recommendation as any).is_edited && (
               <>
                 <span>·</span>
-                <span className="text-gray-400 dark:text-gray-500 italic">
-                  {t('card.edited') || 'edited'}
+                <span className="text-gray-500 dark:text-gray-400">
+                  ✏️ {t('card.edited') || 'edited'}
                 </span>
               </>
             )}
