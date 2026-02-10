@@ -730,13 +730,9 @@ export default function RecommendationDetailPage({
                 {/* Comments List */}
                 <div className="space-y-4">
                   {comments.length === 0 ? (
-                    <div className="text-center py-6">
-                      <MessageCircle size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No comments yet</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        Be the first to share your thoughts!
-                      </p>
-                    </div>
+                    <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-3">
+                      No comments yet — be the first!
+                    </p>
                   ) : (
                     comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3">
@@ -788,7 +784,7 @@ export default function RecommendationDetailPage({
                 </div>
 
                 {/* Extra padding for keyboard on mobile */}
-                <div className="h-32" />
+                <div className="h-16" />
               </div>
             </div>
           </div>

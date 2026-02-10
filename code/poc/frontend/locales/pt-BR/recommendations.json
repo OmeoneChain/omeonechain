@@ -175,7 +175,8 @@
     "badges": {
       "expert": "Especialista",
       "verified": "Verificado"
-    }
+    },
+    "viewAndReply": "Ver e comentar"
   },
   "draft": {
     "saved": "Rascunho salvo",
