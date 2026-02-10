@@ -260,6 +260,8 @@ function formatFeedItem(item: any): any {
           value_for_money: item.restaurant_aspects[0].value_for_money,
           noise_level: item.restaurant_aspects[0].noise_level
         } : undefined
+        is_edited: item.is_edited || false,
+        edited_at: item.edited_at || null
       };
     }
 
@@ -334,6 +336,8 @@ function formatFeedItem(item: any): any {
           value_for_money: item.restaurant_aspects[0].value_for_money,
           noise_level: item.restaurant_aspects[0].noise_level
         } : undefined
+        is_edited: item.is_edited || false,
+        edited_at: item.edited_at || null
       };
     }
 
