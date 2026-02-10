@@ -4,6 +4,7 @@
 // UPDATED: Dark mode support
 // UPDATED: Fixed keyboard issues on mobile
 // UPDATED: Added SaveToListModal integration (Jan 29, 2026)
+// UPDATED: Added Edit option in three-dot menu for own recommendations (Feb 10, 2026)
 
 'use client';
 
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 import { CleanHeader } from '@/components/CleanHeader';
 import SaveToListModal from '@/components/saved-lists/SaveToListModal';
+import EditRecommendationModal from '@/components/recommendation/EditRecommendationModal';
 import PhotoGallery from '@/components/recommendation/PhotoGallery';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
@@ -60,11 +62,11 @@ interface Recommendation {
   comments_count: number;
   reshares_count: number;
   created_at: string;
-  is_edited?: boolean;
-  edited_at?: string;
   is_liked?: boolean;
   is_bookmarked?: boolean;
   photos?: string[];
+  is_edited?: boolean;
+  edited_at?: string;
 }
 
 interface Comment {
@@ -100,6 +102,7 @@ export default function RecommendationDetailPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const recommendationId = params.id;
@@ -275,6 +278,11 @@ export default function RecommendationDetailPage({
     setShowSaveModal(true);
   };
 
+  const handleEdit = () => {
+    setShowMenu(false);
+    setShowEditModal(true);
+  };
+
   const handleTextareaFocus = () => {
     // Scroll into view when focused on mobile
     setTimeout(() => {
@@ -354,6 +362,9 @@ export default function RecommendationDetailPage({
   const getPriceLevel = (level: number) => {
     return '$'.repeat(level);
   };
+
+  // Check if current user is the author
+  const isOwnRecommendation = user?.id === recommendation?.author_id || user?.id === recommendation?.author?.id;
 
   if (isLoading) {
     return (
@@ -464,6 +475,16 @@ export default function RecommendationDetailPage({
                         onClick={() => setShowMenu(false)}
                       />
                       <div className="absolute right-0 top-10 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg shadow-lg dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] py-1 z-20 min-w-[160px]">
+                        {/* Edit — only visible for own recommendations */}
+                        {isOwnRecommendation && (
+                          <button
+                            onClick={handleEdit}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-2 text-gray-700 dark:text-gray-300"
+                          >
+                            <Edit size={14} />
+                            Edit
+                          </button>
+                        )}
                         <button
                           onClick={handleAddToList}
                           className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-2 text-gray-700 dark:text-gray-300"
@@ -781,6 +802,19 @@ export default function RecommendationDetailPage({
           itemId={recommendationId}
           onClose={() => setShowSaveModal(false)}
           onSave={() => setShowSaveModal(false)}
+        />
+      )}
+
+      {/* Edit Recommendation Modal */}
+      {showEditModal && (
+        <EditRecommendationModal
+          recommendationId={recommendationId}
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={() => {
+            setShowEditModal(false);
+            fetchRecommendation(); // Refresh the detail page data
+          }}
         />
       )}
     </>

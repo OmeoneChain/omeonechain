@@ -832,7 +832,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
           className="flex items-center gap-1 hover:text-coral transition-colors"
         >
           <MessageCircle size={14} />
-          <span>{commentCount}</span>
+          <span>{commentCount > 0 ? commentCount : t('card.comment') || 'Reply'}</span>
         </button>
         
         {reshareCount > 0 && (
