@@ -681,43 +681,58 @@ export default function CommunityPage() {
                 {t('discover.loading')}
               </div>
             ) : discoverUsers.length > 0 ? (
-              /* Horizontal carousel: 2 rows, scroll horizontally */
-              <div className="relative">
-                <div 
-                  className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                >
-                  {/* Group users into pages of 6 (2 rows × 3 cols on mobile shows as 2×2 visible) */}
-                  {Array.from({ length: Math.ceil(discoverUsers.length / 6) }).map((_, pageIndex) => (
-                    <div 
-                      key={pageIndex} 
-                      className="flex-shrink-0 snap-start grid grid-cols-2 sm:grid-cols-3 gap-3"
-                      style={{ width: 'calc(100% - 24px)' }}
-                    >
-                      {discoverUsers.slice(pageIndex * 6, pageIndex * 6 + 6).map((user) => (
-                        <CompactUserCard
-                          key={user.id}
-                          user={user}
-                          onFollow={handleFollow}
-                          onUnfollow={handleUnfollow}
-                          isLoading={isLoadingDiscover}
-                          t={t}
+              /* Mobile: Horizontal carousel | Desktop: Responsive grid */
+              <div>
+                {/* Desktop grid - shows all users */}
+                <div className="hidden md:grid grid-cols-3 lg:grid-cols-4 gap-3">
+                  {discoverUsers.map((user) => (
+                    <CompactUserCard
+                      key={user.id}
+                      user={user}
+                      onFollow={handleFollow}
+                      onUnfollow={handleUnfollow}
+                      isLoading={isLoadingDiscover}
+                      t={t}
+                    />
+                  ))}
+                </div>
+
+                {/* Mobile carousel - paginated swipe */}
+                <div className="md:hidden relative">
+                  <div 
+                    className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  >
+                    {Array.from({ length: Math.ceil(discoverUsers.length / 6) }).map((_, pageIndex) => (
+                      <div 
+                        key={pageIndex} 
+                        className="flex-shrink-0 snap-start grid grid-cols-2 sm:grid-cols-3 gap-3"
+                        style={{ width: 'calc(100% - 24px)' }}
+                      >
+                        {discoverUsers.slice(pageIndex * 6, pageIndex * 6 + 6).map((user) => (
+                          <CompactUserCard
+                            key={user.id}
+                            user={user}
+                            onFollow={handleFollow}
+                            onUnfollow={handleUnfollow}
+                            isLoading={isLoadingDiscover}
+                            t={t}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                  {discoverUsers.length > 6 && (
+                    <div className="flex justify-center gap-1.5 mt-2">
+                      {Array.from({ length: Math.ceil(discoverUsers.length / 6) }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600"
                         />
                       ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-                {/* Scroll indicator dots */}
-                {discoverUsers.length > 6 && (
-                  <div className="flex justify-center gap-1.5 mt-2">
-                    {Array.from({ length: Math.ceil(discoverUsers.length / 6) }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600"
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
             ) : (
               <div className="py-12 text-center">
