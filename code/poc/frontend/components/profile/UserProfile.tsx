@@ -262,6 +262,8 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   const [activeTab, setActiveTab] = useState<MainTab>('tastemap');
   const [activitySubTab, setActivitySubTab] = useState<ActivitySubTab>('recommendations');
   const [networkSubTab, setNetworkSubTab] = useState<NetworkSubTab>('followers');
+  const [followersLoaded, setFollowersLoaded] = useState(false);
+  const [followingLoaded, setFollowingLoaded] = useState(false);
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('rewards');
 
   // Profile editor
@@ -634,14 +636,17 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         else if (Array.isArray(data?.results)) users = data.results;
 
         setFollowersData(users);
+        setFollowersLoaded(true);
       } else {
         setSocialError(`${t('profile.errors.loadingFollowers')} (${response.status})`);
         setFollowersData([]);
+        setFollowersLoaded(true);   // ← also here
       }
     } catch (e) {
       console.error('Error loading followers:', e);
       setSocialError(`${t('profile.errors.network')} - ${t('profile.errors.loadingFollowers')}`);
       setFollowersData([]);
+      setFollowersLoaded(true);
     } finally {
       setSocialLoading(false);
     }
@@ -665,14 +670,17 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         else if (Array.isArray(data?.results)) users = data.results;
 
         setFollowingData(users);
+        setFollowingLoaded(true);     // ← 1. success
       } else {
         setSocialError(`${t('profile.errors.loadingFollowing')} (${response.status})`);
         setFollowingData([]);
+        setFollowingLoaded(true);     // ← 2. error response
       }
     } catch (e) {
       console.error('Error loading following:', e);
       setSocialError(`${t('profile.errors.network')} - ${t('profile.errors.loadingFollowing')}`);
       setFollowingData([]);
+      setFollowingLoaded(true);       // ← 3. catch
     } finally {
       setSocialLoading(false);
     }
@@ -929,9 +937,9 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
         loadUserSavedLists();
       }
     } else if (activeTab === 'network') {
-      if (networkSubTab === 'followers' && followersData.length === 0 && !socialLoading) {
+      if (networkSubTab === 'followers' && !followersLoaded && !socialLoading) {
         loadFollowers();
-      } else if (networkSubTab === 'following' && followingData.length === 0 && !socialLoading) {
+      } else if (networkSubTab === 'following' && !followingLoaded && !socialLoading) {
         loadFollowing();
       }
     } else if (activeTab === 'settings' && isOwnProfile) {
@@ -943,8 +951,8 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     activitySubTab,
     attributionLoading,
     attributionRewards,
-    followersData.length,
-    followingData.length,
+    followersLoaded,
+    followingLoaded,
     isOwnProfile,
     likesLoaded,
     listsLoaded,
@@ -1976,10 +1984,12 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
 
             {/* Meta */}
             <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500 dark:text-gray-500">
-              <span className="flex items-center gap-1">
-                {authInfo.icon}
-                {authInfo.display}
-              </span>
+              {authInfo.type === 'wallet' && (
+                <span className="flex items-center gap-1">
+                  {authInfo.icon}
+                  {authInfo.display}
+                </span>
+              )}
 
               {userLocation && (
                 <span className="flex items-center gap-1">

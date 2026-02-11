@@ -457,17 +457,13 @@ export function CleanHeader({ className = '' }: CleanHeaderProps) {
                           {formatAddress(user.walletAddress || user.wallet_address || '')}
                         </div>
                       )}
-                      <div className="mt-2">
-                        <span 
-                          className={`inline-block px-2 py-1 text-xs rounded ${
-                            authMode === 'wallet' 
-                              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                          }`}
-                        >
-                          {authMode === 'wallet' ? `🔷 ${t('header.walletAccount')}` : `📧 ${t('header.emailAccount')}`}
-                        </span>
-                      </div>
+                      {authMode === 'wallet' && (
+                        <div className="mt-2">
+                          <span className="inline-block px-2 py-1 text-xs rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                            🔷 {t('header.walletAccount')}
+                          </span>
+                        </div>
+                      )}
           
                       {authMode === 'wallet' && (
                         <div className="mt-2 pt-2 border-t border-gray-100 dark:border-[#3D3C4A]">
