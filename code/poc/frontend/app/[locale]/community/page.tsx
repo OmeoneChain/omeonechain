@@ -3,18 +3,19 @@
 // - 2 columns mobile, 3 columns tablet+
 // - Removed HorizontalUserScroll, showAllDiscover toggle
 // - Dark mode + i18n
+// UPDATED: 2026-02-12 - Replaced FindFriendsSection with Invite Friends (native share sheet)
 
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
 import CleanHeader from '@/components/CleanHeader';
 import { socialApi } from '@/src/services/api';
 import Image from 'next/image';
 import Link from 'next/link';
-import FindFriendsSection from '@/components/community/FindFriendsSection';
+import { Share2, Users, ChevronRight } from 'lucide-react';
 
 // ============================================
 // TYPES
@@ -35,6 +36,90 @@ interface User {
 }
 
 interface DiscoverUser extends User {}
+
+// ============================================
+// INVITE FRIENDS CARD
+// ============================================
+
+function InviteFriendsCard({ locale }: { locale: string }) {
+  const [shareSupported, setShareSupported] = useState(false);
+  const [justShared, setJustShared] = useState(false);
+
+  useEffect(() => {
+    setShareSupported(!!navigator.share);
+  }, []);
+
+  const handleInvite = async () => {
+    const inviteUrl = 'https://omeonechain.vercel.app';
+    
+    const message = locale === 'pt-BR'
+      ? '🍽️ Descubra os melhores restaurantes com o BocaBoca! Recomendações reais de pessoas reais. Vem experimentar!'
+      : '🍽️ Discover the best restaurants with BocaBoca! Real recommendations from real people. Come try it!';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'BocaBoca',
+          text: message,
+          url: inviteUrl,
+        });
+        setJustShared(true);
+        setTimeout(() => setJustShared(false), 3000);
+      } catch (err) {
+        // User cancelled share - that's fine
+        console.log('Share cancelled');
+      }
+    } else {
+      // Fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(`${message}\n${inviteUrl}`);
+        setJustShared(true);
+        setTimeout(() => setJustShared(false), 3000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
+  };
+
+  const texts = locale === 'pt-BR'
+    ? {
+        title: 'Convide amigos',
+        subtitle: 'Compartilhe o BocaBoca com amigos via WhatsApp, iMessage e mais',
+        button: justShared ? 'Enviado!' : (shareSupported ? 'Convidar' : 'Copiar link'),
+      }
+    : {
+        title: 'Invite Friends',
+        subtitle: 'Share BocaBoca with friends via WhatsApp, iMessage and more',
+        button: justShared ? 'Shared!' : (shareSupported ? 'Invite' : 'Copy link'),
+      };
+
+  return (
+    <button
+      onClick={handleInvite}
+      className="w-full mb-4 sm:mb-6 bg-gradient-to-r from-[#FF644A] to-[#E65441] rounded-xl p-4 flex items-center gap-4 hover:from-[#E65441] hover:to-[#C94232] transition-all active:scale-[0.99] group"
+    >
+      <div className="w-11 h-11 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center flex-shrink-0">
+        <Users className="w-5 h-5 text-white" />
+      </div>
+      <div className="flex-1 text-left min-w-0">
+        <p className="text-white font-semibold text-sm">
+          {texts.title}
+        </p>
+        <p className="text-white/80 text-xs truncate">
+          {texts.subtitle}
+        </p>
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <span className="text-white text-xs font-medium bg-white/20 px-3 py-1.5 rounded-lg">
+          {texts.button}
+        </span>
+        {!justShared && (
+          <ChevronRight className="w-4 h-4 text-white/60" />
+        )}
+      </div>
+    </button>
+  );
+}
 
 // ============================================
 // COMPACT USER CARD (for grid)
@@ -355,6 +440,8 @@ function SearchResultItem({
 
 export default function CommunityPage() {
   const router = useRouter();
+  const params = useParams();
+  const locale = (params?.locale as string) || 'pt-BR';
   const t = useTranslations('community');
 
   const {
@@ -636,13 +723,8 @@ export default function CommunityPage() {
           )}
         </div>
 
-        {/* Find Friends from Contacts */}
-        {isAuthenticated && (
-          <FindFriendsSection
-            onFollow={handleFollow}
-            onUnfollow={handleUnfollow}
-          />
-        )}
+        {/* Invite Friends Card */}
+        <InviteFriendsCard locale={locale} />
 
         {/* Tabs */}
         <div className="flex gap-2 mb-4 sm:mb-6">
