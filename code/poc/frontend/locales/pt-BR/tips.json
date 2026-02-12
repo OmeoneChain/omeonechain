@@ -1,0 +1,36 @@
+{
+  "modal": {
+    "title": "Enviar Gorjeta",
+    "subtitle": "Mostre seu apreço com BOCA",
+    "yourBalance": "Seu saldo",
+    "customAmount": "Valor personalizado",
+    "infoNote": "100% da sua gorjeta vai diretamente para {name}",
+    "insufficientBalance": "Saldo insuficiente. Você tem {balance} BOCA",
+    "signInRequired": "Entre para enviar gorjetas",
+    "cancel": "Cancelar",
+    "sending": "Enviando...",
+    "sendAmount": "Enviar {amount} BOCA"
+  },
+  "success": {
+    "title": "Gorjeta Enviada!",
+    "description": "Você enviou {amount} BOCA para {name}"
+  },
+  "error": {
+    "failed": "Falha ao enviar gorjeta. Tente novamente."
+  },
+  "button": {
+    "label": "Gorjeta",
+    "tooltip": "Enviar uma gorjeta",
+    "ariaLabel": "Enviar uma gorjeta para {name}",
+    "signInRequired": "Entre para enviar gorjetas",
+    "tipSent": "Gorjeta de {amount} BOCA enviada!"
+  },
+  "context": {
+    "forRecommending": "por recomendar {name}",
+    "forRecommendation": "pela recomendação",
+    "forGuide": "pelo guia \"{title}\"",
+    "forGuideGeneric": "pelo guia",
+    "forComment": "pelo comentário",
+    "toSupport": "para apoiar {name}"
+  }
+}

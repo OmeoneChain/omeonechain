@@ -1,0 +1,36 @@
+{
+  "modal": {
+    "title": "Send a Tip",
+    "subtitle": "Show your appreciation with BOCA",
+    "yourBalance": "Your balance",
+    "customAmount": "Custom amount",
+    "infoNote": "100% of your tip goes directly to {name}",
+    "insufficientBalance": "Insufficient balance. You have {balance} BOCA",
+    "signInRequired": "Please sign in to send tips",
+    "cancel": "Cancel",
+    "sending": "Sending...",
+    "sendAmount": "Send {amount} BOCA"
+  },
+  "success": {
+    "title": "Tip Sent!",
+    "description": "You sent {amount} BOCA to {name}"
+  },
+  "error": {
+    "failed": "Failed to send tip. Please try again."
+  },
+  "button": {
+    "label": "Tip",
+    "tooltip": "Send a tip",
+    "ariaLabel": "Send a tip to {name}",
+    "signInRequired": "Please sign in to send tips",
+    "tipSent": "Tip of {amount} BOCA sent!"
+  },
+  "context": {
+    "forRecommending": "for recommending {name}",
+    "forRecommendation": "for their recommendation",
+    "forGuide": "for the guide \"{title}\"",
+    "forGuideGeneric": "for their guide",
+    "forComment": "for their comment",
+    "toSupport": "to support {name}"
+  }
+}
