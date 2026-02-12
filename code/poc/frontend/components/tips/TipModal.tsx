@@ -69,7 +69,7 @@ export default function TipModal({
   onSuccess
 }: TipModalProps) {
   const t = useTranslations('tips');
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, user } = useAuth();
   
   const [amount, setAmount] = useState<number>(1);
   const [customAmount, setCustomAmount] = useState<string>('');
@@ -93,19 +93,30 @@ export default function TipModal({
   const fetchBalance = async () => {
     try {
       setIsLoadingBalance(true);
-      const response = await fetch(`${API_BASE_URL}/tips/balance`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
       
-      if (response.ok) {
-        const data = await response.json();
-        setUserBalance(data.balance || 0);
+      // Use the user endpoint (same as CleanHeader) which reliably works
+      if (user?.id) {
+        const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const userData = data.user || data;
+          setUserBalance(userData.token_balance ?? userData.tokens_earned ?? 0);
+          return;
+        }
       }
+      
+      // Fallback: use tokens_earned from auth context
+      setUserBalance(user?.tokens_earned ?? user?.tokensEarned ?? 0);
     } catch (err) {
       console.error('Failed to fetch balance:', err);
+      // Final fallback to auth context
+      setUserBalance(user?.tokens_earned ?? user?.tokensEarned ?? 0);
     } finally {
       setIsLoadingBalance(false);
     }
