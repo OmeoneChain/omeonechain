@@ -88,7 +88,7 @@ export default function TipModal({
     if (isOpen && token) {
       fetchBalance();
     }
-  }, [isOpen, token]);
+  }, [isOpen]);
 
   const fetchBalance = async () => {
     try {
