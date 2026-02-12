@@ -25,6 +25,7 @@ import { recommendationService, type Recommendation } from '@/lib/services/recom
 import { useAuth } from '@/components/auth/AuthProvider.backup';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { TipRecommendationButton } from '@/components/tips/TipButton';
 
 const RecommendationDetailPage = () => {
   const params = useParams();

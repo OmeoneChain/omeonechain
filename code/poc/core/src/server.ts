@@ -59,6 +59,7 @@ import walletUpgradeRoutes from './api/routes/wallet-upgrade';
 import crypto from 'crypto';
 import diagnosticsRouter from './routes/diagnostics';
 import feedRoutes from './api/routes/feed';
+import tipsRouter from './routes/tips';
 
 // Add server identification
 console.log('🟢 REAL SERVER RUNNING - src/server.ts - TWO-TIER AUTH + USER PROFILE INTEGRATION');
@@ -2339,6 +2340,8 @@ app.use('/api/auth/social', socialAuthRoutes);
 app.use('/api/lottery', lotteryRoutes);
 
 app.use('/api/photo-contest', photoContestRoutes);
+
+app.use('/api/tips', tipsRouter);
 
 app.use('/api/trending', trendingRoutes);
 

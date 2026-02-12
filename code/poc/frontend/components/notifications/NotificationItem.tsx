@@ -1,6 +1,7 @@
 // File: code/poc/frontend/components/notifications/NotificationItem.tsx
 // Component for rendering individual notification items
 // UPDATED: Dark mode support throughout
+// UPDATED: Added 'tip' notification type support (Jan 29, 2026)
 
 'use client';
 
@@ -14,7 +15,8 @@ import {
   UserPlus, 
   AtSign,
   ThumbsUp,
-  MessageSquare
+  MessageSquare,
+  Coins
 } from 'lucide-react';
 import { Notification } from '@/hooks/useNotifications';
 
@@ -62,6 +64,8 @@ export function NotificationItem({
         return <UserPlus {...iconProps} className={`${iconProps.className} text-indigo-500`} />;
       case 'mention':
         return <AtSign {...iconProps} className={`${iconProps.className} text-orange-500`} />;
+      case 'tip':
+        return <Coins {...iconProps} className={`${iconProps.className} text-[#FF644A]`} />;
       default:
         return <MessageCircle {...iconProps} className={`${iconProps.className} text-gray-500 dark:text-gray-400`} />;
     }
@@ -95,6 +99,20 @@ export function NotificationItem({
         return `/users/${notification.actor_id}`;
       case 'mention':
         return `/recommendations/${notification.target_id}`;
+      case 'tip':
+        // Link based on what was tipped
+        if (notification.target_type === 'recommendation') {
+          return `/recommendations/${notification.target_id}`;
+        } else if (notification.target_type === 'guide') {
+          return `/list/${notification.target_id}`;
+        } else if (notification.target_type === 'user') {
+          return `/users/${notification.actor_id}`;
+        } else if (notification.target_type === 'comment') {
+          // For comments, we'd need the parent recommendation ID
+          // Fall back to profile for now
+          return `/users/${notification.actor_id}`;
+        }
+        return '/notifications';
       default:
         return '/notifications';
     }
@@ -111,6 +129,14 @@ export function NotificationItem({
       case 'reshare': return t('messages.reshare');
       case 'follow': return t('messages.follow');
       case 'mention': return t('messages.mention');
+      case 'tip': 
+        // Build tip message with amount if available
+        const amount = notification.content?.amount;
+        const contextLabel = notification.content?.context_label;
+        if (amount) {
+          return t('messages.tip', { amount: amount.toFixed(2) });
+        }
+        return t('messages.tipGeneric');
       default: return t('messages.default');
     }
   };
@@ -196,6 +222,18 @@ export function NotificationItem({
           {notification.content.recommendation_title && (
             <p className={`text-gray-600 dark:text-gray-400 mt-1 ${compact ? 'text-xs' : 'text-sm'}`}>
               {t('content.onRecommendation', { title: notification.content.recommendation_title })}
+            </p>
+          )}
+          
+          {/* Tip-specific: Show amount and context */}
+          {notification.type === 'tip' && notification.content?.amount && (
+            <p className={`text-[#FF644A] font-semibold mt-1 ${compact ? 'text-xs' : 'text-sm'}`}>
+              +{notification.content.amount.toFixed(2)} BOCA
+              {notification.content.context_label && (
+                <span className="text-gray-500 dark:text-gray-400 font-normal">
+                  {' '}• {notification.content.context_label}
+                </span>
+              )}
             </p>
           )}
 

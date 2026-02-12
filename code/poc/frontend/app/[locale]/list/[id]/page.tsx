@@ -2,6 +2,7 @@
 // Curated List (Guide) Detail Page - PUBLIC view of community-created food guides
 // UPDATED: Dark mode support added
 // UPDATED: 2026-02-06 - Added Change Cover functionality for guide owners
+// UPDATED: 2026-02-11 - Added TipGuideButton for generic tipping
 // ✅ Calls /api/lists/[id] endpoint (guides.ts routes)
 // ✅ Public - no auth required to view (optionalAuth)
 // ✅ Shows creator attribution
@@ -9,6 +10,7 @@
 // ✅ "Add to List" via three-dot menu (opens SaveToListModal)
 // ✅ Individual restaurant save via three-dot menu
 // ✅ Change Cover button for guide owners
+// ✅ Tip guide creator with BOCA tokens
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
@@ -39,6 +41,7 @@ import { cn, timeAgo } from '@/lib/utils';
 import CleanHeader from '@/components/CleanHeader';
 import SaveToListModal from '@/components/saved-lists/SaveToListModal';
 import ChangeCoverModal from '@/components/guides/ChangeCoverModal';
+import { TipGuideButton } from '@/components/tips/TipButton';
 
 interface RestaurantPhoto {
   id: string;
@@ -613,6 +616,18 @@ export default function CuratedListDetailPage() {
                   >
                     <Share2 size={18} />
                   </motion.button>
+
+                  {/* Tip Guide Creator Button */}
+                  {list.creator?.id && (
+                    <TipGuideButton
+                      creatorId={list.creator.id}
+                      creatorUsername={list.creator.username}
+                      creatorDisplayName={list.creator.display_name || list.creator.username}
+                      creatorAvatarUrl={list.creator.avatar || list.creator.profile_photo_url || null}
+                      guideId={list.id}
+                      guideTitle={list.title}
+                    />
+                  )}
 
                   {/* Three-Dot Menu for Guide */}
                   <div className="relative" ref={guideMenuRef}>

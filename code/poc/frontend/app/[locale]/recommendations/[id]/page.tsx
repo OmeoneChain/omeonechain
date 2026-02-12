@@ -5,6 +5,7 @@
 // UPDATED: Fixed keyboard issues on mobile
 // UPDATED: Added SaveToListModal integration (Jan 29, 2026)
 // UPDATED: Added Edit option in three-dot menu for own recommendations (Feb 10, 2026)
+// UPDATED: Added TipRecommendationButton for generic tipping (Feb 11, 2026)
 
 'use client';
 
@@ -31,6 +32,7 @@ import { CleanHeader } from '@/components/CleanHeader';
 import SaveToListModal from '@/components/saved-lists/SaveToListModal';
 import EditRecommendationModal from '@/components/recommendation/EditRecommendationModal';
 import PhotoGallery from '@/components/recommendation/PhotoGallery';
+import { TipRecommendationButton } from '@/components/tips/TipButton';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 
@@ -649,6 +651,18 @@ export default function RecommendationDetailPage({
                   >
                     <Bookmark size={18} fill={recommendation.is_bookmarked ? "currentColor" : "none"} />
                   </motion.button>
+
+                  {/* Tip Recommendation Author */}
+                  {recommendation.author?.id && (
+                    <TipRecommendationButton
+                      authorId={recommendation.author.id}
+                      authorUsername={recommendation.author.username}
+                      authorDisplayName={recommendation.author.display_name}
+                      authorAvatarUrl={recommendation.author.avatar_url}
+                      recommendationId={recommendation.id}
+                      restaurantName={recommendation.restaurant?.name}
+                    />
+                  )}
 
                   <motion.button
                     onClick={handleShare}
