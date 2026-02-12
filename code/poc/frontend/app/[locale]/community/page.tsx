@@ -8,14 +8,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
 import CleanHeader from '@/components/CleanHeader';
 import { socialApi } from '@/src/services/api';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Share2, Users, ChevronRight } from 'lucide-react';
+import { Users, ChevronRight } from 'lucide-react';
 
 // ============================================
 // TYPES
@@ -41,7 +41,8 @@ interface DiscoverUser extends User {}
 // INVITE FRIENDS CARD
 // ============================================
 
-function InviteFriendsCard({ locale }: { locale: string }) {
+function InviteFriendsCard() {
+  const t = useTranslations('community');
   const [shareSupported, setShareSupported] = useState(false);
   const [justShared, setJustShared] = useState(false);
 
@@ -51,10 +52,7 @@ function InviteFriendsCard({ locale }: { locale: string }) {
 
   const handleInvite = async () => {
     const inviteUrl = 'https://omeonechain.vercel.app';
-    
-    const message = locale === 'pt-BR'
-      ? '🍽️ Descubra os melhores restaurantes com o BocaBoca! Recomendações reais de pessoas reais. Vem experimentar!'
-      : '🍽️ Discover the best restaurants with BocaBoca! Real recommendations from real people. Come try it!';
+    const message = t('invite.message');
 
     if (navigator.share) {
       try {
@@ -81,17 +79,11 @@ function InviteFriendsCard({ locale }: { locale: string }) {
     }
   };
 
-  const texts = locale === 'pt-BR'
-    ? {
-        title: 'Convide amigos',
-        subtitle: 'Compartilhe o BocaBoca com amigos via WhatsApp, iMessage e mais',
-        button: justShared ? 'Enviado!' : (shareSupported ? 'Convidar' : 'Copiar link'),
-      }
-    : {
-        title: 'Invite Friends',
-        subtitle: 'Share BocaBoca with friends via WhatsApp, iMessage and more',
-        button: justShared ? 'Shared!' : (shareSupported ? 'Invite' : 'Copy link'),
-      };
+  const buttonLabel = justShared
+    ? t('invite.shared')
+    : shareSupported
+      ? t('invite.button')
+      : t('invite.buttonCopy');
 
   return (
     <button
@@ -103,15 +95,15 @@ function InviteFriendsCard({ locale }: { locale: string }) {
       </div>
       <div className="flex-1 text-left min-w-0">
         <p className="text-white font-semibold text-sm">
-          {texts.title}
+          {t('invite.title')}
         </p>
         <p className="text-white/80 text-xs truncate">
-          {texts.subtitle}
+          {t('invite.subtitle')}
         </p>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         <span className="text-white text-xs font-medium bg-white/20 px-3 py-1.5 rounded-lg">
-          {texts.button}
+          {buttonLabel}
         </span>
         {!justShared && (
           <ChevronRight className="w-4 h-4 text-white/60" />
@@ -440,8 +432,6 @@ function SearchResultItem({
 
 export default function CommunityPage() {
   const router = useRouter();
-  const params = useParams();
-  const locale = (params?.locale as string) || 'pt-BR';
   const t = useTranslations('community');
 
   const {
@@ -724,7 +714,7 @@ export default function CommunityPage() {
         </div>
 
         {/* Invite Friends Card */}
-        <InviteFriendsCard locale={locale} />
+        <InviteFriendsCard />
 
         {/* Tabs */}
         <div className="flex gap-2 mb-4 sm:mb-6">

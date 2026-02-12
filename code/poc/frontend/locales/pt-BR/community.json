@@ -48,6 +48,14 @@
     "processing": "...",
     "signIn": "Entrar"
   },
+  "invite": {
+    "title": "Convidar amigos",
+    "subtitle": "Compartilhe o BocaBoca com amigos via WhatsApp, iMessage e mais",
+    "message": "🍽️ Descubra os melhores restaurantes com o BocaBoca! Recomendações reais de pessoas reais. Vem experimentar!",
+    "button": "Convidar",
+    "buttonCopy": "Copiar link",
+    "shared": "Enviado!"
+  },
   "comingSoon": {
     "title": "Mais Formas de Conectar",
     "badge": "Em Breve",

@@ -1,94 +1,102 @@
 {
   "page": {
-    "title": "Community",
-    "subtitle": "Connect with food lovers who share your taste"
+    "title": "Comunidade",
+    "subtitle": "Conecte-se com amantes da gastronomia que tem o mesmo gosto do seu"
   },
   "search": {
-    "placeholder": "Search by name or username...",
-    "searching": "Searching...",
-    "noResults": "No users found for \"{query}\"",
-    "clear": "Clear search"
+    "placeholder": "Buscar por nome ou usuário...",
+    "searching": "Buscando...",
+    "noResults": "Nenhum usuário encontrado para \"{query}\"",
+    "clear": "Limpar busca"
   },
   "tabs": {
-    "discover": "Discover",
-    "following": "Following ({count})"
+    "discover": "Descobrir",
+    "following": "Seguindo ({count})"
   },
   "discover": {
-    "title": "Discover People",
-    "seeAll": "See All →",
-    "backToOverview": "← Back to Overview",
-    "loading": "Loading...",
+    "title": "Descobrir Pessoas",
+    "seeAll": "Ver Todos →",
+    "backToOverview": "← Voltar",
+    "loading": "Carregando...",
     "empty": {
-      "title": "No users to discover right now",
-      "subtitle": "Check back soon!"
+      "title": "Nenhum usuário para descobrir no momento",
+      "subtitle": "Volte em breve!"
     }
   },
   "following": {
-    "title": "Following",
-    "loading": "Loading...",
+    "title": "Seguindo",
+    "loading": "Carregando...",
     "signInRequired": {
-      "message": "Sign in to see who you're following"
+      "message": "Entre para ver quem você está seguindo"
     },
     "empty": {
-      "title": "You're not following anyone yet",
-      "cta": "Discover People"
+      "title": "Você ainda não está seguindo ninguém",
+      "cta": "Descobrir Pessoas"
     }
   },
   "user": {
-    "followers": "followers",
-    "followerCount": "{count} followers",
+    "followers": "seguidores",
+    "followerCount": "{count} seguidores",
     "recommendations": "recs",
     "recommendationCount": "{count} recs",
-    "anonymous": "Anonymous",
-    "verified": "Verified"
+    "anonymous": "Anônimo",
+    "verified": "Verificado"
   },
   "actions": {
-    "follow": "Follow",
-    "following": "Following",
+    "follow": "Seguir",
+    "following": "Seguindo",
     "processing": "...",
-    "signIn": "Sign In"
+    "signIn": "Entrar"
+  },
+  "invite": {
+    "title": "Convidar amigos",
+    "subtitle": "Compartilhe o BocaBoca com amigos via WhatsApp, iMessage e mais",
+    "message": "🍽️ Descubra os melhores restaurantes com o BocaBoca! Recomendações reais de pessoas reais. Vem experimentar!",
+    "button": "Convidar",
+    "buttonCopy": "Copiar link",
+    "shared": "Enviado!"
   },
   "comingSoon": {
-    "title": "More Ways to Connect",
-    "badge": "Coming Soon",
+    "title": "Mais Formas de Conectar",
+    "badge": "Em Breve",
     "tasteCircles": {
-      "title": "Taste Circles",
-      "description": "Join communities of food lovers who share your specific tastes — from ramen enthusiasts to natural wine aficionados."
+      "title": "Rodas de Gosto",
+      "description": "Participe de comunidades de amantes da gastronomia que compartilham seus gostos específicos — de entusiastas de ramen a aficionados por vinhos naturais."
     },
     "collaborativeLists": {
-      "title": "Collaborative Lists",
-      "description": "Create and share restaurant lists with friends. Perfect for planning trips or building the ultimate neighborhood guide together."
+      "title": "Listas Colaborativas",
+      "description": "Crie e compartilhe listas de restaurantes com amigos. Perfeito para planejar viagens ou montar o guia definitivo do seu bairro juntos."
     }
   },
   "findFriends": {
-    "title": "Find Friends from Contacts",
-    "description": "See which of your contacts are already on BocaBoca",
-    "loading": "Scanning your contacts...",
-    "loadingHint": "This may take a moment",
+    "title": "Encontrar Amigos nos Contatos",
+    "description": "Veja quais dos seus contatos já estão no BocaBoca",
+    "loading": "Buscando nos seus contatos...",
+    "loadingHint": "Isso pode levar um momento",
     "webOnly": {
-      "title": "Available on Mobile App",
-      "description": "Download the BocaBoca app to find friends from your contacts."
+      "title": "Disponível no App",
+      "description": "Baixe o app BocaBoca para encontrar amigos dos seus contatos."
     },
     "noPermission": {
-      "title": "Contact Access Required",
-      "description": "To find your friends, please allow BocaBoca to access your contacts in your device settings.",
-      "dismiss": "Maybe later"
+      "title": "Acesso aos Contatos Necessário",
+      "description": "Para encontrar seus amigos, permita que o BocaBoca acesse seus contatos nas configurações do dispositivo.",
+      "dismiss": "Talvez depois"
     },
     "error": {
-      "title": "Something went wrong",
-      "retry": "Try again"
+      "title": "Algo deu errado",
+      "retry": "Tentar novamente"
     },
     "errors": {
-      "generic": "An unexpected error occurred. Please try again."
+      "generic": "Ocorreu um erro inesperado. Por favor, tente novamente."
     },
     "results": {
-      "title": "Friends on BocaBoca",
-      "found": "Found {count} friends from {total} contacts",
-      "noMatches": "No matches found from {total} contacts",
-      "emptyState": "None of your contacts are on BocaBoca yet",
-      "emptyStateHint": "Invite them to join and earn rewards!",
-      "savedAs": "Saved as {name}",
-      "syncAgain": "Sync contacts again"
+      "title": "Amigos no BocaBoca",
+      "found": "Encontrados {count} amigos em {total} contatos",
+      "noMatches": "Nenhum resultado em {total} contatos",
+      "emptyState": "Nenhum dos seus contatos está no BocaBoca ainda",
+      "emptyStateHint": "Convide-os para participar e ganhe recompensas!",
+      "savedAs": "Salvo como {name}",
+      "syncAgain": "Sincronizar contatos novamente"
     }
   }
 }
