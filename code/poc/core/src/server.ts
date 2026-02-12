@@ -2341,8 +2341,6 @@ app.use('/api/lottery', lotteryRoutes);
 
 app.use('/api/photo-contest', photoContestRoutes);
 
-app.use('/api/tips', tipsRouter);
-
 app.use('/api/trending', trendingRoutes);
 
 app.use('/api/upload', uploadRouter);
@@ -2356,6 +2354,8 @@ app.use('/api/users', findByPhonesRouter);
 app.use('/api/diagnostics', diagnosticsRouter);
 
 app.use('/api/feed', feedRoutes);
+
+app.use('/api/tips', authenticateToken, tipsRouter);
 
 // Mount the enhanced recommendation routes with Trust Score 2.0 support
 app.use('/api/recommendations', optionalAuth, mapRecommendationsRouter);
