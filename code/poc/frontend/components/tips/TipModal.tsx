@@ -93,7 +93,7 @@ export default function TipModal({
   const fetchBalance = async () => {
     try {
       setIsLoadingBalance(true);
-      const response = await fetch(`${API_BASE_URL}/api/tips/balance`, {
+      const response = await fetch(`${API_BASE_URL}/tips/balance`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -164,7 +164,7 @@ export default function TipModal({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/tips`, {
+      const response = await fetch(`${API_BASE_URL}/tips`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
