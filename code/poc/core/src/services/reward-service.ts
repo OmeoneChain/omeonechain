@@ -9,7 +9,9 @@
  * 
  * Target location: code/poc/core/src/services/reward-service.ts
  * 
- * @version 1.1.0 - Added users.tokens_earned sync for frontend compatibility
+ * @version 1.2.0 - Removed manual tokens_earned sync; now handled by
+ *   recalculate_token_balance trigger on reward_events table.
+ *   See: trg_recalculate_token_balance (PostgreSQL trigger)
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -68,7 +70,7 @@ export interface User {
   trust_tier: 1 | 2 | 3;           // Derived from 'reputation_tier' column
   reputation_tier: string;         // Raw value: 'new', 'established', 'trusted'
   created_at: string;
-  tokens_earned?: number;          // NEW: Current balance for sync
+  tokens_earned?: number;          // Read-only — maintained by DB trigger
 }
 
 export interface PendingReward {
@@ -92,7 +94,6 @@ export interface RewardResult {
   method: 'on_chain' | 'pending';
   txDigest?: string;
   pendingRewardId?: string;
-  newBalance?: number;      // NEW: Updated tokens_earned balance
   error?: string;
 }
 
@@ -247,7 +248,9 @@ export class RewardService {
    *   - wallet_full: Mints tokens on-chain
    *   - email_basic: Stores in pending_tokens table
    * 
-   * ALSO updates users.tokens_earned for frontend display compatibility
+   * NOTE: users.tokens_earned is updated automatically by the
+   * recalculate_token_balance trigger on reward_events INSERT.
+   * This service only needs to insert into reward_events.
    * 
    * @param userId - User's database ID
    * @param action - The action being rewarded
@@ -915,6 +918,8 @@ export class RewardService {
       metadata,
       created_at: new Date().toISOString(),
     });
+    // NOTE: The recalculate_token_balance trigger automatically
+    // updates users.tokens_earned after this INSERT
   }
 
   private async updatePendingRewardsStatus(
@@ -932,50 +937,6 @@ export class RewardService {
       .from('pending_tokens')
       .update(updates)
       .in('id', rewardIds);
-  }
-
-  /**
-   * NEW: Update users.tokens_earned for frontend display compatibility
-   * This keeps the legacy balance column in sync while we transition
-   */
-  private async updateUserTokensEarned(
-    userId: string, 
-    amountToAdd: number
-  ): Promise<number> {
-    try {
-      // Get current balance
-      const { data: user, error: fetchError } = await this.supabase
-        .from('users')
-        .select('tokens_earned')
-        .eq('id', userId)
-        .single();
-
-      if (fetchError) {
-        console.error('[RewardService] Failed to fetch user balance:', fetchError);
-        return 0;
-      }
-
-      const currentBalance = user?.tokens_earned || 0;
-      const displayAmountToAdd = toDisplayAmount(amountToAdd);
-      const newBalance = currentBalance + displayAmountToAdd;
-
-      // Update balance
-      const { error: updateError } = await this.supabase
-        .from('users')
-        .update({ tokens_earned: newBalance })
-        .eq('id', userId);
-
-      if (updateError) {
-        console.error('[RewardService] Failed to update tokens_earned:', updateError);
-        return currentBalance;
-      }
-
-      console.log(`💰 [RewardService] Updated tokens_earned: ${currentBalance.toFixed(2)} → ${newBalance.toFixed(2)} BOCA (+${displayAmountToAdd.toFixed(2)})`);
-      return newBalance;
-    } catch (error) {
-      console.error('[RewardService] updateUserTokensEarned error:', error);
-      return 0;
-    }
   }
 
   // ===========================================================================
@@ -996,6 +957,8 @@ export class RewardService {
     );
 
     // Log the reward event regardless of success
+    // NOTE: The recalculate_token_balance trigger automatically
+    // updates users.tokens_earned after this INSERT
     await this.logRewardEvent(user.id, action, Number(amount), {
       ...metadata,
       method: 'on_chain',
@@ -1015,9 +978,6 @@ export class RewardService {
       };
     }
 
-    // NEW: Update users.tokens_earned for frontend compatibility
-    const newBalance = await this.updateUserTokensEarned(user.id, Number(amount));
-
     return {
       success: true,
       action,
@@ -1025,7 +985,6 @@ export class RewardService {
       displayAmount,
       method: 'on_chain',
       txDigest: mintResult.digest,
-      newBalance,
     };
   }
 
@@ -1064,15 +1023,13 @@ export class RewardService {
     }
 
     // Log the reward event
+    // NOTE: The recalculate_token_balance trigger automatically
+    // updates users.tokens_earned after this INSERT
     await this.logRewardEvent(user.id, action, Number(amount), {
       ...metadata,
       method: 'pending',
       pending_reward_id: data.id,
     });
-
-    // NEW: Update users.tokens_earned for frontend compatibility
-    // Even for pending rewards, we update the display balance so users see their earnings
-    const newBalance = await this.updateUserTokensEarned(user.id, Number(amount));
 
     return {
       success: true,
@@ -1081,7 +1038,6 @@ export class RewardService {
       displayAmount,
       method: 'pending',
       pendingRewardId: data.id,
-      newBalance,
     };
   }
 
@@ -1159,6 +1115,33 @@ export function resetRewardService(): void {
  * CREATE INDEX idx_pending_tokens_user_status ON pending_tokens(user_id, status);
  * CREATE INDEX idx_reward_events_user_action ON reward_events(user_id, action);
  * CREATE INDEX idx_reward_events_user_date ON reward_events(user_id, created_at);
+ * 
+ * -- Balance sync trigger (v1.2.0)
+ * -- Automatically recalculates users.tokens_earned when reward_events changes
+ * CREATE OR REPLACE FUNCTION recalculate_token_balance()
+ * RETURNS TRIGGER AS $$
+ * DECLARE
+ *   target_user_id UUID;
+ *   new_balance NUMERIC;
+ * BEGIN
+ *   IF TG_OP = 'DELETE' THEN
+ *     target_user_id := OLD.user_id;
+ *   ELSE
+ *     target_user_id := NEW.user_id;
+ *   END IF;
+ *   SELECT COALESCE(SUM(amount) / 1000000.0, 0)
+ *   INTO new_balance
+ *   FROM reward_events
+ *   WHERE user_id = target_user_id;
+ *   UPDATE users SET tokens_earned = new_balance WHERE id = target_user_id;
+ *   RETURN NEW;
+ * END;
+ * $$ LANGUAGE plpgsql;
+ * 
+ * DROP TRIGGER IF EXISTS trg_recalculate_token_balance ON reward_events;
+ * CREATE TRIGGER trg_recalculate_token_balance
+ * AFTER INSERT OR DELETE ON reward_events
+ * FOR EACH ROW EXECUTE FUNCTION recalculate_token_balance();
  */
 
 // =============================================================================

@@ -36,6 +36,8 @@
     "share": "Shared content",
     "save_received": "Someone saved your recommendation",
     "validation_bonus": "Recommendation validated by the community",
+    "tip_sent": "Sent a tip",
+    "tip_received": "Received a tip",
     "default": "Earned reward"
   },
 

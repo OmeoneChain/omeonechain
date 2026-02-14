@@ -1,14 +1,18 @@
 // File: code/poc/core/src/routes/tips.ts
 // Generic Tipping API Routes
 // Handles tips for: recommendations, guides, comments, users
-// Uses token_transactions table for logging, notifications table for alerts
+// Uses reward_events for balance changes (trigger keeps tokens_earned in sync),
+// token_transactions for tip-specific history, notifications for alerts.
 //
-// Tip Flow:
+// Tip Flow (v1.2.0):
 // 1. Validate sender has sufficient balance
-// 2. Deduct from sender's tokens_earned
-// 3. Credit to recipient's tokens_earned
-// 4. Log in token_transactions
+// 2. Insert tip_sent (negative) into reward_events → trigger deducts from sender
+// 3. Insert tip_received (positive) into reward_events → trigger credits recipient
+// 4. Log in token_transactions (tip-specific audit trail)
 // 5. Create notification for recipient
+//
+// NOTE: tokens_earned is NEVER modified directly. The recalculate_token_balance
+// trigger on reward_events handles all balance updates automatically.
 
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
@@ -35,6 +39,9 @@ const TIP_CONFIG = {
   MAX_TIP: 1000,      // Maximum tip amount in BOCA
   PLATFORM_FEE: 0,    // No fee on tips - encourage generosity
 };
+
+// Base unit conversion (reward_events stores micro-BOCA)
+const BOCA_DECIMALS = 1_000_000;
 
 const VALID_CONTEXT_TYPES = ['recommendation', 'guide', 'comment', 'user'] as const;
 type ContextType = typeof VALID_CONTEXT_TYPES[number];
@@ -69,7 +76,7 @@ interface AuthenticatedRequest extends Request {
 // =============================================================================
 
 /**
- * Get user's token balance
+ * Get user's token balance (reads tokens_earned, maintained by DB trigger)
  */
 async function getTokenBalance(userId: string): Promise<number> {
   try {
@@ -87,81 +94,51 @@ async function getTokenBalance(userId: string): Promise<number> {
 }
 
 /**
- * Deduct tokens from user's balance
+ * Insert a reward event (trigger handles balance update)
+ * Returns the inserted row ID, or null on failure.
  */
-async function deductTokens(userId: string, amount: number): Promise<boolean> {
+async function insertRewardEvent(
+  userId: string,
+  action: string,
+  amountBaseUnits: number,
+  metadata?: Record<string, unknown>
+): Promise<string | null> {
   try {
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('tokens_earned')
-      .eq('id', userId)
+    const { data, error } = await supabase
+      .from('reward_events')
+      .insert({
+        user_id: userId,
+        action,
+        amount: amountBaseUnits,
+        metadata,
+        created_at: new Date().toISOString(),
+      })
+      .select('id')
       .single();
 
-    if (userError || !user) {
-      console.error('❌ Failed to get user for token deduction:', userError);
-      return false;
+    if (error) {
+      console.error(`❌ Failed to insert reward_event (${action}):`, error);
+      return null;
     }
-
-    if ((user.tokens_earned || 0) < amount) {
-      console.error(`❌ Insufficient balance: ${user.tokens_earned} < ${amount}`);
-      return false;
-    }
-
-    const newBalance = (user.tokens_earned || 0) - amount;
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ 
-        tokens_earned: newBalance,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
-
-    if (updateError) {
-      console.error('❌ Failed to update user tokens:', updateError);
-      return false;
-    }
-
-    return true;
+    return data?.id || null;
   } catch (error) {
-    console.error('❌ Error in deductTokens:', error);
-    return false;
+    console.error(`❌ Error inserting reward_event (${action}):`, error);
+    return null;
   }
 }
 
 /**
- * Add tokens to user's balance
+ * Delete a reward event by ID (used for rollback on partial failure)
+ * Trigger will recalculate balance on DELETE.
  */
-async function addTokens(userId: string, amount: number): Promise<boolean> {
+async function deleteRewardEvent(eventId: string): Promise<void> {
   try {
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('tokens_earned')
-      .eq('id', userId)
-      .single();
-
-    if (userError || !user) {
-      console.error('❌ Failed to get user for token credit:', userError);
-      return false;
-    }
-
-    const newBalance = (user.tokens_earned || 0) + amount;
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ 
-        tokens_earned: newBalance,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
-
-    if (updateError) {
-      console.error('❌ Failed to update user tokens:', updateError);
-      return false;
-    }
-
-    return true;
+    await supabase
+      .from('reward_events')
+      .delete()
+      .eq('id', eventId);
   } catch (error) {
-    console.error('❌ Error in addTokens:', error);
-    return false;
+    console.error('❌ Failed to rollback reward_event:', error);
   }
 }
 
@@ -242,7 +219,7 @@ async function createTipNotification(
 }
 
 /**
- * Log transaction in token_transactions table
+ * Log transaction in token_transactions table (tip-specific audit trail)
  */
 async function logTransaction(
   fromUserId: string,
@@ -285,6 +262,13 @@ async function logTransaction(
 /**
  * POST /api/tips
  * Send a tip to another user
+ * 
+ * Flow:
+ * 1. Validate input + check balance
+ * 2. Insert tip_sent (negative) into reward_events → trigger deducts
+ * 3. Insert tip_received (positive) into reward_events → trigger credits
+ * 4. On partial failure, rollback by deleting the reward_event row
+ * 5. Log to token_transactions + create notification
  */
 router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -345,27 +329,57 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     // Get context label for notification/logging
     const contextLabel = await getContextLabel(context_type, context_id);
 
-    // Deduct from sender
-    const deductSuccess = await deductTokens(senderId, amount);
-    if (!deductSuccess) {
+    // Convert to base units for reward_events (micro-BOCA)
+    const amountBaseUnits = Math.round(amount * BOCA_DECIMALS);
+
+    // Step 1: Deduct from sender via reward_events (negative amount)
+    const tipSentMetadata = {
+      recipient_id,
+      context_type,
+      context_id,
+      context_label: contextLabel,
+    };
+
+    const senderEventId = await insertRewardEvent(
+      senderId,
+      'tip_sent',
+      -amountBaseUnits, // Negative amount — trigger SUMs correctly
+      tipSentMetadata
+    );
+
+    if (!senderEventId) {
       return res.status(500).json({
         success: false,
         error: 'Failed to process tip from your wallet'
       });
     }
 
-    // Credit to recipient
-    const creditSuccess = await addTokens(recipient_id, amount);
-    if (!creditSuccess) {
-      // Refund sender on failure
-      await addTokens(senderId, amount);
+    // Step 2: Credit to recipient via reward_events (positive amount)
+    const tipReceivedMetadata = {
+      sender_id: senderId,
+      context_type,
+      context_id,
+      context_label: contextLabel,
+    };
+
+    const recipientEventId = await insertRewardEvent(
+      recipient_id,
+      'tip_received',
+      amountBaseUnits, // Positive amount
+      tipReceivedMetadata
+    );
+
+    if (!recipientEventId) {
+      // Rollback sender deduction
+      console.error('❌ Failed to credit recipient, rolling back sender deduction');
+      await deleteRewardEvent(senderEventId);
       return res.status(500).json({
         success: false,
         error: 'Failed to send tip to recipient'
       });
     }
 
-    // Log transaction
+    // Step 3: Log to token_transactions (tip-specific audit trail)
     const transactionId = await logTransaction(
       senderId,
       recipient_id,
@@ -375,7 +389,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       contextLabel
     );
 
-    // Create notification for recipient
+    // Step 4: Create notification for recipient
     await createTipNotification(
       recipient_id,
       senderId,
@@ -385,7 +399,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       contextLabel
     );
 
-    // Get sender's new balance
+    // Get sender's updated balance (trigger has already recalculated)
     const newBalance = await getTokenBalance(senderId);
 
     console.log(`✅ Tip sent: ${amount} BOCA from ${senderId} to ${recipient_id}`);
