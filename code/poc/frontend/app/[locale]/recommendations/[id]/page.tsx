@@ -6,6 +6,7 @@
 // UPDATED: Added SaveToListModal integration (Jan 29, 2026)
 // UPDATED: Added Edit option in three-dot menu for own recommendations (Feb 10, 2026)
 // UPDATED: Added TipRecommendationButton for generic tipping (Feb 11, 2026)
+// UPDATED: Added dish-level ratings + category badges (Feb 14, 2026)
 
 'use client';
 
@@ -39,6 +40,30 @@ import { toast } from 'react-hot-toast';
 // Use the same API URL pattern as the discover page
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://omeonechain-production.up.railway.app/api';
 
+// ── Category display config ─────────────────────────────────────────
+// Maps category keys to emoji + label for badge rendering.
+// Must stay in sync with RecommendationCreationFlow categories.
+const CATEGORY_CONFIG: Record<string, { emoji: string; label: string; labelPt: string }> = {
+  breakfast:       { emoji: '🌅', label: 'Breakfast',           labelPt: 'Café da Manhã' },
+  brunch:          { emoji: '🥐', label: 'Brunch',              labelPt: 'Brunch' },
+  lunch:           { emoji: '🍽️', label: 'Lunch',              labelPt: 'Almoço' },
+  dinner:          { emoji: '🌙', label: 'Dinner',              labelPt: 'Jantar' },
+  coffee:          { emoji: '☕', label: 'Coffee / Tea',         labelPt: 'Café / Chá' },
+  happyHour:       { emoji: '🍹', label: 'Happy Hour / Drinks', labelPt: 'Happy Hour / Drinks' },
+  desserts:        { emoji: '🍰', label: 'Desserts',            labelPt: 'Sobremesas' },
+  special:         { emoji: '🎉', label: 'Special Occasion',    labelPt: 'Ocasião Especial' },
+  snack:           { emoji: '🥪', label: 'Quick Bite',          labelPt: 'Lanche Rápido' },
+  lateNight:       { emoji: '🌃', label: 'Late Night',          labelPt: 'Madrugada' },
+  business:        { emoji: '💼', label: 'Business Meal',       labelPt: 'Refeição de Negócios' },
+  dateNight:       { emoji: '💕', label: 'Date Night',          labelPt: 'Noite a Dois' },
+  familyFriendly:  { emoji: '👨‍👩‍👧', label: 'Family Friendly',    labelPt: 'Para Família' },
+};
+
+interface DishRating {
+  name: string;
+  rating: number;
+}
+
 interface Recommendation {
   id: string;
   title: string;
@@ -69,6 +94,11 @@ interface Recommendation {
   photos?: string[];
   is_edited?: boolean;
   edited_at?: string;
+  // New fields for dish ratings and categories
+  dishes?: DishRating[];
+  category?: string;            // Single category from creation flow (e.g. 'brunch')
+  categories?: string[];        // Future: multi-select (e.g. ['brunch', 'dateNight'])
+  context_tags?: string[];      // Legacy field, may also contain categories
 }
 
 interface Comment {
@@ -89,6 +119,38 @@ interface Comment {
   replies?: Comment[];
 }
 
+// ── Inline Dish Rating Bar ──────────────────────────────────────────
+// Compact row: dish name left, mini gradient bar + score right
+
+const DishRatingRow: React.FC<{ dish: DishRating }> = ({ dish }) => {
+  const percentage = (dish.rating / 10) * 100;
+  const formatRating = (r: number) => (Number.isInteger(r) ? `${r}.0` : r.toFixed(1));
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-sm text-[#1F1E2A] dark:text-gray-200 font-medium min-w-0 truncate flex-1">
+        {dish.name}
+      </span>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="w-20 h-1.5 rounded-full bg-gray-200 dark:bg-[#3D3C4A] overflow-hidden">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${percentage}%`,
+              background: 'linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)',
+              backgroundSize: '200% 100%',
+              backgroundPosition: `${100 - percentage}% 0`,
+            }}
+          />
+        </div>
+        <span className="text-xs font-bold text-[#FF644A] min-w-[36px] text-right">
+          {formatRating(dish.rating)}/10
+        </span>
+      </div>
+    </div>
+  );
+};
+
 export default function RecommendationDetailPage({ 
   params 
 }: { 
@@ -108,6 +170,18 @@ export default function RecommendationDetailPage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const recommendationId = params.id;
+
+  // Resolve categories: single `category` field (from creation flow select),
+  // or `categories` array, or legacy `context_tags` array
+  const resolvedCategories: string[] = (() => {
+    if (recommendation?.categories?.length) return recommendation.categories;
+    if (recommendation?.context_tags?.length) return recommendation.context_tags;
+    // Single category string from the creation flow dropdown
+    if (recommendation?.category && recommendation.category !== 'restaurant') {
+      return [recommendation.category];
+    }
+    return [];
+  })();
 
   // Fetch recommendation details
   useEffect(() => {
@@ -553,6 +627,25 @@ export default function RecommendationDetailPage({
                 </div>
               )}
 
+              {/* Category Badges */}
+              {resolvedCategories.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {resolvedCategories.map(cat => {
+                    const config = CATEGORY_CONFIG[cat];
+                    if (!config) return null;
+                    return (
+                      <span
+                        key={cat}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#FFF4E1] dark:bg-[#FF644A]/10 border border-[#FFE0B2] dark:border-[#FF644A]/30 rounded-full text-xs font-medium text-[#1F1E2A] dark:text-[#FFD6CC]"
+                      >
+                        <span>{config.emoji}</span>
+                        {config.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* User Title (italic, like feed cards) */}
               {recommendation.title && (
                 <p className="text-sm text-gray-600 dark:text-gray-400 italic">
@@ -566,6 +659,18 @@ export default function RecommendationDetailPage({
                   photos={recommendation.photos}
                   altPrefix={recommendation.restaurant?.name || 'Restaurant'}
                 />
+              )}
+
+              {/* Dish-Level Ratings */}
+              {recommendation.dishes && recommendation.dishes.length > 0 && (
+                <div className="px-3 py-3 bg-gray-50 dark:bg-[#353444] rounded-xl space-y-2.5">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    🍽️ Dishes Rated
+                  </h4>
+                  {recommendation.dishes.map((dish, i) => (
+                    <DishRatingRow key={`${dish.name}-${i}`} dish={dish} />
+                  ))}
+                </div>
               )}
 
               {/* Content */}
