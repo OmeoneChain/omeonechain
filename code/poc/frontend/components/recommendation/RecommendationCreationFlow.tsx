@@ -858,7 +858,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
           overall_rating: draft.overall_rating,
           context_tags: draft.context_tags,
           cuisine_type: draft.cuisine_type,
-          photos: allPhotoCids.length > 0 ? allPhotoCids : undefined,
+          photos: allPhotoCids,
           dishes: draft.dishes.length > 0
             ? draft.dishes.map(dish => ({
                 name: dish.name,
