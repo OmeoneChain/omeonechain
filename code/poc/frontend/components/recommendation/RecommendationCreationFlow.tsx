@@ -1073,8 +1073,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         cuisine_type: '',
       });
 
-      setCurrentDish({ id: '', name: '', rating: 7, notes: '', would_order_again: true });
-      setEditingDishId(null);
+      // NOTE: setCurrentDish / setEditingDishId removed with Individual Dishes section
     } catch (error: any) {
       const msg = error instanceof Error ? error.message : 'Unknown error occurred';
       onError?.(error instanceof Error ? error : new Error(msg));
