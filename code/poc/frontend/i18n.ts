@@ -31,6 +31,7 @@ export default getRequestConfig(async ({ locale }) => {
     legal,
     onboarding,
     tips,
+    myRewards,
   ] = await Promise.all([
     import(`./locales/${validLocale}/common.json`),
     import(`./locales/${validLocale}/auth.json`),
@@ -50,6 +51,7 @@ export default getRequestConfig(async ({ locale }) => {
     import(`./locales/${validLocale}/legal.json`),
     import(`./locales/${validLocale}/onboarding.json`),
     import(`./locales/${validLocale}/tips.json`),
+    import(`./locales/${validLocale}/myRewards.json`),
   ]);
 
   console.log('=== landing.default keys:', Object.keys(landing.default));
@@ -78,6 +80,7 @@ export default getRequestConfig(async ({ locale }) => {
       legal: legal.default,
       onboarding: onboarding.default,
       tips: tips.default,
+      myRewards: myRewards.default,
     }
   };
 });
