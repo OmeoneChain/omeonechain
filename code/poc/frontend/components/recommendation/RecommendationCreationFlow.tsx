@@ -11,14 +11,13 @@
 // UPDATED: Scroll-on-focus for restaurant search to avoid keyboard obstruction (Feb 1, 2026)
 // UPDATED: Tighter header spacing for mobile search visibility (Feb 1, 2026)
 // UPDATED: Edit mode support — editMode prop, PATCH endpoint, locked restaurant (Feb 9, 2026)
+// UPDATED: Reordered sections (Photos before Dishes), simplified Dishes, removed Labels (Feb 13, 2026)
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   MapPin,
   Plus,
   Star,
-  ThumbsUp,
-  ThumbsDown,
   AlertCircle,
   Utensils,
   DollarSign,
@@ -332,12 +331,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     return ratingLabels[nearestInt] || '';
   };
 
-  const quickContextTags = [
-    { id: 'romantic', label: t('contextTags.romantic'), icon: '💕' },
-    { id: 'family', label: t('contextTags.family'), icon: '👨‍👩‍👧‍👦' },
-    { id: 'quick', label: t('contextTags.quick'), icon: '⚡' },
-    { id: 'celebration', label: t('contextTags.celebration'), icon: '🎉' },
-  ];
+  // NOTE: Labels section removed for launch. Context tags kept in data model
+  // for backward compatibility but no longer exposed in UI.
+  // Future: NLP-based categorization from recommendation text.
 
   // ============================================
   // STATE
@@ -380,7 +376,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     would_order_again: true,
   });
   const [editingDishId, setEditingDishId] = useState<string | null>(null);
-  const [customTag, setCustomTag] = useState('');
 
   const API_BASE_URL = 'https://omeonechain-production.up.railway.app';
 
@@ -630,7 +625,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   };
 
   // ============================================
-  // DISH MANAGEMENT
+  // DISH MANAGEMENT (Simplified for launch)
   // ============================================
 
   const handleAddDish = () => {
@@ -650,6 +645,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       setDraft(prev => ({ ...prev, dishes: [...prev.dishes, newDish] }));
     }
 
+    // Reset form for next dish
     setCurrentDish({
       id: '',
       name: '',
@@ -675,22 +671,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   const handleCancelEditDish = () => {
     setCurrentDish({ id: '', name: '', rating: 7, notes: '', would_order_again: true });
     setEditingDishId(null);
-  };
-
-  // ============================================
-  // TAGS
-  // ============================================
-
-  const handleAddCustomTag = () => {
-    const tag = customTag.trim().replace(/^#/, '').toLowerCase();
-    if (tag && !draft.context_tags.includes(tag)) {
-      setDraft(prev => ({ ...prev, context_tags: [...prev.context_tags, tag] }));
-      setCustomTag('');
-    }
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    setDraft(prev => ({ ...prev, context_tags: prev.context_tags.filter(tg => tg !== tag) }));
   };
 
   // ============================================
@@ -823,6 +803,16 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   // ============================================
 
   const handleSubmit = async () => {
+    // Auto-add any pending dish before submitting (prevents silent data loss)
+    if (currentDish.name.trim()) {
+      const pendingDish: Dish = { ...currentDish, id: generateDishId() };
+      setDraft(prev => ({ ...prev, dishes: [...prev.dishes, pendingDish] }));
+      // Also update local reference for the payload below
+      draft.dishes = [...draft.dishes, pendingDish];
+      setCurrentDish({ id: '', name: '', rating: 7, notes: '', would_order_again: true });
+      setEditingDishId(null);
+    }
+
     if (!draft.restaurant) {
       toast.error(t('validation.fillRequired'));
       return;
@@ -1110,7 +1100,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
       setCurrentDish({ id: '', name: '', rating: 7, notes: '', would_order_again: true });
       setEditingDishId(null);
-      setCustomTag('');
     } catch (error: any) {
       const msg = error instanceof Error ? error.message : 'Unknown error occurred';
       onError?.(error instanceof Error ? error : new Error(msg));
@@ -1148,6 +1137,8 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
   // ============================================
   // RENDER (SINGLE SCREEN)
+  // Section order: Aspects → Photos → Dishes → Comments → Visit Context
+  // (Labels removed for launch)
   // ============================================
 
   const hasRestaurant = !!draft.restaurant;
@@ -1364,7 +1355,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
               </div>
 
               <div className="space-y-4">
-              {/* 1) Restaurant Aspects */}
+              {/* ========================================== */}
+              {/* 1) Restaurant Aspects                     */}
+              {/* ========================================== */}
               <CS
                 title={t('singleScreen.sections.aspects') || t('aspects.title') || 'Restaurant Aspects'}
                 icon={<Star className="h-5 w-5 text-[#FF644A]" />}
@@ -1477,148 +1470,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                 </div>
               </CS>
 
-              {/* 2) Individual Dishes */}
-              <CS
-                title={t('singleScreen.sections.dishes') || t('dishes.title') || 'Individual Dishes'}
-                icon={<Utensils className="h-5 w-5 text-[#FF644A]" />}
-                badgeCount={draft.dishes.length}
-                defaultOpen={draft.dishes.length > 0}
-              >
-                <div className="space-y-4">
-                  {/* Existing dishes */}
-                  {draft.dishes.length > 0 && (
-                    <div className="space-y-2">
-                      {draft.dishes.map(dish => (
-                        <div key={dish.id} className="flex items-center justify-between p-3 bg-white dark:bg-[#353444] border border-gray-100 dark:border-[#3D3C4A] rounded-xl shadow-sm">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-[#1F1E2A] dark:text-white">{dish.name}</span>
-                              <div className="flex items-center text-sm">
-                                <Star className="h-3 w-3 text-[#FF644A] fill-[#FF644A] mr-1" />
-                                <span className="font-bold text-[#FF644A]">{formatRating(dish.rating)}/10</span>
-                              </div>
-                            </div>
-                            {dish.notes && <p className="text-sm text-[#9CA3AF] dark:text-gray-400 mt-1">{dish.notes}</p>}
-                            <div className="flex items-center text-xs mt-1">
-                              {dish.would_order_again ? (
-                                <span className="text-green-600 dark:text-green-400 flex items-center">
-                                  <ThumbsUp className="h-3 w-3 mr-1" /> {t('dishes.wouldOrderAgain')}
-                                </span>
-                              ) : (
-                                <span className="text-red-600 dark:text-red-400 flex items-center">
-                                  <ThumbsDown className="h-3 w-3 mr-1" /> {t('dishes.wouldNotOrderAgain')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex gap-2 ml-4">
-                            <button
-                              onClick={() => handleEditDish(dish)}
-                              className="p-2 text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/20 rounded-lg transition-colors"
-                              title={t('actions.edit')}
-                            >
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDish(dish.id)}
-                              className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                              title={t('actions.remove')}
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Add/edit dish - TOUCH FRIENDLY SLIDER */}
-                  <div className="space-y-3 bg-white dark:bg-[#353444] p-4 rounded-xl border-2 border-dashed border-[#FF644A]/30 dark:border-[#FF644A]/40">
-                    <p className="text-sm font-medium text-[#1F1E2A] dark:text-white">{editingDishId ? t('dishes.editDish') : t('dishes.addDish')}</p>
-
-                    <input
-                      type="text"
-                      placeholder={t('dishes.namePlaceholder')}
-                      value={currentDish.name}
-                      onChange={e => setCurrentDish(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
-                    />
-
-                    <div className="flex items-center space-x-2">
-                      <div className="flex-1 py-2">
-                        <input
-                          type="range"
-                          min="0"
-                          max="10"
-                          step="0.5"
-                          value={currentDish.rating}
-                          onChange={e => setCurrentDish(prev => ({ ...prev, rating: parseFloat(e.target.value) }))}
-                          className="w-full touch-slider"
-                          style={{
-                            background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
-                          }}
-                        />
-                      </div>
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[50px] text-center">{formatRating(currentDish.rating)}/10</span>
-                    </div>
-
-                    <textarea
-                      placeholder={t('dishes.notesPlaceholder')}
-                      value={currentDish.notes || ''}
-                      onChange={e => setCurrentDish(prev => ({ ...prev, notes: e.target.value }))}
-                      rows={2}
-                      className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
-                    />
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setCurrentDish(prev => ({ ...prev, would_order_again: true }))}
-                        className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${
-                          currentDish.would_order_again ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white hover:bg-gray-200 dark:hover:bg-[#404050]'
-                        }`}
-                      >
-                        <ThumbsUp className="h-4 w-4 inline mr-1" /> {t('actions.yes')}
-                      </button>
-                      <button
-                        onClick={() => setCurrentDish(prev => ({ ...prev, would_order_again: false }))}
-                        className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${
-                          !currentDish.would_order_again ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white hover:bg-gray-200 dark:hover:bg-[#404050]'
-                        }`}
-                      >
-                        <ThumbsDown className="h-4 w-4 inline mr-1" /> {t('actions.no')}
-                      </button>
-                    </div>
-
-                    <div className="flex gap-2">
-                      {editingDishId && (
-                        <button
-                          onClick={handleCancelEditDish}
-                          className="flex-1 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#404050] transition-colors"
-                        >
-                          {t('actions.cancel')}
-                        </button>
-                      )}
-                      <button
-                        onClick={handleAddDish}
-                        disabled={!currentDish.name.trim()}
-                        className="flex-1 py-3 bg-[#FF644A] text-white rounded-xl hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
-                      >
-                        <Plus className="h-4 w-4 inline mr-1" />
-                        {editingDishId ? t('actions.save') : t('actions.add')}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </CS>
-
-              {/* 3) Photos */}
+              {/* ========================================== */}
+              {/* 2) Photos (MOVED UP from position 3)      */}
+              {/* ========================================== */}
               <CS
                 title={t('singleScreen.sections.photos') || 'Photos'}
                 icon={<span className="text-lg">📷</span>}
@@ -1736,7 +1590,131 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                 </div>
               </CS>
 
-              {/* 4) Comments */}
+              {/* ========================================== */}
+              {/* 3) Individual Dishes (SIMPLIFIED)          */}
+              {/*    - Removed: dish notes, would_order_again*/}
+              {/*    - Cleaner inline add with Enter support */}
+              {/* ========================================== */}
+              <CS
+                title={t('singleScreen.sections.dishes') || t('dishes.title') || 'Individual Dishes'}
+                icon={<Utensils className="h-5 w-5 text-[#FF644A]" />}
+                badgeCount={draft.dishes.length}
+                defaultOpen={draft.dishes.length > 0}
+              >
+                <div className="space-y-3">
+                  {/* Existing dishes — compact list */}
+                  {draft.dishes.length > 0 && (
+                    <div className="space-y-2">
+                      {draft.dishes.map(dish => (
+                        <div key={dish.id} className="flex items-center justify-between p-3 bg-white dark:bg-[#353444] border border-gray-100 dark:border-[#3D3C4A] rounded-xl shadow-sm">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <span className="font-medium text-[#1F1E2A] dark:text-white truncate">{dish.name}</span>
+                            <div className="flex items-center text-sm flex-shrink-0">
+                              <Star className="h-3 w-3 text-[#FF644A] fill-[#FF644A] mr-1" />
+                              <span className="font-bold text-[#FF644A]">{formatRating(dish.rating)}/10</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-1 ml-2 flex-shrink-0">
+                            <button
+                              onClick={() => handleEditDish(dish)}
+                              className="p-2 text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/20 rounded-lg transition-colors"
+                              title={t('actions.edit')}
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDish(dish.id)}
+                              className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title={t('actions.remove')}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add/edit dish — SIMPLIFIED: name + rating only */}
+                  <div className="space-y-3 bg-white dark:bg-[#353444] p-4 rounded-xl border-2 border-dashed border-[#FF644A]/30 dark:border-[#FF644A]/40">
+                    <p className="text-sm font-medium text-[#1F1E2A] dark:text-white">
+                      {editingDishId ? t('dishes.editDish') : t('dishes.addDish')}
+                    </p>
+
+                    {/* Dish name with Enter-to-add */}
+                    <input
+                      type="text"
+                      placeholder={t('dishes.namePlaceholder')}
+                      value={currentDish.name}
+                      onChange={e => setCurrentDish(prev => ({ ...prev, name: e.target.value }))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && currentDish.name.trim()) {
+                          e.preventDefault();
+                          handleAddDish();
+                        }
+                      }}
+                      className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
+                    />
+
+                    {/* Dish rating slider */}
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 py-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max="10"
+                          step="0.5"
+                          value={currentDish.rating}
+                          onChange={e => setCurrentDish(prev => ({ ...prev, rating: parseFloat(e.target.value) }))}
+                          className="w-full touch-slider"
+                          style={{
+                            background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-[#FF644A] min-w-[50px] text-center">{formatRating(currentDish.rating)}/10</span>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2">
+                      {editingDishId && (
+                        <button
+                          onClick={handleCancelEditDish}
+                          className="flex-1 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#404050] transition-colors"
+                        >
+                          {t('actions.cancel')}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleAddDish}
+                        disabled={!currentDish.name.trim()}
+                        className="flex-1 py-3 bg-[#FF644A] text-white rounded-xl hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                      >
+                        <Plus className="h-4 w-4 inline mr-1" />
+                        {editingDishId ? t('actions.save') : (draft.dishes.length > 0 ? (t('dishes.addAnother') || '+ Add Another') : t('actions.add'))}
+                      </button>
+                    </div>
+
+                    {/* Hint text */}
+                    {!editingDishId && (
+                      <p className="text-xs text-[#9CA3AF] dark:text-gray-500 text-center">
+                        {t('dishes.enterHint') || 'Type a dish name and press Enter or tap Add'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CS>
+
+              {/* ========================================== */}
+              {/* 4) Comments (unchanged)                    */}
+              {/* ========================================== */}
               <CS title={t('singleScreen.sections.comments') || 'Comments'} icon={<span className="text-lg">💬</span>} defaultOpen={false}>
                 <div className="space-y-5">
                   {/* Title (optional) */}
@@ -1794,85 +1772,15 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                 </div>
               </CS>
 
-              {/* 5) Labels */}
-              <CS
-                title={t('singleScreen.sections.labels') || 'Labels'}
-                icon={<span className="text-lg">🏷️</span>}
-                badgeCount={draft.context_tags.length}
-                defaultOpen={draft.context_tags.length > 0}
-              >
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {quickContextTags.map(tag => {
-                      const active = draft.context_tags.includes(tag.id);
-                      return (
-                        <button
-                          key={tag.id}
-                          onClick={() => {
-                            const newTags = active ? draft.context_tags.filter(tg => tg !== tag.id) : [...draft.context_tags, tag.id];
-                            setDraft(prev => ({ ...prev, context_tags: newTags }));
-                          }}
-                          className={`px-4 py-3 rounded-full text-sm font-medium transition-all duration-200 ${
-                            active
-                              ? 'bg-[#FF644A] text-white shadow-md'
-                              : 'bg-[#FFF4E1] dark:bg-[#353444] hover:bg-[#FFE4D6] dark:hover:bg-[#404050] text-[#1F1E2A] dark:text-white border border-gray-200 dark:border-[#3D3C4A]'
-                          }`}
-                        >
-                          {tag.icon} {tag.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+              {/* ========================================== */}
+              {/* Labels section REMOVED for launch.         */}
+              {/* Future: NLP-based categorization.          */}
+              {/* context_tags kept in data model for compat */}
+              {/* ========================================== */}
 
-                  {/* Custom tag input */}
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder={t('steps.essentials.customTagPlaceholder')}
-                      value={customTag}
-                      onChange={e => setCustomTag(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddCustomTag();
-                        }
-                      }}
-                      className="flex-1 px-4 py-3 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
-                    />
-                    <button
-                      onClick={handleAddCustomTag}
-                      disabled={!customTag.trim()}
-                      className="px-4 py-3 bg-[#FF644A] text-white rounded-xl text-sm hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {/* Display custom tags */}
-                  {draft.context_tags.filter(tg => !quickContextTags.some(qt => qt.id === tg)).length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {draft.context_tags
-                        .filter(tg => !quickContextTags.some(qt => qt.id === tg))
-                        .map(tag => (
-                          <span
-                            key={tag}
-                            className="px-3 py-2 bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 text-[#1F1E2A] dark:text-[#6EE7B7] rounded-full text-sm flex items-center gap-1.5"
-                          >
-                            #{tag}
-                            <button
-                              onClick={() => handleRemoveTag(tag)}
-                              className="hover:bg-[#9DD5C5] dark:hover:bg-[#6EE7B7]/30 rounded-full p-0.5 transition-colors"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </CS>
-
-              {/* 6) Visit Context */}
+              {/* ========================================== */}
+              {/* 5) Visit Context (unchanged)               */}
+              {/* ========================================== */}
               <CS
                 title={t('singleScreen.sections.context') || t('context.title') || 'Visit Context'}
                 icon={<Calendar className="h-5 w-5 text-[#FF644A]" />}

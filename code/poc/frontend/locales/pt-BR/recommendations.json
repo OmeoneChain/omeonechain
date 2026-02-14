@@ -421,7 +421,9 @@
   "dishes": {
     "title": "Pratos Individuais",
     "addDish": "Adicionar Prato",
+    "addAnother": "+ Adicionar Outro",
     "editDish": "Editar Prato",
+    "enterHint": "Digite o nome do prato e pressione Enter ou toque Adicionar",
     "namePlaceholder": "Nome do prato",
     "notesPlaceholder": "Notas sobre o prato (opcional)",
     "wouldOrderAgain": "Pediria novamente",

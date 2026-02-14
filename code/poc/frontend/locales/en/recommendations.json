@@ -421,7 +421,9 @@
   "dishes": {
     "title": "Individual Dishes",
     "addDish": "Add Dish",
+    "addAnother": "+ Add Another",
     "editDish": "Edit Dish",
+    "enterHint": "Type a dish name and press Enter or tap Add",
     "namePlaceholder": "Dish name",
     "notesPlaceholder": "Notes about the dish (optional)",
     "wouldOrderAgain": "Would order again",
