@@ -274,8 +274,8 @@ function RewardEventItem({ event, index }: { event: RewardEvent; index: number }
       </div>
       
       <div className="text-right">
-        <span className="text-sm font-semibold text-[#FF644A]">
-          +{event.amount.toFixed(1)}
+        <span className={cn("text-sm font-semibold", event.amount < 0 ? "text-gray-500" : "text-[#FF644A]")}>
+          {event.amount < 0 ? '' : '+'}{event.amount.toFixed(1)}
         </span>
         <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">BOCA</span>
       </div>

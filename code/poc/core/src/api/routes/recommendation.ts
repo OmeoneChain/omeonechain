@@ -11,6 +11,8 @@
 // NOTE: First reviewer bonus (+10.0 BOCA) handled by database trigger
 //
 // UPDATED: January 6, 2025 - Integrated rewardService for two-tier token distribution
+// UPDATED: February 14, 2026 - Added recommendation deletion with archive table,
+//          15-minute grace period, and BOCA claw-back (negative balances allowed)
 
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
@@ -443,8 +445,6 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
     const finalTitle =
       safeTitle.length > 0 ? safeTitle : `Recommendation for ${safeRestaurantName || 'restaurant'}`;
 
-    // If you truly want to allow empty content, keep as ''.
-    // (But your UI/backend currently still expects 10+ chars sometimes; see note below.)
     const finalContent = safeContent;
 
     const finalCategory = safeCategory.length > 0 ? safeCategory : 'restaurant';
@@ -898,13 +898,11 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       // =========================================================================
       // Step 9b: Check for FIRST REVIEWER BONUS (+10.0 BOCA)
       // =========================================================================
-      // Check if this is the first recommendation for this restaurant
       const { count: existingRecommendationCount, error: countError } = await supabase
         .from('recommendations')
         .select('id', { count: 'exact', head: true })
         .eq('restaurant_id', restaurant.id);
       
-      // If count is 1, this IS the first recommendation (the one we just created)
       const isFirstReviewer = !countError && existingRecommendationCount === 1;
       
       if (isFirstReviewer) {
@@ -927,7 +925,6 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
             }
             console.log(`   New Balance: ${firstReviewerResult.newBalance?.toFixed(2)} BOCA`);
             
-            // Optionally update restaurant to track first reviewer
             await supabase
               .from('restaurants')
               .update({ first_reviewer_id: user.id })
@@ -1004,13 +1001,12 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       reward_info: {
         amount: rewardResult.displayAmount,
         account_tier: userAccountTier,
-        method: rewardResult.method,              // 'on_chain' or 'pending'
-        tx_digest: rewardResult.txDigest || null, // Only for wallet users
-        pending_id: rewardResult.pendingRewardId || null, // Only for email users
+        method: rewardResult.method,
+        tx_digest: rewardResult.txDigest || null,
+        pending_id: rewardResult.pendingRewardId || null,
         new_balance: finalBalance,
         success: rewardResult.success,
         error: rewardResult.error || null,
-        // First reviewer bonus info (if applicable)
         first_reviewer_bonus: firstReviewerResult ? {
           awarded: firstReviewerResult.success,
           amount: firstReviewerResult.displayAmount,
@@ -1044,6 +1040,277 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
     });
   }
 });
+
+// =============================================================================
+// DELETE PREVIEW + DELETE ENDPOINTS (placed BEFORE GET /:id)
+// =============================================================================
+// IMPORTANT: These must come before GET /:id, otherwise Express treats
+// "delete-preview" as a recommendation ID parameter.
+
+// GET /:id/delete-preview — Pre-flight check before deletion
+// Returns the BOCA impact so the frontend can show the correct confirmation.
+router.get('/:id/delete-preview', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    console.log(`🗑️ GET /api/recommendations/${id}/delete-preview by user ${userId}`);
+
+    // 1. Fetch recommendation and verify ownership
+    const { data: recommendation, error: fetchError } = await supabase
+      .from('recommendations')
+      .select('id, author_id, created_at, base_reward, likes_count, saves_count, first_reviewer_bonus_awarded, validation_bonus_awarded, blockchain_status')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !recommendation) {
+      return res.status(404).json({ success: false, error: 'Recommendation not found' });
+    }
+
+    if (recommendation.author_id !== userId) {
+      return res.status(403).json({ success: false, error: 'You can only delete your own recommendations' });
+    }
+
+    // 2. Determine grace period
+    const createdAt = new Date(recommendation.created_at);
+    const now = new Date();
+    const minutesSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+    const withinGracePeriod = minutesSinceCreation <= 15;
+
+    // 3. Calculate BOCA impact
+    const baseReward = parseFloat(recommendation.base_reward) || 0;
+    const estimatedEngagementRewards =
+      ((recommendation.likes_count || 0) * LIKE_REWARD_BASE) +
+      ((recommendation.saves_count || 0) * SAVE_REWARD_BASE);
+    const firstReviewerBonus = recommendation.first_reviewer_bonus_awarded ? 10.0 : 0;
+    const validationBonus = recommendation.validation_bonus_awarded ? 10.0 : 0;
+
+    let bocaImpact: number;
+    if (withinGracePeriod) {
+      bocaImpact = baseReward;
+    } else {
+      bocaImpact = baseReward + estimatedEngagementRewards + firstReviewerBonus + validationBonus;
+    }
+
+    // 4. Get user's current balance
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('tokens_earned')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      return res.status(500).json({ success: false, error: 'Failed to fetch user balance' });
+    }
+
+    const currentBalance = parseFloat(user.tokens_earned) || 0;
+    const projectedBalance = currentBalance - bocaImpact;
+
+    console.log(`🗑️ Delete preview: grace=${withinGracePeriod}, impact=${bocaImpact.toFixed(1)} BOCA, balance=${currentBalance.toFixed(1)} → ${projectedBalance.toFixed(1)}`);
+
+    return res.json({
+      success: true,
+      recommendation_id: id,
+      within_grace_period: withinGracePeriod,
+      minutes_since_creation: Math.round(minutesSinceCreation * 10) / 10,
+      boca_impact: Math.round(bocaImpact * 10) / 10,
+      current_balance: Math.round(currentBalance * 10) / 10,
+      projected_balance: Math.round(projectedBalance * 10) / 10,
+      will_go_negative: projectedBalance < 0,
+      has_blockchain_record: recommendation.blockchain_status === 'confirmed',
+      breakdown: {
+        base_reward: baseReward,
+        engagement_rewards: Math.round(estimatedEngagementRewards * 10) / 10,
+        first_reviewer_bonus: firstReviewerBonus,
+        validation_bonus: validationBonus
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Delete preview error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to generate delete preview' });
+  }
+});
+
+// DELETE /:id — Archive and remove a recommendation
+// - Author-only (must own the recommendation)
+// - 15-minute grace period: free deletion, no BOCA impact
+// - After 15 min: full BOCA claw-back (allows negative balance)
+// - Archives the row to deleted_recommendations table
+// - Hard-deletes from recommendations — all child rows cleaned up automatically
+//   by PostgreSQL FK constraints (CASCADE or SET NULL)
+// - Saved lists NOT affected (they reference restaurants, not recommendations)
+// - Decrements user and restaurant recommendation counts
+router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    console.log(`🗑️ DELETE /api/recommendations/${id} by user ${userId}`);
+
+    // 1. Fetch recommendation and verify ownership
+    const { data: recommendation, error: fetchError } = await supabase
+      .from('recommendations')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !recommendation) {
+      return res.status(404).json({ success: false, error: 'Recommendation not found' });
+    }
+
+    if (recommendation.author_id !== userId) {
+      return res.status(403).json({ success: false, error: 'You can only delete your own recommendations' });
+    }
+
+    // 2. Determine grace period and calculate BOCA impact
+    const createdAt = new Date(recommendation.created_at);
+    const now = new Date();
+    const minutesSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+    const withinGracePeriod = minutesSinceCreation <= 15;
+
+    const baseReward = parseFloat(recommendation.base_reward) || 0;
+    const estimatedEngagementRewards =
+      ((recommendation.likes_count || 0) * LIKE_REWARD_BASE) +
+      ((recommendation.saves_count || 0) * SAVE_REWARD_BASE);
+    const firstReviewerBonus = recommendation.first_reviewer_bonus_awarded ? 10.0 : 0;
+    const validationBonus = recommendation.validation_bonus_awarded ? 10.0 : 0;
+
+    let bocaImpact: number;
+    if (withinGracePeriod) {
+      bocaImpact = baseReward;
+    } else {
+      bocaImpact = baseReward + estimatedEngagementRewards + firstReviewerBonus + validationBonus;
+    }
+
+    console.log(`⏱️ Minutes since creation: ${minutesSinceCreation.toFixed(1)}, grace period: ${withinGracePeriod}`);
+    console.log(`💰 BOCA impact: ${bocaImpact.toFixed(1)} (base=${baseReward}, engagement=${estimatedEngagementRewards.toFixed(1)}, bonuses=${firstReviewerBonus + validationBonus})`);
+
+    // 3. Deduct BOCA from user (allow negative balance)
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('tokens_earned, total_recommendations')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      return res.status(500).json({ success: false, error: 'Failed to fetch user data' });
+    }
+
+    const currentBalance = parseFloat(user.tokens_earned) || 0;
+    const newBalance = currentBalance - bocaImpact;
+
+    console.log(`💰 Balance: ${currentBalance.toFixed(1)} → ${newBalance.toFixed(1)} BOCA`);
+
+    const { error: balanceError } = await supabase
+      .from('users')
+      .update({
+        tokens_earned: newBalance,
+        total_recommendations: Math.max(0, (user.total_recommendations || 1) - 1),
+        updated_at: now.toISOString()
+      })
+      .eq('id', userId);
+
+    if (balanceError) {
+      console.error('❌ Failed to update user balance:', balanceError);
+      return res.status(500).json({ success: false, error: 'Failed to update token balance' });
+    }
+
+    console.log(`✅ User balance updated, total_recommendations decremented`);
+
+    // 4. Archive: Copy the row to deleted_recommendations
+    const archiveRow = {
+      ...recommendation,
+      deleted_at: now.toISOString(),
+      boca_clawed_back: bocaImpact,
+      deleted_within_grace_period: withinGracePeriod
+    };
+
+    const { error: archiveError } = await supabase
+      .from('deleted_recommendations')
+      .insert(archiveRow);
+
+    if (archiveError) {
+      console.error('❌ Failed to archive recommendation:', archiveError);
+      // Rollback the balance change
+      await supabase
+        .from('users')
+        .update({
+          tokens_earned: currentBalance,
+          total_recommendations: user.total_recommendations || 1
+        })
+        .eq('id', userId);
+      return res.status(500).json({ success: false, error: 'Failed to archive recommendation' });
+    }
+
+    console.log(`✅ Recommendation archived to deleted_recommendations`);
+
+    // 5. Hard-delete from the live table
+    // All child rows are cleaned up automatically by PostgreSQL FK constraints:
+    //   CASCADE → child rows deleted (likes, bookmarks, dishes, aspects, etc.)
+    //   SET NULL → reference nulled out (pending_token_claims, discovery_responses, etc.)
+    const { error: deleteError } = await supabase
+      .from('recommendations')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      console.error('❌ Failed to delete recommendation:', deleteError);
+      console.error('⚠️ MANUAL CLEANUP NEEDED: Row archived but not removed from live table');
+      return res.status(500).json({ success: false, error: 'Failed to remove recommendation' });
+    }
+
+    console.log(`✅ Recommendation ${id} removed from live table`);
+
+    // 6. Decrement restaurant's total_recommendations
+    const { data: restaurant } = await supabase
+      .from('restaurants')
+      .select('total_recommendations')
+      .eq('id', recommendation.restaurant_id)
+      .single();
+
+    if (restaurant) {
+      await supabase
+        .from('restaurants')
+        .update({
+          total_recommendations: Math.max(0, (restaurant.total_recommendations || 1) - 1)
+        })
+        .eq('id', recommendation.restaurant_id);
+      console.log('✅ Restaurant recommendation count decremented');
+    }
+
+    console.log(`✅ Recommendation ${id} deletion complete`);
+
+    return res.json({
+      success: true,
+      recommendation_id: id,
+      within_grace_period: withinGracePeriod,
+      boca_deducted: Math.round(bocaImpact * 10) / 10,
+      new_balance: Math.round(newBalance * 10) / 10,
+      message: withinGracePeriod
+        ? 'Recommendation deleted. No BOCA impact (within 15-minute grace period).'
+        : `Recommendation deleted. ${bocaImpact.toFixed(1)} BOCA deducted from your balance.`
+    });
+
+  } catch (error) {
+    console.error('❌ Delete recommendation error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to delete recommendation' });
+  }
+});
+
+// =============================================================================
+// READ ENDPOINTS
+// =============================================================================
 
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -1390,7 +1657,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // =============================================================================
-// PATCH /:id — Edit a recommendation (ADD THIS AFTER THE router.put STUB)
+// PATCH /:id — Edit a recommendation
 // =============================================================================
 // - Author-only (must own the recommendation)
 // - 15-minute grace period: edits within 15 min are silent (no "edited" flag)
@@ -1444,8 +1711,8 @@ router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
       dishes,
       aspects,
       context,
-      photos,         // Array of IPFS CIDs (final state after add/remove/re-crop)
-      photo_tagging,  // Updated tagging info
+      photos,
+      photo_tagging,
     } = req.body;
 
     // 4. Build the update payload — only include fields that were explicitly sent
@@ -1488,7 +1755,6 @@ router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
 
     // 8. Update dishes (if provided) — delete-and-reinsert pattern
     if (dishes !== undefined) {
-      // Delete existing dishes
       const { error: deleteDisheError } = await supabase
         .from('dishes')
         .delete()
@@ -1498,7 +1764,6 @@ router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
         console.warn('⚠️ Failed to delete existing dishes:', deleteDisheError);
       }
 
-      // Insert updated dishes
       if (Array.isArray(dishes) && dishes.length > 0) {
         const dishInserts = dishes.map((dish: any) => ({
           recommendation_id: id,
@@ -1570,7 +1835,6 @@ router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
 
     // 11. Update photo tagging (if provided) — delete-and-reinsert for this recommendation
     if (photo_tagging !== undefined && Array.isArray(photo_tagging) && photo_tagging.length > 0) {
-      // Delete existing photo records for this recommendation
       const { error: deletePhotoError } = await supabase
         .from('restaurant_photos')
         .delete()
@@ -1580,7 +1844,6 @@ router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
         console.warn('⚠️ Failed to delete existing photos:', deletePhotoError);
       }
 
-      // Insert updated photo records
       const photoInserts = photo_tagging.map((pt: any) => {
         let tagType = 'other';
         let dishName: string | null = null;
@@ -1638,24 +1901,9 @@ router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    return res.status(501).json({
-      error: 'Delete functionality not yet implemented'
-    });
-  } catch (error) {
-    console.error('❌ API Error:', error);
-    return res.status(500).json({
-      error: 'Internal server error'
-    });
-  }
-});
-
 // =============================================================================
 // INTERACTION ENDPOINTS (LIKE/BOOKMARK WITH TWO-TIER TOKEN REWARDS)
 // =============================================================================
-
-
 
 // POST /:id/like - Toggle like on a recommendation (WITH TWO-TIER TOKEN REWARDS)
 router.post('/:id/like', authenticateToken, async (req: Request, res: Response) => {
@@ -1747,17 +1995,15 @@ router.post('/:id/like', authenticateToken, async (req: Request, res: Response) 
         console.warn('⚠️ Failed to update like count:', updateError);
       }
 
-      // =========================================================================
-      // 💰 Award tokens to recommendation author via TWO-TIER REWARD SERVICE
-      // =========================================================================
+      // Award tokens to recommendation author via TWO-TIER REWARD SERVICE
       if (recommendation.author_id !== userId) {
         console.log(`💰 [TWO-TIER] Awarding like reward to author ${recommendation.author_id}...`);
         
         try {
           rewardResult = await rewardService.awardUpvoteReceived(
-            recommendation.author_id,  // Author receives reward
+            recommendation.author_id,
             recommendationId,
-            userId                     // Engager's tier determines weight
+            userId
           );
           
           if (rewardResult.success) {
@@ -1896,17 +2142,15 @@ router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Respon
         console.warn('⚠️ Failed to update bookmark count:', updateError);
       }
 
-      // =========================================================================
-      // 💰 Award tokens to recommendation author via TWO-TIER REWARD SERVICE
-      // =========================================================================
+      // Award tokens to recommendation author via TWO-TIER REWARD SERVICE
       if (recommendation.author_id !== userId) {
         console.log(`💰 [TWO-TIER] Awarding save reward to author ${recommendation.author_id}...`);
         
         try {
           rewardResult = await rewardService.awardSaveReceived(
-            recommendation.author_id,  // Author receives reward
+            recommendation.author_id,
             recommendationId,
-            userId                     // Engager's tier determines weight
+            userId
           );
           
           if (rewardResult.success) {

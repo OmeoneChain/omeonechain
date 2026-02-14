@@ -26,12 +26,14 @@ import {
   VolumeX,
   Volume1,
   FolderPlus,
+  Trash2,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn, timeAgo, formatTokenAmount } from '@/lib/utils';
 import FirstReviewerBadge from './badges/FirstReviewerBadge';
 import SaveToListModal from '@/src/components/saved-lists/SaveToListModal';
+import DeleteConfirmationModal from '@/src/components/recommendation/DeleteConfirmationModal';
 import toast from 'react-hot-toast';
 
 // ============================================================================
@@ -271,6 +273,7 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   // UI State
   const [showMenu, setShowMenu] = useState(false);
   const [showSaveToListModal, setShowSaveToListModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAllDishes, setShowAllDishes] = useState(false);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
@@ -386,6 +389,39 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
       toast.error(error.message || t('reshare.failed'));
     } finally {
       setIsResharing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      const token = localStorage.getItem('omeone_auth_token');
+      const response = await fetch(
+        `${backendUrl}/api/recommendations/${recommendation.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete');
+      }
+
+      const data = await response.json();
+      
+      setShowDeleteModal(false);
+      toast.success(data.message || 'Recommendation deleted');
+      
+      // Notify parent component
+      onDelete?.(recommendation.id);
+    } catch (error: any) {
+      console.error('Failed to delete recommendation:', error);
+      toast.error(error.message || 'Failed to delete recommendation');
+      throw error; // Re-throw so the modal can catch it
     }
   };
 
@@ -548,6 +584,18 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
                   <Flag size={14} />
                   {t('card.report')}
                 </button>
+                {recommendation.canDelete && (
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-[#353444] flex items-center gap-2 text-red-600 dark:text-red-400"
+                  >
+                    <Trash2 size={14} />
+                    {t('card.delete', { defaultMessage: 'Delete' })}
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -1025,6 +1073,16 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
             setShowSaveToListModal(false);
             toast.success(t('card.addedToList'));
           }}
+          {showDeleteModal && (
+            <DeleteConfirmationModal
+              recommendationId={recommendation.id}
+              restaurantName={recommendation.location.name}
+              isOpen={showDeleteModal}
+              onClose={() => setShowDeleteModal(false)}
+              onConfirm={handleDelete}
+              backendUrl={backendUrl}
+            />
+          )}
         />
       )}
     </>
