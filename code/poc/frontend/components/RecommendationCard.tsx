@@ -33,7 +33,7 @@ import Link from 'next/link';
 import { cn, timeAgo, formatTokenAmount } from '@/lib/utils';
 import FirstReviewerBadge from './badges/FirstReviewerBadge';
 import SaveToListModal from '@/src/components/saved-lists/SaveToListModal';
-import DeleteConfirmationModal from '@/src/components/recommendation/DeleteConfirmationModal';
+import DeleteConfirmationModal from '@/components/recommendation/DeleteConfirmationModal';
 import toast from 'react-hot-toast';
 
 // ============================================================================
