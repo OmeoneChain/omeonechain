@@ -16,6 +16,13 @@
       "title": "Como Ganhar Tokens BOCA",
       "subtitle": "Guia completo de todas as oportunidades de ganhos no BocaBoca"
     },
+    "bocaExplainer": {
+      "title": "O que é BOCA?",
+      "description": "Sua moeda no BocaBoca. Ganhe compartilhando ótimas recomendações, gaste para descobrir sua próxima refeição. Mais funcionalidades em breve!",
+      "tip": "Dê gorjeta quando a recomendação de alguém te ajudar a encontrar uma ótima refeição",
+      "discover": "Publique pedidos de descoberta para receber recomendações personalizadas",
+      "earn": "Crie conteúdo de qualidade e ganhe BOCA da comunidade"
+    },
     "upgradeWallet": {
       "title": "Desbloqueie Recompensas Completas",
       "description": "Usuários com carteira ganham {walletAmount} BOCA por recomendação vs {emailAmount} BOCA para usuários de email",

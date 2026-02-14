@@ -4,12 +4,13 @@
 // UPDATED: Full i18n support with useTranslations
 // UPDATED: Mobile-responsive pass (Feb 2, 2026)
 // UPDATED: Fixed wallet connect flow - replaced broken /dashboard link (Feb 8, 2026)
+// UPDATED: Added BOCA explainer, hidden Lottery/Photo Contest for launch (Feb 13, 2026)
 
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trophy, Camera, Target, Wallet, ArrowRight, TrendingUp, Clock, Users, AlertCircle, Gift, Star, MessageSquare, Share2, Bookmark } from 'lucide-react';
+import { Trophy, Camera, Target, Wallet, ArrowRight, TrendingUp, Clock, Users, AlertCircle, Gift, Star, MessageSquare, Share2, Bookmark, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
@@ -74,7 +75,10 @@ const TIER_WEIGHTS = {
   TRUSTED: { weight: 1.5, label: 'Trusted', days: '30+ days + 3 validated' }
 };
 
-type TabType = 'overview' | 'lottery' | 'photo-contest' | 'bounties';
+// NOTE: Lottery and Photo Contest tabs hidden for launch.
+// To re-enable, add 'lottery' | 'photo-contest' back to TabType
+// and uncomment the tab buttons and content sections below.
+type TabType = 'overview' | 'bounties';
 
 export default function RewardsPage() {
   const router = useRouter();
@@ -86,10 +90,10 @@ export default function RewardsPage() {
   const [error, setError] = useState<string | null>(null); 
   const [showWalletConnect, setShowWalletConnect] = useState(false);
 
-  // Lottery data
+  // Lottery data (kept for future re-enable)
   const [lotteryData, setLotteryData] = useState<LotteryStandings | null>(null);
   
-  // Photo contest data
+  // Photo contest data (kept for future re-enable)
   const [photoContestData, setPhotoContestData] = useState<PhotoContestCurrent | null>(null);
 
   useEffect(() => {
@@ -102,6 +106,11 @@ export default function RewardsPage() {
       return;
     }
     
+    setIsLoading(false);
+    
+    // NOTE: Lottery/Photo Contest data loading disabled for launch.
+    // Uncomment below when re-enabling those tabs.
+    /*
     setIsLoading(true);
     setError(null);
     
@@ -119,6 +128,7 @@ export default function RewardsPage() {
     } finally {
       setIsLoading(false);
     }
+    */
   };
 
   const handleConnectWallet = () => {
@@ -169,6 +179,7 @@ export default function RewardsPage() {
                 <span>{t('tabs.overview')}</span>
               </button>
 
+              {/* NOTE: Lottery tab hidden for launch. Uncomment to re-enable.
               <button
                 onClick={() => setActiveTab('lottery')}
                 className={`px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base whitespace-nowrap flex-shrink-0 ${
@@ -180,7 +191,9 @@ export default function RewardsPage() {
                 <Trophy size={16} />
                 <span>{t('tabs.lottery')}</span>
               </button>
+              */}
               
+              {/* NOTE: Photo Contest tab hidden for launch. Uncomment to re-enable.
               <button
                 onClick={() => setActiveTab('photo-contest')}
                 className={`px-3 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base whitespace-nowrap flex-shrink-0 ${
@@ -192,6 +205,7 @@ export default function RewardsPage() {
                 <Camera size={16} />
                 <span>{t('tabs.photoContest')}</span>
               </button>
+              */}
               
               <button
                 onClick={() => setActiveTab('bounties')}
@@ -236,6 +250,7 @@ export default function RewardsPage() {
                     <OverviewContent user={user} onConnectWallet={handleConnectWallet} />
                   )}
                   
+                  {/* NOTE: Lottery content hidden for launch. Uncomment to re-enable.
                   {activeTab === 'lottery' && (
                     <LotteryContent 
                       data={lotteryData} 
@@ -253,6 +268,7 @@ export default function RewardsPage() {
                       formatDate={formatDate}
                     />
                   )}
+                  */}
                   
                   {activeTab === 'bounties' && (
                     <BountiesContent 
@@ -269,8 +285,6 @@ export default function RewardsPage() {
           <Sidebar 
             isAuthenticated={isAuthenticated}
             authMode={authMode}
-            lotteryData={lotteryData}
-            formatDate={formatDate}
             onConnectWallet={handleConnectWallet}
           />
         </div>
@@ -315,19 +329,16 @@ export default function RewardsPage() {
 
 // ==========================================
 // SIDEBAR COMPONENT - MOBILE FIX: Full width on mobile
+// UPDATED: Removed lottery/photo contest refs for launch
 // ==========================================
 
 function Sidebar({ 
   isAuthenticated, 
   authMode, 
-  lotteryData, 
-  formatDate,
   onConnectWallet
 }: { 
   isAuthenticated: boolean;
   authMode: string | null;
-  lotteryData: LotteryStandings | null;
-  formatDate: (date: string) => string;
   onConnectWallet: () => void;
 }) {
   const router = useRouter();
@@ -352,23 +363,6 @@ function Sidebar({
                 </div>
               </div>
             </div>
-            
-            {lotteryData?.user_stats && (
-              <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-[#3D3C4A]">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">{t('sidebar.wallet.connected.lotteryTickets')}</span>
-                  <span className="font-semibold text-[#1F1E2A] dark:text-white">
-                    {lotteryData.user_stats.ticket_count}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">{t('sidebar.wallet.connected.engagementScore')}</span>
-                  <span className="font-semibold text-[#1F1E2A] dark:text-white">
-                    {lotteryData.user_stats.engagement_score.toFixed(1)}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 sm:p-6 border-2 border-[#FF644A]">
@@ -418,37 +412,13 @@ function Sidebar({
         </div>
       )}
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Simplified for launch (lottery/photo contest removed) */}
       <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#3D3C4A]">
         <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
           {t('sidebar.quickStats.title')}
         </h3>
         
         <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded flex items-center justify-center bg-[#FFE8E3] dark:bg-[#FF644A]/20 flex-shrink-0">
-              <Trophy size={16} className="text-[#FF644A]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm text-gray-600 dark:text-gray-400">{t('sidebar.quickStats.nextLottery')}</div>
-              <div className="text-sm font-semibold text-[#1F1E2A] dark:text-white truncate">
-                {lotteryData ? formatDate(lotteryData.drawing.week_end) : t('sidebar.quickStats.loading')}
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded flex items-center justify-center bg-[#BFE2D9] dark:bg-[#BFE2D9]/20 flex-shrink-0">
-              <Camera size={16} className="text-[#2D7A5F] dark:text-[#BFE2D9]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm text-gray-600 dark:text-gray-400">{t('sidebar.quickStats.prizePool')}</div>
-              <div className="text-sm font-semibold text-[#1F1E2A] dark:text-white">
-                {REWARDS.LOTTERY.POOL} BOCA
-              </div>
-            </div>
-          </div>
-          
           <div 
             className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#353444] -mx-2 px-2 py-1 rounded-lg transition-colors"
             onClick={() => router.push('/discover?tab=requests')}
@@ -467,13 +437,14 @@ function Sidebar({
         </div>
       </div>
 
-      {/* How It Works */}
+      {/* How It Works - Only Bounties for launch */}
       <div className="bg-white dark:bg-[#2D2C3A] rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-[#3D3C4A]">
         <h3 className="font-semibold mb-4 text-[#1F1E2A] dark:text-white">
           {t('sidebar.howItWorks.title')}
         </h3>
         
         <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
+          {/* NOTE: Lottery and Photo Contest "How It Works" hidden for launch.
           <div>
             <div className="font-medium mb-1 text-[#1F1E2A] dark:text-white">
               {t('sidebar.howItWorks.lottery.title')}
@@ -487,6 +458,7 @@ function Sidebar({
             </div>
             <p>{t('sidebar.howItWorks.photoContest.description')}</p>
           </div>
+          */}
           
           <div>
             <div className="font-medium mb-1 text-[#1F1E2A] dark:text-white">
@@ -530,6 +502,7 @@ const RewardRow = ({
 
 // ============================================
 // OVERVIEW TAB COMPONENT - MOBILE FIX
+// UPDATED: Added BOCA explainer, removed Weekly Contests
 // ============================================
 const OverviewContent = ({ user, onConnectWallet }: { user?: any; onConnectWallet: () => void }) => {
   const t = useTranslations('rewards');
@@ -545,6 +518,49 @@ const OverviewContent = ({ user, onConnectWallet }: { user?: any; onConnectWalle
         <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
           {t('overview.header.subtitle')}
         </p>
+      </div>
+
+      {/* ============================================ */}
+      {/* BOCA EXPLAINER - What are BOCA tokens?       */}
+      {/* ============================================ */}
+      <div className="bg-gradient-to-br from-[#FFF4E1] to-[#FFE8E3] dark:from-[#FF644A]/10 dark:to-[#FF644A]/5 rounded-xl p-4 sm:p-6 border border-[#FFD4CC] dark:border-[#FF644A]/20">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 sm:w-10 h-9 sm:h-10 bg-[#FF644A] rounded-full flex items-center justify-center flex-shrink-0">
+            <HelpCircle className="w-5 h-5 text-white" />
+          </div>
+          <h3 className="font-bold text-[#1F1E2A] dark:text-white text-base sm:text-lg">
+            {t('overview.bocaExplainer.title')}
+          </h3>
+        </div>
+        <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
+          {t('overview.bocaExplainer.description')}
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="flex items-start gap-2.5 p-3 bg-white/60 dark:bg-[#2D2C3A]/60 rounded-lg">
+            <div className="w-6 h-6 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 rounded flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Star className="w-3.5 h-3.5 text-[#FF644A]" />
+            </div>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+              {t('overview.bocaExplainer.earn')}
+            </p>
+          </div>
+          <div className="flex items-start gap-2.5 p-3 bg-white/60 dark:bg-[#2D2C3A]/60 rounded-lg">
+            <div className="w-6 h-6 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 rounded flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Gift className="w-3.5 h-3.5 text-[#FF644A]" />
+            </div>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+              {t('overview.bocaExplainer.tip')}
+            </p>
+          </div>
+          <div className="flex items-start gap-2.5 p-3 bg-white/60 dark:bg-[#2D2C3A]/60 rounded-lg">
+            <div className="w-6 h-6 bg-[#FF644A]/10 dark:bg-[#FF644A]/20 rounded flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Target className="w-3.5 h-3.5 text-[#FF644A]" />
+            </div>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+              {t('overview.bocaExplainer.discover')}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Wallet Upgrade CTA for Email Users - MOBILE FIX: Stack on mobile */}
@@ -673,7 +689,9 @@ const OverviewContent = ({ user, onConnectWallet }: { user?: any; onConnectWalle
         </div>
       </div>
 
-      {/* Weekly Contests - MOBILE FIX: Contest cards stack on mobile */}
+      {/* NOTE: Weekly Contests section (Lottery + Photo Contest cards) hidden for launch.
+         Re-enable this section when lottery and photo contest features are ready.
+
       <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-9 sm:w-10 h-9 sm:h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -684,9 +702,7 @@ const OverviewContent = ({ user, onConnectWallet }: { user?: any; onConnectWalle
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('overview.contests.subtitle')}</p>
           </div>
         </div>
-        {/* MOBILE FIX: Stack to 1-col on mobile */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Lottery Card */}
           <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg border border-purple-200 dark:border-purple-700">
             <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-2 text-sm sm:text-base">🎰 {t('overview.contests.lottery.title')}</h4>
             <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-400 mb-3">
@@ -708,7 +724,6 @@ const OverviewContent = ({ user, onConnectWallet }: { user?: any; onConnectWalle
             </div>
             <p className="text-[10px] sm:text-xs text-purple-600 dark:text-purple-400 mt-2">{t('overview.contests.lottery.eligible')}</p>
           </div>
-          {/* Photo Contest Card */}
           <div className="p-3 sm:p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/20 rounded-lg border border-amber-200 dark:border-amber-700">
             <h4 className="font-bold text-amber-800 dark:text-amber-300 mb-2 text-sm sm:text-base">📸 {t('overview.contests.photo.title')}</h4>
             <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-400 mb-3">{t('overview.contests.photo.subtitle')}</p>
@@ -732,6 +747,7 @@ const OverviewContent = ({ user, onConnectWallet }: { user?: any; onConnectWalle
           </div>
         </div>
       </div>
+      */}
 
       {/* Bounties */}
       <div className="bg-white dark:bg-[#353444] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-4 sm:p-6">
@@ -776,6 +792,7 @@ const OverviewContent = ({ user, onConnectWallet }: { user?: any; onConnectWalle
 
 // ==========================================
 // LOTTERY TAB CONTENT - MOBILE FIX
+// NOTE: Hidden for launch but kept for future re-enable
 // ==========================================
 
 function LotteryContent({ 
@@ -1017,6 +1034,7 @@ function LeaderboardSection({ drawingId }: { drawingId: string }) {
 
 // ==========================================
 // PHOTO CONTEST TAB CONTENT - MOBILE FIX
+// NOTE: Hidden for launch but kept for future re-enable
 // ==========================================
 
 function PhotoContestContent({ 

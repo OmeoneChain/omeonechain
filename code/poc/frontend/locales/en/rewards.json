@@ -16,6 +16,13 @@
       "title": "How to Earn BOCA Tokens",
       "subtitle": "Complete guide to all earning opportunities on BocaBoca"
     },
+    "bocaExplainer": {
+      "title": "What's BOCA?",
+      "description": "Your currency in BocaBoca. Earn them by sharing great recommendations, spend them to discover your next meal. More features coming soon!",
+      "tip": "Tip others when their recommendation helps you find a great meal",
+      "discover": "Post discovery requests to get personalized recommendations",
+      "earn": "Create quality content and earn BOCA from the community"
+    },
     "upgradeWallet": {
       "title": "Unlock Full Rewards",
       "description": "Wallet users earn {walletAmount} BOCA per recommendation vs {emailAmount} BOCA for email users",
