@@ -1,505 +1,505 @@
 {
   "creation": {
-    "title": "Nova Recomendação",
-    "chooseRestaurant": "Escolha um Restaurante",
-    "searchRestaurant": "Buscar restaurante...",
-    "addNewRestaurant": "Adicionar Novo Restaurante",
-    "reviewAndPublish": "Revisar & Publicar",
-    "addTextAndPhotos": "Adicionar Texto & Fotos",
+    "title": "New Recommendation",
+    "chooseRestaurant": "Choose a Restaurant",
+    "searchRestaurant": "Search restaurant...",
+    "addNewRestaurant": "Add New Restaurant",
+    "reviewAndPublish": "Review & Publish",
+    "addTextAndPhotos": "Add Text & Photos",
     "restaurant": {
-      "name": "Nome do restaurante",
-      "address": "Endereço",
-      "cuisineType": "Tipo de culinária/categoria",
-      "createNew": "Criar Novo",
-      "creating": "Criando..."
+      "name": "Restaurant name",
+      "address": "Address",
+      "cuisineType": "Cuisine type/category",
+      "createNew": "Create New",
+      "creating": "Creating..."
     },
     "rating": {
-      "overall": "Avaliação Geral",
+      "overall": "Overall Rating",
       "labels": {
-        "0": "Horrível",
-        "1": "Terrível",
-        "2": "Muito Ruim",
-        "3": "Ruim",
-        "4": "Regular",
-        "5": "Razoável",
-        "6": "Bom",
-        "7": "Muito Bom",
-        "8": "Ótimo",
-        "9": "Excelente",
-        "10": "Perfeito"
+        "0": "Horrible",
+        "1": "Terrible",
+        "2": "Very Bad",
+        "3": "Bad",
+        "4": "Below Average",
+        "5": "Average",
+        "6": "Good",
+        "7": "Very Good",
+        "8": "Great",
+        "9": "Excellent",
+        "10": "Perfect"
       }
     },
     "contextTags": {
-      "title": "Tags de Contexto",
-      "placeholder": "Adicione tags personalizadas: #vegano #petfriendly",
-      "romantic": "Romântico",
-      "family": "Família",
-      "quick": "Rápido",
-      "celebration": "Celebração"
+      "title": "Context Tags",
+      "placeholder": "Add custom tags: #vegan #petfriendly",
+      "romantic": "Romantic",
+      "family": "Family",
+      "quick": "Quick",
+      "celebration": "Celebration"
     },
-    "optionalDetails": "Detalhes opcionais (clique para expandir):",
+    "optionalDetails": "Optional details (click to expand):",
     "dishes": {
-      "title": "Pratos Individuais",
-      "addDish": "Adicionar Prato",
-      "editDish": "Editar Prato",
-      "dishName": "Nome do prato",
-      "dishNotes": "Notas sobre o prato (opcional)",
-      "wouldOrderAgain": "Pediria novamente",
-      "wouldNotOrderAgain": "Não pediria novamente"
+      "title": "Individual Dishes",
+      "addDish": "Add Dish",
+      "editDish": "Edit Dish",
+      "dishName": "Dish name",
+      "dishNotes": "Notes about the dish (optional)",
+      "wouldOrderAgain": "Would order again",
+      "wouldNotOrderAgain": "Would not order again"
     },
     "aspects": {
-      "title": "Aspectos do Restaurante",
-      "ambiance": "Ambiente e Decoração",
-      "service": "Atendimento",
-      "valueForMoney": "Custo-Benefício",
-      "noiseLevel": "Nível de Ruído",
-      "waitTime": "Tempo de Espera",
-      "quiet": "Silencioso",
-      "moderate": "Moderado",
-      "loud": "Barulhento"
+      "title": "Restaurant Aspects",
+      "ambiance": "Ambiance & Decor",
+      "service": "Service",
+      "valueForMoney": "Value for Money",
+      "noiseLevel": "Noise Level",
+      "waitTime": "Wait Time",
+      "quiet": "Quiet",
+      "moderate": "Moderate",
+      "loud": "Loud"
     },
     "context": {
-      "title": "Contexto da Visita",
-      "occasion": "Ocasião",
-      "partySize": "Tamanho do Grupo",
-      "mealType": "Tipo de Refeição",
-      "dateTime": "Data e Hora da Visita",
-      "totalSpent": "Gasto Total",
-      "visitDuration": "Duração da Visita",
+      "title": "Visit Context",
+      "occasion": "Occasion",
+      "partySize": "Party Size",
+      "mealType": "Meal Type",
+      "dateTime": "Date and Time of Visit",
+      "totalSpent": "Total Spent",
+      "visitDuration": "Visit Duration",
       "occasions": {
-        "date_night": "Encontro Romântico",
-        "family_dinner": "Jantar em Família",
-        "quick_lunch": "Almoço Rápido",
-        "celebration": "Celebração",
-        "business_lunch": "Almoço de Trabalho",
+        "date_night": "Date Night",
+        "family_dinner": "Family Dinner",
+        "quick_lunch": "Quick Lunch",
+        "celebration": "Celebration",
+        "business_lunch": "Business Lunch",
         "casual": "Casual"
       },
       "mealTypes": {
-        "breakfast": "Café da Manhã",
+        "breakfast": "Breakfast",
         "brunch": "Brunch",
-        "lunch": "Almoço",
-        "dinner": "Jantar",
-        "late_night": "Madrugada"
+        "lunch": "Lunch",
+        "dinner": "Dinner",
+        "late_night": "Late Night"
       }
     },
     "preview": {
-      "title": "Título da Recomendação",
-      "titlePlaceholder": "ex: Melhor pizza napolitana de Brasília!",
-      "category": "Categoria",
-      "selectCategory": "Selecione uma categoria",
-      "content": "Sua Recomendação",
-      "contentPlaceholder": "Compartilhe o que tornou este lugar especial. O que você recomendaria para um amigo?",
-      "photos": "Fotos (até 5)",
-      "photoBonus": "Bônus: +{amount} TOK por {count} foto(s)"
+      "title": "Recommendation Title",
+      "titlePlaceholder": "e.g., Best Neapolitan pizza in town!",
+      "category": "Category",
+      "selectCategory": "Select a category",
+      "content": "Your Recommendation",
+      "contentPlaceholder": "Share what made this place special. What would you recommend to a friend?",
+      "photos": "Photos (up to 5)",
+      "photoBonus": "Bonus: +{amount} TOK for {count} photo(s)"
     },
     "categories": {
-      "breakfast": "Café da Manhã",
-      "lunch": "Almoço",
-      "dinner": "Jantar",
-      "coffeeAndDrinks": "Café & Bebidas",
-      "desserts": "Sobremesas",
-      "specialOccasion": "Ocasião Especial",
-      "quickBite": "Lanche Rápido",
-      "lateNight": "Madrugada"
+      "breakfast": "Breakfast",
+      "lunch": "Lunch",
+      "dinner": "Dinner",
+      "coffeeAndDrinks": "Coffee & Drinks",
+      "desserts": "Desserts",
+      "specialOccasion": "Special Occasion",
+      "quickBite": "Quick Bite",
+      "lateNight": "Late Night"
     },
     "summary": {
-      "title": "Resumo Trust Score 2.0",
-      "overallRating": "Avaliação Geral",
-      "dishesRated": "Pratos Avaliados",
-      "aspects": "Aspectos",
-      "context": "Contexto",
-      "occasion": "Ocasião",
-      "partySize": "Pessoas"
+      "title": "Trust Score 2.0 Summary",
+      "overallRating": "Overall Rating",
+      "dishesRated": "Dishes Rated",
+      "aspects": "Aspects",
+      "context": "Context",
+      "occasion": "Occasion",
+      "partySize": "Party Size"
     },
     "submit": {
-      "publish": "Publicar",
-      "publishAndEarn": "Publicar & Ganhar {amount} BOCA",
-      "publishing": "Publicando...",
-      "success": "Recomendação publicada! Você ganhou {amount} BOCA",
-      "error": "Erro ao criar recomendação"
+      "publish": "Publish",
+      "publishAndEarn": "Publish & Earn {amount} BOCA",
+      "publishing": "Publishing...",
+      "success": "Recommendation published! You earned {amount} BOCA",
+      "error": "Error creating recommendation"
     },
     "validation": {
-      "fillRequiredFields": "Por favor, preencha todos os campos obrigatórios (título e texto da recomendação)",
-      "fillRestaurantDetails": "Por favor, preencha nome e endereço do restaurante"
+      "fillRequiredFields": "Please fill in all required fields (title and recommendation text)",
+      "fillRestaurantDetails": "Please fill in restaurant name and address"
     },
     "priceRanges": {
-      "budget": "€ - Econômico (até R$ 30)",
-      "moderate": "€€ - Moderado (R$ 30-60)",
-      "expensive": "€€€ - Caro (R$ 60-120)",
-      "veryExpensive": "€€€€ - Muito Caro (R$ 120+)"
+      "budget": "€ - Budget (up to $30)",
+      "moderate": "€€ - Moderate ($30-60)",
+      "expensive": "€€€ - Expensive ($60-120)",
+      "veryExpensive": "€€€€ - Very Expensive ($120+)"
     }
   },
   "edit": {
-    "title": "Editar Recomendação",
-    "saveChanges": "Salvar Alterações",
-    "saving": "Salvando...",
-    "restaurantLocked": "O restaurante não pode ser alterado após a publicação",
-    "success": "Alterações salvas!",
-    "successEdited": "Alterações salvas (marcado como editado)",
-    "error": "Falha ao salvar alterações",
-    "loadError": "Falha ao carregar recomendação",
-    "notFound": "Recomendação não encontrada",
-    "notAuthorized": "Você só pode editar suas próprias recomendações",
-    "savedSilently": "Alterações salvas!",
-    "savedWithFlag": "Alterações salvas (marcado como editado)"
+    "title": "Edit Recommendation",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "restaurantLocked": "Restaurant cannot be changed after publishing",
+    "success": "Changes saved!",
+    "successEdited": "Changes saved (marked as edited)",
+    "error": "Failed to save changes",
+    "loadError": "Failed to load recommendation",
+    "notFound": "Recommendation not found",
+    "notAuthorized": "You can only edit your own recommendations",
+    "savedSilently": "Changes saved!",
+    "savedWithFlag": "Changes saved (marked as edited)"
   },
   "card": {
-    "addToList": "Adicionar à Lista",
+    "addToList": "Add to List",
     "trustScore": "Trust Score",
-    "dish": "prato",
-    "dishes": "pratos",
-    "readMore": "Ler mais",
-    "viewMore": "Ver mais",
-    "helpful": "Útil",
-    "save": "Salvar",
-    "share": "Compartilhar",
-    "comment": "Comentar",
-    "boost": "Impulsionar",
-    "edit": "Editar",
-    "edited": "editado",
-    "editedAt": "Editado {time}",
-    "report": "Denunciar",
-    "previewMode": "Modo Prévia - Pronto para Publicar",
-    "person": "pessoa",
-    "people": "pessoas",
-    "dishesCount": "{count} pratos avaliados",
-    "showLess": "Mostrar menos",
-    "viewAll": "Ver todos",
-    "moreCount": "+{count} mais",
-    "onChainVerified": "Verificado on-chain",
+    "dish": "dish",
+    "dishes": "dishes",
+    "readMore": "Read more",
+    "viewMore": "View more",
+    "helpful": "Helpful",
+    "save": "Save",
+    "share": "Share",
+    "comment": "Comment",
+    "boost": "Boost",
+    "edit": "Edit",
+    "edited": "edited",
+    "editedAt": "Edited {time}",
+    "report": "Report",
+    "previewMode": "Preview Mode - Ready to Publish",
+    "person": "person",
+    "people": "people",
+    "dishesCount": "{count} dishes rated",
+    "showLess": "Show less",
+    "viewAll": "View all",
+    "moreCount": "+{count} more",
+    "onChainVerified": "On-chain verified",
     "social": {
-      "following": "Seguindo",
-      "yourFriend": "Seu amigo",
-      "friendOfFriend": "Amigo de amigo"
+      "following": "Following",
+      "yourFriend": "Your friend",
+      "friendOfFriend": "Friend of friend"
     },
     "badges": {
-      "expert": "Especialista",
-      "verified": "Verificado"
+      "expert": "Expert",
+      "verified": "Verified"
     },
-    "viewAndReply": "Ver e comentar"
+    "viewAndReply": "View & reply"
   },
   "draft": {
-    "saved": "Rascunho salvo",
-    "saving": "Salvando...",
-    "found": "Rascunho Encontrado",
-    "savedAt": "Salvo {time}",
-    "noRestaurant": "Nenhum restaurante selecionado",
-    "restoreQuestion": "Gostaria de continuar de onde parou?",
-    "startFresh": "Começar do Zero",
-    "restore": "Restaurar Rascunho",
-    "restored": "Rascunho restaurado!",
-    "photosNotRecovered": "Nota: {count} foto(s) não puderam ser recuperadas. Por favor, adicione-as novamente."
+    "saved": "Draft saved",
+    "saving": "Saving...",
+    "found": "Draft Found",
+    "savedAt": "Saved {time}",
+    "noRestaurant": "No restaurant selected",
+    "restoreQuestion": "Would you like to continue where you left off?",
+    "startFresh": "Start Fresh",
+    "restore": "Restore Draft",
+    "restored": "Draft restored!",
+    "photosNotRecovered": "Note: {count} photo(s) could not be recovered. Please re-add them."
   },
   "singleScreen": {
-    "readyToPublish": "Tudo pronto!",
-    "optionalHint": "Opcional:",
-    "optionalDetails": "Adicione mais detalhes para ajudar sua rede e construir seu perfil de gosto.",
-    "title": "Criar uma Recomendação",
-    "subtitle": "Avalie, adicione detalhes e publique",
-    "restaurantLabel": "Restaurante",
-    "optional": "opcional",
-    "publishHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
+    "readyToPublish": "Good to go!",
+    "optionalHint": "Optional:",
+    "optionalDetails": "Add more details to help your network and build your taste profile.",
+    "title": "Create a Recommendation",
+    "subtitle": "Rate, add details and publish",
+    "restaurantLabel": "Restaurant",
+    "optional": "optional",
+    "publishHint": "Tip: some bonuses are unlocked with validation and community engagement",
     "restaurant": {
-      "change": "Alterar"
+      "change": "Change"
     },
     "publish": {
-      "bonusHint": "Dica: alguns bônus são desbloqueados com validação e engajamento da comunidade",
-      "publishing": "Publicando...",
-      "button": "Publicar",
-      "saving": "Salvando...",
-      "bonusEarned": "Bônus disponível após validação.",
+      "bonusHint": "Tip: some bonuses are unlocked with validation and community engagement",
+      "publishing": "Publishing...",
+      "saving": "Saving...",
+      "button": "Publish",
+      "bonusEarned": "Bonus available after validation.",
       "disabledReason": {
-        "noRestaurant": "Selecione um restaurante para publicar",
-        "noRating": "Adicione uma avaliação para publicar"
+        "noRestaurant": "Select a restaurant to publish",
+        "noRating": "Add a rating to publish"
       }
     },
     "sections": {
-      "photos": "Fotos",
-      "dishes": "Pratos Individuais",
-      "aspects": "Aspectos do Restaurante",
-      "context": "Contexto da Visita",
-      "labels": "Etiquetas",
-      "comments": "Comentários"
+      "photos": "Photos",
+      "dishes": "Individual Dishes",
+      "aspects": "Restaurant Aspects",
+      "context": "Visit Context",
+      "labels": "Labels",
+      "comments": "Comments"
     },
     "sectionSubtitle": {
-      "comments": "Adicione comentários opcionais sobre sua experiência"
+      "comments": "Add optional comments about your experience"
     },
     "cancelConfirm": {
-      "title": "Descartar recomendação?",
-      "message": "Você tem alterações não salvas. Tem certeza que deseja sair?",
-      "stay": "Continuar editando",
-      "discard": "Descartar"
+      "title": "Discard recommendation?",
+      "message": "You have unsaved changes. Are you sure you want to leave?",
+      "stay": "Keep editing",
+      "discard": "Discard"
     }
   },
   "photos": {
     "tagging": {
-      "title": "Marcar fotos (opcional)",
-      "help": "Isso ajuda a exibir as fotos certas na página do restaurante (por exemplo, por prato).",
-      "label": "Prato desta foto",
-      "skip": "Pular",
-      "fromDishes": "Dos seus pratos avaliados",
-      "other": "Outro prato…",
-      "otherPlaceholder": "Digite o nome do prato",
-      "current": "Marcado:",
-      "notTagged": "Sem marcação",
-      "categories": "Categorias",
-      "vibe": "Ambiente/Decoração",
-      "menu": "Cardápio",
-      "drink": "Bebida"
+      "title": "Tag photos (optional)",
+      "help": "This helps show the right photos on restaurant pages (e.g., by dish).",
+      "label": "Dish for this photo",
+      "skip": "Skip",
+      "fromDishes": "From your rated dishes",
+      "other": "Other dish…",
+      "otherPlaceholder": "Type dish name",
+      "current": "Tagged:",
+      "notTagged": "Not tagged",
+      "categories": "Categories",
+      "vibe": "Ambiance/Vibe",
+      "menu": "Menu",
+      "drink": "Drink"
     },
     "annotation": {
-      "placeholder": "O que tem nesta foto?",
-      "dismissRating": "Não é um prato",
-      "label": "Descreva esta foto"
+      "placeholder": "What's in this photo?",
+      "dismissRating": "Not a dish",
+      "label": "Describe this photo"
     }
   },
   "reshare": {
-    "title": "Compartilhar com Comentário",
-    "addThoughts": "Adicione seus pensamentos (opcional)",
-    "placeholder": "O que você acha desta recomendação?",
+    "title": "Quote Reshare",
+    "addThoughts": "Add your thoughts (optional)",
+    "placeholder": "What do you think about this recommendation?",
     "charCount": "{count}/280",
-    "cancel": "Cancelar",
-    "reshare": "Compartilhar",
-    "resharing": "Compartilhando...",
-    "success": "Compartilhado! +0.2 BOCA ganhos",
-    "successWithComment": "Compartilhado com comentário!",
-    "removed": "Compartilhamento removido",
-    "failed": "Falha ao atualizar compartilhamento"
+    "cancel": "Cancel",
+    "reshare": "Reshare",
+    "resharing": "Resharing...",
+    "success": "Reshared! +0.2 BOCA earned",
+    "successWithComment": "Reshared with commentary!",
+    "removed": "Reshare removed",
+    "failed": "Failed to update reshare"
   },
   "occasions": {
-    "dateNight": "Encontro Romântico",
-    "familyDinner": "Jantar em Família",
-    "quickLunch": "Almoço Rápido",
-    "celebration": "Celebração",
-    "businessLunch": "Almoço de Trabalho",
+    "dateNight": "Date Night",
+    "familyDinner": "Family Dinner",
+    "quickLunch": "Quick Lunch",
+    "celebration": "Celebration",
+    "businessLunch": "Business Lunch",
     "casual": "Casual"
   },
   "mealTypes": {
-    "breakfast": "Café da Manhã",
+    "breakfast": "Breakfast",
     "brunch": "Brunch",
-    "lunch": "Almoço",
-    "dinner": "Jantar",
-    "lateNight": "Madrugada"
+    "lunch": "Lunch",
+    "dinner": "Dinner",
+    "lateNight": "Late Night"
   },
   "aspects": {
-    "title": "Aspectos do Restaurante",
-    "ambiance": "Ambiente",
-    "service": "Atendimento",
-    "valueForMoney": "Custo-Benefício",
-    "noiseLevel": "Nível de Ruído",
-    "waitTime": "Tempo de Espera",
-    "minutesPlaceholder": "Minutos",
+    "title": "Restaurant Aspects",
+    "ambiance": "Ambiance",
+    "service": "Service",
+    "valueForMoney": "Value",
+    "noiseLevel": "Noise Level",
+    "waitTime": "Wait Time",
+    "minutesPlaceholder": "Minutes",
     "minutes": "min"
   },
   "ratings": {
-    "0": "Horrível",
-    "1": "Evitar",
-    "2": "Ruim",
-    "3": "Abaixo da Média",
-    "4": "Regular",
-    "5": "Médio",
-    "6": "Acima da Média",
-    "7": "Bom",
-    "8": "Muito Bom",
-    "9": "Excelente",
-    "10": "Excepcional"
+    "0": "Horrible",
+    "1": "Avoid",
+    "2": "Poor",
+    "3": "Below Average",
+    "4": "Fair",
+    "5": "Average",
+    "6": "Above Average",
+    "7": "Good",
+    "8": "Very Good",
+    "9": "Excellent",
+    "10": "Outstanding"
   },
   "photoUpload": {
     "location": {
-      "getting": "Obtendo localização...",
-      "found": "Localização: {address}",
-      "unavailable": "Localização indisponível",
-      "ready": "Serviços de localização prontos",
-      "retry": "Tentar novamente",
-      "addPhoto": "Adicionar Foto",
-      "tapOrDrag": "Toque ou arraste e solte",
-      "processing": "Processando...",
-      "takePhoto": "Tirar Foto",
-      "fromGallery": "Da Galeria"
+      "getting": "Getting location...",
+      "found": "Location: {address}",
+      "unavailable": "Location unavailable",
+      "ready": "Location services ready",
+      "retry": "Retry location",
+      "addPhoto": "Add Photo",
+      "tapOrDrag": "Tap or drag & drop",
+      "processing": "Processing...",
+      "takePhoto": "Take Photo",
+      "fromGallery": "From Gallery"
     },
     "errors": {
-      "couldNotGetAddress": "Não foi possível obter o endereço",
-      "maxPhotos": "Máximo de {max} fotos permitidas",
-      "notImage": "{name} não é um arquivo de imagem",
-      "tooLarge": "{name} é muito grande (máx {max}MB)",
-      "processingFailed": "Erro ao processar {name}"
+      "couldNotGetAddress": "Could not get address",
+      "maxPhotos": "Maximum {max} photos allowed",
+      "notImage": "{name} is not an image file",
+      "tooLarge": "{name} is too large (max {max}MB)",
+      "processingFailed": "Error processing {name}"
     },
-    "photoAlt": "Foto {number}",
-    "processing": "Processando...",
-    "addPhoto": "Adicionar Foto",
-    "tapOrDrag": "Toque ou arraste para enviar",
+    "photoAlt": "Photo {number}",
+    "processing": "Processing...",
+    "addPhoto": "Add Photo",
+    "tapOrDrag": "Tap or drag to upload",
     "info": {
-      "photoCount": "{count}/{max} fotos",
-      "photosWithLocation": "{count} fotos com localização",
-      "totalSize": "Tamanho total: {size}MB"
+      "photoCount": "{count}/{max} photos",
+      "photosWithLocation": "{count} photos with location",
+      "totalSize": "Total size: {size}MB"
     },
-    "takePhoto": "Tirar Foto",
-    "fromGallery": "Da Galeria",
+    "takePhoto": "Take Photo",
+    "fromGallery": "From Gallery",
     "crop": {
-      "title": "Ajustar Foto",
-      "cancel": "Cancelar",
-      "confirm": "Pronto",
-      "hint": "Arraste para reposicionar · Pinça para zoom · Quadro 4:3"
+      "title": "Adjust Photo",
+      "cancel": "Cancel",
+      "confirm": "Done",
+      "hint": "Drag to reposition · Pinch to zoom · 4:3 frame"
     }
   },
   "categories": {
-    "breakfast": "Café da Manhã",
-    "lunch": "Almoço",
-    "dinner": "Jantar",
-    "coffee": "Café & Bebidas",
-    "desserts": "Sobremesas",
-    "special": "Ocasião Especial",
-    "snack": "Lanche Rápido",
-    "lateNight": "Madrugada"
+    "breakfast": "Breakfast",
+    "lunch": "Lunch",
+    "dinner": "Dinner",
+    "coffee": "Coffee & Drinks",
+    "desserts": "Desserts",
+    "special": "Special Occasion",
+    "snack": "Quick Snack",
+    "lateNight": "Late Night"
   },
   "noiseLevel": {
-    "quiet": "Silencioso",
-    "moderate": "Moderado",
-    "loud": "Barulhento"
+    "quiet": "Quiet",
+    "moderate": "Moderate",
+    "loud": "Loud"
   },
   "priceRanges": {
-    "budget": "€ - Econômico (até R$ 15)",
-    "moderate": "€€ - Moderado (R$ 15-30)",
-    "expensive": "€€€ - Caro (R$ 30-60)",
-    "veryExpensive": "€€€€ - Muito Caro (R$ 60+)"
+    "budget": "€ - Budget (up to $15)",
+    "moderate": "€€ - Moderate ($15-30)",
+    "expensive": "€€€ - Expensive ($30-60)",
+    "veryExpensive": "€€€€ - Very Expensive ($60+)"
   },
   "contextTags": {
-    "romantic": "Romântico",
-    "family": "Família",
-    "quick": "Rápido",
-    "celebration": "Celebração"
+    "romantic": "Romantic",
+    "family": "Family",
+    "quick": "Quick",
+    "celebration": "Celebration"
   },
   "steps": {
     "restaurant": {
-      "title": "Escolha um Restaurante",
-      "titleBranded": "Compartilhe uma Recomendação",
-      "subtitle": "Qual restaurante você gostaria de recomendar?",
-      "shortLabel": "Restaurante",
-      "helpText": "Busque um restaurante que você visitou e quer recomendar para outras pessoas.",
-      "connectedAs": "Conectado como: {name} ({id})",
-      "location": "Localização: {city}, {country}",
-      "searchPlaceholder": "Buscar restaurante...",
-      "addNew": "Adicionar Novo Restaurante"
+      "title": "Choose a Restaurant",
+      "titleBranded": "Share a Recommendation",
+      "subtitle": "Which restaurant would you like to recommend?",
+      "shortLabel": "Restaurant",
+      "helpText": "Search for a restaurant you've visited and want to recommend to others.",
+      "connectedAs": "Connected as: {name} ({id})",
+      "location": "Location: {city}, {country}",
+      "searchPlaceholder": "Search restaurant...",
+      "addNew": "Add New Restaurant"
     },
     "essentials": {
-      "title": "Nova Recomendação",
-      "titleBranded": "Avalie Sua Experiência",
-      "subtitle": "Como foi sua visita?",
-      "shortLabel": "Detalhes",
-      "helpText": "Compartilhe os detalhes da sua experiência gastronômica.",
-      "overallRating": "Avaliação Geral",
-      "contextTags": "Tags de Contexto (opcional)",
-      "customTagPlaceholder": "Adicione tags personalizadas: #vegano #petfriendly",
-      "optionalDetails": "Detalhes opcionais (clique para expandir):",
-      "addTextPhotos": "Adicionar Texto & Fotos"
+      "title": "New Recommendation",
+      "titleBranded": "Rate Your Experience",
+      "subtitle": "How was your visit?",
+      "shortLabel": "Details",
+      "helpText": "Share the details of your dining experience.",
+      "overallRating": "Overall Rating",
+      "contextTags": "Context Tags (optional)",
+      "customTagPlaceholder": "Add custom tags: #vegan #petfriendly",
+      "optionalDetails": "Optional details (click to expand):",
+      "addTextPhotos": "Add Text & Photos"
     },
     "preview": {
-      "title": "Revisar & Publicar",
-      "titleBranded": "Revisar & Publicar",
-      "subtitle": "Quase lá! Revise sua recomendação antes de publicar.",
-      "shortLabel": "Publicar",
-      "helpText": "Adicione um título e escreva sua recomendação.",
-      "dishCount": "{count} prato(s)",
-      "titleLabel": "Título da Recomendação",
-      "titlePlaceholder": "ex: Melhor pizza de Brasília!",
-      "categoryLabel": "Categoria (opcional)",
-      "selectCategory": "Selecione uma categoria",
-      "reviewLabel": "Sua Recomendação",
-      "reviewPlaceholder": "Compartilhe o que tornou este lugar especial. O que você recomendaria para um amigo?",
-      "characterCount": "{count}/2000 caracteres",
-      "photosLabel": "Fotos (até 5)",
-      "photoBonus": "Bônus: +{bonus} TOK por {count} foto(s)"
+      "title": "Review & Publish",
+      "titleBranded": "Review & Publish",
+      "subtitle": "Almost there! Review your recommendation before publishing.",
+      "shortLabel": "Publish",
+      "helpText": "Add a title and write your recommendation.",
+      "dishCount": "{count} dish(es)",
+      "titleLabel": "Recommendation Title",
+      "titlePlaceholder": "e.g., Best pizza in town!",
+      "categoryLabel": "Category (optional)",
+      "selectCategory": "Select a category",
+      "reviewLabel": "Your Recommendation",
+      "reviewPlaceholder": "Share what made this place special. What would you recommend to a friend?",
+      "characterCount": "{count}/2000 characters",
+      "photosLabel": "Photos (up to 5)",
+      "photoBonus": "Bonus: +{bonus} TOK for {count} photo(s)"
     }
   },
   "newRestaurant": {
-    "title": "Adicionar Novo Restaurante",
-    "namePlaceholder": "Nome do restaurante",
-    "addressPlaceholder": "Endereço",
-    "categoryPlaceholder": "Tipo de culinária/categoria",
+    "title": "Add New Restaurant",
+    "namePlaceholder": "Restaurant name",
+    "addressPlaceholder": "Address",
+    "categoryPlaceholder": "Cuisine type/category",
     "validation": {
-      "fillRequired": "Por favor, preencha nome e endereço do restaurante"
+      "fillRequired": "Please fill in restaurant name and address"
     },
     "errors": {
-      "createFailed": "Erro ao criar restaurante: {error}"
+      "createFailed": "Error creating restaurant: {error}"
     }
   },
   "dishes": {
-    "title": "Pratos Individuais",
-    "addDish": "Adicionar Prato",
-    "addAnother": "+ Adicionar Outro",
-    "editDish": "Editar Prato",
-    "enterHint": "Digite o nome do prato e pressione Enter ou toque Adicionar",
-    "namePlaceholder": "Nome do prato",
-    "notesPlaceholder": "Notas sobre o prato (opcional)",
-    "wouldOrderAgain": "Pediria novamente",
-    "wouldNotOrderAgain": "Não pediria novamente",
+    "title": "Individual Dishes",
+    "addDish": "Add Dish",
+    "addAnother": "+ Add Another",
+    "editDish": "Edit Dish",
+    "enterHint": "Type a dish name and press Enter or tap Add",
+    "namePlaceholder": "Dish name",
+    "notesPlaceholder": "Notes about the dish (optional)",
+    "wouldOrderAgain": "Would order again",
+    "wouldNotOrderAgain": "Would not order again",
     "validation": {
-      "enterName": "Por favor, insira o nome do prato"
+      "enterName": "Please enter the dish name"
     }
   },
   "context": {
-    "title": "Contexto da Visita",
-    "occasion": "Ocasião",
-    "partySize": "Tamanho do Grupo",
-    "people": "pessoas",
-    "mealType": "Tipo de Refeição",
-    "dateTime": "Data e Hora da Visita",
-    "totalSpent": "Gasto Total",
-    "visitDuration": "Duração da Visita"
+    "title": "Visit Context",
+    "occasion": "Occasion",
+    "partySize": "Party Size",
+    "people": "people",
+    "mealType": "Meal Type",
+    "dateTime": "Date & Time of Visit",
+    "totalSpent": "Total Spent",
+    "visitDuration": "Visit Duration"
   },
   "summary": {
-    "title": "📊 Resumo Trust Score 2.0",
-    "overallRating": "Avaliação Geral:",
-    "dishesRated": "Pratos Avaliados: ({count})",
-    "moreItems": "+ {count} mais...",
-    "aspects": "Aspectos:",
-    "context": "Contexto:"
+    "title": "📊 Trust Score 2.0 Summary",
+    "overallRating": "Overall Rating:",
+    "dishesRated": "Dishes Rated: ({count})",
+    "moreItems": "+ {count} more...",
+    "aspects": "Aspects:",
+    "context": "Context:"
   },
   "rewards": {
-    "title": "💰 Recompensas Esperadas",
-    "baseReward": "Recompensa base: 1.00 TOK",
-    "dishBonus": "Bônus de pratos: +{bonus} TOK",
-    "aspectsBonus": "Bônus de aspectos: +0.3 TOK",
-    "contextBonus": "Bônus de contexto: +0.2 TOK",
-    "photoBonus": "Bônus de fotos: +{bonus} TOK",
-    "tagsBonus": "Bônus de tags: +{bonus} TOK",
-    "total": "Total estimado: {total} TOK"
+    "title": "💰 Expected Rewards",
+    "baseReward": "Base reward: 1.00 TOK",
+    "dishBonus": "Dish bonus: +{bonus} TOK",
+    "aspectsBonus": "Aspects bonus: +0.3 TOK",
+    "contextBonus": "Context bonus: +0.2 TOK",
+    "photoBonus": "Photo bonus: +{bonus} TOK",
+    "tagsBonus": "Tags bonus: +{bonus} TOK",
+    "total": "Estimated total: {total} TOK"
   },
   "connection": {
-    "testing": "Testando conexão IOTA Rebased...",
-    "connected": "IOTA Rebased conectado! ({contracts}/5 contratos ativos)",
-    "fallback": "IOTA modo limitado - funcionalidade básica disponível"
+    "testing": "Testing IOTA Rebased connection...",
+    "connected": "IOTA Rebased connected! ({contracts}/5 active contracts)",
+    "fallback": "IOTA limited mode - basic functionality available"
   },
   "auth": {
-    "required": "Autenticação Necessária",
-    "connectWalletMessage": "Você precisa conectar sua carteira para criar recomendações e ganhar tokens.",
-    "connectWallet": "Conectar Carteira"
+    "required": "Authentication Required",
+    "connectWalletMessage": "You need to connect your wallet to create recommendations and earn tokens.",
+    "connectWallet": "Connect Wallet"
   },
   "actions": {
-    "cancel": "Cancelar",
-    "add": "Adicionar",
-    "creating": "Criando...",
-    "back": "Voltar",
-    "edit": "Editar",
-    "remove": "Remover",
-    "close": "Fechar",
-    "save": "Salvar",
-    "yes": "Sim",
-    "no": "Não",
-    "publishing": "Publicando...",
-    "publishAndEarn": "Publicar & Ganhar {tokens} BOCA",
-    "done": "Concluído"
+    "cancel": "Cancel",
+    "add": "Add",
+    "creating": "Creating...",
+    "back": "Back",
+    "edit": "Edit",
+    "remove": "Remove",
+    "save": "Save",
+    "yes": "Yes",
+    "no": "No",
+    "close": "Close",
+    "publishing": "Publishing...",
+    "publishAndEarn": "Publish & Earn {tokens} BOCA",
+    "done": "Done"
   },
   "errors": {
-    "noUserLoggedIn": "Nenhum usuário logado - por favor conecte sua carteira primeiro",
-    "iotaConnectionLimited": "Conexão IOTA limitada. Usando modo fallback.",
-    "connectWalletFirst": "Por favor, conecte sua carteira antes de criar recomendações",
-    "createFailed": "Erro ao criar recomendação: {error}"
+    "noUserLoggedIn": "No user logged in - please connect your wallet first",
+    "iotaConnectionLimited": "IOTA connection limited. Using fallback mode.",
+    "connectWalletFirst": "Please connect your wallet before creating recommendations",
+    "createFailed": "Error creating recommendation: {error}"
   },
   "validation": {
-    "fillRequired": "Por favor, preencha todos os campos obrigatórios (título e texto da recomendação)"
+    "fillRequired": "Please fill in all required fields (title and recommendation text)"
   },
   "success": {
-    "published": "🎉 Recomendação publicada! Você ganhou {tokens} BOCA"
+    "published": "🎉 Recommendation published! You earned {tokens} BOCA"
   }
 }

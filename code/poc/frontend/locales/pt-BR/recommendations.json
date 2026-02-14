@@ -250,7 +250,7 @@
     "annotation": {
       "placeholder": "O que tem nesta foto?",
       "dismissRating": "Não é um prato",
-      "label": "Descreva esta foto"
+      "label": "Nome do prato ou bebida"
     }
   },
   "reshare": {
