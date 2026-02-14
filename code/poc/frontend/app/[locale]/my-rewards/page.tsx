@@ -639,8 +639,6 @@ export default function MyRewardsPage() {
           {/* Ways to Earn */}
           <WaysToEarn />
 
-          {/* Coming Soon */}
-          <ComingSoonSection />
         </div>
       </div>
 

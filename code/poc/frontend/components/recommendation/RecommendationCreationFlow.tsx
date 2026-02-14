@@ -1045,8 +1045,10 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       const recommendationId = result.recommendation?.id || 'unknown';
       const tokensEarned = result.tokens_earned || result.reward?.amount || calculateExpectedRewards();
 
+      // Refresh balance from server (already credited) — do NOT use optimisticUpdate
+      // as it double-counts when cache is empty (adds amount on top of already-credited balance)
       if (user?.id) {
-        await tokenBalanceService.optimisticUpdate(user.id, tokensEarned);
+        tokenBalanceService.forceRefreshBalance(user.id).catch(() => {});
       }
 
       // Clear draft on successful publish
