@@ -551,9 +551,12 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
     [totalPhotoCount, maxPhotos, t]
   );
 
-  // ── Trigger file input (with Capacitor fallback for native) ──────
+  // ── Trigger file input ─────────────────────────────────────────────
+  // IMPORTANT: On mobile web, input.click() MUST be called synchronously
+  // within the user gesture. An async wrapper breaks the gesture chain,
+  // causing the first tap to be silently blocked by the browser.
 
-  const triggerFileInput = useCallback(async () => {
+  const triggerFileInput = useCallback(() => {
     if (totalPhotoCount >= maxPhotos) {
       toast.error(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
       return;
@@ -562,49 +565,51 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
     const isNative = CapacitorCore?.isNativePlatform?.() ?? false;
 
     if (isNative) {
-      // On native Capacitor: use native camera/gallery picker
-      try {
-        const { Camera: CapacitorCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-        if (typeof CapacitorCamera?.getPhoto !== 'function') {
-          fileInputRef.current?.click();
-          return;
-        }
-
+      // Native Capacitor: use async camera API
+      (async () => {
         try {
-          const permissions = await CapacitorCamera.checkPermissions();
-          if (permissions.photos === 'denied') {
-            const requested = await CapacitorCamera.requestPermissions();
-            if (requested.photos === 'denied') {
-              toast.error('Photo permission required. Please enable in Settings.');
-              fileInputRef.current?.click();
-              return;
-            }
+          const { Camera: CapacitorCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+          if (typeof CapacitorCamera?.getPhoto !== 'function') {
+            fileInputRef.current?.click();
+            return;
           }
-        } catch (permError) { /* try anyway */ }
 
-        const image = await CapacitorCamera.getPhoto({
-          quality: 90,
-          allowEditing: false,
-          resultType: CameraResultType.DataUrl,
-          source: CameraSource.Prompt, // Let user choose camera or gallery
-          width: 2400,
-          height: 2400,
-        });
+          try {
+            const permissions = await CapacitorCamera.checkPermissions();
+            if (permissions.photos === 'denied') {
+              const requested = await CapacitorCamera.requestPermissions();
+              if (requested.photos === 'denied') {
+                toast.error('Photo permission required. Please enable in Settings.');
+                fileInputRef.current?.click();
+                return;
+              }
+            }
+          } catch (permError) { /* try anyway */ }
 
-        if (image.dataUrl) {
-          const response = await fetch(image.dataUrl);
-          const blob = await response.blob();
-          const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          setPendingFiles([file]);
-          setCropQueueIndex(0);
-          openCropForFile(file);
+          const image = await CapacitorCamera.getPhoto({
+            quality: 90,
+            allowEditing: false,
+            resultType: CameraResultType.DataUrl,
+            source: CameraSource.Prompt,
+            width: 2400,
+            height: 2400,
+          });
+
+          if (image.dataUrl) {
+            const response = await fetch(image.dataUrl);
+            const blob = await response.blob();
+            const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            setPendingFiles([file]);
+            setCropQueueIndex(0);
+            openCropForFile(file);
+          }
+        } catch (error: any) {
+          if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) return;
+          fileInputRef.current?.click();
         }
-      } catch (error: any) {
-        if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) return;
-        fileInputRef.current?.click();
-      }
+      })();
     } else {
-      // On web/mobile web: use standard file input (OS shows Photo Library, Take Photo, Choose Files)
+      // Web/mobile web: SYNCHRONOUS click to preserve user gesture chain
       fileInputRef.current?.click();
     }
   }, [totalPhotoCount, maxPhotos, t]);
@@ -670,7 +675,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
   // ── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-2">
       {/* Crop Modal */}
       {cropState && (
         <CropModal
@@ -720,7 +725,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
                 <div className="flex-1 flex flex-col min-w-0">
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {t('photos.annotation.label') || 'Describe this photo'}
+                      {t('photos.annotation.label') || 'Describe this photo'} <span className="text-gray-300 dark:text-gray-600">({t('singleScreen.optional') || 'optional'})</span>
                     </span>
                     <button
                       onClick={() => removeExistingPhoto(index)}
@@ -731,7 +736,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
                   </div>
                   <input
                     type="text"
-                    placeholder={t('photos.annotation.placeholder') || "What's in this photo? (optional)"}
+                    placeholder={t('photos.annotation.placeholder') || "What's in this photo?"}
                     value={photo.annotation || ''}
                     onChange={e => {
                       const text = e.target.value;
@@ -791,7 +796,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
                 <div className="flex-1 flex flex-col min-w-0">
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {t('photos.annotation.label') || 'Describe this photo'}
+                      {t('photos.annotation.label') || 'Describe this photo'} <span className="text-gray-300 dark:text-gray-600">({t('singleScreen.optional') || 'optional'})</span>
                     </span>
                     <button
                       onClick={() => removeNewPhoto(index)}
@@ -802,7 +807,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
                   </div>
                   <input
                     type="text"
-                    placeholder={t('photos.annotation.placeholder') || "What's in this photo? (optional)"}
+                    placeholder={t('photos.annotation.placeholder') || "What's in this photo?"}
                     value={photo.annotation || ''}
                     onChange={e => {
                       const text = e.target.value;

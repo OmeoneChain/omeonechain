@@ -1,11 +1,11 @@
 {
   "creation": {
     "title": "Nova Recomendação",
-    "chooseRestaurant": "Escolha um restaurante",
+    "chooseRestaurant": "Escolha um Restaurante",
     "searchRestaurant": "Buscar restaurante...",
-    "addNewRestaurant": "Adicionar novo restaurante",
+    "addNewRestaurant": "Adicionar Novo Restaurante",
     "reviewAndPublish": "Revisar & Publicar",
-    "addTextAndPhotos": "Adicionar texto & fotos",
+    "addTextAndPhotos": "Adicionar Texto & Fotos",
     "restaurant": {
       "name": "Nome do restaurante",
       "address": "Endereço",
@@ -248,7 +248,7 @@
       "drink": "Bebida"
     },
     "annotation": {
-      "placeholder": "O que tem nesta foto? (opcional)",
+      "placeholder": "O que tem nesta foto?",
       "dismissRating": "Não é um prato",
       "label": "Descreva esta foto"
     }
