@@ -21,7 +21,8 @@
   "recentActivity": {
     "title": "Atividade Recente",
     "empty": "Nenhuma recompensa ainda. Comece a ganhar criando recomendações!",
-    "showMore": "Ver Mais"
+    "showMore": "Ver Mais",
+    "loading": "Carregando..."
   },
 
   "actions": {

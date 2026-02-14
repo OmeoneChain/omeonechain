@@ -21,7 +21,8 @@
   "recentActivity": {
     "title": "Recent Activity",
     "empty": "No rewards yet. Start earning by creating recommendations!",
-    "showMore": "Show More"
+    "showMore": "Show More",
+    "loading": "Loading..."
   },
 
   "actions": {
