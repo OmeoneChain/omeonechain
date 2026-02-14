@@ -1,14 +1,15 @@
 // components/recommendation/EnhancedPhotoUpload.tsx
 // UPDATED: Safe Capacitor Camera integration with file input fallback
-// UPDATED: Better mobile UX with proper native camera support
 // FIXED: Compress images BEFORE size check (Jan 30, 2026)
-// FIXED: Better compression for large photos from phone cameras
 // NEW: Crop/reposition modal before upload (Feb 8, 2026)
 // NEW: Re-crop support for existing IPFS photos in edit mode (Feb 8, 2026)
 // FIXED: Safe area insets for iPhone, free-pan cropping (Feb 9, 2026)
+// UPDATED: Single "Add Photo" zone — removed redundant Take Photo / From Gallery buttons (Feb 14, 2026)
+// NEW: Crop queue — select multiple photos, crop one-by-one (Feb 14, 2026)
+// NEW: Per-photo annotation — "What's in this photo?" + auto-rating slider (Feb 14, 2026)
 
 import React, { useState, useRef, useCallback } from 'react';
-import { Camera, Upload, X, Loader, FileImage, AlertCircle, ZoomIn, ZoomOut, Check, Crop } from 'lucide-react';
+import { Camera, Upload, X, Loader, AlertCircle, ZoomIn, ZoomOut, Check, Crop, Star } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-hot-toast';
 import Cropper from 'react-easy-crop';
@@ -24,20 +25,28 @@ try {
 
 // ─── Types ───────────────────────────────────────────────────────────
 
-interface PhotoData {
+export interface PhotoData {
   file: File;
   preview: string;
   timestamp: Date;
+  // Annotation fields (NEW — Feb 14, 2026)
+  annotation?: string;        // Free text: "Lasagna", "the patio", "cocktail menu", etc.
+  dishRating?: number;        // 0-10 rating (only if user confirms this is a dish)
+  showRating?: boolean;       // UI state: undefined=auto-show when text exists, false=user dismissed
 }
 
 /** Existing photos loaded from the server during edit mode */
 export interface ExistingPhoto {
-  cid: string | null;   // IPFS CID (null if it's a plain URL)
-  url: string;          // Full URL to display
+  cid: string | null;
+  url: string;
   caption?: string;
   tag?: string | null;
-  isModified?: boolean; // true if user re-cropped this photo
-  newFile?: File;       // the re-cropped File (if modified)
+  isModified?: boolean;
+  newFile?: File;
+  // Annotation fields (NEW)
+  annotation?: string;
+  dishRating?: number;
+  showRating?: boolean;
 }
 
 interface PhotoUploadProps {
@@ -46,15 +55,14 @@ interface PhotoUploadProps {
   maxPhotos?: number;
   maxSizeBytes?: number;
   maxSizeBeforeCompressionMB?: number;
-  /** Existing photos from server (edit mode only) */
   existingPhotos?: ExistingPhoto[];
   onExistingPhotosChange?: (photos: ExistingPhoto[]) => void;
 }
 
 interface CropState {
   imageUrl: string;
-  originalFile?: File;       // present for new photos
-  existingIndex?: number;    // present for re-cropping existing photos
+  originalFile?: File;
+  existingIndex?: number;
 }
 
 // ─── Crop Helper ─────────────────────────────────────────────────────
@@ -122,9 +130,11 @@ interface CropModalProps {
   onConfirm: (croppedAreaPixels: Area) => void;
   onCancel: () => void;
   t: ReturnType<typeof useTranslations>;
+  queuePosition?: number;
+  queueTotal?: number;
 }
 
-const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t }) => {
+const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t, queuePosition, queueTotal }) => {
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -139,9 +149,11 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
     }
   };
 
+  const showQueueIndicator = queuePosition !== undefined && queueTotal !== undefined && queueTotal > 1;
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
-      {/* Header — with safe area inset for iPhone notch/Dynamic Island */}
+      {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm border-b border-white/10"
         style={{ paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)' }}
@@ -152,9 +164,16 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
         >
           {t('photoUpload.crop.cancel') || 'Cancel'}
         </button>
-        <span className="text-white text-sm font-medium">
-          {t('photoUpload.crop.title') || 'Adjust Photo'}
-        </span>
+        <div className="text-center">
+          <span className="text-white text-sm font-medium">
+            {t('photoUpload.crop.title') || 'Adjust Photo'}
+          </span>
+          {showQueueIndicator && (
+            <p className="text-white/50 text-xs mt-0.5">
+              Photo {queuePosition} of {queueTotal}
+            </p>
+          )}
+        </div>
         <button
           onClick={handleConfirm}
           className="bg-[#FF644A] text-white px-4 py-2 rounded-lg hover:bg-[#E65441] transition-colors text-sm font-medium flex items-center gap-1.5 min-h-[44px]"
@@ -164,7 +183,7 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
         </button>
       </div>
 
-      {/* Crop area — free panning enabled */}
+      {/* Crop area */}
       <div className="relative flex-1">
         <Cropper
           image={imageUrl}
@@ -187,7 +206,7 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
         />
       </div>
 
-      {/* Bottom controls — with safe area inset for iPhone home bar */}
+      {/* Bottom controls */}
       <div
         className="px-6 py-4 bg-black/80 backdrop-blur-sm border-t border-white/10"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 16px)' }}
@@ -220,6 +239,87 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t 
   );
 };
 
+// ─── Per-Photo Annotation Component ──────────────────────────────────
+
+interface AnnotationProps {
+  annotation?: string;
+  dishRating?: number;
+  showRating?: boolean;
+  onChange: (updates: { annotation?: string; dishRating?: number; showRating?: boolean }) => void;
+  t: ReturnType<typeof useTranslations>;
+}
+
+const PhotoAnnotation: React.FC<AnnotationProps> = ({ annotation, dishRating, showRating, onChange, t }) => {
+  const hasText = !!annotation?.trim();
+  // Auto-show rating when text exists, unless user explicitly dismissed (showRating === false)
+  const shouldShowRating = hasText && showRating !== false;
+
+  const handleTextChange = (text: string) => {
+    const updates: any = { annotation: text };
+    // If text is cleared, reset rating state
+    if (!text.trim()) {
+      updates.showRating = undefined;
+      updates.dishRating = undefined;
+    }
+    onChange(updates);
+  };
+
+  const handleDismissRating = () => {
+    onChange({ showRating: false, dishRating: undefined });
+  };
+
+  const formatRating = (r: number) => (Number.isInteger(r) ? `${r}.0` : r.toFixed(1));
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      {/* Text input */}
+      <input
+        type="text"
+        placeholder={t('photos.annotation.placeholder') || "What's in this photo? (optional)"}
+        value={annotation || ''}
+        onChange={e => handleTextChange(e.target.value)}
+        className="w-full px-2.5 py-2 text-xs border border-gray-200 dark:border-[#3D3C4A] rounded-lg bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-1 focus:ring-[#FF644A] focus:border-transparent transition-all"
+      />
+
+      {/* Rating slider — auto-appears when text is entered, dismissible */}
+      {shouldShowRating && (
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-[#FFF4E1] dark:bg-[#FF644A]/10 rounded-lg animate-in fade-in slide-in-from-top-1 duration-200">
+          <Star className="h-3 w-3 text-[#FF644A] fill-[#FF644A] flex-shrink-0" />
+          <input
+            type="range"
+            min="0"
+            max="10"
+            step="0.5"
+            value={dishRating ?? 7}
+            onChange={e => onChange({ dishRating: parseFloat(e.target.value) })}
+            className="flex-1 h-1 rounded-full appearance-none cursor-pointer
+                       [&::-webkit-slider-thumb]:appearance-none
+                       [&::-webkit-slider-thumb]:w-4
+                       [&::-webkit-slider-thumb]:h-4
+                       [&::-webkit-slider-thumb]:rounded-full
+                       [&::-webkit-slider-thumb]:bg-[#FF644A]
+                       [&::-webkit-slider-thumb]:shadow-sm
+                       [&::-webkit-slider-thumb]:cursor-pointer"
+            style={{
+              background: 'linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)',
+            }}
+          />
+          <span className="text-xs font-bold text-[#FF644A] min-w-[36px] text-right">
+            {formatRating(dishRating ?? 7)}/10
+          </span>
+          <button
+            onClick={handleDismissRating}
+            className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors flex-shrink-0"
+            title={t('photos.annotation.dismissRating') || 'Not a dish'}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main Component ──────────────────────────────────────────────────
 
 const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
@@ -233,15 +333,17 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
 }) => {
   const t = useTranslations('recommendations');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [cropState, setCropState] = useState<CropState | null>(null);
 
-  // Total photos = existing (not removed) + new
+  // ── Crop Queue (NEW — Feb 14, 2026) ──────────────────────────────
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [cropQueueIndex, setCropQueueIndex] = useState(0);
+
   const totalPhotoCount = existingPhotos.length + photos.length;
 
-  // ── Compression (unchanged) ──────────────────────────────────────
+  // ── Compression ──────────────────────────────────────────────────
 
   const compressImage = (file: File, quality: number = 0.85, maxDimension: number = 1200): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -335,19 +437,31 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
     }
   };
 
-  // ── Crop modal — for new photos ──────────────────────────────────
+  // ── Crop queue helpers ───────────────────────────────────────────
 
-  const openCropModal = (file: File) => {
+  const openCropForFile = (file: File) => {
     const imageUrl = URL.createObjectURL(file);
     setCropState({ imageUrl, originalFile: file });
   };
 
-  // ── Crop modal — for existing photos (re-crop) ──────────────────
+  const advanceQueueOrClose = (currentQueue: File[], currentIndex: number) => {
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < currentQueue.length) {
+      setCropQueueIndex(nextIndex);
+      openCropForFile(currentQueue[nextIndex]);
+    } else {
+      // Queue complete
+      setPendingFiles([]);
+      setCropQueueIndex(0);
+      setCropState(null);
+    }
+  };
+
+  // ── Re-crop existing photo ───────────────────────────────────────
 
   const openRecropModal = (index: number) => {
     const photo = existingPhotos[index];
     if (!photo) return;
-    // Use the existing URL (Pinata gateway) — CORS should work
     setCropState({ imageUrl: photo.url, existingIndex: index });
   };
 
@@ -370,23 +484,25 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
             `recrop-${Date.now()}.jpg`
           );
 
-          // Compress the re-cropped file
           const compressedFile = await compressToTargetSize(croppedFile, maxSizeBytes);
           const newPreviewUrl = URL.createObjectURL(compressedFile);
 
-          // Update the existing photo entry
           const updatedExisting = [...existingPhotos];
           updatedExisting[cropState.existingIndex] = {
             ...updatedExisting[cropState.existingIndex],
-            url: newPreviewUrl,        // Show re-cropped preview
-            isModified: true,          // Flag for re-upload on save
-            newFile: compressedFile,   // The file to upload
+            url: newPreviewUrl,
+            isModified: true,
+            newFile: compressedFile,
           };
           onExistingPhotosChange?.(updatedExisting);
 
           toast.success(t('photoUpload.success.recropped') || 'Photo re-cropped!');
+
+          // Re-crop doesn't use the queue — just close
+          if (cropState.originalFile) URL.revokeObjectURL(cropState.imageUrl);
+          setCropState(null);
         } else if (cropState.originalFile) {
-          // ── CROP of a new photo ──
+          // ── CROP of a new photo (may be part of a queue) ──
           setProcessingStatus('Cropping photo...');
 
           const croppedFile = await getCroppedImageFile(
@@ -398,31 +514,40 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
           const photoData = await processFile(croppedFile);
           if (photoData) {
             onPhotosChange([...photos, photoData]);
-            toast.success(t('photoUpload.success.added', { count: 1 }) || 'Photo added!');
           }
+
+          // Clean up current blob URL
+          URL.revokeObjectURL(cropState.imageUrl);
+
+          // Advance queue or close
+          advanceQueueOrClose(pendingFiles, cropQueueIndex);
         }
       } catch (error) {
         console.error('Crop failed:', error);
         toast.error(t('photoUpload.errors.cropFailed') || 'Failed to crop photo. Please try again.');
+        if (cropState.originalFile) URL.revokeObjectURL(cropState.imageUrl);
+        advanceQueueOrClose(pendingFiles, cropQueueIndex);
       } finally {
-        // Clean up — only revoke if it was a local blob URL (not an IPFS URL)
-        if (cropState.originalFile) {
-          URL.revokeObjectURL(cropState.imageUrl);
-        }
-        setCropState(null);
         setIsProcessing(false);
         setProcessingStatus('');
       }
     },
-    [cropState, photos, existingPhotos, onPhotosChange, onExistingPhotosChange, t]
+    [cropState, photos, existingPhotos, pendingFiles, cropQueueIndex, onPhotosChange, onExistingPhotosChange, t]
   );
 
   const handleCropCancel = useCallback(() => {
     if (cropState?.originalFile) {
       URL.revokeObjectURL(cropState.imageUrl);
     }
-    setCropState(null);
-  }, [cropState]);
+
+    if (cropState?.existingIndex !== undefined) {
+      // Re-crop cancel — just close
+      setCropState(null);
+    } else {
+      // Queue cancel — skip to next photo
+      advanceQueueOrClose(pendingFiles, cropQueueIndex);
+    }
+  }, [cropState, pendingFiles, cropQueueIndex]);
 
   // ── File selection ───────────────────────────────────────────────
 
@@ -442,44 +567,40 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
       if (imageFiles.length === 0) return;
 
       const filesToProcess = imageFiles.slice(0, maxPhotos - totalPhotoCount);
-      if (filesToProcess.length === 1) {
-        openCropModal(filesToProcess[0]);
-      } else {
-        openCropModal(filesToProcess[0]);
-        if (filesToProcess.length > 1) {
-          toast(
-            t('photoUpload.info.cropOneAtATime') ||
-              `Crop this photo first — then add the remaining ${filesToProcess.length - 1} photo(s).`,
-            { icon: '📸', duration: 4000 }
-          );
-        }
-      }
+
+      // Queue all files and start crop for the first one
+      setPendingFiles(filesToProcess);
+      setCropQueueIndex(0);
+      openCropForFile(filesToProcess[0]);
     },
     [totalPhotoCount, maxPhotos, t]
   );
 
-  // ── Capacitor Camera ─────────────────────────────────────────────
+  // ── Trigger file input (with Capacitor fallback for native) ──────
 
-  const handleCameraCapture = useCallback(async () => {
+  const triggerFileInput = useCallback(async () => {
     if (totalPhotoCount >= maxPhotos) {
       toast.error(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
       return;
     }
+
     const isNative = CapacitorCore?.isNativePlatform?.() ?? false;
 
     if (isNative) {
+      // On native Capacitor: use native camera/gallery picker
       try {
         const { Camera: CapacitorCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
         if (typeof CapacitorCamera?.getPhoto !== 'function') {
           fileInputRef.current?.click();
           return;
         }
+
         try {
           const permissions = await CapacitorCamera.checkPermissions();
-          if (permissions.camera === 'denied') {
+          if (permissions.photos === 'denied') {
             const requested = await CapacitorCamera.requestPermissions();
-            if (requested.camera === 'denied') {
-              toast.error('Camera permission required. Please enable in Settings.');
+            if (requested.photos === 'denied') {
+              toast.error('Photo permission required. Please enable in Settings.');
               fileInputRef.current?.click();
               return;
             }
@@ -490,7 +611,7 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
           quality: 90,
           allowEditing: false,
           resultType: CameraResultType.DataUrl,
-          source: CameraSource.Camera,
+          source: CameraSource.Prompt, // Let user choose camera or gallery
           width: 2400,
           height: 2400,
         });
@@ -499,66 +620,17 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
           const response = await fetch(image.dataUrl);
           const blob = await response.blob();
           const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          openCropModal(file);
+          setPendingFiles([file]);
+          setCropQueueIndex(0);
+          openCropForFile(file);
         }
       } catch (error: any) {
         if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) return;
         fileInputRef.current?.click();
       }
     } else {
+      // On web/mobile web: use standard file input (OS shows Photo Library, Take Photo, Choose Files)
       fileInputRef.current?.click();
-    }
-  }, [totalPhotoCount, maxPhotos, t]);
-
-  // ── Capacitor Gallery ────────────────────────────────────────────
-
-  const handleGallerySelect = useCallback(async () => {
-    if (totalPhotoCount >= maxPhotos) {
-      toast.error(t('photoUpload.errors.maxPhotos', { max: maxPhotos }));
-      return;
-    }
-    const isNative = CapacitorCore?.isNativePlatform?.() ?? false;
-
-    if (isNative) {
-      try {
-        const { Camera: CapacitorCamera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-        if (typeof CapacitorCamera?.getPhoto !== 'function') {
-          galleryInputRef.current?.click();
-          return;
-        }
-        try {
-          const permissions = await CapacitorCamera.checkPermissions();
-          if (permissions.photos === 'denied') {
-            const requested = await CapacitorCamera.requestPermissions();
-            if (requested.photos === 'denied') {
-              toast.error('Photo library permission required. Please enable in Settings.');
-              galleryInputRef.current?.click();
-              return;
-            }
-          }
-        } catch (permError) { /* try anyway */ }
-
-        const image = await CapacitorCamera.getPhoto({
-          quality: 90,
-          allowEditing: false,
-          resultType: CameraResultType.DataUrl,
-          source: CameraSource.Photos,
-          width: 2400,
-          height: 2400,
-        });
-
-        if (image.dataUrl) {
-          const response = await fetch(image.dataUrl);
-          const blob = await response.blob();
-          const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          openCropModal(file);
-        }
-      } catch (error: any) {
-        if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) return;
-        galleryInputRef.current?.click();
-      }
-    } else {
-      galleryInputRef.current?.click();
     }
   }, [totalPhotoCount, maxPhotos, t]);
 
@@ -589,7 +661,32 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
     onExistingPhotosChange?.(updated);
   };
 
-  const triggerFileInput = () => { fileInputRef.current?.click(); };
+  // ── Update annotations ───────────────────────────────────────────
+
+  const updateNewPhotoAnnotation = (index: number, updates: Partial<Pick<PhotoData, 'annotation' | 'dishRating' | 'showRating'>>) => {
+    const updatedPhotos = [...photos];
+    updatedPhotos[index] = { ...updatedPhotos[index], ...updates };
+
+    // If annotation cleared, reset rating state
+    if ('annotation' in updates && !updates.annotation?.trim()) {
+      updatedPhotos[index].showRating = undefined;
+      updatedPhotos[index].dishRating = undefined;
+    }
+
+    onPhotosChange(updatedPhotos);
+  };
+
+  const updateExistingPhotoAnnotation = (index: number, updates: Partial<Pick<ExistingPhoto, 'annotation' | 'dishRating' | 'showRating'>>) => {
+    const updated = [...existingPhotos];
+    updated[index] = { ...updated[index], ...updates };
+
+    if ('annotation' in updates && !updates.annotation?.trim()) {
+      updated[index].showRating = undefined;
+      updated[index].dishRating = undefined;
+    }
+
+    onExistingPhotosChange?.(updated);
+  };
 
   // ── Calculated values ────────────────────────────────────────────
 
@@ -606,6 +703,8 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
           onConfirm={handleCropConfirm}
           onCancel={handleCropCancel}
           t={t}
+          queuePosition={pendingFiles.length > 1 ? cropQueueIndex + 1 : undefined}
+          queueTotal={pendingFiles.length > 1 ? pendingFiles.length : undefined}
         />
       )}
 
@@ -613,71 +712,93 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {/* Existing photos (edit mode) */}
         {existingPhotos.map((photo, index) => (
-          <div key={`existing-${index}`} className="relative group">
-            <img
-              src={photo.url}
-              alt={`Photo ${index + 1}`}
-              className="w-full aspect-[4/3] object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
-              crossOrigin="anonymous"
+          <div key={`existing-${index}`} className="space-y-0">
+            <div className="relative group">
+              <img
+                src={photo.url}
+                alt={`Photo ${index + 1}`}
+                className="w-full aspect-[4/3] object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
+                crossOrigin="anonymous"
+              />
+
+              {/* Modified badge */}
+              {photo.isModified && (
+                <div className="absolute top-2 left-2 bg-[#FF644A] text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
+                  {t('photoUpload.recropped') || 'Re-cropped'}
+                </div>
+              )}
+
+              {/* Re-crop button */}
+              <button
+                onClick={() => openRecropModal(index)}
+                className="absolute bottom-2 left-2 bg-black/60 text-white rounded-lg p-1.5 hover:bg-black/80 transition-colors shadow-lg"
+                title={t('photoUpload.recrop') || 'Re-crop'}
+              >
+                <Crop className="h-3.5 w-3.5" />
+              </button>
+
+              {/* Delete button */}
+              <button
+                onClick={() => removeExistingPhoto(index)}
+                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-opacity shadow-lg"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Annotation */}
+            <PhotoAnnotation
+              annotation={photo.annotation}
+              dishRating={photo.dishRating}
+              showRating={photo.showRating}
+              onChange={updates => updateExistingPhotoAnnotation(index, updates)}
+              t={t}
             />
-
-            {/* Modified badge */}
-            {photo.isModified && (
-              <div className="absolute top-2 left-2 bg-[#FF644A] text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
-                {t('photoUpload.recropped') || 'Re-cropped'}
-              </div>
-            )}
-
-            {/* Re-crop button */}
-            <button
-              onClick={() => openRecropModal(index)}
-              className="absolute bottom-2 left-2 bg-black/60 text-white rounded-lg p-1.5 hover:bg-black/80 transition-colors shadow-lg"
-              title={t('photoUpload.recrop') || 'Re-crop'}
-            >
-              <Crop className="h-3.5 w-3.5" />
-            </button>
-
-            {/* Delete button */}
-            <button
-              onClick={() => removeExistingPhoto(index)}
-              className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-opacity shadow-lg"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
         ))}
 
         {/* New photos */}
         {photos.map((photo, index) => (
-          <div key={`new-${index}`} className="relative group">
-            <img
-              src={photo.preview}
-              alt={t('photoUpload.photoAlt', { number: existingPhotos.length + index + 1 })}
-              className="w-full aspect-[4/3] object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
-            />
-            <button
-              onClick={() => removeNewPhoto(index)}
-              className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-opacity shadow-lg"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <div className="absolute bottom-1 left-1">
-              <div className={`text-white text-xs px-1.5 py-0.5 rounded ${
-                photo.file.size > maxSizeBytes ? 'bg-yellow-500' : 'bg-black bg-opacity-60'
-              }`}>
-                {(photo.file.size / 1024 / 1024).toFixed(1)}MB
+          <div key={`new-${index}`} className="space-y-0">
+            <div className="relative group">
+              <img
+                src={photo.preview}
+                alt={t('photoUpload.photoAlt', { number: existingPhotos.length + index + 1 })}
+                className="w-full aspect-[4/3] object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
+              />
+              <button
+                onClick={() => removeNewPhoto(index)}
+                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-opacity shadow-lg"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="absolute bottom-1 left-1">
+                <div className={`text-white text-xs px-1.5 py-0.5 rounded ${
+                  photo.file.size > maxSizeBytes ? 'bg-yellow-500' : 'bg-black bg-opacity-60'
+                }`}>
+                  {(photo.file.size / 1024 / 1024).toFixed(1)}MB
+                </div>
               </div>
+              {/* "New" badge in edit mode */}
+              {existingPhotos.length > 0 && (
+                <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
+                  {t('photoUpload.new') || 'New'}
+                </div>
+              )}
             </div>
-            {/* "New" badge in edit mode */}
-            {existingPhotos.length > 0 && (
-              <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
-                {t('photoUpload.new') || 'New'}
-              </div>
-            )}
+
+            {/* Annotation */}
+            <PhotoAnnotation
+              annotation={photo.annotation}
+              dishRating={photo.dishRating}
+              showRating={photo.showRating}
+              onChange={updates => updateNewPhotoAnnotation(index, updates)}
+              t={t}
+            />
           </div>
         ))}
 
-        {/* Add Photo Button */}
+        {/* Add Photo Button — single entry point */}
         {totalPhotoCount < maxPhotos && (
           <div
             onClick={triggerFileInput}
@@ -708,19 +829,9 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         )}
       </div>
 
-      {/* Hidden File Inputs */}
+      {/* Hidden File Input — single input, no capture (opens OS picker on mobile) */}
       <input
         ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={(e) => {
-          if (e.target.files) { handleFileSelect(e.target.files); e.target.value = ''; }
-        }}
-        className="hidden"
-      />
-      <input
-        ref={galleryInputRef}
         type="file"
         accept="image/*"
         multiple
@@ -750,39 +861,10 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         </div>
       )}
 
-      {/* Camera/Gallery Buttons */}
-      {totalPhotoCount < maxPhotos && (
-        <div className="flex space-x-3">
-          <button
-            onClick={handleCameraCapture}
-            disabled={isProcessing || !!cropState}
-            className="flex-1 px-4 py-3 bg-[#FF644A] text-white rounded-lg hover:bg-[#E65441] transition-colors flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isProcessing ? (
-              <Loader className="h-5 w-5 animate-spin" />
-            ) : (
-              <>
-                <Camera className="h-5 w-5 mr-2" />
-                {t('photoUpload.takePhoto')}
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleGallerySelect}
-            disabled={isProcessing || !!cropState}
-            className="flex-1 px-4 py-3 bg-[#353444] dark:bg-[#404050] text-white rounded-lg hover:bg-[#2D2C3A] dark:hover:bg-[#4D4C5A] transition-colors flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isProcessing ? (
-              <Loader className="h-5 w-5 animate-spin" />
-            ) : (
-              <>
-                <FileImage className="h-5 w-5 mr-2" />
-                {t('photoUpload.fromGallery')}
-              </>
-            )}
-          </button>
-        </div>
-      )}
+      {/* NOTE: "Take Photo" and "From Gallery" buttons REMOVED (Feb 14, 2026)
+           The Add Photo zone now triggers the native OS picker which offers
+           Photo Library, Take Photo, and Choose Files on mobile.
+           On Capacitor native, it uses Capacitor's camera API with CameraSource.Prompt. */}
     </div>
   );
 };

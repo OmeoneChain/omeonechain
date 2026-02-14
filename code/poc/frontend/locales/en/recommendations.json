@@ -246,6 +246,10 @@
       "vibe": "Ambiance/Vibe",
       "menu": "Menu",
       "drink": "Drink"
+    },
+    "annotation": {
+      "placeholder": "What's in this photo? (optional)",
+      "dismissRating": "Not a dish"
     }
   },
   "reshare": {

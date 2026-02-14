@@ -12,14 +12,13 @@
 // UPDATED: Tighter header spacing for mobile search visibility (Feb 1, 2026)
 // UPDATED: Edit mode support — editMode prop, PATCH endpoint, locked restaurant (Feb 9, 2026)
 // UPDATED: Reordered sections (Photos before Dishes), simplified Dishes, removed Labels (Feb 13, 2026)
+// UPDATED: Integrated dish rating into Photos (per-photo annotation), removed Individual Dishes section (Feb 14, 2026)
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   MapPin,
-  Plus,
   Star,
   AlertCircle,
-  Utensils,
   DollarSign,
   Clock,
   Users,
@@ -193,6 +192,10 @@ interface PhotoData {
   timestamp: Date;
   dish_tag?: string;
   dish_tag_other?: string;
+  // NEW: Per-photo annotation (Feb 14, 2026) — replaces Individual Dishes section
+  annotation?: string;        // Free text: "Lasagna", "the patio", etc.
+  dishRating?: number;        // 0-10 rating (set via auto-appearing slider)
+  showRating?: boolean;       // UI state for rating slider visibility
 }
 
 // Serializable version for localStorage (without File objects)
@@ -368,14 +371,8 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [currentDish, setCurrentDish] = useState<Dish>({
-    id: '',
-    name: '',
-    rating: 7,
-    notes: '',
-    would_order_again: true,
-  });
-  const [editingDishId, setEditingDishId] = useState<string | null>(null);
+  // NOTE: Individual dish state removed (Feb 14, 2026)
+  // Dishes are now built from photo annotations at submit time
 
   const API_BASE_URL = 'https://omeonechain-production.up.railway.app';
 
@@ -625,52 +622,48 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   };
 
   // ============================================
-  // DISH MANAGEMENT (Simplified for launch)
+  // DISH BUILDING (from photo annotations)
+  // NOTE: Individual Dishes section removed Feb 14, 2026.
+  // Dishes are now built from photo annotations at submit time.
   // ============================================
 
-  const handleAddDish = () => {
-    if (!currentDish.name.trim()) {
-      toast.error(t('dishes.validation.enterName'));
-      return;
-    }
+  const buildDishesFromPhotos = (): Dish[] => {
+    const dishes: Dish[] = [];
 
-    if (editingDishId) {
-      setDraft(prev => ({
-        ...prev,
-        dishes: prev.dishes.map(dish => (dish.id === editingDishId ? { ...currentDish, id: editingDishId } : dish)),
-      }));
-      setEditingDishId(null);
-    } else {
-      const newDish: Dish = { ...currentDish, id: generateDishId() };
-      setDraft(prev => ({ ...prev, dishes: [...prev.dishes, newDish] }));
-    }
-
-    // Reset form for next dish
-    setCurrentDish({
-      id: '',
-      name: '',
-      rating: 7,
-      notes: '',
-      would_order_again: true,
+    // Collect from existing photos (edit mode)
+    existingPhotos.forEach(p => {
+      if (p.annotation?.trim() && p.dishRating !== undefined) {
+        // Avoid duplicates by dish name
+        const name = p.annotation.trim();
+        if (!dishes.find(d => d.name.toLowerCase() === name.toLowerCase())) {
+          dishes.push({
+            id: generateDishId(),
+            name,
+            rating: p.dishRating,
+            notes: '',
+            would_order_again: true,
+          });
+        }
+      }
     });
-  };
 
-  const handleEditDish = (dish: Dish) => {
-    setCurrentDish(dish);
-    setEditingDishId(dish.id);
-  };
+    // Collect from new photos
+    draft.photos.forEach(p => {
+      if (p.annotation?.trim() && p.dishRating !== undefined) {
+        const name = p.annotation.trim();
+        if (!dishes.find(d => d.name.toLowerCase() === name.toLowerCase())) {
+          dishes.push({
+            id: generateDishId(),
+            name,
+            rating: p.dishRating,
+            notes: '',
+            would_order_again: true,
+          });
+        }
+      }
+    });
 
-  const handleDeleteDish = (dishId: string) => {
-    setDraft(prev => ({
-      ...prev,
-      dishes: prev.dishes.filter(d => d.id !== dishId),
-      photos: prev.photos.map(p => (p.dish_tag === dishId ? { ...p, dish_tag: 'skip', dish_tag_other: undefined } : p)),
-    }));
-  };
-
-  const handleCancelEditDish = () => {
-    setCurrentDish({ id: '', name: '', rating: 7, notes: '', would_order_again: true });
-    setEditingDishId(null);
+    return dishes;
   };
 
   // ============================================
@@ -760,25 +753,8 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   // PHOTO TAGGING HELPERS
   // ============================================
 
-  const dishOptions = useMemo(() => {
-    return draft.dishes
-      .filter(d => d.name && d.name.trim().length > 0)
-      .map(d => ({ id: d.id, name: d.name.trim() }));
-  }, [draft.dishes]);
-
-  const getDishNameById = (id?: string) => {
-    if (!id) return '';
-    const found = draft.dishes.find(d => d.id === id);
-    return found?.name || '';
-  };
-
-  const updatePhotoTag = (index: number, updates: Partial<PhotoData>) => {
-    setDraft(prev => {
-      const next = [...prev.photos];
-      next[index] = { ...next[index], ...updates };
-      return { ...prev, photos: next };
-    });
-  };
+  // NOTE: dishOptions, getDishNameById, updatePhotoTag removed (Feb 14, 2026)
+  // Photo tagging now uses the annotation text directly.
 
   // ============================================
   // REWARDS
@@ -803,16 +779,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   // ============================================
 
   const handleSubmit = async () => {
-    // Auto-add any pending dish before submitting (prevents silent data loss)
-    if (currentDish.name.trim()) {
-      const pendingDish: Dish = { ...currentDish, id: generateDishId() };
-      setDraft(prev => ({ ...prev, dishes: [...prev.dishes, pendingDish] }));
-      // Also update local reference for the payload below
-      draft.dishes = [...draft.dishes, pendingDish];
-      setCurrentDish({ id: '', name: '', rating: 7, notes: '', would_order_again: true });
-      setEditingDishId(null);
-    }
-
     if (!draft.restaurant) {
       toast.error(t('validation.fillRequired'));
       return;
@@ -939,25 +905,25 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
       const CATEGORY_TAGS = ['vibe', 'menu', 'drink', 'food'];
       
+      // Build photo_tagging from annotations (NEW — Feb 14, 2026)
       const photo_tagging = (photoHashes || []).map((cid, idx) => {
         const p = draft.photos[idx];
-        const tag = p?.dish_tag;
-
         if (!p) return { cid, tag: 'skip' };
-        if (!tag || tag === 'skip') return { cid, tag: 'skip' };
 
-        if (tag === 'other') {
-          const other = (p.dish_tag_other || '').trim();
-          return other ? { cid, tag: 'other', other } : { cid, tag: 'skip' };
+        const annotationText = p.annotation?.trim();
+        if (!annotationText) return { cid, tag: 'skip' };
+
+        // If user rated this as a dish
+        if (p.dishRating !== undefined) {
+          return { cid, tag: 'dish', dish_name: annotationText };
         }
 
-        if (CATEGORY_TAGS.includes(tag)) {
-          return { cid, tag: tag };
-        }
-
-        const dishName = getDishNameById(tag);
-        return dishName ? { cid, tag: 'dish', dish_id: tag, dish_name: dishName } : { cid, tag: 'skip' };
+        // Otherwise it's a general annotation (ambiance, menu, drink, etc.)
+        return { cid, tag: 'other', other: annotationText };
       });
+
+      // Build dishes from photo annotations (replaces manual dish management)
+      const dishesFromPhotos = buildDishesFromPhotos();
 
       const titleTrim = draft.title.trim();
       const bodyTrim = draft.body.trim();
@@ -978,8 +944,8 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         ...(titleTrim ? { title: titleTrim } : {}),
         ...(bodyTrim ? { content: bodyTrim } : {}),
         ...(categoryTrim ? { category: categoryTrim } : {}),
-        dishes: draft.dishes.length
-          ? draft.dishes.map(dish => ({
+        dishes: dishesFromPhotos.length
+          ? dishesFromPhotos.map(dish => ({
               name: dish.name,
               rating: dish.rating,
               notes: dish.notes,
@@ -1045,7 +1011,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
             restaurantId: draft.restaurant.id,
             restaurantName: draft.restaurant.name,
             overallRating: draft.overall_rating,
-            dishCount: draft.dishes.length,
+            dishCount: dishesFromPhotos.length,
             hasAspects: !!draft.aspects,
             hasContext: !!draft.context,
             contextTags: draft.context_tags,
@@ -1479,241 +1445,29 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                 badgeCount={draft.photos.length + existingPhotos.length}
                 defaultOpen={draft.photos.length > 0 || existingPhotos.length > 0}
               >
-                <div className="space-y-4">
-                  <EnhancedPhotoUpload
-                    photos={draft.photos}
-                    onPhotosChange={handlePhotosChange}
-                    maxPhotos={5}
-                    existingPhotos={existingPhotos}
-                    onExistingPhotosChange={setExistingPhotos}
-                  />
-
-                  {draft.photos.length > 0 && (
-                    <p className="text-xs text-green-600 dark:text-green-400">
-                      {t('steps.preview.photoBonus', {
-                        bonus: (draft.photos.length * 0.2).toFixed(1),
-                        count: draft.photos.length,
-                      })}
-                    </p>
-                  )}
-
-                  {/* Tagging UI */}
-                  {draft.photos.length > 0 && (
-                    <div className="mt-4">
-                      <div className="text-sm font-semibold text-[#1F1E2A] dark:text-white mb-1">
-                        {t('photos.tagging.title')}
-                      </div>
-                      <p className="text-xs text-[#9CA3AF] dark:text-gray-500 mb-3">{t('photos.tagging.help')}</p>
-
-                      <div className="space-y-3">
-                        {draft.photos.map((photo, idx) => {
-                          const currentTag = photo.dish_tag || 'skip';
-                          const isOther = currentTag === 'other';
-
-                          const getTagLabel = () => {
-                            if (currentTag === 'skip') return t('photos.tagging.notTagged');
-                            if (currentTag === 'other') return `${t('photos.tagging.current')} ${photo.dish_tag_other || ''}`;
-                            if (currentTag === 'vibe') return `${t('photos.tagging.current')} 🏮 ${t('photos.tagging.vibe') || 'Ambiance/Vibe'}`;
-                            if (currentTag === 'menu') return `${t('photos.tagging.current')} 📋 ${t('photos.tagging.menu') || 'Menu'}`;
-                            if (currentTag === 'drink') return `${t('photos.tagging.current')} 🍹 ${t('photos.tagging.drink') || 'Drink'}`;
-                            return `${t('photos.tagging.current')} ${getDishNameById(currentTag)}`;
-                          };
-
-                          const taggedLabel = getTagLabel();
-
-                          return (
-                            <div key={photo.preview + idx} className="flex gap-3 items-start p-3 border border-gray-100 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#353444]">
-                              <img
-                                src={photo.preview}
-                                alt={`photo-${idx}`}
-                                className="w-14 h-14 rounded-lg object-cover border border-gray-100 dark:border-[#3D3C4A]"
-                              />
-
-                              <div className="flex-1">
-                                <label className="block text-xs font-medium text-[#1F1E2A] dark:text-white mb-1">
-                                  {t('photos.tagging.label')} <span className="text-[#9CA3AF] dark:text-gray-500">({t('singleScreen.optional')})</span>
-                                </label>
-
-                                <select
-                                  value={currentTag}
-                                  onChange={e => {
-                                    const next = e.target.value;
-                                    if (next === 'other') {
-                                      updatePhotoTag(idx, { dish_tag: 'other' });
-                                    } else if (next === 'skip') {
-                                      updatePhotoTag(idx, { dish_tag: 'skip', dish_tag_other: undefined });
-                                    } else {
-                                      updatePhotoTag(idx, { dish_tag: next, dish_tag_other: undefined });
-                                    }
-                                  }}
-                                  className="w-full px-3 py-3 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
-                                >
-                                  <option value="skip">{t('photos.tagging.skip')}</option>
-                
-                                  <optgroup label={t('photos.tagging.categories') || 'Categories'}>
-                                    <option value="vibe">🏮 {t('photos.tagging.vibe') || 'Ambiance/Vibe'}</option>
-                                    <option value="menu">📋 {t('photos.tagging.menu') || 'Menu'}</option>
-                                    <option value="drink">🍹 {t('photos.tagging.drink') || 'Drink'}</option>
-                                  </optgroup>
-
-                                  {dishOptions.length > 0 && (
-                                    <optgroup label={t('photos.tagging.fromDishes')}>
-                                      {dishOptions.map(d => (
-                                        <option key={d.id} value={d.id}>
-                                          🍽️ {d.name}
-                                        </option>
-                                      ))}
-                                    </optgroup>
-                                  )}
-
-                                  <option value="other">{t('photos.tagging.other')}</option>
-                                </select>
-
-                                {isOther && (
-                                  <input
-                                    type="text"
-                                    value={photo.dish_tag_other || ''}
-                                    onChange={e => updatePhotoTag(idx, { dish_tag_other: e.target.value })}
-                                    placeholder={t('photos.tagging.otherPlaceholder')}
-                                    className="mt-2 w-full px-3 py-3 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-xl bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent transition-all"
-                                  />
-                                )}
-
-                                <p className="text-[11px] text-[#9CA3AF] dark:text-gray-500 mt-2">{taggedLabel}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/* EnhancedPhotoUpload now handles:
+                    - Single "Add Photo" zone (no separate Take Photo / From Gallery)
+                    - Crop queue for multi-select
+                    - Per-photo annotation ("What's in this photo?")
+                    - Auto-showing dish rating slider with dismiss
+                    Individual Dishes section REMOVED — dishes are built from photo annotations on publish */}
+                <EnhancedPhotoUpload
+                  photos={draft.photos}
+                  onPhotosChange={handlePhotosChange}
+                  maxPhotos={5}
+                  existingPhotos={existingPhotos}
+                  onExistingPhotosChange={setExistingPhotos}
+                />
               </CS>
 
-              {/* ========================================== */}
-              {/* 3) Individual Dishes (SIMPLIFIED)          */}
-              {/*    - Removed: dish notes, would_order_again*/}
-              {/*    - Cleaner inline add with Enter support */}
-              {/* ========================================== */}
-              <CS
-                title={t('singleScreen.sections.dishes') || t('dishes.title') || 'Individual Dishes'}
-                icon={<Utensils className="h-5 w-5 text-[#FF644A]" />}
-                badgeCount={draft.dishes.length}
-                defaultOpen={draft.dishes.length > 0}
-              >
-                <div className="space-y-3">
-                  {/* Existing dishes — compact list */}
-                  {draft.dishes.length > 0 && (
-                    <div className="space-y-2">
-                      {draft.dishes.map(dish => (
-                        <div key={dish.id} className="flex items-center justify-between p-3 bg-white dark:bg-[#353444] border border-gray-100 dark:border-[#3D3C4A] rounded-xl shadow-sm">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <span className="font-medium text-[#1F1E2A] dark:text-white truncate">{dish.name}</span>
-                            <div className="flex items-center text-sm flex-shrink-0">
-                              <Star className="h-3 w-3 text-[#FF644A] fill-[#FF644A] mr-1" />
-                              <span className="font-bold text-[#FF644A]">{formatRating(dish.rating)}/10</span>
-                            </div>
-                          </div>
-                          <div className="flex gap-1 ml-2 flex-shrink-0">
-                            <button
-                              onClick={() => handleEditDish(dish)}
-                              className="p-2 text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/20 rounded-lg transition-colors"
-                              title={t('actions.edit')}
-                            >
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDish(dish.id)}
-                              className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                              title={t('actions.remove')}
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Add/edit dish — SIMPLIFIED: name + rating only */}
-                  <div className="space-y-3 bg-white dark:bg-[#353444] p-4 rounded-xl border-2 border-dashed border-[#FF644A]/30 dark:border-[#FF644A]/40">
-                    <p className="text-sm font-medium text-[#1F1E2A] dark:text-white">
-                      {editingDishId ? t('dishes.editDish') : t('dishes.addDish')}
-                    </p>
-
-                    {/* Dish name with Enter-to-add */}
-                    <input
-                      type="text"
-                      placeholder={t('dishes.namePlaceholder')}
-                      value={currentDish.name}
-                      onChange={e => setCurrentDish(prev => ({ ...prev, name: e.target.value }))}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && currentDish.name.trim()) {
-                          e.preventDefault();
-                          handleAddDish();
-                        }
-                      }}
-                      className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
-                    />
-
-                    {/* Dish rating slider */}
-                    <div className="flex items-center space-x-2">
-                      <div className="flex-1 py-2">
-                        <input
-                          type="range"
-                          min="0"
-                          max="10"
-                          step="0.5"
-                          value={currentDish.rating}
-                          onChange={e => setCurrentDish(prev => ({ ...prev, rating: parseFloat(e.target.value) }))}
-                          className="w-full touch-slider"
-                          style={{
-                            background: `linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)`,
-                          }}
-                        />
-                      </div>
-                      <span className="text-sm font-bold text-[#FF644A] min-w-[50px] text-center">{formatRating(currentDish.rating)}/10</span>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex gap-2">
-                      {editingDishId && (
-                        <button
-                          onClick={handleCancelEditDish}
-                          className="flex-1 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#404050] transition-colors"
-                        >
-                          {t('actions.cancel')}
-                        </button>
-                      )}
-                      <button
-                        onClick={handleAddDish}
-                        disabled={!currentDish.name.trim()}
-                        className="flex-1 py-3 bg-[#FF644A] text-white rounded-xl hover:bg-[#E65441] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
-                      >
-                        <Plus className="h-4 w-4 inline mr-1" />
-                        {editingDishId ? t('actions.save') : (draft.dishes.length > 0 ? (t('dishes.addAnother') || '+ Add Another') : t('actions.add'))}
-                      </button>
-                    </div>
-
-                    {/* Hint text */}
-                    {!editingDishId && (
-                      <p className="text-xs text-[#9CA3AF] dark:text-gray-500 text-center">
-                        {t('dishes.enterHint') || 'Type a dish name and press Enter or tap Add'}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CS>
+              {/* NOTE: Individual Dishes section REMOVED (Feb 14, 2026)
+                  Dish ratings are now integrated into the Photos section.
+                  Users annotate each photo with a dish name and the rating slider
+                  auto-appears. Dishes are built from these annotations on publish.
+                  The Dish interface and draft.dishes are preserved for API compatibility. */}
 
               {/* ========================================== */}
-              {/* 4) Comments (unchanged)                    */}
+              {/* 3) Comments (unchanged)                    */}
               {/* ========================================== */}
               <CS title={t('singleScreen.sections.comments') || 'Comments'} icon={<span className="text-lg">💬</span>} defaultOpen={false}>
                 <div className="space-y-5">
@@ -1779,7 +1533,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
               {/* ========================================== */}
 
               {/* ========================================== */}
-              {/* 5) Visit Context (unchanged)               */}
+              {/* 4) Visit Context (unchanged)               */}
               {/* ========================================== */}
               <CS
                 title={t('singleScreen.sections.context') || t('context.title') || 'Visit Context'}
