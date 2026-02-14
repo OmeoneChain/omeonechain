@@ -1,30 +1,29 @@
 {
   "pageTitle": "My Rewards",
   "pageDescription": "Track your BOCA earnings and activity",
-  
+
   "balance": {
     "title": "Your BOCA Balance",
     "keepEarning": "Keep earning by staying active!"
   },
 
   "bocaExplainer": {
-    "title": "What's BOCA?",
-    "description": "Your currency in BocaBoca. Earn them by sharing great recommendations, spend them to discover your next meal. More features coming soon!"
+    "title": "What is BOCA?",
+    "description": "BOCA tokens reward you for sharing great restaurant recommendations. Earn more by posting, engaging, and helping the community discover amazing food."
   },
-  
+
   "walletUpgrade": {
     "title": "Unlock More with a Wallet",
     "description": "Connect a wallet to access on-chain features, NFTs, and governance voting.",
     "button": "Connect Wallet"
   },
-  
+
   "recentActivity": {
     "title": "Recent Activity",
     "empty": "No rewards yet. Start earning by creating recommendations!",
-    "showMore": "Show More",
-    "loading": "Loading..."
+    "showMore": "Show More"
   },
-  
+
   "actions": {
     "recommendation": "Created a recommendation",
     "recommendation_email": "Created a recommendation",
@@ -35,10 +34,10 @@
     "reshare_attribution": "Your recommendation was reshared",
     "share": "Shared content",
     "save_received": "Someone saved your recommendation",
-    "validation_bonus": "Recommendation validated by community",
+    "validation_bonus": "Recommendation validated by the community",
     "default": "Earned reward"
   },
-  
+
   "waysToEarn": {
     "title": "Ways to Earn",
     "seeAll": "See All Rewards",
@@ -46,22 +45,22 @@
       "recommendations": "Create recommendations",
       "comments": "Write helpful comments",
       "share": "Share with friends",
-      "firstReviewer": "Be the first reviewer"
+      "firstReviewer": "Be the first to review"
     }
   },
-  
+
   "comingSoon": {
     "title": "Coming Soon",
     "lottery": {
       "title": "Weekly Lottery",
-      "description": "Weekly prizes for top contributors"
+      "description": "Win up to 25 BOCA"
     },
     "photoContest": {
       "title": "Photo Contest",
-      "description": "Win prizes for best food photos"
+      "description": "Best food photos win prizes"
     }
   },
-  
+
   "time": {
     "justNow": "Just now",
     "minutesAgo": "{minutes}m ago",

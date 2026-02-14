@@ -1,7 +1,7 @@
 {
   "pageTitle": "Minhas Recompensas",
-  "pageDescription": "Acompanhe seus ganhos e atividades em BOCA",
-  
+  "pageDescription": "Acompanhe seus ganhos e atividade BOCA",
+
   "balance": {
     "title": "Seu Saldo BOCA",
     "keepEarning": "Continue ativo para ganhar mais!"
@@ -9,22 +9,21 @@
 
   "bocaExplainer": {
     "title": "O que é BOCA?",
-    "description": "Sua moeda no BocaBoca. Ganhe compartilhando ótimas recomendações, gaste para descobrir sua próxima refeição. Mais funcionalidades em breve!"
+    "description": "Tokens BOCA recompensam você por compartilhar ótimas recomendações de restaurantes. Ganhe mais publicando, interagindo e ajudando a comunidade a descobrir comida incrível."
   },
-  
+
   "walletUpgrade": {
     "title": "Desbloqueie Mais com uma Carteira",
     "description": "Conecte uma carteira para acessar recursos on-chain, NFTs e votação de governança.",
     "button": "Conectar Carteira"
   },
-  
+
   "recentActivity": {
     "title": "Atividade Recente",
     "empty": "Nenhuma recompensa ainda. Comece a ganhar criando recomendações!",
-    "showMore": "Ver Mais",
-    "loading": "Carregando..."
+    "showMore": "Ver Mais"
   },
-  
+
   "actions": {
     "recommendation": "Criou uma recomendação",
     "recommendation_email": "Criou uma recomendação",
@@ -38,7 +37,7 @@
     "validation_bonus": "Recomendação validada pela comunidade",
     "default": "Ganhou recompensa"
   },
-  
+
   "waysToEarn": {
     "title": "Formas de Ganhar",
     "seeAll": "Ver Todas as Recompensas",
@@ -49,19 +48,19 @@
       "firstReviewer": "Ser o primeiro a avaliar"
     }
   },
-  
+
   "comingSoon": {
     "title": "Em Breve",
     "lottery": {
       "title": "Loteria Semanal",
-      "description": "Prêmios semanais para os melhores contribuidores"
+      "description": "Ganhe até 25 BOCA"
     },
     "photoContest": {
       "title": "Concurso de Fotos",
-      "description": "Ganhe prêmios pelas melhores fotos de comida"
+      "description": "Melhores fotos de comida"
     }
   },
-  
+
   "time": {
     "justNow": "Agora mesmo",
     "minutesAgo": "{minutes}min atrás",
