@@ -249,7 +249,8 @@
     },
     "annotation": {
       "placeholder": "What's in this photo? (optional)",
-      "dismissRating": "Not a dish"
+      "dismissRating": "Not a dish",
+      "label": "Describe this photo"
     }
   },
   "reshare": {

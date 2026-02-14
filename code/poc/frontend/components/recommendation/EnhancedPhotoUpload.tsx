@@ -239,30 +239,19 @@ const CropModal: React.FC<CropModalProps> = ({ imageUrl, onConfirm, onCancel, t,
   );
 };
 
-// ─── Per-Photo Annotation Component ──────────────────────────────────
+// ─── Per-Photo Rating Slider ─────────────────────────────────────────
+// The text input is now rendered inline next to the photo thumbnail.
+// This component only renders the full-width rating slider below the card.
 
-interface AnnotationProps {
-  annotation?: string;
+interface RatingSliderProps {
   dishRating?: number;
   showRating?: boolean;
-  onChange: (updates: { annotation?: string; dishRating?: number; showRating?: boolean }) => void;
+  onChange: (updates: { dishRating?: number; showRating?: boolean }) => void;
   t: ReturnType<typeof useTranslations>;
 }
 
-const PhotoAnnotation: React.FC<AnnotationProps> = ({ annotation, dishRating, showRating, onChange, t }) => {
-  const hasText = !!annotation?.trim();
-  // Auto-show rating when text exists, unless user explicitly dismissed (showRating === false)
-  const shouldShowRating = hasText && showRating !== false;
-
-  const handleTextChange = (text: string) => {
-    const updates: any = { annotation: text };
-    // If text is cleared, reset rating state
-    if (!text.trim()) {
-      updates.showRating = undefined;
-      updates.dishRating = undefined;
-    }
-    onChange(updates);
-  };
+const PhotoRatingSlider: React.FC<RatingSliderProps> = ({ dishRating, showRating, onChange, t }) => {
+  if (showRating === false) return null;
 
   const handleDismissRating = () => {
     onChange({ showRating: false, dishRating: undefined });
@@ -271,51 +260,37 @@ const PhotoAnnotation: React.FC<AnnotationProps> = ({ annotation, dishRating, sh
   const formatRating = (r: number) => (Number.isInteger(r) ? `${r}.0` : r.toFixed(1));
 
   return (
-    <div className="mt-2 space-y-1.5">
-      {/* Text input */}
+    <div className="flex items-center gap-2 px-3 py-2 bg-[#FFF4E1] dark:bg-[#FF644A]/10 rounded-b-xl border border-t-0 border-gray-200 dark:border-[#3D3C4A] animate-in fade-in slide-in-from-top-1 duration-200">
+      <Star className="h-3.5 w-3.5 text-[#FF644A] fill-[#FF644A] flex-shrink-0" />
       <input
-        type="text"
-        placeholder={t('photos.annotation.placeholder') || "What's in this photo? (optional)"}
-        value={annotation || ''}
-        onChange={e => handleTextChange(e.target.value)}
-        className="w-full px-2.5 py-2 text-xs border border-gray-200 dark:border-[#3D3C4A] rounded-lg bg-white dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-1 focus:ring-[#FF644A] focus:border-transparent transition-all"
+        type="range"
+        min="0"
+        max="10"
+        step="0.5"
+        value={dishRating ?? 7}
+        onChange={e => onChange({ dishRating: parseFloat(e.target.value) })}
+        className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer touch-slider
+                   [&::-webkit-slider-thumb]:appearance-none
+                   [&::-webkit-slider-thumb]:w-5
+                   [&::-webkit-slider-thumb]:h-5
+                   [&::-webkit-slider-thumb]:rounded-full
+                   [&::-webkit-slider-thumb]:bg-[#FF644A]
+                   [&::-webkit-slider-thumb]:shadow-md
+                   [&::-webkit-slider-thumb]:cursor-pointer"
+        style={{
+          background: 'linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)',
+        }}
       />
-
-      {/* Rating slider — auto-appears when text is entered, dismissible */}
-      {shouldShowRating && (
-        <div className="flex items-center gap-2 px-2 py-1.5 bg-[#FFF4E1] dark:bg-[#FF644A]/10 rounded-lg animate-in fade-in slide-in-from-top-1 duration-200">
-          <Star className="h-3 w-3 text-[#FF644A] fill-[#FF644A] flex-shrink-0" />
-          <input
-            type="range"
-            min="0"
-            max="10"
-            step="0.5"
-            value={dishRating ?? 7}
-            onChange={e => onChange({ dishRating: parseFloat(e.target.value) })}
-            className="flex-1 h-1 rounded-full appearance-none cursor-pointer
-                       [&::-webkit-slider-thumb]:appearance-none
-                       [&::-webkit-slider-thumb]:w-4
-                       [&::-webkit-slider-thumb]:h-4
-                       [&::-webkit-slider-thumb]:rounded-full
-                       [&::-webkit-slider-thumb]:bg-[#FF644A]
-                       [&::-webkit-slider-thumb]:shadow-sm
-                       [&::-webkit-slider-thumb]:cursor-pointer"
-            style={{
-              background: 'linear-gradient(to right, #ef4444 0%, #eab308 50%, #22c55e 100%)',
-            }}
-          />
-          <span className="text-xs font-bold text-[#FF644A] min-w-[36px] text-right">
-            {formatRating(dishRating ?? 7)}/10
-          </span>
-          <button
-            onClick={handleDismissRating}
-            className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors flex-shrink-0"
-            title={t('photos.annotation.dismissRating') || 'Not a dish'}
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      )}
+      <span className="text-sm font-bold text-[#FF644A] min-w-[42px] text-right">
+        {formatRating(dishRating ?? 7)}/10
+      </span>
+      <button
+        onClick={handleDismissRating}
+        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors flex-shrink-0"
+        title={t('photos.annotation.dismissRating') || 'Not a dish'}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 };
@@ -708,121 +683,178 @@ const EnhancedPhotoUpload: React.FC<PhotoUploadProps> = ({
         />
       )}
 
-      {/* Photo Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      {/* Photo List — stacked cards (mobile-optimized) */}
+      <div className="space-y-3">
         {/* Existing photos (edit mode) */}
-        {existingPhotos.map((photo, index) => (
-          <div key={`existing-${index}`} className="space-y-0">
-            <div className="relative group">
-              <img
-                src={photo.url}
-                alt={`Photo ${index + 1}`}
-                className="w-full aspect-[4/3] object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
-                crossOrigin="anonymous"
-              />
+        {existingPhotos.map((photo, index) => {
+          const hasAnnotation = !!photo.annotation?.trim();
+          const shouldShowRating = hasAnnotation && photo.showRating !== false;
 
-              {/* Modified badge */}
-              {photo.isModified && (
-                <div className="absolute top-2 left-2 bg-[#FF644A] text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
-                  {t('photoUpload.recropped') || 'Re-cropped'}
+          return (
+            <div key={`existing-${index}`} className="overflow-hidden">
+              {/* Card: thumbnail left + annotation right */}
+              <div className={`flex gap-3 p-3 bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] ${shouldShowRating ? 'rounded-t-xl border-b-0' : 'rounded-xl'}`}>
+                {/* Thumbnail */}
+                <div className="relative flex-shrink-0 w-24 h-24 sm:w-28 sm:h-28">
+                  <img
+                    src={photo.url}
+                    alt={`Photo ${index + 1}`}
+                    className="w-full h-full object-cover rounded-lg"
+                    crossOrigin="anonymous"
+                  />
+                  {photo.isModified && (
+                    <div className="absolute top-1 left-1 bg-[#FF644A] text-white text-[9px] px-1 py-0.5 rounded font-medium">
+                      {t('photoUpload.recropped') || 'Re-cropped'}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => openRecropModal(index)}
+                    className="absolute bottom-1 left-1 bg-black/60 text-white rounded-md p-1 hover:bg-black/80 transition-colors"
+                    title={t('photoUpload.recrop') || 'Re-crop'}
+                  >
+                    <Crop className="h-3 w-3" />
+                  </button>
                 </div>
-              )}
 
-              {/* Re-crop button */}
-              <button
-                onClick={() => openRecropModal(index)}
-                className="absolute bottom-2 left-2 bg-black/60 text-white rounded-lg p-1.5 hover:bg-black/80 transition-colors shadow-lg"
-                title={t('photoUpload.recrop') || 'Re-crop'}
-              >
-                <Crop className="h-3.5 w-3.5" />
-              </button>
-
-              {/* Delete button */}
-              <button
-                onClick={() => removeExistingPhoto(index)}
-                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-opacity shadow-lg"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Annotation */}
-            <PhotoAnnotation
-              annotation={photo.annotation}
-              dishRating={photo.dishRating}
-              showRating={photo.showRating}
-              onChange={updates => updateExistingPhotoAnnotation(index, updates)}
-              t={t}
-            />
-          </div>
-        ))}
-
-        {/* New photos */}
-        {photos.map((photo, index) => (
-          <div key={`new-${index}`} className="space-y-0">
-            <div className="relative group">
-              <img
-                src={photo.preview}
-                alt={t('photoUpload.photoAlt', { number: existingPhotos.length + index + 1 })}
-                className="w-full aspect-[4/3] object-cover rounded-lg border border-gray-200 dark:border-[#3D3C4A]"
-              />
-              <button
-                onClick={() => removeNewPhoto(index)}
-                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-opacity shadow-lg"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <div className="absolute bottom-1 left-1">
-                <div className={`text-white text-xs px-1.5 py-0.5 rounded ${
-                  photo.file.size > maxSizeBytes ? 'bg-yellow-500' : 'bg-black bg-opacity-60'
-                }`}>
-                  {(photo.file.size / 1024 / 1024).toFixed(1)}MB
+                {/* Right side: annotation + delete */}
+                <div className="flex-1 flex flex-col min-w-0">
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {t('photos.annotation.label') || 'Describe this photo'}
+                    </span>
+                    <button
+                      onClick={() => removeExistingPhoto(index)}
+                      className="bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors flex-shrink-0 ml-2"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={t('photos.annotation.placeholder') || "What's in this photo? (optional)"}
+                    value={photo.annotation || ''}
+                    onChange={e => {
+                      const text = e.target.value;
+                      const updates: any = { annotation: text };
+                      if (!text.trim()) { updates.showRating = undefined; updates.dishRating = undefined; }
+                      updateExistingPhotoAnnotation(index, updates);
+                    }}
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-lg bg-gray-50 dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-1 focus:ring-[#FF644A] focus:border-transparent focus:bg-white dark:focus:bg-[#353444] transition-all"
+                  />
                 </div>
               </div>
-              {/* "New" badge in edit mode */}
-              {existingPhotos.length > 0 && (
-                <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
-                  {t('photoUpload.new') || 'New'}
-                </div>
+
+              {/* Rating slider — full width below card */}
+              {shouldShowRating && (
+                <PhotoRatingSlider
+                  dishRating={photo.dishRating}
+                  showRating={photo.showRating}
+                  onChange={updates => updateExistingPhotoAnnotation(index, updates)}
+                  t={t}
+                />
               )}
             </div>
+          );
+        })}
 
-            {/* Annotation */}
-            <PhotoAnnotation
-              annotation={photo.annotation}
-              dishRating={photo.dishRating}
-              showRating={photo.showRating}
-              onChange={updates => updateNewPhotoAnnotation(index, updates)}
-              t={t}
-            />
-          </div>
-        ))}
+        {/* New photos */}
+        {photos.map((photo, index) => {
+          const hasAnnotation = !!photo.annotation?.trim();
+          const shouldShowRating = hasAnnotation && photo.showRating !== false;
 
-        {/* Add Photo Button — single entry point */}
+          return (
+            <div key={`new-${index}`} className="overflow-hidden">
+              {/* Card: thumbnail left + annotation right */}
+              <div className={`flex gap-3 p-3 bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] ${shouldShowRating ? 'rounded-t-xl border-b-0' : 'rounded-xl'}`}>
+                {/* Thumbnail */}
+                <div className="relative flex-shrink-0 w-24 h-24 sm:w-28 sm:h-28">
+                  <img
+                    src={photo.preview}
+                    alt={t('photoUpload.photoAlt', { number: existingPhotos.length + index + 1 })}
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                  <div className="absolute bottom-1 left-1">
+                    <div className={`text-white text-[10px] px-1 py-0.5 rounded ${
+                      photo.file.size > maxSizeBytes ? 'bg-yellow-500' : 'bg-black/60'
+                    }`}>
+                      {(photo.file.size / 1024 / 1024).toFixed(1)}MB
+                    </div>
+                  </div>
+                  {existingPhotos.length > 0 && (
+                    <div className="absolute top-1 left-1 bg-green-500 text-white text-[9px] px-1 py-0.5 rounded font-medium">
+                      {t('photoUpload.new') || 'New'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right side: annotation + delete */}
+                <div className="flex-1 flex flex-col min-w-0">
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {t('photos.annotation.label') || 'Describe this photo'}
+                    </span>
+                    <button
+                      onClick={() => removeNewPhoto(index)}
+                      className="bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors flex-shrink-0 ml-2"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={t('photos.annotation.placeholder') || "What's in this photo? (optional)"}
+                    value={photo.annotation || ''}
+                    onChange={e => {
+                      const text = e.target.value;
+                      const updates: any = { annotation: text };
+                      if (!text.trim()) { updates.showRating = undefined; updates.dishRating = undefined; }
+                      updateNewPhotoAnnotation(index, updates);
+                    }}
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-[#3D3C4A] rounded-lg bg-gray-50 dark:bg-[#2D2C3A] text-[#1F1E2A] dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-1 focus:ring-[#FF644A] focus:border-transparent focus:bg-white dark:focus:bg-[#353444] transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Rating slider — full width below card */}
+              {shouldShowRating && (
+                <PhotoRatingSlider
+                  dishRating={photo.dishRating}
+                  showRating={photo.showRating}
+                  onChange={updates => updateNewPhotoAnnotation(index, updates)}
+                  t={t}
+                />
+              )}
+            </div>
+          );
+        })}
+
+        {/* Add Photo Button — compact full-width */}
         {totalPhotoCount < maxPhotos && (
           <div
             onClick={triggerFileInput}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            className="border-2 border-dashed border-gray-300 dark:border-[#3D3C4A] rounded-lg p-6 text-center cursor-pointer hover:border-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/10 transition-colors aspect-[4/3] flex flex-col items-center justify-center"
+            className="border-2 border-dashed border-gray-300 dark:border-[#3D3C4A] rounded-xl p-4 text-center cursor-pointer hover:border-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#FF644A]/10 transition-colors flex items-center justify-center gap-3"
           >
             {isProcessing ? (
               <>
-                <Loader className="h-6 w-6 text-[#FF644A] animate-spin mb-2" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <Loader className="h-5 w-5 text-[#FF644A] animate-spin" />
+                <span className="text-sm text-gray-500 dark:text-gray-400">
                   {processingStatus || t('photoUpload.processing')}
                 </span>
               </>
             ) : (
               <>
-                <div className="flex space-x-2 mb-2">
+                <div className="flex space-x-1.5">
                   <Camera className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                   <Upload className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                 </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">{t('photoUpload.addPhoto')}</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  {t('photoUpload.tapOrDrag')}
-                </span>
+                <div>
+                  <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{t('photoUpload.addPhoto')}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                    {t('photoUpload.tapOrDrag')}
+                  </span>
+                </div>
               </>
             )}
           </div>
