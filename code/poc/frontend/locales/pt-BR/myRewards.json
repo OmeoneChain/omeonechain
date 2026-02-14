@@ -6,6 +6,11 @@
     "title": "Seu Saldo BOCA",
     "keepEarning": "Continue ativo para ganhar mais!"
   },
+
+  "bocaExplainer": {
+    "title": "O que é BOCA?",
+    "description": "Sua moeda no BocaBoca. Ganhe compartilhando ótimas recomendações, gaste para descobrir sua próxima refeição. Mais funcionalidades em breve!"
+  },
   
   "walletUpgrade": {
     "title": "Desbloqueie Mais com uma Carteira",
@@ -16,7 +21,8 @@
   "recentActivity": {
     "title": "Atividade Recente",
     "empty": "Nenhuma recompensa ainda. Comece a ganhar criando recomendações!",
-    "showMore": "Ver Mais"
+    "showMore": "Ver Mais",
+    "loading": "Carregando..."
   },
   
   "actions": {
@@ -48,11 +54,11 @@
     "title": "Em Breve",
     "lottery": {
       "title": "Loteria Semanal",
-      "description": "Ganhe até 25 BOCA"
+      "description": "Prêmios semanais para os melhores contribuidores"
     },
     "photoContest": {
       "title": "Concurso de Fotos",
-      "description": "Melhores fotos de comida"
+      "description": "Ganhe prêmios pelas melhores fotos de comida"
     }
   },
   

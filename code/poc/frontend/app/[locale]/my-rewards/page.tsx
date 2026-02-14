@@ -1,7 +1,8 @@
 // File: code/poc/frontend/app/[locale]/my-rewards/page.tsx
 // Mobile-optimized rewards tracking page for BocaBoca
-// Shows: Balance, recent activity, ways to earn, wallet upgrade prompt
+// Shows: Balance, BOCA explainer, recent activity, ways to earn, coming soon
 // UPDATED: Fixed wallet connect - opens modal instead of broken /settings/wallet (Feb 8, 2026)
+// UPDATED: Added BOCA explainer, full i18n, updated Coming Soon (Feb 13, 2026)
 //
 // =============================================================================
 // DARK MODE PATTERNS:
@@ -40,7 +41,8 @@ import {
   Clock,
   CheckCircle2,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  HelpCircle
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import WalletConnect from '@/components/auth/WalletConnect';
@@ -77,77 +79,32 @@ interface RewardHistoryResponse {
 }
 
 // =============================================================================
-// ACTION LABELS & ICONS
+// ACTION ICONS & COLORS (labels come from i18n)
 // =============================================================================
 
-const ACTION_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  recommendation: {
-    label: 'Created a recommendation',
-    icon: Star,
-    color: 'text-amber-500'
-  },
-  recommendation_email: {
-    label: 'Created a recommendation',
-    icon: Star,
-    color: 'text-amber-500'
-  },
-  upvote_received: {
-    label: 'Your post was upvoted',
-    icon: ThumbsUp,
-    color: 'text-blue-500'
-  },
-  first_reviewer: {
-    label: 'First to review a restaurant!',
-    icon: Trophy,
-    color: 'text-yellow-500'
-  },
-  comment_received: {
-    label: 'Someone commented on your post',
-    icon: MessageCircle,
-    color: 'text-green-500'
-  },
-  list_creation: {
-    label: 'Created a saved list',
-    icon: BookmarkPlus,
-    color: 'text-purple-500'
-  },
-  reshare_attribution: {
-    label: 'Your recommendation was reshared',
-    icon: Repeat2,
-    color: 'text-cyan-500'
-  },
-  share: {
-    label: 'Shared content',
-    icon: Share2,
-    color: 'text-indigo-500'
-  },
-  save_received: {
-    label: 'Someone saved your recommendation',
-    icon: BookmarkPlus,
-    color: 'text-pink-500'
-  },
-  validation_bonus: {
-    label: 'Recommendation validated by community',
-    icon: CheckCircle2,
-    color: 'text-emerald-500'
-  },
-  // Fallback for unknown actions
-  default: {
-    label: 'Earned reward',
-    icon: Gift,
-    color: 'text-[#FF644A]'
-  }
+const ACTION_STYLE: Record<string, { icon: React.ElementType; color: string }> = {
+  recommendation:        { icon: Star,        color: 'text-amber-500' },
+  recommendation_email:  { icon: Star,        color: 'text-amber-500' },
+  upvote_received:       { icon: ThumbsUp,    color: 'text-blue-500' },
+  first_reviewer:        { icon: Trophy,      color: 'text-yellow-500' },
+  comment_received:      { icon: MessageCircle, color: 'text-green-500' },
+  list_creation:         { icon: BookmarkPlus, color: 'text-purple-500' },
+  reshare_attribution:   { icon: Repeat2,     color: 'text-cyan-500' },
+  share:                 { icon: Share2,       color: 'text-indigo-500' },
+  save_received:         { icon: BookmarkPlus, color: 'text-pink-500' },
+  validation_bonus:      { icon: CheckCircle2, color: 'text-emerald-500' },
+  default:               { icon: Gift,        color: 'text-[#FF644A]' }
 };
+
+function getActionStyle(action: string) {
+  return ACTION_STYLE[action] || ACTION_STYLE.default;
+}
 
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
 
-function getActionConfig(action: string) {
-  return ACTION_CONFIG[action] || ACTION_CONFIG.default;
-}
-
-function formatTimeAgo(dateString: string): string {
+function formatTimeAgo(dateString: string, t: (key: string, values?: Record<string, unknown>) => string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -155,10 +112,10 @@ function formatTimeAgo(dateString: string): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMins < 1) return t('time.justNow');
+  if (diffMins < 60) return t('time.minutesAgo', { minutes: diffMins });
+  if (diffHours < 24) return t('time.hoursAgo', { hours: diffHours });
+  if (diffDays < 7) return t('time.daysAgo', { days: diffDays });
   
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
@@ -177,6 +134,8 @@ function BalanceHero({
   balance: number; 
   isLoading: boolean;
 }) {
+  const t = useTranslations('myRewards');
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -189,7 +148,7 @@ function BalanceHero({
       </div>
       
       <div className="relative z-10">
-        <p className="text-white/80 text-sm font-medium mb-1">Your BOCA Balance</p>
+        <p className="text-white/80 text-sm font-medium mb-1">{t('balance.title')}</p>
         
         {isLoading ? (
           <div className="h-12 w-32 bg-white/20 rounded-lg animate-pulse" />
@@ -208,7 +167,37 @@ function BalanceHero({
         
         <div className="mt-4 flex items-center gap-2 text-white/70 text-sm">
           <TrendingUp size={16} />
-          <span>Keep earning by staying active!</span>
+          <span>{t('balance.keepEarning')}</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/**
+ * BOCA Explainer Card - Compact version for mobile my-rewards page
+ */
+function BocaExplainerCard() {
+  const t = useTranslations('myRewards');
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.05 }}
+      className="rounded-xl bg-gradient-to-br from-[#FFF4E1] to-[#FFE8E3] dark:from-[#FF644A]/10 dark:to-[#FF644A]/5 border border-[#FFD4CC] dark:border-[#FF644A]/20 p-4"
+    >
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-full bg-[#FF644A] flex-shrink-0">
+          <HelpCircle size={16} className="text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-[#1F1E2A] dark:text-gray-100 text-sm mb-1">
+            {t('bocaExplainer.title')}
+          </h3>
+          <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+            {t('bocaExplainer.description')}
+          </p>
         </div>
       </div>
     </motion.div>
@@ -219,6 +208,8 @@ function BalanceHero({
  * Wallet Upgrade Card - Only shown to phone-only users
  */
 function WalletUpgradeCard({ onConnect }: { onConnect: () => void }) {
+  const t = useTranslations('myRewards');
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -232,16 +223,16 @@ function WalletUpgradeCard({ onConnect }: { onConnect: () => void }) {
         </div>
         <div className="flex-1">
           <h3 className="font-semibold text-[#1F1E2A] dark:text-gray-100 text-sm">
-            Unlock More with a Wallet
+            {t('walletUpgrade.title')}
           </h3>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-            Connect a wallet to access on-chain features, NFTs, and governance voting.
+            {t('walletUpgrade.description')}
           </p>
           <button
             onClick={onConnect}
             className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FF644A] hover:bg-[#E65441] text-white text-xs font-medium rounded-lg transition-colors"
           >
-            Connect Wallet
+            {t('walletUpgrade.button')}
             <ArrowRight size={14} />
           </button>
         </div>
@@ -254,8 +245,13 @@ function WalletUpgradeCard({ onConnect }: { onConnect: () => void }) {
  * Single Reward Event Item
  */
 function RewardEventItem({ event, index }: { event: RewardEvent; index: number }) {
-  const config = getActionConfig(event.action);
-  const Icon = config.icon;
+  const t = useTranslations('myRewards');
+  const style = getActionStyle(event.action);
+  const Icon = style.icon;
+
+  // Get translated label for this action, falling back to default
+  const actionKey = `actions.${event.action}` as const;
+  const label = t.has(actionKey) ? t(actionKey) : t('actions.default');
 
   return (
     <motion.div
@@ -264,16 +260,16 @@ function RewardEventItem({ event, index }: { event: RewardEvent; index: number }
       transition={{ delay: index * 0.05 }}
       className="flex items-center gap-3 py-3"
     >
-      <div className={cn("p-2 rounded-lg bg-gray-100 dark:bg-[#353444]", config.color)}>
+      <div className={cn("p-2 rounded-lg bg-gray-100 dark:bg-[#353444]", style.color)}>
         <Icon size={18} />
       </div>
       
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-[#1F1E2A] dark:text-gray-100 truncate">
-          {config.label}
+          {label}
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          {formatTimeAgo(event.created_at)}
+          {formatTimeAgo(event.created_at, t)}
         </p>
       </div>
       
@@ -303,6 +299,8 @@ function RecentActivity({
   onShowMore: () => void;
   loadingMore?: boolean;
 }) {
+  const t = useTranslations('myRewards');
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -313,7 +311,7 @@ function RecentActivity({
       <div className="px-4 py-3 border-b border-gray-100 dark:border-[#3D3C4A]">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-[#1F1E2A] dark:text-gray-100">
-            Recent Activity
+            {t('recentActivity.title')}
           </h2>
           <Clock size={16} className="text-gray-400" />
         </div>
@@ -339,7 +337,7 @@ function RecentActivity({
               <Gift size={24} className="text-gray-400" />
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              No rewards yet. Start earning by creating recommendations!
+              {t('recentActivity.empty')}
             </p>
           </div>
         ) : (
@@ -362,11 +360,11 @@ function RecentActivity({
           {loadingMore ? (
             <>
               <RefreshCw size={16} className="animate-spin" />
-              Loading...
+              {t('recentActivity.loading')}
             </>
           ) : (
             <>
-              Show More
+              {t('recentActivity.showMore')}
               <ChevronRight size={16} />
             </>
           )}
@@ -380,11 +378,13 @@ function RecentActivity({
  * Ways to Earn Section
  */
 function WaysToEarn() {
+  const t = useTranslations('myRewards');
+
   const earnOptions = [
-    { icon: Star, label: 'Create recommendations', reward: '0.5-5.0', color: 'text-amber-500' },
-    { icon: MessageCircle, label: 'Write helpful comments', reward: '0.2', color: 'text-green-500' },
-    { icon: Share2, label: 'Share with friends', reward: '0.1-0.2', color: 'text-blue-500' },
-    { icon: Trophy, label: 'Be the first reviewer', reward: '10.0', color: 'text-yellow-500' },
+    { icon: Star, labelKey: 'waysToEarn.options.recommendations', reward: '0.5-5.0', color: 'text-amber-500' },
+    { icon: MessageCircle, labelKey: 'waysToEarn.options.comments', reward: '0.2', color: 'text-green-500' },
+    { icon: Share2, labelKey: 'waysToEarn.options.share', reward: '0.1-0.2', color: 'text-blue-500' },
+    { icon: Trophy, labelKey: 'waysToEarn.options.firstReviewer', reward: '10.0', color: 'text-yellow-500' },
   ];
 
   return (
@@ -397,7 +397,7 @@ function WaysToEarn() {
       <div className="px-4 py-3 border-b border-gray-100 dark:border-[#3D3C4A]">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-[#1F1E2A] dark:text-gray-100">
-            Ways to Earn
+            {t('waysToEarn.title')}
           </h2>
           <Sparkles size={16} className="text-[#FF644A]" />
         </div>
@@ -408,7 +408,7 @@ function WaysToEarn() {
           const Icon = option.icon;
           return (
             <motion.div
-              key={option.label}
+              key={option.labelKey}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 + index * 0.05 }}
@@ -418,7 +418,7 @@ function WaysToEarn() {
                 <Icon size={16} />
               </div>
               <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">
-                {option.label}
+                {t(option.labelKey)}
               </span>
               <span className="text-xs font-medium text-[#FF644A] bg-[#FFE8E3] dark:bg-[#FF644A]/20 px-2 py-0.5 rounded-full">
                 {option.reward} BOCA
@@ -432,7 +432,7 @@ function WaysToEarn() {
         href="/rewards"
         className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium text-[#FF644A] hover:bg-[#FFF4E1] dark:hover:bg-[#353444] transition-colors border-t border-gray-100 dark:border-[#3D3C4A]"
       >
-        See All Rewards
+        {t('waysToEarn.seeAll')}
         <ChevronRight size={16} />
       </Link>
     </motion.div>
@@ -441,8 +441,12 @@ function WaysToEarn() {
 
 /**
  * Coming Soon Section - Lottery & Photo Contest teaser
+ * NOTE: Updated for launch - removed specific BOCA amounts since
+ * lottery/photo contest are hidden from the main Rewards page.
  */
 function ComingSoonSection() {
+  const t = useTranslations('myRewards');
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -453,24 +457,24 @@ function ComingSoonSection() {
       <div className="flex items-center gap-2 mb-3">
         <Sparkles size={18} className="text-[#FF644A]" />
         <h3 className="font-semibold text-[#1F1E2A] dark:text-gray-100 text-sm">
-          Coming Soon
+          {t('comingSoon.title')}
         </h3>
       </div>
       
       <div className="grid grid-cols-2 gap-3">
         <div className="flex items-center gap-2 p-3 bg-white/60 dark:bg-[#2D2C3A]/60 rounded-lg">
-          <Ticket size={20} className="text-purple-500" />
-          <div>
-            <p className="text-xs font-medium text-[#1F1E2A] dark:text-gray-100">Weekly Lottery</p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">Win up to 25 BOCA</p>
+          <Ticket size={20} className="text-purple-500 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-[#1F1E2A] dark:text-gray-100">{t('comingSoon.lottery.title')}</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">{t('comingSoon.lottery.description')}</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2 p-3 bg-white/60 dark:bg-[#2D2C3A]/60 rounded-lg">
-          <Camera size={20} className="text-pink-500" />
-          <div>
-            <p className="text-xs font-medium text-[#1F1E2A] dark:text-gray-100">Photo Contest</p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">Best food photos</p>
+          <Camera size={20} className="text-pink-500 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-[#1F1E2A] dark:text-gray-100">{t('comingSoon.photoContest.title')}</p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">{t('comingSoon.photoContest.description')}</p>
           </div>
         </div>
       </div>
@@ -484,6 +488,7 @@ function ComingSoonSection() {
 
 export default function MyRewardsPage() {
   const router = useRouter();
+  const t = useTranslations('myRewards');
   const { isAuthenticated, user, authMode, isLoading: authLoading, login, refreshAuth } = useAuth();
   
   // State
@@ -604,15 +609,18 @@ export default function MyRewardsPage() {
           {/* Page Title */}
           <div className="mb-2">
             <h1 className="text-2xl font-bold text-[#1F1E2A] dark:text-gray-100">
-              My Rewards
+              {t('pageTitle')}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Track your BOCA earnings and activity
+              {t('pageDescription')}
             </p>
           </div>
 
           {/* Balance Hero */}
           <BalanceHero balance={balance} isLoading={balanceLoading} />
+
+          {/* BOCA Explainer - always visible */}
+          <BocaExplainerCard />
 
           {/* Wallet Upgrade Card - only for phone users */}
           {isPhoneOnly && (

@@ -6,6 +6,11 @@
     "title": "Your BOCA Balance",
     "keepEarning": "Keep earning by staying active!"
   },
+
+  "bocaExplainer": {
+    "title": "What's BOCA?",
+    "description": "Your currency in BocaBoca. Earn them by sharing great recommendations, spend them to discover your next meal. More features coming soon!"
+  },
   
   "walletUpgrade": {
     "title": "Unlock More with a Wallet",
@@ -16,7 +21,8 @@
   "recentActivity": {
     "title": "Recent Activity",
     "empty": "No rewards yet. Start earning by creating recommendations!",
-    "showMore": "Show More"
+    "showMore": "Show More",
+    "loading": "Loading..."
   },
   
   "actions": {
@@ -48,11 +54,11 @@
     "title": "Coming Soon",
     "lottery": {
       "title": "Weekly Lottery",
-      "description": "Win up to 25 BOCA"
+      "description": "Weekly prizes for top contributors"
     },
     "photoContest": {
       "title": "Photo Contest",
-      "description": "Best food photos"
+      "description": "Win prizes for best food photos"
     }
   },
   
