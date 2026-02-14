@@ -159,6 +159,7 @@
     "edited": "editado",
     "editedAt": "Editado {time}",
     "report": "Denunciar",
+    "delete": "Excluir",
     "previewMode": "Modo Prévia - Pronto para Publicar",
     "person": "pessoa",
     "people": "pessoas",
@@ -177,6 +178,23 @@
       "verified": "Verificado"
     },
     "viewAndReply": "Ver e comentar"
+  },
+  "delete": {
+    "title": "Excluir recomendação",
+    "loading": "Calculando impacto...",
+    "close": "Fechar",
+    "confirmMessage": "Tem certeza que deseja excluir sua recomendação para {restaurant}?",
+    "gracePeriod": "Dentro do período de 15 minutos",
+    "noBocaImpact": "Nenhum BOCA será afetado.",
+    "bocaDeduction": "{amount} BOCA será deduzido",
+    "currentBalance": "Saldo atual",
+    "deduction": "Dedução",
+    "newBalance": "Novo saldo",
+    "negativeWarning": "Seu saldo ficará negativo. Enquanto negativo, você não poderá dar gorjetas ou gastar BOCA, mas poderá recuperá-lo com novas recomendações e engajamento.",
+    "permanentNote": "Esta ação não pode ser desfeita. A recomendação será removida dos feeds, do seu perfil e dos resultados de busca.",
+    "cancel": "Cancelar",
+    "confirm": "Excluir",
+    "deleting": "Excluindo..."
   },
   "draft": {
     "saved": "Rascunho salvo",

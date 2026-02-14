@@ -159,6 +159,7 @@
     "edited": "edited",
     "editedAt": "Edited {time}",
     "report": "Report",
+    "delete": "Delete",
     "previewMode": "Preview Mode - Ready to Publish",
     "person": "person",
     "people": "people",
@@ -177,6 +178,23 @@
       "verified": "Verified"
     },
     "viewAndReply": "View & reply"
+  },
+  "delete": {
+    "title": "Delete Recommendation",
+    "loading": "Calculating impact...",
+    "close": "Close",
+    "confirmMessage": "Are you sure you want to delete your recommendation for {restaurant}?",
+    "gracePeriod": "Within 15-minute grace period",
+    "noBocaImpact": "No BOCA will be affected.",
+    "bocaDeduction": "{amount} BOCA will be deducted",
+    "currentBalance": "Current balance",
+    "deduction": "Deduction",
+    "newBalance": "New balance",
+    "negativeWarning": "Your balance will go negative. While negative, you won't be able to tip or spend BOCA, but you can earn it back through new recommendations and engagement.",
+    "permanentNote": "This action cannot be undone. The recommendation will be removed from feeds, your profile, and search results.",
+    "cancel": "Cancel",
+    "confirm": "Delete",
+    "deleting": "Deleting..."
   },
   "draft": {
     "saved": "Draft saved",

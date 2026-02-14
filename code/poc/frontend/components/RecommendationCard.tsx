@@ -1073,16 +1073,18 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
             setShowSaveToListModal(false);
             toast.success(t('card.addedToList'));
           }}
-          {showDeleteModal && (
-            <DeleteConfirmationModal
-              recommendationId={recommendation.id}
-              restaurantName={recommendation.location.name}
-              isOpen={showDeleteModal}
-              onClose={() => setShowDeleteModal(false)}
-              onConfirm={handleDelete}
-              backendUrl={backendUrl}
-            />
-          )}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <DeleteConfirmationModal
+          recommendationId={recommendation.id}
+          restaurantName={recommendation.location.name}
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDelete}
+          backendUrl={backendUrl}
         />
       )}
     </>
