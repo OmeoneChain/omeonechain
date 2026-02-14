@@ -13,16 +13,15 @@
 // UPDATED: Edit mode support — editMode prop, PATCH endpoint, locked restaurant (Feb 9, 2026)
 // UPDATED: Reordered sections (Photos before Dishes), simplified Dishes, removed Labels (Feb 13, 2026)
 // UPDATED: Integrated dish rating into Photos (per-photo annotation), removed Individual Dishes section (Feb 14, 2026)
+// UPDATED: Categories refreshed (added Brunch, Happy Hour, Business Meal, Date Night, Family Friendly) (Feb 14, 2026)
+// UPDATED: Visit Context section hidden for beta (overlaps with Categories) (Feb 14, 2026)
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   MapPin,
   Star,
   AlertCircle,
-  DollarSign,
   Clock,
-  Users,
-  Calendar,
   X,
   ArrowLeft,
   Save,
@@ -283,15 +282,23 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
   const categories = [
     { value: 'breakfast', label: t('categories.breakfast') },
+    { value: 'brunch', label: t('categories.brunch') },
     { value: 'lunch', label: t('categories.lunch') },
     { value: 'dinner', label: t('categories.dinner') },
     { value: 'coffee', label: t('categories.coffee') },
+    { value: 'happyHour', label: t('categories.happyHour') },
     { value: 'desserts', label: t('categories.desserts') },
     { value: 'special', label: t('categories.special') },
     { value: 'snack', label: t('categories.snack') },
     { value: 'lateNight', label: t('categories.lateNight') },
+    { value: 'business', label: t('categories.business') },
+    { value: 'dateNight', label: t('categories.dateNight') },
+    { value: 'familyFriendly', label: t('categories.familyFriendly') },
   ];
 
+  // NOTE: occasionOptions and mealTypeOptions hidden with Visit Context (Feb 14, 2026)
+  // Kept for future restoration. Categories now cover these use cases.
+  /*
   const occasionOptions = [
     { value: 'date_night', label: t('occasions.dateNight'), icon: '💕' },
     { value: 'family_dinner', label: t('occasions.familyDinner'), icon: '👨‍👩‍👧‍👦' },
@@ -308,6 +315,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     { value: 'dinner', label: t('mealTypes.dinner'), icon: '🌙' },
     { value: 'late_night', label: t('mealTypes.lateNight'), icon: '🌃' },
   ];
+  */
 
   const noiseLevelOptions = [
     { value: 'quiet', label: t('noiseLevel.quiet'), icon: '🤫' },
@@ -695,12 +703,13 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     }));
   };
 
-  const updateContext = (updates: Partial<ContextualFactors>) => {
-    setDraft(prev => ({
-      ...prev,
-      context: { ...(prev.context || context), ...updates },
-    }));
-  };
+  // NOTE: updateContext hidden with Visit Context (Feb 14, 2026)
+  // const updateContext = (updates: Partial<ContextualFactors>) => {
+  //   setDraft(prev => ({
+  //     ...prev,
+  //     context: { ...(prev.context || context), ...updates },
+  //   }));
+  // };
 
   // ============================================
   // PHOTOS
@@ -1103,7 +1112,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
 
   // ============================================
   // RENDER (SINGLE SCREEN)
-  // Section order: Aspects → Photos → Dishes → Comments → Visit Context
+  // Section order: Aspects → Photos → Comments (Visit Context hidden for beta)
   // (Labels removed for launch)
   // ============================================
 
@@ -1532,16 +1541,23 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
               {/* context_tags kept in data model for compat */}
               {/* ========================================== */}
 
-              {/* ========================================== */}
-              {/* 4) Visit Context (unchanged)               */}
-              {/* ========================================== */}
+              {/* ==========================================
+                  Visit Context — HIDDEN for beta (Feb 14, 2026)
+                  Tester feedback: overlaps with Categories, adds friction.
+                  Categories now cover: Brunch, Business Meal, Date Night,
+                  Family Friendly, Happy Hour/Drinks, etc.
+                  Data model (ContextualFactors) preserved for future use.
+                  To restore: uncomment this <CS> block and re-enable
+                  occasionOptions, mealTypeOptions, updateContext above.
+                  Also re-add imports: Calendar, Users, DollarSign.
+              ========================================== */}
+              {/*
               <CS
                 title={t('singleScreen.sections.context') || t('context.title') || 'Visit Context'}
                 icon={<Calendar className="h-5 w-5 text-[#FF644A]" />}
                 defaultOpen={!!draft.context}
               >
                 <div className="space-y-4">
-                  {/* Occasion */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.occasion')}</label>
                     <div className="grid grid-cols-2 gap-2">
@@ -1560,99 +1576,69 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
                       ))}
                     </div>
                   </div>
-
-                  {/* Party Size */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.partySize')}</label>
                     <div className="flex items-center space-x-2">
                       <Users className="h-4 w-4 text-[#9CA3AF] dark:text-gray-500" />
-                      <input
-                        type="number"
-                        value={context.party_size}
+                      <input type="number" value={context.party_size}
                         onChange={e => updateContext({ party_size: parseInt(e.target.value, 10) || 1 })}
                         className="flex-1 px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
-                        min="1"
-                        max="20"
-                      />
+                        min="1" max="20" />
                       <span className="text-sm text-[#9CA3AF] dark:text-gray-500">{t('context.people')}</span>
                     </div>
                   </div>
-
-                  {/* Meal Type */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.mealType')}</label>
                     <div className="grid grid-cols-3 gap-2">
                       {mealTypeOptions.map(option => (
-                        <button
-                          key={option.value}
+                        <button key={option.value}
                           onClick={() => updateContext({ meal_type: option.value as any })}
                           className={`p-3 rounded-xl text-xs transition-colors ${
                             context.meal_type === option.value 
                               ? 'bg-[#FF644A] text-white' 
                               : 'bg-white dark:bg-[#353444] border border-gray-200 dark:border-[#3D3C4A] text-[#1F1E2A] dark:text-white hover:border-[#FF644A]'
-                          }`}
-                        >
+                          }`}>
                           <div className="text-lg">{option.icon}</div>
                           <div className="mt-1">{option.label}</div>
                         </button>
                       ))}
                     </div>
                   </div>
-
-                  {/* Date and Time */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.dateTime')}</label>
-                    <input
-                      type="datetime-local"
-                      value={context.time_of_visit || ''}
+                    <input type="datetime-local" value={context.time_of_visit || ''}
                       onChange={e => {
                         const date = e.target.value;
                         const dayOfWeek = date ? new Date(date).toLocaleDateString('pt-BR', { weekday: 'long' }) : undefined;
-                        updateContext({
-                          time_of_visit: date,
-                          day_of_week: dayOfWeek,
-                        });
+                        updateContext({ time_of_visit: date, day_of_week: dayOfWeek });
                       }}
-                      className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
-                    />
+                      className="w-full px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent" />
                   </div>
-
-                  {/* Total Spent */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.totalSpent')}</label>
                     <div className="flex items-center space-x-2">
                       <DollarSign className="h-4 w-4 text-[#9CA3AF] dark:text-gray-500" />
                       <span className="text-sm text-[#9CA3AF] dark:text-gray-500">R$</span>
-                      <input
-                        type="number"
-                        placeholder="0.00"
-                        value={context.total_spent || ''}
+                      <input type="number" placeholder="0.00" value={context.total_spent || ''}
                         onChange={e => updateContext({ total_spent: e.target.value ? parseFloat(e.target.value) : undefined })}
                         className="flex-1 px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
-                        step="0.01"
-                        min="0"
-                      />
+                        step="0.01" min="0" />
                     </div>
                   </div>
-
-                  {/* Visit Duration */}
                   <div>
                     <label className="text-sm font-medium text-[#1F1E2A] dark:text-white mb-2 block">{t('context.visitDuration')}</label>
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4 text-[#9CA3AF] dark:text-gray-500" />
-                      <input
-                        type="number"
-                        placeholder={t('aspects.minutesPlaceholder')}
-                        value={context.visit_duration_minutes || ''}
+                      <input type="number" placeholder={t('aspects.minutesPlaceholder')} value={context.visit_duration_minutes || ''}
                         onChange={e => updateContext({ visit_duration_minutes: e.target.value ? parseInt(e.target.value, 10) : undefined })}
                         className="flex-1 px-3 py-3 border border-gray-200 dark:border-[#3D3C4A] rounded-xl text-sm bg-white dark:bg-[#353444] text-[#1F1E2A] dark:text-white focus:ring-2 focus:ring-[#FF644A] focus:border-transparent"
-                        min="0"
-                      />
+                        min="0" />
                       <span className="text-sm text-[#9CA3AF] dark:text-gray-500">{t('aspects.minutes')}</span>
                     </div>
                   </div>
                 </div>
               </CS>
+              */}
               </div>
             </>
           )}

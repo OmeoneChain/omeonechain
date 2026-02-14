@@ -344,13 +344,18 @@
   },
   "categories": {
     "breakfast": "Breakfast",
+    "brunch": "Brunch",
     "lunch": "Lunch",
     "dinner": "Dinner",
-    "coffee": "Coffee & Drinks",
+    "coffee": "Coffee / Tea",
+    "happyHour": "Happy Hour / Drinks",
     "desserts": "Desserts",
     "special": "Special Occasion",
-    "snack": "Quick Snack",
-    "lateNight": "Late Night"
+    "snack": "Quick Bite",
+    "lateNight": "Late Night",
+    "business": "Business Meal",
+    "dateNight": "Date Night",
+    "familyFriendly": "Family Friendly"
   },
   "noiseLevel": {
     "quiet": "Quiet",

@@ -250,7 +250,7 @@
     "annotation": {
       "placeholder": "O que tem nesta foto?",
       "dismissRating": "Não é um prato",
-      "label": "Nome do prato ou bebida"
+      "label": "Descreva esta foto"
     }
   },
   "reshare": {
@@ -344,13 +344,18 @@
   },
   "categories": {
     "breakfast": "Café da Manhã",
+    "brunch": "Brunch",
     "lunch": "Almoço",
     "dinner": "Jantar",
-    "coffee": "Café & Bebidas",
+    "coffee": "Café / Chá",
+    "happyHour": "Happy Hour / Drinks",
     "desserts": "Sobremesas",
     "special": "Ocasião Especial",
     "snack": "Lanche Rápido",
-    "lateNight": "Madrugada"
+    "lateNight": "Madrugada",
+    "business": "Refeição de Negócios",
+    "dateNight": "Noite a Dois",
+    "familyFriendly": "Para Família"
   },
   "noiseLevel": {
     "quiet": "Silencioso",
