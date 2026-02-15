@@ -1,1279 +1,1182 @@
-'use client';
+// File: code/poc/core/src/api/routes/feed.ts
+//
+// Feed Algorithm: Mixed Instagram-style feed with Trust Score 2.0
+//
+// Extracted from server.ts for maintainability during beta iteration.
+// This file is the single source of truth for feed logic — adjust weights,
+// sources, and scoring here without touching the rest of the backend.
+//
+// FEED SOURCES:
+//   Source 0:  Own Content — user's own recs, lists, requests, reshares (NEW)
+//   Source 1:  Following Feed — recommendations from followed users (35%)
+//   Source 1B: Reshares from Following (20%)
+//   Source 1C: Discovery Requests from Following (5%)
+//   Source 2:  Taste Similarity — cuisine-matched content from non-followed users (25%)
+//   Source 3:  Trending Content — high-rated recent content (15%)
+//   Source 4:  Lists from Following (5%)
+//
+// INTERLEAVE STRATEGY:
+//   Primary  (own + following): sorted by recency      → ~75% of feed
+//   Discovery (taste + trending): sorted by trust score → ~25% of feed
+//
+// CHANGELOG:
+//   Feb 2026 — Extracted from server.ts into standalone route file
+//   Feb 2026 — Added Source 0: user's own content now appears in their feed
+//   Feb 2026 — Added deduplication to prevent same item appearing twice
+//   Feb 2026 — Fixed reshare restaurant/author data: replaced 2-level nested
+//              Supabase embeds with 2-step fetch (metadata + recommendations)
+//              to fix "Unknown Restaurant" / "Unknown User" in reshare cards
+//   Feb 2026 — Fixed reshare dedup: reshares no longer block the original
+//              recommendation from appearing in the feed (separate dedup sets)
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, 
-  Users,
-  RefreshCw,
-  ChefHat,
-  Coffee,
-  Search,
-  Sparkles,
-  HelpCircle
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { Router, Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
+import { authenticateToken } from '../../middleware/auth';
 
-// Using 'feed' namespace - loads from locales/{locale}/feed.json
-import CleanHeader from '@/components/CleanHeader';
-import RecommendationCard from '@/components/RecommendationCard';
-import ListCard from '@/components/ListCard';
-import ReshareHeader from '@/components/ReshareHeader';
-import RequestCard from '@/components/discover/RequestCard';
-import EditRecommendationModal from '@/components/recommendation/EditRecommendationModal';
-import { useAuth } from '@/hooks/useAuth';
-import tokenBalanceService from '@/services/TokenBalanceService';
-import toast from 'react-hot-toast';
-import { useCapacitor } from '@/hooks/useCapacitor';
-import TrendingWidget from '@/components/discover/TrendingWidget';
+// =============================================================================
+// SETUP
+// =============================================================================
 
-// Recommendation interface (same as before)
-interface Recommendation {
-  id: string;
-  title: string;
-  content: string;
-  photos?: Array<{
-    url: string;
-    ipfsHash?: string;
-    caption?: string;
-    hasLocation?: boolean;
-  }>;
-  image?: string;
-  category: string;
-  location: {
-    restaurant_id?: number;
-    name: string;
-    address: string;
-    city: string;
-    latitude?: number;
-    longitude?: number;
-  };
-  author: {
-    id: string;
-    name: string;
-    avatar: string;
-    reputation: number;
-    isFollowing: boolean;
-    socialDistance: 1 | 2;
-    verificationLevel?: 'basic' | 'verified' | 'expert';
-  };
-  overall_rating: number;
-  dishes?: Array<{
-    id: string;
-    name: string;
-    rating: number;
-    notes?: string;
-    would_order_again: boolean;
-  }>;
-  aspects?: {
-    ambiance: number;
-    service: number;
-    value_for_money: number;
-    noise_level?: 'quiet' | 'moderate' | 'loud';
-  };
-  context?: {
-    occasion: 'date_night' | 'family_dinner' | 'quick_lunch' | 'celebration' | 'business_lunch' | 'casual';
-    party_size: number;
-    meal_type?: 'breakfast' | 'brunch' | 'lunch' | 'dinner' | 'late_night';
-    time_of_visit?: string;
-    total_spent?: number;
-  };
-  context_tags?: string[];
-  engagement: {
-    saves: number;
-    upvotes: number;
-    comments: number;
-    shares?: number;
-    reshares?: number;
-    views?: number;
-  };
-  tokenRewards?: {
-    amount: number;
-    usdValue: number;
-    earnedFrom: 'upvotes' | 'saves' | 'trust_bonus' | 'creation' | 'social_multiplier';
-  };
-  createdAt: string;
-  updatedAt?: string;
-  tags: string[];
-  isBookmarked: boolean;
-  hasUpvoted: boolean;
-  hasReshared?: boolean;
-  objectId?: string;
-  transactionHash?: string;
-  contentHash?: string;
-  verificationStatus?: 'verified' | 'unverified' | 'flagged';
-  canEdit?: boolean;
-  canDelete?: boolean;
-  is_edited?: boolean;
-  edited_at?: string;
+const router = Router();
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ [Feed] Missing Supabase configuration');
 }
 
-// List interface (same as before)
-interface CuratedList {
-  id: string | number;
-  title: string;
-  description: string;
-  author: {
+const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+
+const IPFS_GATEWAY = process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/';
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+interface AuthenticatedRequest extends Request {
+  user?: {
     id: string;
-    name: string;
-    avatar: string;
-    verified: boolean;
-    followers: number;
-    socialDistance?: 1 | 2;
+    [key: string]: any;
   };
-  restaurantCount: number;
-  saves: number;
-  likes?: number;
-  category?: string;
-  neighborhood?: string;
-  isNew?: boolean;
-  timeAgo?: string;
-  createdAt?: string;
-  preview: Array<{
-    id?: number;
-    name: string;
-    image?: string;
-    cuisine?: string;
-    rating?: number;
-    location?: string;
-  }>;
-  tags?: string[];
-  isBookmarked?: boolean;
-  hasLiked?: boolean;
-  coverImage?: string;
 }
 
-// NEW: Reshare interface
-interface ReshareItem {
-  type: 'reshare';
-  reshare_id: string;
-  reshare_user_id: string;
-  reshare_comment: string | null;
-  reshare_created_at: string;
-  resharer: {
-    id: string;
-    username?: string;
-    display_name?: string;
-    avatar_url?: string;
-    reputation_score?: number;
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Feed-specific Trust Score calculation.
+ * Combines social proximity, taste alignment, and contextual match
+ * weighted by the author's base trust score.
+ */
+function calculateTrustScore(
+  item: any,
+  userId: string,
+  socialWeight: number,
+  tasteAlignment: number,
+  contextualMatch: number
+) {
+  const authorTrustScore = item.users?.trust_score || 5.0;
+
+  const overallScore = (
+    (socialWeight * 0.3) +
+    (tasteAlignment * 0.5) +
+    (contextualMatch * 0.2)
+  ) * (authorTrustScore / 10);
+
+  return {
+    social_weight: socialWeight,
+    taste_alignment: tasteAlignment,
+    contextual_match: contextualMatch,
+    overall_trust_score: Math.min(10, Math.max(0, overallScore * 10))
   };
-  // The reshared recommendation data
-  data: Recommendation;
 }
 
-// NEW: Discovery Request interface for feed
-interface DiscoveryRequestItem {
-  id: string;
-  title: string;
-  description: string | null;
-  location: string | null;
-  cuisine_type: string | null;
-  occasion: string | null;
-  budget_range: string[] | null;
-  dietary_restrictions: string[] | null;
-  bounty_amount: number;
-  status: 'open' | 'answered' | 'closed';
-  response_count: number;
-  view_count: number;
-  created_at: string;
-  expires_at: string | null;
-  creator: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-    reputation_score: number;
-  };
-  is_bookmarked?: boolean;
-}
+/**
+ * Extract user's top cuisine preferences from their recommendation history.
+ * Returns up to 5 cuisine types the user has rated 7+ .
+ */
+function extractCuisinePreferences(userRecommendations: any[]): string[] {
+  const cuisineMap = new Map<string, number>();
 
-// Updated union type for feed items
-type FeedItem = 
-  | { type: 'recommendation'; data: Recommendation }
-  | { type: 'list'; data: CuratedList }
-  | { type: 'request'; data: DiscoveryRequestItem }
-  | ReshareItem;
-
-const MainFeed: React.FC = () => {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
-  const t = useTranslations('feed');
-  
-  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
-  const [isLoadingFeed, setIsLoadingFeed] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const { isCapacitor } = useCapacitor();
-
-  // Change 2.3: Edit modal state
-  const [editingRecommendationId, setEditingRecommendationId] = useState<string | null>(null);
-
-  const BACKEND_URL = 'https://omeonechain-production.up.railway.app';
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/');
+  userRecommendations.forEach(rec => {
+    if (rec.restaurant?.cuisine_type && rec.overall_rating >= 7) {
+      const count = cuisineMap.get(rec.restaurant.cuisine_type) || 0;
+      cuisineMap.set(rec.restaurant.cuisine_type, count + 1);
     }
-  }, [isAuthenticated, isLoading, router]);
+  });
 
-  const calculateTimeAgo = useCallback((dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  return Array.from(cuisineMap.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([cuisine]) => cuisine);
+}
 
-    if (diffInSeconds < 60) return t('timeAgo.now');
-    if (diffInSeconds < 3600) return t('timeAgo.minutes', { count: Math.floor(diffInSeconds / 60) });
-    if (diffInSeconds < 86400) return t('timeAgo.hours', { count: Math.floor(diffInSeconds / 3600) });
-    if (diffInSeconds < 604800) return t('timeAgo.days', { count: Math.floor(diffInSeconds / 86400) });
-    return t('timeAgo.weeks', { count: Math.floor(diffInSeconds / 604800) });
-  }, [t]);
+/**
+ * Interleave two sorted arrays with a target ratio.
+ *   primary   = own + followed content, sorted by recency
+ *   secondary = discovery content, sorted by trust score
+ *
+ * UPDATED: ratio check now counts both 'own' and 'following' as primary.
+ */
+function interleaveFeed(
+  primary: any[],
+  secondary: any[],
+  primaryRatio: number = 0.75,
+  maxItems: number = 40
+): any[] {
+  const result: any[] = [];
+  let primaryIndex = 0;
+  let secondaryIndex = 0;
 
-  // Transform feed data including recommendations, lists, AND reshares
-  const transformMixedFeed = useCallback((feedData: any[]): FeedItem[] => {
-    return feedData.map(item => {
-      // Handle reshares (NEW)
-      if (item.type === 'reshare') {
-        const restaurant = item.restaurants || {};
-        const originalAuthor = item.users || {};
-        // FIXED: Backend now returns 'aspects' directly as formatted object
-        const contextArray = item.contextual_factors || [];
-        const contextData = contextArray.length > 0 ? contextArray[0] : undefined;
+  if (primary.length === 0) return secondary.slice(0, maxItems);
+  if (secondary.length === 0) return primary.slice(0, maxItems);
 
-        const recData: Recommendation = {
-          id: item.id,
-          title: item.title,
-          content: item.content || '',
-          photos: item.photos?.map((url: string) => ({ url })) || [],
-          category: item.category || restaurant.category || 'Restaurant',
-          location: {
-            restaurant_id: item.restaurant_id,
-            name: restaurant.name || t('unknownRestaurant'),
-            address: restaurant.address || '',
-            city: '',
-            latitude: restaurant.latitude,
-            longitude: restaurant.longitude
-          },
-          author: {
-            id: originalAuthor.id || item.author_id,
-            name: originalAuthor.display_name || originalAuthor.username || t('unknownUser'),
-            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${originalAuthor.username || originalAuthor.display_name || 'User'}`,
-            reputation: originalAuthor.reputation_score || 0,
-            isFollowing: true,
-            socialDistance: 1,
-            verificationLevel: originalAuthor.verification_level || 'basic'
-          },
-          overall_rating: item.overall_rating || 7,
-          dishes: item.dishes?.map((dish: any) => ({
-            id: dish.id,
-            name: dish.name,
-            rating: dish.rating,
-            notes: dish.notes,
-            would_order_again: dish.would_order_again !== false
-          })) || [],
-          // FIXED: Use item.aspects directly (backend formats it)
-          aspects: item.aspects,
-          context: contextData ? {
-            occasion: contextData.occasion || 'casual',
-            party_size: contextData.party_size || 2,
-            meal_type: contextData.meal_type,
-            time_of_visit: item.visit_date,
-            total_spent: contextData.total_spent
-          } : undefined,
-          context_tags: item.context_tags || [],
-          engagement: {
-            saves: item.saves_count || 0,
-            upvotes: item.likes_count || 0,
-            comments: item.comments_count || 0,
-            reshares: item.reshares_count || 0
-          },
-          createdAt: item.created_at || new Date().toISOString(),
-          tags: item.tags || [],
-          isBookmarked: item.isBookmarked || false,
-          hasUpvoted: item.hasUpvoted || false,
-          hasReshared: item.hasReshared || false,
-          is_edited: item.is_edited || false,
-          edited_at: item.edited_at,
-          canEdit: false, // User can't edit reshared content
-          canDelete: false
-        };
+  while (result.length < maxItems) {
+    const currentRatio = result.length === 0
+      ? 0
+      : result.filter(i => i.source === 'following' || i.source === 'own').length / result.length;
 
-        return {
-          type: 'reshare',
-          reshare_id: item.reshare_id,
-          reshare_user_id: item.reshare_user_id,
-          reshare_comment: item.reshare_comment,
-          reshare_created_at: item.reshare_created_at,
-          resharer: item.resharer || {},
-          data: recData
-        } as ReshareItem;
-      }
-      
-      // Handle discovery requests (NEW)
-      if (item.type === 'request') {
-        const requestData: DiscoveryRequestItem = {
-          id: item.id,
-          title: item.title,
-          description: item.description,
-          location: item.location,
-          cuisine_type: item.cuisine_type,
-          occasion: item.occasion,
-          budget_range: item.budget_range,
-          dietary_restrictions: item.dietary_restrictions,
-          bounty_amount: item.bounty_amount || 0,
-          status: item.status || 'open',
-          response_count: item.response_count || 0,
-          view_count: item.view_count || 0,
-          created_at: item.created_at,
-          expires_at: item.expires_at,
-          creator: item.creator ? {
-            id: item.creator.id,
-            username: item.creator.username || '',
-            display_name: item.creator.display_name || item.creator.username || t('unknownUser'),
-            avatar_url: item.creator.avatar_url,
-            reputation_score: item.creator.reputation_score || 0
-          } : {
-            id: '',
-            username: '',
-            display_name: t('unknownUser'),
-            avatar_url: null,
-            reputation_score: 0
-          },
-          is_bookmarked: item.is_bookmarked || false
-        };
-        
-        return { type: 'request', data: requestData };
-      }
+    const needMorePrimary = currentRatio < primaryRatio;
+    const primaryAvailable = primaryIndex < primary.length;
+    const secondaryAvailable = secondaryIndex < secondary.length;
 
-      // Handle lists
-      if (item.type === 'list') {
-        const listData: CuratedList = {
-          id: item.id,
-          title: item.title,
-          description: item.content || item.description || '',
-          author: {
-            id: item.creator?.id || 'unknown',
-            name: item.creator?.display_name || item.creator?.username || t('foodExpert'),
-            avatar: item.creator?.avatar_url || '👨‍🍳',
-            verified: false,
-            followers: 0,
-            socialDistance: item.creator?.id === user?.id ? undefined : 1
-          },
-          restaurantCount: item.restaurant_count || 0,
-          saves: item.save_count || 0,
-          likes: item.like_count || 0,
-          category: item.category,
-          neighborhood: item.city,
-          timeAgo: calculateTimeAgo(item.created_at || item.createdAt),
-          createdAt: item.created_at || item.createdAt,
-          preview: (item.restaurants || []).slice(0, 3).map((r: any) => ({
-            id: r.id,
-            name: r.name || 'Restaurant',
-            image: r.image_url,
-            cuisine: r.cuisine_type,
-            rating: r.average_rating,
-            location: r.location
-          })),
-          tags: item.tags || [],
-          isBookmarked: item.isBookmarked || false,
-          hasLiked: item.is_liked || false,
-          coverImage: item.cover_image_url || null
-        };
-        
-        return { type: 'list', data: listData };
-      }
-      
-      // Handle regular recommendations
-      // FIXED: Backend now returns 'aspects' directly as formatted object
-      const recData: Recommendation = {
+    if (!primaryAvailable && !secondaryAvailable) break;
+
+    if (needMorePrimary && primaryAvailable) {
+      result.push(primary[primaryIndex++]);
+    } else if (secondaryAvailable) {
+      result.push(secondary[secondaryIndex++]);
+    } else if (primaryAvailable) {
+      result.push(primary[primaryIndex++]);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Transform IPFS hashes (or full URLs) into usable photo objects.
+ */
+function transformPhotos(photos: any, imageUrl?: string): Array<{ url: string; ipfsHash?: string }> {
+  if (photos && Array.isArray(photos) && photos.length > 0) {
+    return photos.map((hash: any) => {
+      if (typeof hash === 'string' && hash.startsWith('http')) return { url: hash };
+      if (typeof hash === 'object' && hash.url) return { url: hash.url, ipfsHash: hash.ipfsHash };
+      return { url: `${IPFS_GATEWAY}${hash}`, ipfsHash: hash };
+    });
+  }
+  if (imageUrl) return [{ url: imageUrl }];
+  return [];
+}
+
+/**
+ * Fetch full recommendation data for a set of reshares.
+ *
+ * WHY: Supabase 2-level nested embeds (reshares → recommendations → restaurants)
+ * silently return null for the inner joins, causing "Unknown Restaurant" and
+ * "Unknown User" in the feed. This helper avoids the problem by:
+ *   Step 1: Fetch reshare metadata + resharer info (1-level embed, works fine)
+ *   Step 2: Fetch the actual recommendations using the SAME proven query pattern
+ *           as Source 1 (1-level embed for restaurants + users — known to work)
+ *   Step 3: Merge reshare metadata with recommendation data
+ */
+async function fetchResharesWithFullData(
+  reshareRows: any[],
+  source: string,
+  userId: string,
+  trustWeights: { social: number; taste: number; context: number },
+  seenReshareRecIds: Set<string>
+): Promise<any[]> {
+  if (!reshareRows || reshareRows.length === 0) return [];
+
+  // Collect unique recommendation IDs from the reshares
+  const recIds = reshareRows
+    .map(r => r.recommendation_id)
+    .filter((id): id is string => !!id);
+
+  if (recIds.length === 0) return [];
+
+  // Fetch the full recommendations with 1-level joins (proven pattern from Source 1)
+  const { data: fullRecs, error: recsError } = await supabase
+    .from('recommendations')
+    .select(`
+      *,
+      likes_count,
+      saves_count,
+      reshares_count,
+      comments_count,
+      users:author_id(id, username, display_name, avatar_url, reputation_score),
+      restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
+      restaurant_aspects(ambiance, service, value_for_money, noise_level)
+    `)
+    .in('id', recIds);
+
+  if (recsError) {
+    console.error(`❌ [Feed] Error fetching recommendations for reshares:`, recsError);
+    return [];
+  }
+
+  // Index recommendations by ID for fast lookup
+  const recMap = new Map<string, any>();
+  (fullRecs || []).forEach(rec => recMap.set(rec.id, rec));
+
+  // Assemble reshare feed items
+  // NOTE: We only dedup against OTHER reshares (seenReshareRecIds), NOT against
+  // original recommendations (seenRecIds). A reshare by User A and the original
+  // post by User B are different feed items even though they reference the same
+  // recommendation — both should appear in the feed.
+  const items: any[] = [];
+  for (const reshare of reshareRows) {
+    const rec = recMap.get(reshare.recommendation_id);
+    if (!rec) {
+      console.warn(`⚠️ [Feed] Recommendation ${reshare.recommendation_id} not found for reshare ${reshare.id}`);
+      continue;
+    }
+    if (seenReshareRecIds.has(rec.id)) continue;
+
+    seenReshareRecIds.add(rec.id);
+    items.push({
+      type: 'reshare',
+      source,
+      reshare_id: reshare.id,
+      reshare_user_id: reshare.user_id,
+      reshare_comment: reshare.comment,
+      reshare_created_at: reshare.created_at,
+      resharer: reshare.resharer,
+      // Spread the recommendation (restaurants + users are 1-level joins — they work)
+      ...rec,
+      trust_context: calculateTrustScore(rec, userId, trustWeights.social, trustWeights.taste, trustWeights.context)
+    });
+  }
+
+  return items;
+}
+
+/**
+ * Format a raw feed item for frontend consumption.
+ * Handles four item types: recommendation, reshare, list, request.
+ */
+function formatFeedItem(item: any): any {
+  try {
+    // ── List ──
+    if (item.type === 'list') {
+      return {
+        type: 'list',
         id: item.id,
         title: item.title,
-        content: item.content || item.description || '',
-        photos: item.photos || [],
+        description: item.description || '',
         category: item.category || '',
-        location: item.location || {
-          restaurant_id: undefined,
-          name: t('unknownRestaurant'),
-          address: '',
-          city: ''
+        city: item.city || '',
+        tags: item.tags || [],
+        best_for: item.best_for || '',
+        cover_image_url: item.cover_image_url || null,
+        cover_image_source: item.cover_image_source || null,
+        creator: {
+          id: item.author_id,
+          username: item.creator?.username || item.users?.username || 'Unknown User',
+          display_name: item.creator?.display_name || item.users?.display_name || item.creator?.username || item.users?.username || 'Unknown User',
+          avatar_url: item.creator?.avatar_url || item.users?.avatar_url || null
         },
-        author: item.author || {
-          id: '',
-          name: t('unknownUser'),
-          avatar: '/default-avatar.png',
-          reputation: 5,
+        restaurants: (item.restaurants || []).map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          cuisine_type: r.cuisine_type || 'Restaurant',
+          location: r.location || '',
+          image_url: r.image_url || null,
+          average_rating: r.average_rating || 0
+        })),
+        restaurant_count: item.restaurants?.length || 0,
+        created_at: item.created_at,
+        like_count: item.like_count || 0,
+        save_count: item.save_count || 0,
+        is_liked: item.is_liked || false,
+        is_saved: item.is_saved || false
+      };
+    }
+
+    // ── Reshare ──
+    if (item.type === 'reshare') {
+      return {
+        type: 'reshare',
+        reshare_id: item.reshare_id,
+        reshare_user_id: item.reshare_user_id,
+        reshare_comment: item.reshare_comment,
+        reshare_created_at: item.reshare_created_at,
+        resharer: {
+          id: item.resharer?.id || item.reshare_user_id,
+          username: item.resharer?.username,
+          display_name: item.resharer?.display_name || item.resharer?.username,
+          avatar_url: item.resharer?.avatar_url,
+          reputation_score: item.resharer?.reputation_score
+        },
+        id: item.id,
+        title: item.title,
+        content: item.description || item.content || '',
+        overall_rating: item.overall_rating || item.rating || 0,
+        location: {
+          restaurant_id: item.restaurant_id,
+          name: item.restaurants?.name || 'Unknown Restaurant',
+          address: item.restaurants?.formatted_address || item.restaurants?.address || '',
+          city: (() => {
+            const rawCity = item.restaurants?.city || '';
+            // If city is just a number or starts with a number, it's bad data — extract from address
+            const isBadCity = !rawCity || /^\d+(\s*-\s*\w+)?$/.test(rawCity.trim());
+            if (isBadCity && item.restaurants?.address) {
+              // Try to extract city from address (e.g., "Carrer d'Aribau, 23, Eixample, 08011 Barcelona, Spain")
+              const parts = (item.restaurants.formatted_address || item.restaurants.address || '').split(',').map((p: string) => p.trim());
+              // Look for a part that contains a city name (not a number, not a postal code)
+              const cityCandidate = parts.find((p: string, i: number) => 
+                i > 0 && p.length > 2 && !/^\d/.test(p) && !p.includes('-') && i < parts.length - 1
+              );
+              return [cityCandidate, item.restaurants.state_province].filter(Boolean).join(', ');
+            }
+            return [rawCity, item.restaurants?.state_province].filter(Boolean).join(', ');
+          })(),
+          country: item.restaurants?.country || ''
+        },
+        author: {
+          id: item.author_id || item.user_id,
+          name: item.users?.display_name || item.users?.username || 'Unknown User',
+          avatar: item.users?.avatar_url || '/default-avatar.png',
+          reputation: item.users?.reputation_score || item.users?.trust_score || 5,
           isFollowing: false,
           socialDistance: 1
         },
-        overall_rating: item.overall_rating || 0,
-        dishes: item.dishes || [],
-        // FIXED: Use item.aspects directly (backend formats it)
-        aspects: item.aspects,
-        context: item.context,
-        context_tags: item.tags || [],
-        engagement: item.engagement || {
-          saves: 0,
-          upvotes: 0,
-          comments: 0,
-          reshares: 0
+        category: item.restaurants?.cuisine_type || item.category || '',
+        photos: transformPhotos(item.photos, item.image_url),
+        engagement: {
+          saves: item.saves_count || 0,
+          upvotes: item.likes_count || 0,
+          comments: item.comments_count || 0,
+          reshares: item.reshares_count || 0
         },
-        createdAt: item.createdAt,
-        tags: item.tags || [],
-        isBookmarked: item.isBookmarked || false,
-        hasUpvoted: item.hasUpvoted || false,
-        hasReshared: item.hasReshared || false,
+        createdAt: item.created_at,
+        tags: item.context_tags || [],
+        isBookmarked: item.is_saved || false,
+        hasUpvoted: item.is_liked || false,
+        hasReshared: item.has_reshared || false,
+        aspects: item.restaurant_aspects?.[0] ? {
+          ambiance: item.restaurant_aspects[0].ambiance,
+          service: item.restaurant_aspects[0].service,
+          value_for_money: item.restaurant_aspects[0].value_for_money,
+          noise_level: item.restaurant_aspects[0].noise_level
+        } : undefined,
         is_edited: item.is_edited || false,
-        edited_at: item.edited_at,
-        // Change 2.4: Set canEdit based on current user
-        canEdit: (item.author?.id === user?.id) || (item.author_id === user?.id),
-        canDelete: (item.author?.id === user?.id) || (item.author_id === user?.id)
+        edited_at: item.edited_at || null
       };
-      return { type: 'recommendation', data: recData };
-    });
-  }, [calculateTimeAgo, t, user?.id]);
+    }
 
-  // Transform recommendations-only endpoint data (fallback)
-  // NOTE: This fallback endpoint might still return array format, so keep extraction logic
-  const transformRecommendationsData = useCallback((recommendations: any[]): FeedItem[] => {
-    return recommendations.map(rec => {
-      const restaurant = rec.restaurants || {};
-      const author = rec.users || {};
-      // Fallback: check for both formats (array or object)
-      const aspects = Array.isArray(rec.aspects) 
-        ? (rec.aspects.length > 0 ? rec.aspects[0] : undefined)
-        : rec.aspects;
-      const contextArray = rec.contextual_factors || [];
-      const contextData = contextArray.length > 0 ? contextArray[0] : undefined;
-      
-      const recData: Recommendation = {
-        id: rec.id,
-        title: rec.title,
-        content: rec.content || '',
-        photos: rec.photos?.map((url: string) => ({ url })) || [],
-        category: rec.category || restaurant.category || 'Restaurant',
+    // ── Discovery Request ──
+    if (item.type === 'request') {
+      return {
+        type: 'request',
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        location: item.location,
+        cuisine_type: item.cuisine_type,
+        occasion: item.occasion,
+        budget_range: item.budget_range,
+        dietary_restrictions: item.dietary_restrictions,
+        bounty_amount: item.bounty_amount || 0,
+        status: item.status || 'open',
+        response_count: item.response_count || 0,
+        view_count: item.view_count || 0,
+        created_at: item.created_at,
+        expires_at: item.expires_at,
+        creator: item.creator ? {
+          id: item.creator.id,
+          username: item.creator.username,
+          display_name: item.creator.display_name,
+          avatar_url: item.creator.avatar_url,
+          reputation_score: item.creator.reputation_score || 0
+        } : null,
+        source: item.source,
+        trust_context: item.trust_context
+      };
+    }
+
+    // ── Recommendation (default) ──
+    if (item.type === 'recommendation' || !item.type) {
+      return {
+        type: 'recommendation',
+        id: item.id,
+        title: item.title,
+        content: item.description || item.content || '',
+        overall_rating: item.overall_rating || item.rating || 0,
         location: {
-          restaurant_id: rec.restaurant_id,
-          name: restaurant.name || t('unknownRestaurant'),
-          address: restaurant.address || '',
-          city: '',
-          latitude: restaurant.latitude,
-          longitude: restaurant.longitude
+          restaurant_id: item.restaurant_id,
+          name: item.restaurants?.name || 'Unknown Restaurant',
+          address: item.restaurants?.formatted_address || item.restaurants?.address || '',
+          city: (() => {
+            const rawCity = item.restaurants?.city || '';
+            // If city is just a number or starts with a number, it's bad data — extract from address
+            const isBadCity = !rawCity || /^\d+(\s*-\s*\w+)?$/.test(rawCity.trim());
+            if (isBadCity && item.restaurants?.address) {
+              // Try to extract city from address (e.g., "Carrer d'Aribau, 23, Eixample, 08011 Barcelona, Spain")
+              const parts = (item.restaurants.formatted_address || item.restaurants.address || '').split(',').map((p: string) => p.trim());
+              // Look for a part that contains a city name (not a number, not a postal code)
+              const cityCandidate = parts.find((p: string, i: number) => 
+                i > 0 && p.length > 2 && !/^\d/.test(p) && !p.includes('-') && i < parts.length - 1
+              );
+              return [cityCandidate, item.restaurants.state_province].filter(Boolean).join(', ');
+            }
+            return [rawCity, item.restaurants?.state_province].filter(Boolean).join(', ');
+          })(),
+          country: item.restaurants?.country || ''
         },
         author: {
-          id: rec.author_id,
-          name: author.display_name || author.username || t('unknownUser'),
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${author.username || author.display_name || 'User'}`,
-          reputation: author.reputation_score || 0,
-          isFollowing: true,
-          socialDistance: 1,
-          verificationLevel: author.verification_level || 'basic'
+          id: item.author_id || item.user_id,
+          name: item.users?.display_name || item.users?.username || 'Unknown User',
+          avatar: item.users?.avatar_url || '/default-avatar.png',
+          reputation: item.users?.reputation_score || item.users?.trust_score || 5,
+          isFollowing: false,
+          socialDistance: 1
         },
-        overall_rating: rec.overall_rating || 7,
-        dishes: rec.dishes?.map((dish: any) => ({
-          id: dish.id,
-          name: dish.name,
-          rating: dish.rating,
-          notes: dish.notes,
-          would_order_again: dish.would_order_again !== false
-        })) || [],
-        aspects: aspects ? {
-          ambiance: aspects.ambiance,
-          service: aspects.service,
-          value_for_money: aspects.value_for_money,
-          noise_level: aspects.noise_level
-        } : undefined,
-        context: contextData ? {
-          occasion: contextData.occasion || 'casual',
-          party_size: contextData.party_size || 2,
-          meal_type: contextData.meal_type,
-          time_of_visit: rec.visit_date,
-          total_spent: contextData.total_spent
-        } : undefined,
-        context_tags: rec.context_tags || [],
+        category: item.restaurants?.cuisine_type || item.category || '',
+        photos: transformPhotos(item.photos, item.image_url),
         engagement: {
-          saves: rec.saves_count || 0,
-          upvotes: rec.upvotes_count || 0,
-          comments: 0,
-          reshares: rec.reshares_count || 0
+          saves: item.saves_count || 0,
+          upvotes: item.likes_count || 0,
+          comments: item.comments_count || 0,
+          reshares: item.reshares_count || 0
         },
-        createdAt: rec.created_at || new Date().toISOString(),
-        tags: rec.tags || [],
-        isBookmarked: false,
-        hasUpvoted: false,
-        hasReshared: false,
-        is_edited: rec.is_edited || false,
-        edited_at: rec.edited_at,
-        canEdit: rec.author_id === user?.id,
-        canDelete: rec.author_id === user?.id
+        createdAt: item.created_at,
+        tags: item.context_tags || [],
+        isBookmarked: item.is_saved || false,
+        hasUpvoted: item.is_liked || false,
+        hasReshared: item.has_reshared || false,
+        aspects: item.restaurant_aspects?.[0] ? {
+          ambiance: item.restaurant_aspects[0].ambiance,
+          service: item.restaurant_aspects[0].service,
+          value_for_money: item.restaurant_aspects[0].value_for_money,
+          noise_level: item.restaurant_aspects[0].noise_level
+        } : undefined,
+        is_edited: item.is_edited || false,
+        edited_at: item.edited_at || null
       };
-      return { type: 'recommendation', data: recData };
-    });
-  }, [user?.id, t]);
-
-  // Fetch user's interaction status for recommendations
-  const fetchUserInteractionStatus = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('omeone_auth_token');
-      if (!token) {
-        console.log('❌ No token found');
-        return;
-      }
-
-      console.log('📊 Fetching recommendation interaction status...');
-
-      const response = await fetch(`${BACKEND_URL}/api/recommendations/status`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Failed to fetch interaction status:', errorText);
-        return;
-      }
-      
-      const data = await response.json();
-      console.log('✅ Interaction status loaded:', data);
-
-      // Update feed items with user's interaction state
-      setFeedItems(items => 
-        items.map(item => {
-          if (item.type === 'recommendation') {
-            return {
-              ...item,
-              data: {
-                ...item.data,
-                isBookmarked: data.bookmarked?.includes(item.data.id) || false,
-                hasUpvoted: data.liked?.includes(item.data.id) || false,
-                hasReshared: data.reshared?.includes(item.data.id) || false
-              }
-            };
-          } else if (item.type === 'reshare') {
-            return {
-              ...item,
-              data: {
-                ...item.data,
-                isBookmarked: data.bookmarked?.includes(item.data.id) || false,
-                hasUpvoted: data.liked?.includes(item.data.id) || false,
-                hasReshared: data.reshared?.includes(item.data.id) || false
-              }
-            };
-          }
-          return item;
-        })
-      );
-
-    } catch (error) {
-      console.error('❌ Failed to fetch interaction status:', error);
     }
-  }, [BACKEND_URL]);
 
-  const loadFeedData = useCallback(async () => {
-    try {
-      setIsLoadingFeed(true);
-      
-      const token = localStorage.getItem('omeone_auth_token');
-      
-      if (!token) {
-        console.error('❌ No auth token found');
-        setIsLoadingFeed(false);
-        return;
-      }
-
-      console.log('🔍 Fetching mixed feed from backend');
-
-      const response = await fetch(`${BACKEND_URL}/api/feed/mixed`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        console.warn('⚠️ Mixed feed failed, trying recommendations endpoint...');
-        
-        const recResponse = await fetch(`${BACKEND_URL}/api/recommendations`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!recResponse.ok) {
-          throw new Error('Failed to load recommendations');
-        }
-
-        const recData = await recResponse.json();
-        console.log('✅ Loaded recommendations fallback:', recData);
-        
-        const transformedItems = transformRecommendationsData(recData.recommendations || []);
-        setFeedItems(transformedItems);
-        
-      } else {
-        const data = await response.json();
-        console.log('✅ Loaded mixed feed:', data);
-        
-        if (data.success && data.feed) {
-          const transformedItems = transformMixedFeed(data.feed);
-          setFeedItems(transformedItems);
-          console.log(`📊 Feed contains ${transformedItems.filter(i => i.type === 'recommendation').length} recommendations, ${transformedItems.filter(i => i.type === 'reshare').length} reshares, ${transformedItems.filter(i => i.type === 'list').length} lists, and ${transformedItems.filter(i => i.type === 'request').length} requests`);
-        } else {
-          setFeedItems([]);
-        }
-      }
-
-    } catch (error) {
-      console.error('❌ Failed to load feed:', error);
-      setFeedItems([]);
-    } finally {
-      setIsLoadingFeed(false);
-    }
-  }, [BACKEND_URL, transformMixedFeed, transformRecommendationsData, fetchUserInteractionStatus]);
-
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      loadFeedData();
-    }
-  }, [isAuthenticated, user, loadFeedData]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await loadFeedData();
-    setIsRefreshing(false);
-  };
-
-  // Recommendation interactions
-  const handleSaveRecommendation = async (id: string) => {
-    setFeedItems(items => 
-      items.map(item => {
-        if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
-          return {
-            ...item,
-            data: {
-              ...item.data,
-              isBookmarked: !item.data.isBookmarked,
-              engagement: {
-                ...item.data.engagement,
-                saves: item.data.isBookmarked ? item.data.engagement.saves - 1 : item.data.engagement.saves + 1
-              }
-            }
-          };
-        }
-        return item;
-      })
-    );
-
-    try {
-      const token = localStorage.getItem('omeone_auth_token');
-      const response = await fetch(`${BACKEND_URL}/api/recommendations/${id}/bookmark`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to bookmark');
-      
-      // 💰 Get tokens earned from response
-      const data = await response.json();
-      if (data.tokens_earned && data.tokens_earned > 0) {
-        toast.success(t('toast.saved', { tokens: data.tokens_earned.toFixed(2) }));
-
-        // 🚀 Trigger optimistic balance update
-        if (user?.id) {
-          await tokenBalanceService.optimisticUpdate(user.id, data.tokens_earned);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Failed to save recommendation:', error);
-      // Revert on error
-      setFeedItems(items => 
-        items.map(item => {
-          if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
-            return {
-              ...item,
-              data: {
-                ...item.data,
-                isBookmarked: !item.data.isBookmarked,
-                engagement: {
-                  ...item.data.engagement,
-                  saves: item.data.isBookmarked ? item.data.engagement.saves + 1 : item.data.engagement.saves - 1
-                }
-              }
-            };
-          }
-          return item;
-        })
-      );
-    }
-  };
-
-  const handleUpvoteRecommendation = async (id: string) => {
-    setFeedItems(items => 
-      items.map(item => {
-        if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
-          return {
-            ...item,
-            data: {
-              ...item.data,
-              hasUpvoted: !item.data.hasUpvoted,
-              engagement: {
-                ...item.data.engagement,
-                upvotes: item.data.hasUpvoted ? item.data.engagement.upvotes - 1 : item.data.engagement.upvotes + 1
-              }
-            }
-          };
-        }
-        return item;
-      })
-    );
-
-    try {
-      const token = localStorage.getItem('omeone_auth_token');
-      const response = await fetch(`${BACKEND_URL}/api/recommendations/${id}/like`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to like');
-      
-      // 💰 Get tokens earned from response
-      const data = await response.json();
-      if (data.tokens_earned && data.tokens_earned > 0) {
-        toast.success(t('toast.liked', { tokens: data.tokens_earned.toFixed(2) }));
-
-        // 🚀 Trigger optimistic balance update
-        if (user?.id) {
-          await tokenBalanceService.optimisticUpdate(user.id, data.tokens_earned);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Failed to like recommendation:', error);
-      // Revert on error
-      setFeedItems(items => 
-        items.map(item => {
-          if ((item.type === 'recommendation' || item.type === 'reshare') && item.data.id === id) {
-            return {
-              ...item,
-              data: {
-                ...item.data,
-                hasUpvoted: !item.data.hasUpvoted,
-                engagement: {
-                  ...item.data.engagement,
-                  upvotes: item.data.hasUpvoted ? item.data.engagement.upvotes + 1 : item.data.engagement.upvotes - 1
-                }
-              }
-            };
-          }
-          return item;
-        })
-      );
-    }
-  };
-
-  const handleReshare = async (id: string, comment?: string) => {
-    // Backend already awards tokens (0.2 BOCA to resharer + 0.1 BOCA attribution)
-    // Just refresh balance to show the update
-    if (user?.id) {
-      await tokenBalanceService.forceRefreshBalance(user.id);
-    }
-  };
-
-  // Change 2.3: Handle edit success — close modal and refresh feed
-  const handleEditSuccess = (id: string) => {
-    setEditingRecommendationId(null);
-    // Refresh the feed to show updated content
-    loadFeedData();
-  };
-
-  // Request interactions
-  const handleBookmarkRequest = async (id: string) => {
-    setFeedItems(items =>
-      items.map(item => {
-        if (item.type === 'request' && item.data.id === id) {
-          return {
-            ...item,
-            data: {
-              ...item.data,
-              is_bookmarked: !item.data.is_bookmarked
-            }
-          };
-        }
-        return item;
-      })
-    );
-
-    try {
-      const token = localStorage.getItem('omeone_auth_token');
-      const response = await fetch(`${BACKEND_URL}/api/discovery/requests/${id}/bookmark`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to bookmark request');
-      toast.success(t('toast.saved'));
-    } catch (error) {
-      console.error('❌ Failed to bookmark request:', error);
-      // Revert on error
-      setFeedItems(items =>
-        items.map(item => {
-          if (item.type === 'request' && item.data.id === id) {
-            return {
-              ...item,
-              data: {
-                ...item.data,
-                is_bookmarked: !item.data.is_bookmarked
-              }
-            };
-          }
-          return item;
-        })
-      );
-      toast.error(t('toast.bookmarkFailed'));
-    }
-  };
-
-  // List interactions
-  const handleSaveList = async (listId: string | number) => {
-    const id = listId.toString();
-    
-    setFeedItems(items => 
-      items.map(item => {
-        if (item.type === 'list' && item.data.id.toString() === id) {
-          return {
-            ...item,
-            data: {
-              ...item.data,
-              isBookmarked: !item.data.isBookmarked,
-              saves: item.data.isBookmarked ? item.data.saves - 1 : item.data.saves + 1
-            }
-          };
-        }
-        return item;
-      })
-    );
-
-    try {
-      const token = localStorage.getItem('omeone_auth_token');
-      const response = await fetch(`${BACKEND_URL}/api/lists/${id}/bookmark`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to bookmark list');
-    } catch (error) {
-      console.error('❌ Failed to bookmark list:', error);
-      toast.error(t('toast.bookmarkFailed'));
-    }
-  };
-
-  const handleLikeList = async (listId: string | number) => {
-    const id = listId.toString();
-    
-    setFeedItems(items => 
-      items.map(item => {
-        if (item.type === 'list' && item.data.id.toString() === id) {
-          return {
-            ...item,
-            data: {
-              ...item.data,
-              hasLiked: !item.data.hasLiked,
-              likes: (item.data.likes || 0) + (item.data.hasLiked ? -1 : 1)
-            }
-          };
-        }
-        return item;
-      })
-    );
-
-    try {
-      const token = localStorage.getItem('omeone_auth_token');
-      const response = await fetch(`${BACKEND_URL}/api/lists/${id}/like`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to like list');
-    } catch (error) {
-      console.error('❌ Failed to like list:', error);
-      toast.error(t('toast.likeFailed'));
-    }
-  };
-
-  const handleShareList = (listId: string | number) => {
-    toast.success(t('toast.linkCopied'));
-  };
-
-  const handleShare = (id: string) => {
-    toast.success(t('toast.linkCopied'));
-  };
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-cream dark:bg-[#1F1E2A]">
-        <CleanHeader />
-        <div className="max-w-2xl mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-6">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A]">
-                <div className="flex gap-3 mb-4">
-                  <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                  <div className="flex-1">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                  </div>
-                </div>
-                <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                <div className="flex gap-4">
-                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
+    console.warn('⚠️ [Feed] Unknown item type:', item.type);
+    return null;
+  } catch (error) {
+    console.error('❌ [Feed] Error formatting feed item:', error);
+    console.error('   Item data:', JSON.stringify(item, null, 2));
     return null;
   }
+}
 
-  const recommendationCount = feedItems.filter(i => i.type === 'recommendation' || i.type === 'reshare').length;
-  const listCount = feedItems.filter(i => i.type === 'list').length;
-  const isFeedEmpty = feedItems.length === 0;
+// =============================================================================
+// MAIN FEED ENDPOINT
+// =============================================================================
 
-  // ============================================================================
-  // EMPTY FEED CTA BOX COMPONENT
-  // ============================================================================
-  const EmptyFeedCTA = () => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6 mb-6"
-    >
-      {/* Header */}
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-[#FFE8E4] dark:bg-[#FF644A]/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Sparkles className="w-8 h-8 text-coral" />
-        </div>
-        <h3 className="text-xl font-semibold text-navy dark:text-white mb-2">
-          {t('emptyFeed.title') || 'Your feed is empty!'}
-        </h3>
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          {t('emptyFeed.subtitle') || 'Follow people to see their recommendations here, or explore what\'s trending.'}
-        </p>
-      </div>
+router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
 
-      {/* CTA Buttons */}
-      <div className="space-y-3">
-        {/* Primary: Discover */}
-        <button
-          onClick={() => router.push('/discover')}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-coral hover:bg-coral-dark text-white rounded-xl font-medium transition-colors"
-        >
-          <Search className="w-5 h-5" />
-          {t('emptyFeed.discover') || 'Discover Recommendations'}
-        </button>
+    console.log(`🎯 [Feed] Generating mixed feed for user ${userId}`);
 
-        {/* Secondary row: Find Friends + Create */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => router.push('/community')}
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-xl font-medium transition-colors"
-          >
-            <Users className="w-5 h-5" />
-            <span className="text-sm">{t('emptyFeed.findFriends') || 'Find Friends'}</span>
-          </button>
-          <button
-            onClick={() => router.push('/create')}
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-xl font-medium transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="text-sm">{t('emptyFeed.share') || 'Share a Place'}</span>
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
+    // ── 1. Social graph ──
+    const { data: followingData, error: followingError } = await supabase
+      .from('social_connections')
+      .select('following_id')
+      .eq('follower_id', userId)
+      .eq('is_active', 'true');
 
-  return (
-    <div className="min-h-screen bg-cream dark:bg-[#1F1E2A]">
-      <CleanHeader />
-      
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Page Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-navy dark:text-white">{t('title')}</h1>
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:text-coral transition-colors"
-              title={t('refresh')}
-            >
-              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+    if (followingError) {
+      console.error('[Feed] Error fetching following:', followingError);
+      return res.status(500).json({ success: false, error: 'Failed to fetch social graph' });
+    }
 
-          {/* Create Recommendation Button */}
-          <button
-            onClick={() => router.push('/create/recommendation')}
-            className="flex items-center gap-2 bg-coral text-white px-4 py-2 rounded-lg font-medium hover:bg-coral-dark transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            {t('create')}
-          </button>
-        </div>
+    const followingIds = followingData?.map(f => f.following_id) || [];
+    console.log(`👥 [Feed] User follows ${followingIds.length} people`);
 
-        {/* Main Content Grid */}
-        <div className={`grid gap-6 ${isCapacitor ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-12'}`}>
-          {/* Feed Column */}
-          <div className={`${isCapacitor ? '' : 'lg:col-span-8'} space-y-6`}>
-            {isLoadingFeed ? (
-              [1, 2, 3].map(i => (
-                <div key={i} className="bg-white dark:bg-[#2D2C3A] rounded-xl p-6 border border-gray-200 dark:border-[#3D3C4A] animate-pulse">
-                  <div className="flex gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                    <div className="flex-1">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                    </div>
-                  </div>
-                  <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                  <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                </div>
-              ))
-            ) : isFeedEmpty ? (
-              // ================================================================
-              // EMPTY FEED: Show CTA Box (trending handled by sidebar widget)
-              // ================================================================
-              <EmptyFeedCTA />
-            ) : (
-              // ================================================================
-              // NORMAL FEED: Show user's feed items
-              // ================================================================
-              feedItems.map((item, index) => {
-                if (item.type === 'reshare') {
-                  return (
-                    <div key={`reshare-${item.reshare_id}-${index}`} className="relative">
-                      <ReshareHeader
-                        resharer={item.resharer}
-                        comment={item.reshare_comment}
-                        createdAt={item.reshare_created_at}
-                      />
-                      <RecommendationCard
-                        recommendation={item.data}
-                        currentUserId={user?.id}
-                        variant="default"
-                        showAuthor={true}
-                        showTokenRewards={false}
-                        showBlockchainInfo={false}
-                        showActions={true}
-                        onSave={handleSaveRecommendation}
-                        onUpvote={handleUpvoteRecommendation}
-                        onShare={handleShare}
-                        onAuthorClick={(authorId) => router.push(`/users/${authorId}`)}
-                        onLocationClick={(location) => {
-                          if (location.restaurant_id) {
-                            router.push(`/restaurant/${location.restaurant_id}`);
-                          }
-                        }}
-                      />
-                    </div>
-                  );
-                }
-                
-                if (item.type === 'recommendation') {
-                  return (
-                    <RecommendationCard
-                      key={`rec-${item.data.id}-${index}`}
-                      recommendation={item.data}
-                      currentUserId={user?.id}
-                      variant="default"
-                      showAuthor={true}
-                      showTokenRewards={false}
-                      showBlockchainInfo={false}
-                      showActions={true}
-                      onSave={handleSaveRecommendation}
-                      onUpvote={handleUpvoteRecommendation}
-                      onShare={handleShare}
-                      onEdit={(id) => setEditingRecommendationId(id)}
-                      onAuthorClick={(authorId) => router.push(`/users/${authorId}`)}
-                      onLocationClick={(location) => {
-                        if (location.restaurant_id) {
-                          router.push(`/restaurant/${location.restaurant_id}`);
-                        }
-                      }}
-                    />
-                  );
-                }
-                
-                if (item.type === 'request') {
-                  return (
-                    <RequestCard
-                      key={`request-${item.data.id}-${index}`}
-                      request={item.data}
-                      variant="compact"
-                      onBookmark={() => handleBookmarkRequest(item.data.id)}
-                      onReport={() => toast.success(t('toast.reportSubmitted'))}
-                    />
-                  );
-                }
+    // ── 2. Taste profile ──
+    const { data: userRecommendations, error: userRecsError } = await supabase
+      .from('recommendations')
+      .select('restaurant_id, overall_rating, context_tags')
+      .eq('author_id', userId)
+      .limit(50);
 
-                return (
-                  <ListCard
-                    key={`list-${item.data.id}-${index}`}
-                    list={item.data}
-                    variant="feed"
-                    showAuthor={true}
-                    showActions={true}
-                    onSave={handleSaveList}
-                    onLike={handleLikeList}
-                    onShare={handleShareList}
-                    onAuthorClick={(authorId) => router.push(`/users/${authorId}`)}
-                    onReport={(listId) => toast.success(t('toast.reportSubmitted'))}
-                  />
-                );
-              })
-            )}
-          </div>
+    if (userRecsError) {
+      console.error('[Feed] Error fetching user taste profile:', userRecsError);
+    }
 
-          {/* Sidebar */}
-          {!isCapacitor && (
-            <div className="lg:col-span-4 space-y-6">
-              {/* Quick Actions */}
-              <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
-                <h3 className="font-semibold text-navy dark:text-white mb-4">{t('quickActions.title')}</h3>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => router.push('/create/recommendation')}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
-                  >
-                    <ChefHat className="w-5 h-5" />
-                    <span className="font-medium">{t('quickActions.createRecommendation')}</span>
-                  </button>
-                  <button
-                    onClick={() => router.push('/create?action=list')}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
-                  >
-                    <Coffee className="w-5 h-5" />
-                    <span className="font-medium">{t('quickActions.createList')}</span>
-                  </button>
-                  <button
-                    onClick={() => router.push('/create?action=request')}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-[#FFE8E4] dark:bg-[#FF644A]/20 hover:bg-[#FFD4CC] dark:hover:bg-[#FF644A]/30 text-coral rounded-lg transition-colors"
-                  >
-                    <HelpCircle className="w-5 h-5" />
-                    <span className="font-medium">{t('quickActions.request') || 'Request'}</span>
-                  </button>
-                </div>
-              </div>
+    // ── 3. Collect feed items from all sources ──
+    const feedItems: any[] = [];
+    const seenRecIds = new Set<string>();        // Dedup original recommendations by ID
+    const seenReshareRecIds = new Set<string>(); // Dedup reshares by recommendation ID (separate from originals)
+    const seenListIds = new Set<string>();       // Dedup lists by ID
+    const seenReqIds = new Set<string>();        // Dedup discovery requests by ID
 
-              {/* Trending Now - Uses shared TrendingWidget component */}
-              <TrendingWidget itemCount={3} />
+    // ─────────────────────────────────────────────────────────────────────────
+    // SOURCE 0: OWN CONTENT (NEW)
+    // The user's own recommendations, lists, requests, and reshares
+    // appear in their feed so they can see their posts in context.
+    // ─────────────────────────────────────────────────────────────────────────
+    console.log('👤 [Feed] Fetching user\'s own content...');
 
-              {/* Your Dining Memory - Gradient card */}
-              <div className="bg-gradient-to-br from-[#FFB3AB] to-[#FF644A] rounded-xl border border-coral p-6">
-                <h3 className="font-semibold text-white mb-4">{t('diningMemory.title')}</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-white">{t('diningMemory.recentRecommendations')}</span>
-                    <span className="font-semibold text-white">
-                      {feedItems.filter(i => i.type === 'recommendation').length}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-white">{t('diningMemory.savedLists')}</span>
-                    <span className="font-semibold text-white">0</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-white">{t('diningMemory.following')}</span>
-                    <span className="font-semibold text-white">{t('diningMemory.foodExperts', { count: 2 })}</span>
-                  </div>
-                  <button
-                    onClick={() => router.push(`/users/${user?.id}`)}
-                    className="w-full mt-4 px-4 py-2 text-white border border-white/30 bg-white/10 rounded-lg hover:bg-white/20 font-medium text-sm transition-colors"
-                  >
-                    {t('diningMemory.viewHistory')}
-                  </button>
-                </div>
-              </div>
+    // 0A: Own Recommendations
+    const { data: ownRecs, error: ownRecsError } = await supabase
+      .from('recommendations')
+      .select(`
+        *,
+        likes_count,
+        saves_count,
+        reshares_count,
+        users:author_id(id, username, display_name, avatar_url, reputation_score),
+        restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
+        restaurant_aspects(ambiance, service, value_for_money, noise_level)
+      `)
+      .eq('author_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-              {/* Community Stats */}
-              <div className="bg-white dark:bg-[#2D2C3A] rounded-xl border border-gray-200 dark:border-[#3D3C4A] p-6">
-                <h3 className="font-semibold text-navy dark:text-white mb-4">{t('communityStats.title')}</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#FFE8E4] dark:bg-[#FF644A]/20 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-coral" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.activeMembers')}</p>
-                      <p className="font-semibold text-navy dark:text-white">{t('communityStats.growingDaily')}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                      <ChefHat className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.recommendations')}</p>
-                      <p className="font-semibold text-navy dark:text-white">
-                        {t('communityStats.inFeed', { count: recommendationCount })}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#FFE8E4] dark:bg-[#FF644A]/20 flex items-center justify-center">
-                      <Coffee className="w-5 h-5 text-coral" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('communityStats.curatedLists')}</p>
-                      <p className="font-semibold text-navy dark:text-white">
-                        {t('communityStats.available', { count: listCount })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+    if (!ownRecsError && ownRecs) {
+      console.log(`  ✓ Own recommendations: ${ownRecs.length}`);
+      ownRecs.forEach(item => {
+        seenRecIds.add(item.id);
+        feedItems.push({
+          ...item,
+          type: 'recommendation',
+          source: 'own',
+          trust_context: calculateTrustScore(item, userId, 1.0, 1.0, 1.0)
+        });
+      });
+    }
 
-      {/* Change 2.3: Edit Recommendation Modal */}
-      {editingRecommendationId && (
-        <EditRecommendationModal
-          recommendationId={editingRecommendationId}
-          isOpen={true}
-          onClose={() => setEditingRecommendationId(null)}
-          onSuccess={handleEditSuccess}
-        />
-      )}
-    </div>
-  );
-};
+    // 0B: Own Lists (include private — it's the user's own content)
+    const { data: ownLists, error: ownListsError } = await supabase
+      .from('food_guides')
+      .select(`
+        id, title, description, author_id, category, city, tags, best_for,
+        likes_count, bookmarks_count, created_at, is_public,
+        cover_image_url, cover_image_source,
+        users!author_id(id, username, display_name, avatar_url, trust_score)
+      `)
+      .eq('author_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5);
 
-export default MainFeed;
+    if (!ownListsError && ownLists && ownLists.length > 0) {
+      console.log(`  ✓ Own lists: ${ownLists.length}`);
+
+      for (const list of ownLists) {
+        seenListIds.add(list.id);
+
+        // Fetch restaurants for this list
+        const { data: listItems, error: itemsError } = await supabase
+          .from('guide_items')
+          .select(`restaurant_id, restaurants(id, name, cuisine_type, address)`)
+          .eq('list_id', list.id);
+
+        const restaurants = (!itemsError && listItems)
+          ? listItems.map(item => item.restaurants).filter(Boolean)
+          : [];
+
+        feedItems.push({
+          ...list,
+          type: 'list',
+          source: 'own',
+          creator: list.users,
+          restaurants,
+          restaurant_count: restaurants.length,
+          like_count: list.likes_count || 0,
+          save_count: list.bookmarks_count || 0,
+          is_liked: false,
+          is_saved: false,
+          trust_context: calculateTrustScore(list, userId, 1.0, 1.0, 1.0)
+        });
+      }
+    }
+
+    // 0C: Own Discovery Requests (active only)
+    const { data: ownRequests, error: ownRequestsError } = await supabase
+      .from('discovery_requests')
+      .select(`
+        id, title, description, location, cuisine_type, occasion, budget_range,
+        dietary_restrictions, bounty_amount, status, response_count, view_count,
+        created_at, expires_at,
+        creator:creator_id(id, username, display_name, avatar_url, reputation_score)
+      `)
+      .eq('creator_id', userId)
+      .in('status', ['open', 'answered'])
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (!ownRequestsError && ownRequests && ownRequests.length > 0) {
+      console.log(`  ✓ Own discovery requests: ${ownRequests.length}`);
+      ownRequests.forEach(request => {
+        seenReqIds.add(request.id);
+        feedItems.push({
+          ...request,
+          type: 'request',
+          source: 'own',
+          trust_context: calculateTrustScore(request, userId, 1.0, 1.0, 1.0)
+        });
+      });
+    }
+
+    // 0D: Own Reshares
+    // FIX: Use 2-step fetch to avoid Supabase 2-level nested embed issues
+    // Step 1: Get reshare metadata + resharer info only
+    const { data: ownResharesMeta, error: ownResharesError } = await supabase
+      .from('recommendation_reshares')
+      .select(`
+        id, user_id, recommendation_id, comment, created_at,
+        resharer:user_id(id, username, display_name, avatar_url, reputation_score)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (!ownResharesError && ownResharesMeta && ownResharesMeta.length > 0) {
+      console.log(`  ✓ Own reshares (metadata): ${ownResharesMeta.length}`);
+      // Step 2: Fetch full recommendation data with proven 1-level joins
+      const ownReshareItems = await fetchResharesWithFullData(
+        ownResharesMeta, 'own', userId,
+        { social: 1.0, taste: 1.0, context: 1.0 },
+        seenReshareRecIds
+      );
+      feedItems.push(...ownReshareItems);
+      console.log(`  ✓ Own reshares (assembled): ${ownReshareItems.length}`);
+    }
+
+    console.log(`👤 [Feed] Own content total: ${feedItems.length} items`);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SOURCE 1: Following Feed — Original Recommendations (35% weight)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (followingIds.length > 0) {
+      const { data: followingContent, error: followingContentError } = await supabase
+        .from('recommendations')
+        .select(`
+          *,
+          likes_count,
+          saves_count,
+          reshares_count,
+          users:author_id(id, username, display_name, avatar_url, reputation_score),
+          restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
+          restaurant_aspects(ambiance, service, value_for_money, noise_level)
+        `)
+        .in('author_id', followingIds)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (followingContent && followingContent.length > 0) {
+        console.log('🔍 [Feed] RAW QUERY KEYS:', Object.keys(followingContent[0]));
+      }
+
+      console.log('[Feed] Following recommendations:', {
+        error: followingContentError,
+        count: followingContent?.length
+      });
+
+      if (!followingContentError && followingContent) {
+        followingContent.forEach(item => {
+          if (!seenRecIds.has(item.id)) {
+            seenRecIds.add(item.id);
+            feedItems.push({
+              ...item,
+              type: 'recommendation',
+              source: 'following',
+              trust_context: calculateTrustScore(item, userId, 0.8, 0.7, 0.6)
+            });
+          }
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SOURCE 1B: Reshares from Following (20% weight)
+    // FIX: Use 2-step fetch to avoid Supabase 2-level nested embed issues.
+    // Previously used a single query with recommendations:recommendation_id(
+    //   *, restaurants:restaurant_id(...), original_author:author_id(...)
+    // ) which returned null for the inner joins, causing "Unknown Restaurant"
+    // and "Unknown User" in reshare cards.
+    // ─────────────────────────────────────────────────────────────────────────
+    if (followingIds.length > 0) {
+      console.log('🔄 [Feed] Fetching reshares from followed users...');
+
+      // Step 1: Get reshare metadata + resharer info only (1-level embed — works fine)
+      const { data: resharesMeta, error: resharesError } = await supabase
+        .from('recommendation_reshares')
+        .select(`
+          id, user_id, recommendation_id, comment, created_at,
+          resharer:user_id(id, username, display_name, avatar_url, reputation_score)
+        `)
+        .in('user_id', followingIds)
+        .order('created_at', { ascending: false })
+        .limit(15);
+
+      console.log('[Feed] Reshares metadata:', { error: resharesError, count: resharesMeta?.length });
+
+      if (!resharesError && resharesMeta && resharesMeta.length > 0) {
+        console.log(`✅ [Feed] Found ${resharesMeta.length} reshares from followed users`);
+
+        // Step 2: Fetch full recommendation data with proven 1-level joins
+        const reshareItems = await fetchResharesWithFullData(
+          resharesMeta, 'following', userId,
+          { social: 0.8, taste: 0.7, context: 0.6 },
+          seenReshareRecIds
+        );
+        feedItems.push(...reshareItems);
+
+        reshareItems.forEach(item => {
+          console.log(`  ✓ Added reshare by ${item.resharer?.username || 'unknown'}: ${item.restaurants?.name || 'unknown restaurant'}`);
+        });
+      } else {
+        console.log('ℹ️ [Feed] No reshares found from followed users');
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SOURCE 1C: Discovery Requests from Following (5% weight)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (followingIds.length > 0) {
+      console.log('❓ [Feed] Fetching discovery requests from followed users...');
+
+      const { data: requestsData, error: requestsError } = await supabase
+        .from('discovery_requests')
+        .select(`
+          id, title, description, location, cuisine_type, occasion, budget_range,
+          dietary_restrictions, bounty_amount, status, response_count, view_count,
+          created_at, expires_at,
+          creator:creator_id(id, username, display_name, avatar_url, reputation_score)
+        `)
+        .in('creator_id', followingIds)
+        .in('status', ['open', 'answered'])
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!requestsError && requestsData && requestsData.length > 0) {
+        console.log(`✅ [Feed] Found ${requestsData.length} requests from followed users`);
+        requestsData.forEach(request => {
+          if (!seenReqIds.has(request.id)) {
+            seenReqIds.add(request.id);
+            feedItems.push({
+              ...request,
+              type: 'request',
+              source: 'following',
+              trust_context: calculateTrustScore(request, userId, 0.8, 0.5, 0.6)
+            });
+          }
+        });
+      } else {
+        console.log('ℹ️ [Feed] No discovery requests found from followed users');
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SOURCE 2: Taste Similarity (25% weight)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (userRecommendations && userRecommendations.length > 0) {
+      const userCuisinePrefs = extractCuisinePreferences(userRecommendations);
+
+      const { data: similarContent, error: similarContentError } = await supabase
+        .from('recommendations')
+        .select(`
+          id, title, description, overall_rating, created_at, context_tags,
+          likes_count, saves_count, reshares_count,
+          author_id, restaurant_id,
+          users!recommendations_author_id_fkey(id, username, display_name, avatar_url, trust_score),
+          restaurants(id, name, cuisine_type, location_city, location_address, image_url),
+          restaurant_aspects(ambiance, service, value_for_money, noise_level),
+          recommendation_interactions(count)
+        `)
+        .not('author_id', 'eq', userId)
+        .not('author_id', 'in', `(${followingIds.join(',')})`)
+        .in('restaurants.cuisine_type', userCuisinePrefs)
+        .gte('overall_rating', 7)
+        .order('created_at', { ascending: false })
+        .limit(15);
+
+      if (!similarContentError && similarContent) {
+        similarContent.forEach(item => {
+          if (!seenRecIds.has(item.id)) {
+            seenRecIds.add(item.id);
+            feedItems.push({
+              ...item,
+              type: 'recommendation',
+              source: 'taste_similarity',
+              trust_context: calculateTrustScore(item, userId, 0.3, 0.9, 0.8)
+            });
+          }
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SOURCE 3: Trending Content (15% weight)
+    // ─────────────────────────────────────────────────────────────────────────
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: trendingContent, error: trendingError } = await supabase
+      .from('recommendations')
+      .select(`
+        id, title, description, overall_rating, created_at, context_tags,
+        likes_count, saves_count, reshares_count,
+        author_id, restaurant_id,
+        users!recommendations_author_id_fkey(id, username, display_name, avatar_url, trust_score),
+        restaurants(id, name, cuisine_type, location_city, location_address, image_url),
+        restaurant_aspects(ambiance, service, value_for_money, noise_level),
+        recommendation_interactions(count)
+      `)
+      .gte('created_at', oneDayAgo)
+      .gte('overall_rating', 8)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (!trendingError && trendingContent) {
+      trendingContent.forEach(item => {
+        if (!seenRecIds.has(item.id)) {
+          seenRecIds.add(item.id);
+          feedItems.push({
+            ...item,
+            type: 'recommendation',
+            source: 'trending',
+            trust_context: calculateTrustScore(item, userId, 0.5, 0.6, 0.9)
+          });
+        }
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SOURCE 4: Lists from Following (5% weight)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (followingIds.length > 0) {
+      console.log('📋 [Feed] Fetching lists from followed users...');
+
+      const { data: listsData, error: listsError } = await supabase
+        .from('food_guides')
+        .select(`
+          id, title, description, author_id, category, city, tags, best_for,
+          likes_count, bookmarks_count, created_at, is_public,
+          cover_image_url, cover_image_source,
+          users!author_id(id, username, display_name, avatar_url, trust_score)
+        `)
+        .in('author_id', followingIds)
+        .eq('is_public', true)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      console.log('📋 [Feed] Lists result:', { error: listsError, count: listsData?.length });
+
+      if (!listsError && listsData && listsData.length > 0) {
+        console.log(`✅ [Feed] Found ${listsData.length} lists from followed users`);
+
+        for (const list of listsData) {
+          if (seenListIds.has(list.id)) continue;
+          seenListIds.add(list.id);
+
+          const { data: listItems, error: itemsError } = await supabase
+            .from('guide_items')
+            .select(`restaurant_id, restaurants(id, name, cuisine_type, address)`)
+            .eq('list_id', list.id);
+
+          const restaurants = (!itemsError && listItems)
+            ? listItems.map(item => item.restaurants).filter(Boolean)
+            : [];
+
+          feedItems.push({
+            ...list,
+            type: 'list',
+            source: 'following',
+            creator: list.users,
+            restaurants,
+            restaurant_count: restaurants.length,
+            like_count: list.likes_count || 0,
+            save_count: list.bookmarks_count || 0,
+            is_liked: false,
+            is_saved: false,
+            trust_context: calculateTrustScore(list, userId, 0.8, 0.5, 0.6)
+          });
+
+          console.log(`  ✓ Added list "${list.title}" with ${restaurants.length} restaurants`);
+        }
+      }
+    }
+
+    // ── 4. Separate primary from discovery content ──
+    // Primary = own + following (sorted by recency)
+    // Discovery = taste similarity + trending (sorted by trust score)
+    const primaryContent = feedItems.filter(item => item.source === 'following' || item.source === 'own');
+    const discoveryContent = feedItems.filter(item => item.source !== 'following' && item.source !== 'own');
+
+    console.log(`📊 [Feed] Composition: ${primaryContent.length} primary (own+following), ${discoveryContent.length} discovery`);
+
+    // Sort primary by recency (reshares use reshare time)
+    primaryContent.sort((a, b) => {
+      const aTime = a.type === 'reshare' ? a.reshare_created_at : a.created_at;
+      const bTime = b.type === 'reshare' ? b.reshare_created_at : b.created_at;
+      return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
+
+    // Sort discovery by trust score, tiebreaker: recency
+    discoveryContent.sort((a, b) => {
+      const trustDiff = b.trust_context.overall_trust_score - a.trust_context.overall_trust_score;
+      if (Math.abs(trustDiff) > 0.1) return trustDiff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    // Interleave: ~75% primary, ~25% discovery
+    const rankedFeed = interleaveFeed(primaryContent, discoveryContent, 0.75, 40);
+
+    const ownCount = rankedFeed.filter(i => i.source === 'own').length;
+    const followingCount = rankedFeed.filter(i => i.source === 'following').length;
+    const discoveryCount = rankedFeed.filter(i => i.source !== 'following' && i.source !== 'own').length;
+    console.log(`📱 [Feed] Final feed: ${rankedFeed.length} items (${ownCount} own, ${followingCount} following, ${discoveryCount} discovery)`);
+
+    // ── 5. Get user's interaction status ──
+    const { data: statusData } = await supabase
+      .from('recommendation_likes')
+      .select('recommendation_id')
+      .eq('user_id', userId);
+
+    const { data: bookmarkData } = await supabase
+      .from('recommendation_bookmarks')
+      .select('recommendation_id')
+      .eq('user_id', userId);
+
+    const { data: reshareData } = await supabase
+      .from('recommendation_reshares')
+      .select('recommendation_id')
+      .eq('user_id', userId);
+
+    const likedIds = new Set((statusData || []).map(l => l.recommendation_id));
+    const bookmarkedIds = new Set((bookmarkData || []).map(b => b.recommendation_id));
+    const resharedIds = new Set((reshareData || []).map(r => r.recommendation_id));
+
+    console.log(`✅ [Feed] User has ${likedIds.size} likes, ${bookmarkedIds.size} bookmarks, ${resharedIds.size} reshares`);
+
+    // ── 6. Format for frontend ──
+    const formattedFeed = rankedFeed.map(item => {
+      const formatted = formatFeedItem(item);
+      if (formatted && (formatted.type === 'recommendation' || formatted.type === 'reshare')) {
+        const recId = formatted.id;
+        formatted.hasUpvoted = likedIds.has(recId);
+        formatted.isBookmarked = bookmarkedIds.has(recId);
+        formatted.hasReshared = resharedIds.has(recId);
+      }
+      return formatted;
+    }).filter(Boolean);
+
+    console.log(`📱 [Feed] Generated ${formattedFeed.length} formatted items`);
+    console.log('📊 [Feed] Breakdown:', {
+      recommendations: formattedFeed.filter(item => item.type === 'recommendation').length,
+      reshares: formattedFeed.filter(item => item.type === 'reshare').length,
+      lists: formattedFeed.filter(item => item.type === 'list').length,
+      requests: formattedFeed.filter(item => item.type === 'request').length
+    });
+
+    if (formattedFeed.length > 0) {
+      console.log('🔍 [Feed] First item:', JSON.stringify(formattedFeed[0], null, 2));
+    }
+
+    res.json({
+      success: true,
+      feed: formattedFeed,
+      metadata: {
+        total_items: formattedFeed.length,
+        generated_at: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [Feed] Generation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate feed'
+    });
+  }
+});
+
+// =============================================================================
+// FEED INTERACTION ENDPOINTS
+// =============================================================================
+
+// POST /items/:itemId/like — Toggle like from feed card
+router.post('/items/:itemId/like', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { itemId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    const { data: existingLike, error: checkError } = await supabase
+      .from('recommendation_likes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('recommendation_id', itemId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('[Feed] Error checking existing like:', checkError);
+      return res.status(500).json({ success: false, error: 'Database error' });
+    }
+
+    if (existingLike) {
+      // Unlike
+      const { error: deleteError } = await supabase
+        .from('recommendation_likes')
+        .delete()
+        .eq('id', existingLike.id);
+
+      if (deleteError) {
+        console.error('[Feed] Error removing like:', deleteError);
+        return res.status(500).json({ success: false, error: 'Failed to unlike' });
+      }
+
+      const { data: recommendation } = await supabase
+        .from('recommendations')
+        .select('likes_count')
+        .eq('id', itemId)
+        .single();
+
+      const newCount = Math.max(0, (recommendation?.likes_count || 0) - 1);
+
+      await supabase
+        .from('recommendations')
+        .update({ likes_count: newCount })
+        .eq('id', itemId);
+
+      console.log(`💔 [Feed] Unliked, new count: ${newCount}`);
+      res.json({ success: true, action: 'unliked', is_liked: false, newCount });
+
+    } else {
+      // Like
+      const { error: insertError } = await supabase
+        .from('recommendation_likes')
+        .insert({
+          user_id: userId,
+          recommendation_id: itemId,
+          created_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('[Feed] Error adding like:', insertError);
+        return res.status(500).json({ success: false, error: 'Failed to like' });
+      }
+
+      const { data: recommendation } = await supabase
+        .from('recommendations')
+        .select('likes_count')
+        .eq('id', itemId)
+        .single();
+
+      const newCount = (recommendation?.likes_count || 0) + 1;
+
+      await supabase
+        .from('recommendations')
+        .update({ likes_count: newCount })
+        .eq('id', itemId);
+
+      console.log(`❤️ [Feed] Liked, new count: ${newCount}`);
+      res.json({ success: true, action: 'liked', is_liked: true, newCount });
+    }
+
+  } catch (error) {
+    console.error('❌ [Feed] Like error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process like' });
+  }
+});
+
+// POST /items/:itemId/save — Toggle save/bookmark from feed card
+router.post('/items/:itemId/save', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { itemId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
+    const { data: existingSave, error: checkError } = await supabase
+      .from('recommendation_bookmarks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('recommendation_id', itemId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('[Feed] Error checking existing save:', checkError);
+      return res.status(500).json({ success: false, error: 'Database error' });
+    }
+
+    if (existingSave) {
+      // Unsave
+      const { error: deleteError } = await supabase
+        .from('recommendation_bookmarks')
+        .delete()
+        .eq('id', existingSave.id);
+
+      if (deleteError) {
+        console.error('[Feed] Error removing save:', deleteError);
+        return res.status(500).json({ success: false, error: 'Failed to unsave' });
+      }
+
+      const { data: recommendation } = await supabase
+        .from('recommendations')
+        .select('saves_count')
+        .eq('id', itemId)
+        .single();
+
+      const newCount = Math.max(0, (recommendation?.saves_count || 0) - 1);
+
+      await supabase
+        .from('recommendations')
+        .update({ saves_count: newCount })
+        .eq('id', itemId);
+
+      console.log(`📑 [Feed] Unsaved, new count: ${newCount}`);
+      res.json({ success: true, action: 'unsaved', is_saved: false, newCount });
+
+    } else {
+      // Save
+      const { error: insertError } = await supabase
+        .from('recommendation_bookmarks')
+        .insert({
+          user_id: userId,
+          recommendation_id: itemId,
+          created_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('[Feed] Error adding save:', insertError);
+        return res.status(500).json({ success: false, error: 'Failed to save' });
+      }
+
+      const { data: recommendation } = await supabase
+        .from('recommendations')
+        .select('saves_count')
+        .eq('id', itemId)
+        .single();
+
+      const newCount = (recommendation?.saves_count || 0) + 1;
+
+      await supabase
+        .from('recommendations')
+        .update({ saves_count: newCount })
+        .eq('id', itemId);
+
+      console.log(`🔖 [Feed] Saved, new count: ${newCount}`);
+      res.json({ success: true, action: 'saved', is_saved: true, newCount });
+    }
+
+  } catch (error) {
+    console.error('❌ [Feed] Save error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process save' });
+  }
+});
+
+// =============================================================================
+// EXPORT
+// =============================================================================
+
+export default router;
