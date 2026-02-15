@@ -23,6 +23,9 @@
 //   Feb 2026 — Extracted from server.ts into standalone route file
 //   Feb 2026 — Added Source 0: user's own content now appears in their feed
 //   Feb 2026 — Added deduplication to prevent same item appearing twice
+//   Feb 2026 — Fixed reshare restaurant/author data: replaced 2-level nested
+//              Supabase embeds with 2-step fetch (metadata + recommendations)
+//              to fix "Unknown Restaurant" / "Unknown User" in reshare cards
 
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
@@ -167,6 +170,85 @@ function transformPhotos(photos: any, imageUrl?: string): Array<{ url: string; i
 }
 
 /**
+ * Fetch full recommendation data for a set of reshares.
+ *
+ * WHY: Supabase 2-level nested embeds (reshares → recommendations → restaurants)
+ * silently return null for the inner joins, causing "Unknown Restaurant" and
+ * "Unknown User" in the feed. This helper avoids the problem by:
+ *   Step 1: Fetch reshare metadata + resharer info (1-level embed, works fine)
+ *   Step 2: Fetch the actual recommendations using the SAME proven query pattern
+ *           as Source 1 (1-level embed for restaurants + users — known to work)
+ *   Step 3: Merge reshare metadata with recommendation data
+ */
+async function fetchResharesWithFullData(
+  reshareRows: any[],
+  source: string,
+  userId: string,
+  trustWeights: { social: number; taste: number; context: number },
+  seenRecIds: Set<string>
+): Promise<any[]> {
+  if (!reshareRows || reshareRows.length === 0) return [];
+
+  // Collect unique recommendation IDs from the reshares
+  const recIds = reshareRows
+    .map(r => r.recommendation_id)
+    .filter((id): id is string => !!id);
+
+  if (recIds.length === 0) return [];
+
+  // Fetch the full recommendations with 1-level joins (proven pattern from Source 1)
+  const { data: fullRecs, error: recsError } = await supabase
+    .from('recommendations')
+    .select(`
+      *,
+      likes_count,
+      saves_count,
+      reshares_count,
+      comments_count,
+      users:author_id(id, username, display_name, avatar_url, reputation_score),
+      restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
+      restaurant_aspects(ambiance, service, value_for_money, noise_level)
+    `)
+    .in('id', recIds);
+
+  if (recsError) {
+    console.error(`❌ [Feed] Error fetching recommendations for reshares:`, recsError);
+    return [];
+  }
+
+  // Index recommendations by ID for fast lookup
+  const recMap = new Map<string, any>();
+  (fullRecs || []).forEach(rec => recMap.set(rec.id, rec));
+
+  // Assemble reshare feed items
+  const items: any[] = [];
+  for (const reshare of reshareRows) {
+    const rec = recMap.get(reshare.recommendation_id);
+    if (!rec) {
+      console.warn(`⚠️ [Feed] Recommendation ${reshare.recommendation_id} not found for reshare ${reshare.id}`);
+      continue;
+    }
+    if (seenRecIds.has(rec.id)) continue;
+
+    seenRecIds.add(rec.id);
+    items.push({
+      type: 'reshare',
+      source,
+      reshare_id: reshare.id,
+      reshare_user_id: reshare.user_id,
+      reshare_comment: reshare.comment,
+      reshare_created_at: reshare.created_at,
+      resharer: reshare.resharer,
+      // Spread the recommendation (restaurants + users are 1-level joins — they work)
+      ...rec,
+      trust_context: calculateTrustScore(rec, userId, trustWeights.social, trustWeights.taste, trustWeights.context)
+    });
+  }
+
+  return items;
+}
+
+/**
  * Format a raw feed item for frontend consumption.
  * Handles four item types: recommendation, reshare, list, request.
  */
@@ -244,7 +326,7 @@ function formatFeedItem(item: any): any {
               );
               return [cityCandidate, item.restaurants.state_province].filter(Boolean).join(', ');
             }
-            return [rawCity, item.restaurants.state_province].filter(Boolean).join(', ');
+            return [rawCity, item.restaurants?.state_province].filter(Boolean).join(', ');
           })(),
           country: item.restaurants?.country || ''
         },
@@ -335,7 +417,7 @@ function formatFeedItem(item: any): any {
               );
               return [cityCandidate, item.restaurants.state_province].filter(Boolean).join(', ');
             }
-            return [rawCity, item.restaurants.state_province].filter(Boolean).join(', ');
+            return [rawCity, item.restaurants?.state_province].filter(Boolean).join(', ');
           })(),
           country: item.restaurants?.country || ''
         },
@@ -534,42 +616,28 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
     }
 
     // 0D: Own Reshares
-    const { data: ownReshares, error: ownResharesError } = await supabase
+    // FIX: Use 2-step fetch to avoid Supabase 2-level nested embed issues
+    // Step 1: Get reshare metadata + resharer info only
+    const { data: ownResharesMeta, error: ownResharesError } = await supabase
       .from('recommendation_reshares')
       .select(`
         id, user_id, recommendation_id, comment, created_at,
-        resharer:user_id(id, username, display_name, avatar_url, reputation_score),
-        recommendations:recommendation_id(
-          *,
-          likes_count, saves_count, reshares_count, comments_count,
-          original_author:author_id(id, username, display_name, avatar_url, reputation_score),
-          restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
-          restaurant_aspects(ambiance, service, value_for_money, noise_level)
-        )
+        resharer:user_id(id, username, display_name, avatar_url, reputation_score)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(5);
 
-    if (!ownResharesError && ownReshares && ownReshares.length > 0) {
-      console.log(`  ✓ Own reshares: ${ownReshares.length}`);
-      ownReshares.forEach(reshare => {
-        if (reshare.recommendations) {
-          seenRecIds.add(reshare.recommendations.id);
-          feedItems.push({
-            type: 'reshare',
-            source: 'own',
-            reshare_id: reshare.id,
-            reshare_user_id: reshare.user_id,
-            reshare_comment: reshare.comment,
-            reshare_created_at: reshare.created_at,
-            resharer: reshare.resharer,
-            ...reshare.recommendations,
-            users: reshare.recommendations.original_author,
-            trust_context: calculateTrustScore(reshare.recommendations, userId, 1.0, 1.0, 1.0)
-          });
-        }
-      });
+    if (!ownResharesError && ownResharesMeta && ownResharesMeta.length > 0) {
+      console.log(`  ✓ Own reshares (metadata): ${ownResharesMeta.length}`);
+      // Step 2: Fetch full recommendation data with proven 1-level joins
+      const ownReshareItems = await fetchResharesWithFullData(
+        ownResharesMeta, 'own', userId,
+        { social: 1.0, taste: 1.0, context: 1.0 },
+        seenRecIds
+      );
+      feedItems.push(...ownReshareItems);
+      console.log(`  ✓ Own reshares (assembled): ${ownReshareItems.length}`);
     }
 
     console.log(`👤 [Feed] Own content total: ${feedItems.length} items`);
@@ -619,49 +687,41 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
 
     // ─────────────────────────────────────────────────────────────────────────
     // SOURCE 1B: Reshares from Following (20% weight)
+    // FIX: Use 2-step fetch to avoid Supabase 2-level nested embed issues.
+    // Previously used a single query with recommendations:recommendation_id(
+    //   *, restaurants:restaurant_id(...), original_author:author_id(...)
+    // ) which returned null for the inner joins, causing "Unknown Restaurant"
+    // and "Unknown User" in reshare cards.
     // ─────────────────────────────────────────────────────────────────────────
     if (followingIds.length > 0) {
       console.log('🔄 [Feed] Fetching reshares from followed users...');
 
-      const { data: resharesData, error: resharesError } = await supabase
+      // Step 1: Get reshare metadata + resharer info only (1-level embed — works fine)
+      const { data: resharesMeta, error: resharesError } = await supabase
         .from('recommendation_reshares')
         .select(`
           id, user_id, recommendation_id, comment, created_at,
-          resharer:user_id(id, username, display_name, avatar_url, reputation_score),
-          recommendations:recommendation_id(
-            *,
-            likes_count, saves_count, reshares_count, comments_count,
-            original_author:author_id(id, username, display_name, avatar_url, reputation_score),
-            restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
-            restaurant_aspects(ambiance, service, value_for_money, noise_level)
-          )
+          resharer:user_id(id, username, display_name, avatar_url, reputation_score)
         `)
         .in('user_id', followingIds)
         .order('created_at', { ascending: false })
         .limit(15);
 
-      console.log('[Feed] Reshares result:', { error: resharesError, count: resharesData?.length });
+      console.log('[Feed] Reshares metadata:', { error: resharesError, count: resharesMeta?.length });
 
-      if (!resharesError && resharesData && resharesData.length > 0) {
-        console.log(`✅ [Feed] Found ${resharesData.length} reshares from followed users`);
+      if (!resharesError && resharesMeta && resharesMeta.length > 0) {
+        console.log(`✅ [Feed] Found ${resharesMeta.length} reshares from followed users`);
 
-        resharesData.forEach(reshare => {
-          if (reshare.recommendations && !seenRecIds.has(reshare.recommendations.id)) {
-            seenRecIds.add(reshare.recommendations.id);
-            feedItems.push({
-              type: 'reshare',
-              source: 'following',
-              reshare_id: reshare.id,
-              reshare_user_id: reshare.user_id,
-              reshare_comment: reshare.comment,
-              reshare_created_at: reshare.created_at,
-              resharer: reshare.resharer,
-              ...reshare.recommendations,
-              users: reshare.recommendations.original_author,
-              trust_context: calculateTrustScore(reshare.recommendations, userId, 0.8, 0.7, 0.6)
-            });
-            console.log(`  ✓ Added reshare by ${reshare.resharer?.username || 'unknown'}`);
-          }
+        // Step 2: Fetch full recommendation data with proven 1-level joins
+        const reshareItems = await fetchResharesWithFullData(
+          resharesMeta, 'following', userId,
+          { social: 0.8, taste: 0.7, context: 0.6 },
+          seenRecIds
+        );
+        feedItems.push(...reshareItems);
+
+        reshareItems.forEach(item => {
+          console.log(`  ✓ Added reshare by ${item.resharer?.username || 'unknown'}: ${item.restaurants?.name || 'unknown restaurant'}`);
         });
       } else {
         console.log('ℹ️ [Feed] No reshares found from followed users');

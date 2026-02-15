@@ -731,7 +731,6 @@ export default function RestaurantDetailPage() {
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [userReview, setUserReview] = useState<UserReview | null>(null);
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
-  const [isSaved, setIsSaved] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -938,7 +937,6 @@ export default function RestaurantDetailPage() {
   }, [recommendations]);
 
   const handleBack = () => router.back();
-  const handleSave = () => setIsSaved((v) => !v);
 
   const handleShare = () => {
     if (navigator.share && restaurant) {
@@ -1021,13 +1019,6 @@ export default function RestaurantDetailPage() {
             <h1 className="text-2xl font-bold text-[#1F1E2A] dark:text-white">{restaurant.name}</h1>
             {/* LIKE, SAVE & SHARE BUTTONS */}
             <div className="flex items-center gap-1">
-              <button 
-                onClick={handleSave} 
-                className={`p-2 rounded-full transition-colors ${isSaved ? 'text-[#FF644A]' : 'text-gray-400 dark:text-gray-500 hover:text-[#FF644A]'}`}
-                title={isSaved ? t('saved') : t('save')}
-              >
-                <Heart className={`w-6 h-6 ${isSaved ? 'fill-current' : ''}`} />
-              </button>
               <button 
                 onClick={() => setShowSaveModal(true)} 
                 className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:text-[#FF644A] transition-colors"
