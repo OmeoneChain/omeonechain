@@ -7,6 +7,7 @@
 // UPDATED: Added Edit option in three-dot menu for own recommendations (Feb 10, 2026)
 // UPDATED: Added TipRecommendationButton for generic tipping (Feb 11, 2026)
 // UPDATED: Added dish-level ratings + category badges (Feb 14, 2026)
+// UPDATED: Added full restaurant address display + Google Maps link (Feb 15, 2026)
 
 'use client';
 
@@ -27,7 +28,8 @@ import {
   Repeat2,
   Flag,
   Edit,
-  FolderPlus
+  FolderPlus,
+  ExternalLink
 } from 'lucide-react';
 import { CleanHeader } from '@/components/CleanHeader';
 import SaveToListModal from '@/components/saved-lists/SaveToListModal';
@@ -81,7 +83,15 @@ interface Recommendation {
     cuisine_type: string;
     price_level: number;
     address: string;
+    formatted_address?: string;
     city: string;
+    state_province?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+    google_place_id?: string;
+    foursquare_place_id?: string;
+    category?: string;
   };
   overall_rating?: number;
   trust_score: number;
@@ -181,6 +191,36 @@ export default function RecommendationDetailPage({
       return [recommendation.category];
     }
     return [];
+  })();
+
+  // ── Build restaurant location string ──────────────────────────────
+  // Assembles "City, State, Country" from available fields, skipping blanks
+  const restaurantLocationString = (() => {
+    const r = recommendation?.restaurant;
+    if (!r) return '';
+    const parts: string[] = [];
+    if (r.city) parts.push(r.city);
+    if (r.state_province) parts.push(r.state_province);
+    if (r.country && r.country !== 'Brazil') parts.push(r.country); // Skip "Brazil" for domestic (most users are Brazilian)
+    return parts.join(', ');
+  })();
+
+  // ── Build Google Maps URL ─────────────────────────────────────────
+  const googleMapsUrl = (() => {
+    const r = recommendation?.restaurant;
+    if (!r) return null;
+    // Prefer place ID for exact match
+    const placeId = r.google_place_id || r.foursquare_place_id;
+    if (placeId) {
+      return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+    }
+    // Fall back to lat/lng
+    if (r.latitude && r.longitude) {
+      return `https://www.google.com/maps/search/?api=1&query=${r.latitude},${r.longitude}`;
+    }
+    // Last resort: search by name + address
+    const query = encodeURIComponent(`${r.name} ${r.address || r.city || ''}`);
+    return `https://www.google.com/maps/search/?api=1&query=${query}`;
   })();
 
   // Fetch recommendation details
@@ -528,7 +568,7 @@ export default function RecommendationDetailPage({
                       @{recommendation.author?.username} · {formatTimeAgo(recommendation.created_at)}
                       {recommendation.is_edited && (
                         <span className="ml-1 text-gray-400 dark:text-gray-500" title={recommendation.edited_at ? `Edited ${formatTimeAgo(recommendation.edited_at)}` : undefined}>
-                          · ✏️ edited
+                          · edited
                         </span>
                       )}
                     </p>
@@ -593,21 +633,53 @@ export default function RecommendationDetailPage({
                     >
                       {recommendation.restaurant.name}
                     </Link>
-                    <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {recommendation.restaurant.cuisine_type && (
-                        <span>{recommendation.restaurant.cuisine_type}</span>
+
+                    {/* Cuisine + Price line */}
+                    {(recommendation.restaurant.cuisine_type || recommendation.restaurant.category || recommendation.restaurant.price_level) && (
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {(recommendation.restaurant.cuisine_type || recommendation.restaurant.category) && (
+                          <span>{recommendation.restaurant.cuisine_type || recommendation.restaurant.category}</span>
+                        )}
+                        {recommendation.restaurant.price_level && (
+                          <>
+                            <span className="text-gray-300 dark:text-gray-600">·</span>
+                            <span className="flex items-center gap-0.5">
+                              <DollarSign size={12} />
+                              {getPriceLevel(recommendation.restaurant.price_level)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Address + Location line */}
+                    <div className="mt-1.5 space-y-0.5">
+                      {/* Street address */}
+                      {recommendation.restaurant.address && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-start gap-1">
+                          <MapPin size={12} className="flex-shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">{recommendation.restaurant.address}</span>
+                        </p>
                       )}
-                      {recommendation.restaurant.price_level && (
-                        <span className="flex items-center gap-0.5">
-                          <DollarSign size={12} />
-                          {getPriceLevel(recommendation.restaurant.price_level)}
-                        </span>
+
+                      {/* City, State, Country */}
+                      {restaurantLocationString && !recommendation.restaurant.address?.includes(recommendation.restaurant.city) && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 ml-4">
+                          {restaurantLocationString}
+                        </p>
                       )}
-                      {recommendation.restaurant.city && (
-                        <span className="flex items-center gap-0.5">
-                          <MapPin size={12} />
-                          {recommendation.restaurant.city}
-                        </span>
+
+                      {/* Google Maps link */}
+                      {googleMapsUrl && (
+                        <a
+                          href={googleMapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-[#FF644A] hover:text-[#E65441] transition-colors ml-4 mt-0.5"
+                        >
+                          <ExternalLink size={11} />
+                          Open in Maps
+                        </a>
                       )}
                     </div>
                   </div>
@@ -665,7 +737,7 @@ export default function RecommendationDetailPage({
               {recommendation.dishes && recommendation.dishes.length > 0 && (
                 <div className="px-3 py-3 bg-gray-50 dark:bg-[#353444] rounded-xl space-y-2.5">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    🍽️ Dishes Rated
+                    Dishes Rated
                   </h4>
                   {recommendation.dishes.map((dish, i) => (
                     <DishRatingRow key={`${dish.name}-${i}`} dish={dish} />
@@ -697,7 +769,6 @@ export default function RecommendationDetailPage({
               {/* Photo count badge */}
               {recommendation.photos && recommendation.photos.length > 0 && (
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 dark:bg-[#353444] rounded-full ml-2">
-                  <span className="text-xs">📷</span>
                   <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
                     {recommendation.photos.length} photo{recommendation.photos.length !== 1 ? 's' : ''}
                   </span>
