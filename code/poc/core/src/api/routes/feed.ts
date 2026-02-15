@@ -231,7 +231,8 @@ function formatFeedItem(item: any): any {
           restaurant_id: item.restaurant_id,
           name: item.restaurants?.name || 'Unknown Restaurant',
           address: item.restaurants?.formatted_address || item.restaurants?.address || '',
-          city: item.restaurants?.location_city || ''
+          city: [item.restaurants?.city, item.restaurants?.state_province].filter(Boolean).join(', ') || '',
+          country: item.restaurants?.country || ''
         },
         author: {
           id: item.author_id || item.user_id,
@@ -307,7 +308,8 @@ function formatFeedItem(item: any): any {
           restaurant_id: item.restaurant_id,
           name: item.restaurants?.name || 'Unknown Restaurant',
           address: item.restaurants?.formatted_address || item.restaurants?.address || '',
-          city: item.restaurants?.location_city || ''
+          city: [item.restaurants?.city, item.restaurants?.state_province].filter(Boolean).join(', ') || '',
+          country: item.restaurants?.country || ''
         },
         author: {
           id: item.author_id || item.user_id,
@@ -411,7 +413,7 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
         saves_count,
         reshares_count,
         users:author_id(id, username, display_name, avatar_url, reputation_score),
-        restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category),
+        restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
         restaurant_aspects(ambiance, service, value_for_money, noise_level)
       `)
       .eq('author_id', userId)
@@ -513,7 +515,7 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
           *,
           likes_count, saves_count, reshares_count, comments_count,
           original_author:author_id(id, username, display_name, avatar_url, reputation_score),
-          restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category),
+          restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
           restaurant_aspects(ambiance, service, value_for_money, noise_level)
         )
       `)
@@ -556,7 +558,7 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
           saves_count,
           reshares_count,
           users:author_id(id, username, display_name, avatar_url, reputation_score),
-          restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category),
+          restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
           restaurant_aspects(ambiance, service, value_for_money, noise_level)
         `)
         .in('author_id', followingIds)
@@ -602,7 +604,7 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
             *,
             likes_count, saves_count, reshares_count, comments_count,
             original_author:author_id(id, username, display_name, avatar_url, reputation_score),
-            restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category),
+            restaurants:restaurant_id(id, name, cuisine_type, address, formatted_address, category, city, state_province, country),
             restaurant_aspects(ambiance, service, value_for_money, noise_level)
           )
         `)
