@@ -10,6 +10,7 @@ interface Restaurant {
   name: string;
   normalized_name?: string;
   address?: string;
+  formatted_address?: string;
   city: string;
   state_province?: string;
   country: string;
@@ -68,6 +69,109 @@ export class RestaurantService {
   }
 
   /**
+   * Validate whether a city value looks like real city data vs. garbage
+   * Returns false for values that are clearly not city names
+   * 
+   * Examples of bad data we've seen from frontend regex parsing:
+   *   "23" (street number), "3821 - Meireles" (number + neighborhood), "22 - Lago Sul"
+   */
+  private isValidCityValue(city: string | undefined | null): boolean {
+    if (!city) return false;
+    
+    const trimmed = city.trim();
+    
+    // Reject empty strings
+    if (trimmed.length === 0) return false;
+    
+    // Reject pure numbers (street numbers like "23")
+    if (/^\d+$/.test(trimmed)) return false;
+    
+    // Reject strings that start with a number followed by a separator
+    // Catches patterns like "3821 - Meireles", "22 - Lago Sul"
+    if (/^\d+\s*[-–—]/.test(trimmed)) return false;
+    
+    // Reject very short values (1-2 chars) — no real city name is that short
+    if (trimmed.length < 3) return false;
+    
+    // Reject 'Unknown' placeholder
+    if (trimmed === 'Unknown') return false;
+    
+    return true;
+  }
+
+  /**
+   * Check if an existing restaurant has bad/missing location data that should be refreshed
+   */
+  private needsLocationRefresh(restaurant: Restaurant): boolean {
+    // No city at all
+    if (!restaurant.city) return true;
+    
+    // City is the 'Unknown' placeholder
+    if (restaurant.city === 'Unknown') return true;
+    
+    // City contains bad data (number-based patterns from old regex parsing)
+    if (!this.isValidCityValue(restaurant.city)) return true;
+    
+    // Missing state or country (incomplete data)
+    if (!restaurant.state_province || !restaurant.country || restaurant.country === 'Unknown') return true;
+    
+    return false;
+  }
+
+  /**
+   * Refresh location fields for an existing restaurant from Google Places
+   * Only updates city, state_province, country — does NOT overwrite name/address/coords
+   */
+  private async refreshLocationData(restaurant: Restaurant): Promise<Restaurant> {
+    const externalId = restaurant.foursquare_place_id;
+    if (!externalId) return restaurant;
+
+    try {
+      console.log(`🔄 Refreshing location data for "${restaurant.name}" (city was: "${restaurant.city}")`);
+      
+      const details = await this.searchProvider.getDetails(externalId);
+      if (!details) {
+        console.warn(`⚠️ Could not fetch details for ${externalId}, keeping existing data`);
+        return restaurant;
+      }
+
+      // Only update if Google gives us better data
+      const newCity = details.city;
+      const newState = details.state || details.stateShort || null;
+      const newCountry = details.country || details.countryShort || null;
+
+      // Only proceed if we actually got a valid city from Google
+      if (!this.isValidCityValue(newCity)) {
+        console.warn(`⚠️ Google didn't return valid city for "${restaurant.name}", keeping existing data`);
+        return restaurant;
+      }
+
+      // Update the database
+      const result = await this.db.query(
+        `UPDATE restaurants 
+         SET city = $1, 
+             state_province = COALESCE($2, state_province), 
+             country = COALESCE($3, country),
+             updated_at = NOW()
+         WHERE id = $4
+         RETURNING *`,
+        [newCity, newState, newCountry, restaurant.id]
+      );
+
+      if (result.rows[0]) {
+        console.log(`✅ Refreshed location: "${restaurant.name}" → city: "${newCity}", state: "${newState}", country: "${newCountry}"`);
+        return result.rows[0];
+      }
+
+      return restaurant;
+    } catch (error) {
+      console.error(`❌ Error refreshing location for "${restaurant.name}":`, error);
+      // Don't throw — return existing data rather than failing the request
+      return restaurant;
+    }
+  }
+
+  /**
    * Create restaurant from external provider data (Google Places)
    * Called when user selects a restaurant from search/autocomplete
    * 
@@ -90,9 +194,13 @@ export class RestaurantService {
       return existing;
     }
 
-    // Use Google's parsed address components, with fallbacks
-    // Priority: Google's parsed data > cityOverride parameter > fallback extraction > 'Unknown'
-    const city = details.city || cityOverride || this.extractCity(details.address) || 'Unknown';
+    // FIXED: Validate cityOverride before using it as a fallback
+    // The frontend sometimes sends garbage like "23" or "3821 - Meireles" from regex parsing
+    const validatedCityOverride = this.isValidCityValue(cityOverride) ? cityOverride : undefined;
+
+    // Use Google's parsed address components, with validated fallbacks
+    // Priority: Google's parsed data > validated cityOverride > fallback extraction > 'Unknown'
+    const city = details.city || validatedCityOverride || this.extractCity(details.address) || 'Unknown';
     const state = details.state || details.stateShort || null;
     const country = details.country || details.countryShort || 'Unknown';
 
@@ -101,7 +209,10 @@ export class RestaurantService {
       city, 
       state, 
       country,
-      fromGoogle: !!details.city 
+      fromGoogle: !!details.city,
+      cityOverrideProvided: !!cityOverride,
+      cityOverrideValid: !!validatedCityOverride,
+      cityOverrideRejected: !!cityOverride && !validatedCityOverride
     });
 
     // Create in our database
@@ -146,6 +257,9 @@ export class RestaurantService {
   /**
    * Find or create restaurant from external provider
    * This is the main function used during recommendation creation
+   * 
+   * UPDATED: Now refreshes location data for existing restaurants that have
+   * bad/missing city values (fixes historical data from broken regex parsing)
    */
   async findOrCreateFromExternalProvider(
     externalId: string,
@@ -154,6 +268,10 @@ export class RestaurantService {
     // Check if we already have this restaurant
     const existing = await this.findByExternalId(externalId);
     if (existing) {
+      // NEW: If existing restaurant has bad location data, refresh it from Google
+      if (this.needsLocationRefresh(existing)) {
+        return this.refreshLocationData(existing);
+      }
       return existing;
     }
 

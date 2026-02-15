@@ -10,6 +10,7 @@ import { RestaurantSearchProvider, RestaurantSearchResult } from './restaurant-p
  * "verified social trust beats anonymous crowds" philosophy.
  * 
  * UPDATED: 2026-02-05 - Added getPlacePhoto method for fetching restaurant photos
+ * UPDATED: 2026-02-15 - Added addressComponents to ALL field masks for proper city extraction
  */
 
 interface GoogleAddressComponent {
@@ -55,6 +56,7 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
 
   /**
    * Search for restaurants by text query
+   * UPDATED: Now includes addressComponents in field mask for proper city/state/country extraction
    */
   async search(
     query: string,
@@ -68,7 +70,8 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': this.apiKey,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.priceLevel,places.businessStatus,places.websiteUri,places.internationalPhoneNumber'
+          // FIXED: Added places.addressComponents to extract city/state/country properly
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.location,places.types,places.priceLevel,places.businessStatus,places.websiteUri,places.internationalPhoneNumber'
         },
         body: JSON.stringify({
           textQuery: `${query} restaurant`,
@@ -182,6 +185,7 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
 
   /**
    * Search for restaurants near a location
+   * UPDATED: Now includes addressComponents in field mask for proper city/state/country extraction
    */
   async getNearby(
     latitude: number,
@@ -194,7 +198,8 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': this.apiKey,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.priceLevel,places.businessStatus,places.websiteUri,places.internationalPhoneNumber'
+          // FIXED: Added places.addressComponents to extract city/state/country properly
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.location,places.types,places.priceLevel,places.businessStatus,places.websiteUri,places.internationalPhoneNumber'
         },
         body: JSON.stringify({
           locationRestriction: {
@@ -341,6 +346,10 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
       const country = this.getAddressComponent(place.addressComponents, 'country');
       const countryShort = this.getAddressComponent(place.addressComponents, 'country', true);
 
+      // Extract neighborhood (useful for Brazilian addresses)
+      const neighborhood = this.getAddressComponent(place.addressComponents, 'sublocality_level_1')
+                        || this.getAddressComponent(place.addressComponents, 'sublocality');
+
       return {
         external_id: place.id,
         name: place.displayName?.text || 'Unknown Restaurant',
@@ -357,6 +366,7 @@ export class GooglePlacesProvider implements RestaurantSearchProvider {
         stateShort,
         country,
         countryShort,
+        neighborhood,
         // NEVER include rating data - core Zesto principle
         // rating: OMITTED
         // userRatingsTotal: OMITTED
