@@ -1228,6 +1228,44 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 
     console.log(`✅ User balance updated, total_recommendations decremented`);
 
+    // 3b. Record the claw-back in reward_events (negative amount)
+    // This keeps the ledger (reward_events) in sync with users.tokens_earned.
+    // Without this, forceRefreshBalance recalculates from SUM(reward_events)
+    // and overwrites the deduction — the bug that caused balance to jump from
+    // 19.0 back to 33.5 after a reshare.
+    if (bocaImpact > 0) {
+      const clawbackBaseUnits = Math.round(bocaImpact * 1_000_000); // Convert to base units (bigint)
+      const { error: rewardEventError } = await supabase
+        .from('reward_events')
+        .insert({
+          user_id: userId,
+          action: 'recommendation_deleted',
+          amount: -clawbackBaseUnits,  // NEGATIVE amount
+          metadata: {
+            recommendation_id: id,
+            restaurant_id: recommendation.restaurant_id,
+            boca_clawed_back: bocaImpact,
+            within_grace_period: withinGracePeriod,
+            breakdown: {
+              base_reward: baseReward,
+              engagement_rewards: estimatedEngagementRewards,
+              first_reviewer_bonus: firstReviewerBonus,
+              validation_bonus: validationBonus
+            }
+          },
+          created_at: now.toISOString()
+        });
+
+      if (rewardEventError) {
+        console.error('⚠️ Failed to insert deletion reward_event:', rewardEventError);
+        // Non-fatal: balance was already updated directly in step 3.
+        // But log prominently so we can investigate.
+        console.error('⚠️ LEDGER DRIFT RISK: reward_events missing deletion record for', id);
+      } else {
+        console.log(`✅ Recorded -${bocaImpact.toFixed(1)} BOCA in reward_events (recommendation_deleted)`);
+      }
+    }
+
     // 4. Archive: Copy the row to deleted_recommendations
     const archiveRow = {
       ...recommendation,
