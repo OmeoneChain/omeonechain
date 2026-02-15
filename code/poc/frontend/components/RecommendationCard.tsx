@@ -308,9 +308,9 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
   );
   const showDishesAndTagsRow = hasDishes || hasSmartTags;
   
-  const parsedLocation = extractLocationFromAddress(recommendation.location.address);
-  const locationDisplay = parsedLocation ||
-    [recommendation.location.city, recommendation.location.country].filter(Boolean).join(', ');
+  const locationDisplay = 
+    [recommendation.location.city, recommendation.location.country].filter(Boolean).join(', ') 
+    || extractLocationFromAddress(recommendation.location.address);
   const hasLocationInfo = locationDisplay.length > 0;
   
   const isLongContent = hasContent && recommendation.content!.length > CONTENT_COLLAPSE_THRESHOLD;
