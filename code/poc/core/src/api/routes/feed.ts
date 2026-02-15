@@ -26,6 +26,8 @@
 //   Feb 2026 — Fixed reshare restaurant/author data: replaced 2-level nested
 //              Supabase embeds with 2-step fetch (metadata + recommendations)
 //              to fix "Unknown Restaurant" / "Unknown User" in reshare cards
+//   Feb 2026 — Fixed reshare dedup: reshares no longer block the original
+//              recommendation from appearing in the feed (separate dedup sets)
 
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
@@ -185,7 +187,7 @@ async function fetchResharesWithFullData(
   source: string,
   userId: string,
   trustWeights: { social: number; taste: number; context: number },
-  seenRecIds: Set<string>
+  seenReshareRecIds: Set<string>
 ): Promise<any[]> {
   if (!reshareRows || reshareRows.length === 0) return [];
 
@@ -221,6 +223,10 @@ async function fetchResharesWithFullData(
   (fullRecs || []).forEach(rec => recMap.set(rec.id, rec));
 
   // Assemble reshare feed items
+  // NOTE: We only dedup against OTHER reshares (seenReshareRecIds), NOT against
+  // original recommendations (seenRecIds). A reshare by User A and the original
+  // post by User B are different feed items even though they reference the same
+  // recommendation — both should appear in the feed.
   const items: any[] = [];
   for (const reshare of reshareRows) {
     const rec = recMap.get(reshare.recommendation_id);
@@ -228,9 +234,9 @@ async function fetchResharesWithFullData(
       console.warn(`⚠️ [Feed] Recommendation ${reshare.recommendation_id} not found for reshare ${reshare.id}`);
       continue;
     }
-    if (seenRecIds.has(rec.id)) continue;
+    if (seenReshareRecIds.has(rec.id)) continue;
 
-    seenRecIds.add(rec.id);
+    seenReshareRecIds.add(rec.id);
     items.push({
       type: 'reshare',
       source,
@@ -503,9 +509,10 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
 
     // ── 3. Collect feed items from all sources ──
     const feedItems: any[] = [];
-    const seenRecIds = new Set<string>();   // Dedup recommendations by ID
-    const seenListIds = new Set<string>();  // Dedup lists by ID
-    const seenReqIds = new Set<string>();   // Dedup discovery requests by ID
+    const seenRecIds = new Set<string>();        // Dedup original recommendations by ID
+    const seenReshareRecIds = new Set<string>(); // Dedup reshares by recommendation ID (separate from originals)
+    const seenListIds = new Set<string>();       // Dedup lists by ID
+    const seenReqIds = new Set<string>();        // Dedup discovery requests by ID
 
     // ─────────────────────────────────────────────────────────────────────────
     // SOURCE 0: OWN CONTENT (NEW)
@@ -634,7 +641,7 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
       const ownReshareItems = await fetchResharesWithFullData(
         ownResharesMeta, 'own', userId,
         { social: 1.0, taste: 1.0, context: 1.0 },
-        seenRecIds
+        seenReshareRecIds
       );
       feedItems.push(...ownReshareItems);
       console.log(`  ✓ Own reshares (assembled): ${ownReshareItems.length}`);
@@ -716,7 +723,7 @@ router.get('/mixed', authenticateToken, async (req: AuthenticatedRequest, res: R
         const reshareItems = await fetchResharesWithFullData(
           resharesMeta, 'following', userId,
           { social: 0.8, taste: 0.7, context: 0.6 },
-          seenRecIds
+          seenReshareRecIds
         );
         feedItems.push(...reshareItems);
 
