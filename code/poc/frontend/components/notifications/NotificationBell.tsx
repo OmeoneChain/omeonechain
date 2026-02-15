@@ -103,7 +103,7 @@ export function NotificationBell() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#2D2C3A] rounded-lg shadow-xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-gray-200 dark:border-[#3D3C4A] z-50 max-h-[600px] flex flex-col"
+              className="fixed md:absolute left-4 right-4 md:left-auto md:right-0 mt-2 md:w-96 bg-white dark:bg-[#2D2C3A] rounded-lg shadow-xl dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-gray-200 dark:border-[#3D3C4A] z-50 max-h-[600px] flex flex-col"
             >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 dark:border-[#3D3C4A] flex items-center justify-between bg-gray-50 dark:bg-[#353444] rounded-t-lg">
