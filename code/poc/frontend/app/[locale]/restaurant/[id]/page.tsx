@@ -18,6 +18,7 @@ import {
   Users,
   TrendingUp,
   Bookmark,
+  ExternalLink,
 } from 'lucide-react';
 import CleanHeader from '@/components/CleanHeader';
 import SaveToListModal from '@/components/saved-lists/SaveToListModal';
@@ -32,6 +33,9 @@ interface Restaurant {
   name: string;
   address: string;
   city: string;
+  state_province?: string;
+  country?: string;
+  neighborhood?: string;
   cuisineType: string;
   cuisineTypes?: string[];
   priceRange: string;
@@ -39,6 +43,8 @@ interface Restaurant {
   latitude: number;
   longitude: number;
   googlePlaceId?: string;
+  google_place_id?: string;   // snake_case variant from API
+  foursquare_place_id?: string;
   googleRating?: number;
   googleReviewCount?: number;
   phone?: string;
@@ -160,6 +166,49 @@ function cleanAddress(address: string | undefined | null): string {
     .replace(/--+/g, '-')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Build a location string from city, state, country.
+ * Skips "Brazil" for domestic display (most users are Brazilian).
+ */
+function buildLocationString(restaurant: Restaurant): string {
+  const parts: string[] = [];
+  if (restaurant.city) parts.push(restaurant.city);
+  if (restaurant.state_province) parts.push(restaurant.state_province);
+  if (restaurant.country && restaurant.country !== 'Brazil') parts.push(restaurant.country);
+  return parts.join(', ');
+}
+
+/**
+ * Build the best Google Maps URL for this restaurant.
+ * Priority: place_id > lat/lng > name+address search
+ */
+function buildGoogleMapsUrl(restaurant: Restaurant): string {
+  const placeId = restaurant.googlePlaceId || restaurant.google_place_id;
+  if (placeId) {
+    return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+  }
+  if (restaurant.latitude && restaurant.longitude) {
+    return `https://www.google.com/maps/search/?api=1&query=${restaurant.latitude},${restaurant.longitude}`;
+  }
+  const query = encodeURIComponent(`${restaurant.name} ${restaurant.address || restaurant.city || ''}`);
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+
+/**
+ * Build Google Maps directions URL.
+ * Uses place_id for precision, falls back to lat/lng, then address string.
+ */
+function buildDirectionsUrl(restaurant: Restaurant): string {
+  const placeId = restaurant.googlePlaceId || restaurant.google_place_id;
+  if (placeId) {
+    return `https://www.google.com/maps/dir/?api=1&destination=place_id:${placeId}`;
+  }
+  if (restaurant.latitude && restaurant.longitude) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${restaurant.latitude},${restaurant.longitude}`;
+  }
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurant.address)}`;
 }
 
 // ============================================================================
@@ -615,9 +664,14 @@ function SuggestedUserCard({ user, onFollow, t }: { user: SuggestedUser; onFollo
  * LocationMap - Google Maps embed for restaurant location
  */
 function LocationMap({ restaurant, title }: { restaurant: Restaurant; title: string }) {
-  const mapQuery = encodeURIComponent(
-    `${restaurant.name}, ${restaurant.address}, ${restaurant.city}`
-  );
+  const locationString = buildLocationString(restaurant);
+  const mapsUrl = buildGoogleMapsUrl(restaurant);
+
+  // Use place_id for embed when available, otherwise fall back to query
+  const placeId = restaurant.googlePlaceId || restaurant.google_place_id;
+  const embedSrc = placeId
+    ? `https://www.google.com/maps?q=place_id:${placeId}&output=embed`
+    : `https://www.google.com/maps?q=${encodeURIComponent(`${restaurant.name}, ${restaurant.address}, ${restaurant.city}`)}&output=embed`;
 
   return (
     <section className="mb-6">
@@ -630,13 +684,26 @@ function LocationMap({ restaurant, title }: { restaurant: Restaurant; title: str
             style={{ border: 0 }}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            src={`https://www.google.com/maps?q=${mapQuery}&output=embed`}
+            src={embedSrc}
             title={`Map showing ${restaurant.name}`}
           />
         </div>
         <div className="p-4">
-          <p className="text-[#1F1E2A] dark:text-white">{restaurant.address}</p>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">{restaurant.city}</p>
+          {restaurant.address && (
+            <p className="text-[#1F1E2A] dark:text-white">{restaurant.address}</p>
+          )}
+          {locationString && (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{locationString}</p>
+          )}
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-[#FF644A] hover:text-[#E65441] transition-colors mt-2"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Open in Google Maps
+          </a>
         </div>
       </div>
     </section>
@@ -892,6 +959,10 @@ export default function RestaurantDetailPage() {
   // Pluralized rec label
   const getRecLabel = (count: number) => count === 1 ? t('rec') : t('recs');
 
+  // Computed location values (only when restaurant is loaded)
+  const locationString = restaurant ? buildLocationString(restaurant) : '';
+  const directionsUrl = restaurant ? buildDirectionsUrl(restaurant) : '#';
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FFF4E1] dark:bg-[#1F1E2A]">
@@ -974,9 +1045,34 @@ export default function RestaurantDetailPage() {
             </div>
           </div>
           
-          <p className="text-gray-600 dark:text-gray-400 mb-3">
-            {[restaurant.cuisineType, restaurant.priceRange, restaurant.city].filter(Boolean).join(' · ')}
+          {/* Cuisine · Price · Google Rating line */}
+          <p className="text-gray-600 dark:text-gray-400 mb-2">
+            {[
+              restaurant.cuisineType,
+              restaurant.priceRange,
+              restaurant.googleRating ? `${restaurant.googleRating} on Google (${restaurant.googleReviewCount})` : null,
+            ].filter(Boolean).join(' · ')}
           </p>
+
+          {/* Address block */}
+          <div className="mb-3 space-y-0.5">
+            {restaurant.address && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400 dark:text-gray-500" />
+                <span className="leading-snug">{restaurant.address}</span>
+              </p>
+            )}
+            {locationString && !restaurant.address?.includes(restaurant.city) && (
+              <p className="text-sm text-gray-400 dark:text-gray-500 ml-[22px]">
+                {locationString}
+              </p>
+            )}
+            {restaurant.neighborhood && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 ml-[22px]">
+                {restaurant.neighborhood}
+              </p>
+            )}
+          </div>
 
           {contextTags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
@@ -986,6 +1082,7 @@ export default function RestaurantDetailPage() {
             </div>
           )}
 
+          {/* Action buttons */}
           <div className="flex gap-3">
             {restaurant.website && (
               <a
@@ -1008,7 +1105,7 @@ export default function RestaurantDetailPage() {
               </a>
             )}
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurant.address)}`}
+              href={directionsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#2D2C3A] border border-gray-200 dark:border-[#3D3C4A] rounded-lg text-sm text-[#1F1E2A] dark:text-white hover:bg-gray-50 dark:hover:bg-[#353444]"
