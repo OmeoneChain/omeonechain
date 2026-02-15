@@ -231,7 +231,21 @@ function formatFeedItem(item: any): any {
           restaurant_id: item.restaurant_id,
           name: item.restaurants?.name || 'Unknown Restaurant',
           address: item.restaurants?.formatted_address || item.restaurants?.address || '',
-          city: [item.restaurants?.city, item.restaurants?.state_province].filter(Boolean).join(', ') || '',
+          city: (() => {
+            const rawCity = item.restaurants?.city || '';
+            // If city is just a number or starts with a number, it's bad data — extract from address
+            const isBadCity = !rawCity || /^\d+(\s*-\s*\w+)?$/.test(rawCity.trim());
+            if (isBadCity && item.restaurants?.address) {
+              // Try to extract city from address (e.g., "Carrer d'Aribau, 23, Eixample, 08011 Barcelona, Spain")
+              const parts = (item.restaurants.formatted_address || item.restaurants.address || '').split(',').map((p: string) => p.trim());
+              // Look for a part that contains a city name (not a number, not a postal code)
+              const cityCandidate = parts.find((p: string, i: number) => 
+                i > 0 && p.length > 2 && !/^\d/.test(p) && !p.includes('-') && i < parts.length - 1
+              );
+              return [cityCandidate, item.restaurants.state_province].filter(Boolean).join(', ');
+            }
+            return [rawCity, item.restaurants.state_province].filter(Boolean).join(', ');
+          })(),
           country: item.restaurants?.country || ''
         },
         author: {
@@ -308,7 +322,21 @@ function formatFeedItem(item: any): any {
           restaurant_id: item.restaurant_id,
           name: item.restaurants?.name || 'Unknown Restaurant',
           address: item.restaurants?.formatted_address || item.restaurants?.address || '',
-          city: [item.restaurants?.city, item.restaurants?.state_province].filter(Boolean).join(', ') || '',
+          city: (() => {
+            const rawCity = item.restaurants?.city || '';
+            // If city is just a number or starts with a number, it's bad data — extract from address
+            const isBadCity = !rawCity || /^\d+(\s*-\s*\w+)?$/.test(rawCity.trim());
+            if (isBadCity && item.restaurants?.address) {
+              // Try to extract city from address (e.g., "Carrer d'Aribau, 23, Eixample, 08011 Barcelona, Spain")
+              const parts = (item.restaurants.formatted_address || item.restaurants.address || '').split(',').map((p: string) => p.trim());
+              // Look for a part that contains a city name (not a number, not a postal code)
+              const cityCandidate = parts.find((p: string, i: number) => 
+                i > 0 && p.length > 2 && !/^\d/.test(p) && !p.includes('-') && i < parts.length - 1
+              );
+              return [cityCandidate, item.restaurants.state_province].filter(Boolean).join(', ');
+            }
+            return [rawCity, item.restaurants.state_province].filter(Boolean).join(', ');
+          })(),
           country: item.restaurants?.country || ''
         },
         author: {
