@@ -930,10 +930,12 @@ export default function RestaurantDetailPage() {
     recommendations.all_network.forEach((r) => {
       (r.context_tags || []).forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1));
     });
-    return Array.from(tagCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([tag]) => tag);
+    const genericTags = ['restaurant', 'food', 'establishment', 'point_of_interest', 'food_establishment'];
+      return Array.from(tagCounts.entries())
+        .filter(([tag]) => !genericTags.includes(tag.toLowerCase()))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([tag]) => tag);
   }, [recommendations]);
 
   const handleBack = () => router.back();
