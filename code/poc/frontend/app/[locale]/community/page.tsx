@@ -51,7 +51,7 @@ function InviteFriendsCard() {
   }, []);
 
   const handleInvite = async () => {
-    const inviteUrl = 'https://omeonechain.vercel.app';
+    const inviteUrl = 'https://bocaboca.xyz';
     const message = t('invite.message');
 
     if (navigator.share) {

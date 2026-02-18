@@ -5,12 +5,12 @@ const config: CapacitorConfig = {
   appName: 'BocaBoca',
   webDir: 'out',
   server: {
-    url: 'https://omeonechain.vercel.app',
+    url: 'https://bocaboca.xyz',
     cleartext: true
   },
   ios: {
     // Enable debugging during beta (helps with cache issues)
-    webContentsDebuggingEnabled: true,
+    webContentsDebuggingEnabled: false,
     preferredContentMode: 'mobile'
   }
 };

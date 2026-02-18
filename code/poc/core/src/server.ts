@@ -279,7 +279,9 @@ const getCorsOrigins = (): (string | RegExp)[] => {
     'http://127.0.0.1:3001',
     'https://redesigned-lamp-q74wgggqq9jjfxqjp-3000.app.github.dev',
     'https://redesigned-lamp-q74wgggqq9jjfxqjp-3001.app.github.dev',
-    'https://omeonechain.vercel.app'
+    'https://omeonechain.vercel.app',
+    'https://bocaboca.xyz',
+    'https://www.bocaboca.xyz'
   ];
 
   // Add Codespaces patterns
