@@ -93,15 +93,20 @@
       "photoBonus": "Bônus: +{amount} TOK por {count} foto(s)"
     },
     "categories": {
-      "breakfast": "Café da Manhã",
-      "lunch": "Almoço",
-      "dinner": "Jantar",
-      "coffeeAndDrinks": "Café & Bebidas",
-      "desserts": "Sobremesas",
-      "specialOccasion": "Ocasião Especial",
-      "quickBite": "Lanche Rápido",
-      "lateNight": "Madrugada"
-    },
+    "breakfast": "Café da Manhã",
+    "brunch": "Brunch",
+    "lunch": "Almoço",
+    "dinner": "Jantar",
+    "coffee": "Café / Chá",
+    "happyHour": "Happy Hour / Drinks",
+    "desserts": "Sobremesas",
+    "special": "Ocasião Especial",
+    "snack": "Lanche Rápido",
+    "lateNight": "Noturno",
+    "business": "Refeição de Negócios",
+    "dateNight": "Encontro Romântico",
+    "familyFriendly": "Para Família"
+  },
     "summary": {
       "title": "Resumo Trust Score 2.0",
       "overallRating": "Avaliação Geral",

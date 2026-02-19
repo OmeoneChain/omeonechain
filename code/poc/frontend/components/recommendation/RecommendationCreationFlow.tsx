@@ -854,7 +854,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         const editPayload: any = {
           title: draft.title.trim() || undefined,
           content: draft.body.trim() || undefined,
-          category: draft.category?.trim() || undefined,
+          category: draft.category?.trim() !== undefined ? (draft.category?.trim() || null) : undefined,
           overall_rating: draft.overall_rating,
           context_tags: draft.context_tags,
           cuisine_type: draft.cuisine_type,

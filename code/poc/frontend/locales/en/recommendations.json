@@ -94,13 +94,18 @@
     },
     "categories": {
       "breakfast": "Breakfast",
+      "brunch": "Brunch",
       "lunch": "Lunch",
       "dinner": "Dinner",
-      "coffeeAndDrinks": "Coffee & Drinks",
+      "coffee": "Coffee / Tea",
+      "happyHour": "Happy Hour / Drinks",
       "desserts": "Desserts",
-      "specialOccasion": "Special Occasion",
-      "quickBite": "Quick Bite",
-      "lateNight": "Late Night"
+      "special": "Special Occasion",
+      "snack": "Quick Bite",
+      "lateNight": "Late Night",
+      "business": "Business Meal",
+      "dateNight": "Date Night",
+      "familyFriendly": "Family Friendly"
     },
     "summary": {
       "title": "Trust Score 2.0 Summary",
