@@ -325,6 +325,11 @@ const RequestCard: React.FC<RequestCardProps> = ({
                 <span className="font-medium text-[#1F1E2A] dark:text-white truncate text-xs">
                   {request.creator.display_name || request.creator.username}
                 </span>
+                {request.creator.username && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    @{request.creator.username}
+                  </span>
+                )}
               </div>
 
               {/* Stats */}
@@ -525,6 +530,11 @@ const RequestCard: React.FC<RequestCardProps> = ({
             <span className="text-sm font-medium text-[#1F1E2A] dark:text-white">
               {request.creator.display_name || request.creator.username}
             </span>
+            {request.creator.username && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                @{request.creator.username}
+              </span>
+            )}
             {request.creator.reputation_score > 0 && (
               <div className="flex items-center gap-1 text-xs text-stone-500 dark:text-gray-400">
                 <Award size={10} />

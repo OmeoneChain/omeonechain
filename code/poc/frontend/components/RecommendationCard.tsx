@@ -88,6 +88,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
 interface Author {
   id: string;
   name: string;
+  username?: string;
   avatar: string;
   reputation: number;
   isFollowing: boolean;
@@ -507,6 +508,15 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
             )}
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            {/* Username handle */}
+            {recommendation.author.username && (
+              <>
+                <span className="text-gray-500 dark:text-gray-400">
+                  @{recommendation.author.username}
+                </span>
+                <span>·</span>
+              </>
+            )}
             {/* Only show social badge if not viewing own content */}
             {currentUserId !== recommendation.author.id && recommendation.author.socialDistance && (
               <>

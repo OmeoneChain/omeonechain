@@ -52,6 +52,7 @@ interface Recommendation {
   author: {
     id: string;
     name: string;
+    username?: string;  // ← ADDED: user handle for disambiguation
     avatar: string;
     reputation: number;
     isFollowing: boolean;
@@ -255,6 +256,7 @@ const MainFeed: React.FC = () => {
           author: item.author || {
             id: '',
             name: t('unknownUser'),
+            username: undefined,
             avatar: '/default-avatar.png',
             reputation: 5,
             isFollowing: false,
@@ -338,6 +340,7 @@ const MainFeed: React.FC = () => {
           author: {
             id: item.creator?.id || 'unknown',
             name: item.creator?.display_name || item.creator?.username || t('foodExpert'),
+            username: item.creator?.username || null,
             avatar: item.creator?.avatar_url || '👨‍🍳',
             verified: false,
             followers: 0,
@@ -384,6 +387,7 @@ const MainFeed: React.FC = () => {
         author: item.author || {
           id: '',
           name: t('unknownUser'),
+          username: undefined,
           avatar: '/default-avatar.png',
           reputation: 5,
           isFollowing: false,
@@ -446,6 +450,7 @@ const MainFeed: React.FC = () => {
         author: {
           id: rec.author_id,
           name: author.display_name || author.username || t('unknownUser'),
+          username: author.username || null,  // ← ADDED: pass through username
           avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${author.username || author.display_name || 'User'}`,
           reputation: author.reputation_score || 0,
           isFollowing: true,

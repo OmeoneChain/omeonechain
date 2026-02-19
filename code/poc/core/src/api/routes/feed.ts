@@ -339,6 +339,7 @@ function formatFeedItem(item: any): any {
         author: {
           id: item.author_id || item.user_id,
           name: item.users?.display_name || item.users?.username || 'Unknown User',
+          username: item.users?.username || null,
           avatar: item.users?.avatar_url || '/default-avatar.png',
           reputation: item.users?.reputation_score || item.users?.trust_score || 5,
           isFollowing: false,
@@ -430,6 +431,7 @@ function formatFeedItem(item: any): any {
         author: {
           id: item.author_id || item.user_id,
           name: item.users?.display_name || item.users?.username || 'Unknown User',
+          username: item.users?.username || null,
           avatar: item.users?.avatar_url || '/default-avatar.png',
           reputation: item.users?.reputation_score || item.users?.trust_score || 5,
           isFollowing: false,

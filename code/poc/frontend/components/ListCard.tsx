@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 interface ListAuthor {
   id: string;
   name: string;
+  username?: string;  // ← ADDED: user handle for disambiguation
   avatar: string;
   verified: boolean;
   followers: number;
@@ -354,6 +355,14 @@ const ListCard: React.FC<ListCardProps> = ({
                     <span className="font-semibold text-navy dark:text-white text-sm hover:text-coral transition-colors">
                       {list.author.name}
                     </span>
+                    {/* Username handle */}
+                    {list.author.username && (
+                      <>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          @{list.author.username}
+                        </span>
+                      </>
+                    )}
                     {list.author.socialDistance && (
                       <span className={cn(
                         "text-xs px-2 py-0.5 rounded-full font-medium",
@@ -766,6 +775,14 @@ const ListCard: React.FC<ListCardProps> = ({
                     <span className="font-semibold text-navy dark:text-white text-sm hover:text-coral transition-colors cursor-pointer">
                       {list.author.name}
                     </span>
+                    {/* Username handle */}
+                    {list.author.username && (
+                      <>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          @{list.author.username}
+                        </span>
+                      </>
+                    )}
                     {list.author.socialDistance && (
                       <span className={cn(
                         "text-xs px-2 py-0.5 rounded-full font-medium",
@@ -854,7 +871,7 @@ const ListCard: React.FC<ListCardProps> = ({
   }
 
   // ============================================
-  // COMPACT VARIANT - For carousels
+  // COMPACT VARIANT - For carousels (no username change - too tight)
   // ============================================
   const isCompact = variant === 'compact';
   const displayedRestaurants = list.preview.slice(0, isCompact ? 4 : 3);
@@ -1176,6 +1193,12 @@ const ListCard: React.FC<ListCardProps> = ({
                   <span className="text-sm font-medium text-navy dark:text-white">
                     {list.author.name}
                   </span>
+                  {/* Username handle */}
+                  {list.author.username && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      @{list.author.username}
+                    </span>
+                  )}
                   {list.author.verified && (
                     <div className="w-4 h-4 bg-coral rounded-full flex items-center justify-center">
                       <span className="text-white text-xs">✓</span>

@@ -429,6 +429,7 @@ const DiscoverPage = () => {
       author: {
         id: list.author?.id || 'unknown',
         name: list.author?.display_name || 'Food Expert',
+        username: list.author?.username || null,
         avatar: list.author?.avatar || '👨‍🍳',
         verified: list.author?.verified || false,
         followers: list.author?.followers || 0,
