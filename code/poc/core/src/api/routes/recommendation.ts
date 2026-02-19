@@ -1090,12 +1090,9 @@ router.get('/:id/delete-preview', authenticateToken, async (req: Request, res: R
     const firstReviewerBonus = recommendation.first_reviewer_bonus_awarded ? 10.0 : 0;
     const validationBonus = recommendation.validation_bonus_awarded ? 10.0 : 0;
 
-    let bocaImpact: number;
-    if (withinGracePeriod) {
-      bocaImpact = baseReward;
-    } else {
-      bocaImpact = baseReward + estimatedEngagementRewards + firstReviewerBonus + validationBonus;
-    }
+    // Always claw back full amount — grace period only affects
+    // whether deletion leaves an archive trace, not the BOCA impact
+    const bocaImpact = baseReward + estimatedEngagementRewards + firstReviewerBonus + validationBonus;
 
     // 4. Get user's current balance
     const { data: user, error: userError } = await supabase
@@ -1186,12 +1183,9 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
     const firstReviewerBonus = recommendation.first_reviewer_bonus_awarded ? 10.0 : 0;
     const validationBonus = recommendation.validation_bonus_awarded ? 10.0 : 0;
 
-    let bocaImpact: number;
-    if (withinGracePeriod) {
-      bocaImpact = baseReward;
-    } else {
-      bocaImpact = baseReward + estimatedEngagementRewards + firstReviewerBonus + validationBonus;
-    }
+    // Always claw back full amount — grace period only affects
+    // whether deletion leaves an archive trace, not the BOCA impact
+    const bocaImpact = baseReward + estimatedEngagementRewards + firstReviewerBonus + validationBonus;
 
     console.log(`⏱️ Minutes since creation: ${minutesSinceCreation.toFixed(1)}, grace period: ${withinGracePeriod}`);
     console.log(`💰 BOCA impact: ${bocaImpact.toFixed(1)} (base=${baseReward}, engagement=${estimatedEngagementRewards.toFixed(1)}, bonuses=${firstReviewerBonus + validationBonus})`);
@@ -1336,7 +1330,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
       boca_deducted: Math.round(bocaImpact * 10) / 10,
       new_balance: Math.round(newBalance * 10) / 10,
       message: withinGracePeriod
-        ? 'Recommendation deleted. No BOCA impact (within 15-minute grace period).'
+        ? `Recommendation deleted (within grace period). ${bocaImpact.toFixed(1)} BOCA returned.`
         : `Recommendation deleted. ${bocaImpact.toFixed(1)} BOCA deducted from your balance.`
     });
 

@@ -273,13 +273,13 @@
       "avgRating": "Nota Média",
       "loved": "Amei",
       "liked": "Gostei",
-      "meh": "Meh"
+      "meh": "Passo"
     },
     "legend": {
       "title": "Legenda",
       "loved": "Amei (8-10)",
       "liked": "Gostei (6-7)",
-      "meh": "Meh (<6)"
+      "meh": "Passo (<6)"
     },
     "infoWindow": {
       "reviewed": "Avaliado em",

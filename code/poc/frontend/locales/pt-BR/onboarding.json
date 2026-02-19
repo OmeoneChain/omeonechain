@@ -12,14 +12,14 @@
     },
     "slide3": {
       "title": "Construa seu perfil de gosto",
-      "subtitle": "Portátil, privado e ficando melhor a cada dica."
+      "subtitle": "Portátil, privado e melhora a cada dica."
     },
     "getStarted": "Cadastrar",
     "alreadyHaveAccount": "Já tem uma conta?",
     "logIn": "Entrar",
-    "termsPrefix": "Ao continuar, você concorda com nossos",
-    "terms": "Termos",
-    "privacyPrefix": "Você reconhece o recebimento e entendimento da nossa",
+    "termsPrefix": "Ao continuar, você concorda com os",
+    "terms": "Termos de Serviço",
+    "privacyPrefix": "e que leu e tomou ciência da",
     "privacyPolicy": "Política de Privacidade"
   }
 }

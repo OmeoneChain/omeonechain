@@ -165,8 +165,8 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                   })}
                 </p>
 
-                {/* Grace period badge */}
-                {preview.within_grace_period ? (
+                {/* Grace period badge — BOCA is still returned, just cleanly */}
+                {preview.within_grace_period && (
                   <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
                     <Clock size={18} className="text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
                     <div>
@@ -174,12 +174,14 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                         {t('delete.gracePeriod', { defaultMessage: 'Within 15-minute grace period' })}
                       </p>
                       <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-                        {t('delete.noBocaImpact', { defaultMessage: 'No BOCA will be affected.' })}
+                        {t('delete.gracePeriodCleanDelete', { defaultMessage: 'Clean deletion — no archive record or reputation impact.' })}
                       </p>
                     </div>
                   </div>
-                ) : (
-                  /* BOCA impact panel */
+                )}
+
+                {/* BOCA impact panel — always shown */}
+                {preview.boca_impact > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
                       <Coins size={18} className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
@@ -211,8 +213,8 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Negative balance warning */}
-                    {preview.will_go_negative && (
+                    {/* Negative balance warning — only relevant outside grace period */}
+                    {preview.will_go_negative && !preview.within_grace_period && (
                       <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
                         <AlertTriangle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
                         <p className="text-xs text-red-700 dark:text-red-300">
@@ -222,6 +224,16 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                         </p>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Zero impact edge case (should be rare) */}
+                {preview.boca_impact === 0 && (
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 rounded-xl">
+                    <Coins size={18} className="text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {t('delete.noBocaImpact', { defaultMessage: 'No BOCA will be affected.' })}
+                    </p>
                   </div>
                 )}
 
