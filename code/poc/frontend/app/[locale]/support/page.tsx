@@ -1,7 +1,7 @@
 export default function SupportPage() {
   return (
     <div style={{ maxWidth: '600px', margin: '40px auto', padding: '20px', fontFamily: 'system-ui' }}>
-      <img src="/logo.png" alt="BocaBoca" style={{ height: '40px', marginBottom: '24px' }} />
+      <img src="/BocaBoca_Logo.png" alt="BocaBoca" style={{ height: '40px', marginBottom: '24px' }} />
       <h1>Suporte / Support</h1>
       
       <h2>Contato</h2>
