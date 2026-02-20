@@ -11,6 +11,21 @@
       "description": "Por favor, conecte sua carteira para ver seu perfil.",
       "goHome": "Ir para Início"
     },
+    "deleteAccount": {
+      "dangerZone": "Zona de Risco",
+      "description": "Exclua permanentemente sua conta e todos os dados associados. Esta ação não pode ser desfeita.",
+      "button": "Excluir Conta",
+      "confirmTitle": "Excluir Conta?",
+      "confirmMessage": "Esta ação é permanente e não pode ser revertida. Todos os itens a seguir serão excluídos permanentemente:",
+      "warning1": "Seu perfil e informações pessoais",
+      "warning2": "Todas as suas recomendações, compartilhamentos e comentários",
+      "warning3": "Seu saldo de tokens BOCA e histórico de recompensas",
+      "warning4": "Todas as conexões sociais (seguidores e seguindo)",
+      "cancel": "Cancelar",
+      "confirmButton": "Sim, Excluir Minha Conta",
+      "deleting": "Excluindo...",
+      "error": "Falha ao excluir conta. Por favor, tente novamente."
+    },
     "tabs": {
       "tasteMap": "Mapa de Gostos",
       "activity": "Atividade",

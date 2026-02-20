@@ -2042,6 +2042,52 @@ router.patch('/auth/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// DELETE /api/auth/account - Delete user account (Apple requirement 5.1.1v)
+router.delete('/auth/account', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    console.log(`🗑️ Account deletion requested for user: ${userId}`);
+
+    // Delete in dependency order (child tables first)
+    const deletions = [
+      supabase.from('notifications').delete().eq('user_id', userId),
+      supabase.from('notifications').delete().eq('actor_id', userId),
+      supabase.from('token_transactions').delete().or(`sender_id.eq.${userId},recipient_id.eq.${userId}`),
+      supabase.from('reshares').delete().eq('user_id', userId),
+      supabase.from('comments').delete().eq('user_id', userId),
+      supabase.from('reward_events').delete().eq('user_id', userId),
+      supabase.from('pending_tokens').delete().eq('user_id', userId),
+      supabase.from('social_connections').delete().or(`follower_id.eq.${userId},following_id.eq.${userId}`),
+    ];
+
+    // Run child table deletions in parallel
+    const results = await Promise.allSettled(deletions);
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        console.warn(`⚠️ Deletion step ${i} had an issue:`, r.reason);
+      }
+    });
+
+    // Delete recommendations (may have child rows via CASCADE)
+    await supabase.from('recommendations').delete().eq('author_id', userId);
+    await supabase.from('deleted_recommendations').delete().eq('author_id', userId);
+
+    // Finally, delete the user record
+    const { error } = await supabase.from('users').delete().eq('id', userId);
+
+    if (error) {
+      console.error('❌ Failed to delete user record:', error);
+      return res.status(500).json({ success: false, error: 'Failed to delete account' });
+    }
+
+    console.log(`✅ Account deleted successfully: ${userId}`);
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('❌ Account deletion error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete account' });
+  }
+});
+
 // =============================================================================
 // TOKEN ENDPOINTS
 // =============================================================================

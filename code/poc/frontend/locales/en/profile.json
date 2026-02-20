@@ -11,6 +11,21 @@
       "description": "Please connect your wallet to view your profile.",
       "goHome": "Go Home"
     },
+    "deleteAccount": {
+      "dangerZone": "Danger Zone",
+      "description": "Permanently delete your account and all associated data. This action cannot be undone.",
+      "button": "Delete Account",
+      "confirmTitle": "Delete Account?",
+      "confirmMessage": "This action is permanent and cannot be reversed. All of the following will be permanently deleted:",
+      "warning1": "Your profile and personal information",
+      "warning2": "All your recommendations, reshares, and comments",
+      "warning3": "Your BOCA token balance and reward history",
+      "warning4": "All social connections (followers and following)",
+      "cancel": "Cancel",
+      "confirmButton": "Yes, Delete My Account",
+      "deleting": "Deleting...",
+      "error": "Failed to delete account. Please try again."
+    },
     "tabs": {
       "tasteMap": "Taste Map",
       "activity": "Activity",

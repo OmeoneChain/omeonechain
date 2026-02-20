@@ -66,6 +66,7 @@ import { socialApi, recommendationApi, AttributionRewardsResponse } from '../../
 // If your paths differ, only adjust these imports (rest of file should be drop-in).
 import { ProfileEditor } from '../profile/ProfileEditor';
 import ProfileMapView from '../profile/ProfileMapView';
+import { DeleteAccountSection } from '../profile/DeleteAccountSection';
 
 interface UserProfileProps {
   userId: string;
@@ -1860,6 +1861,8 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
             </div>
           </div>
         </div>
+        {/* Delete Account - Apple requirement 5.1.1(v) */}
+        <DeleteAccountSection />
       </div>
     );
   };
