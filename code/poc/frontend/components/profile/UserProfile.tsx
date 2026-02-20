@@ -50,6 +50,7 @@ import {
   Mail,
   Award,
   Shield,
+  SlidersHorizontal,
   Gift,
   Map as MapIcon,
   FileText,
@@ -265,7 +266,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
   const [networkSubTab, setNetworkSubTab] = useState<NetworkSubTab>('followers');
   const [followersLoaded, setFollowersLoaded] = useState(false);
   const [followingLoaded, setFollowingLoaded] = useState(false);
-  const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('rewards');
+  const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('security');
 
   // Profile editor
   const [showProfileEditor, setShowProfileEditor] = useState(false);
@@ -1914,7 +1915,7 @@ export function UserProfile({ userId, currentUserId }: UserProfileProps) {
     { key: 'tastemap', label: t('profile.tabs.tasteMap') ?? 'Taste Map', icon: <MapIcon className="w-4 h-4" />, visible: true },
     { key: 'activity', label: t('profile.tabs.activity') ?? 'Activity', icon: <FileText className="w-4 h-4" />, visible: true },
     { key: 'network', label: t('profile.tabs.network') ?? 'Network', icon: <Users className="w-4 h-4" />, visible: true },
-    { key: 'settings', label: t('profile.tabs.settings') ?? 'Settings', icon: <Settings className="w-4 h-4" />, visible: isOwnProfile }
+    { key: 'settings', label: t('profile.tabs.settings') ?? 'Settings', icon: <SlidersHorizontal className="w-4 h-4" />, visible: isOwnProfile }
   ];
 
   return (
