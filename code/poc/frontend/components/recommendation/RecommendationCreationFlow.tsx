@@ -15,8 +15,11 @@
 // UPDATED: Integrated dish rating into Photos (per-photo annotation), removed Individual Dishes section (Feb 14, 2026)
 // UPDATED: Categories refreshed (added Brunch, Happy Hour, Business Meal, Date Night, Family Friendly) (Feb 14, 2026)
 // UPDATED: Visit Context section hidden for beta (overlaps with Categories) (Feb 14, 2026)
+// FIXED:   Draft autosave race condition on submit — useRef timer cancellation (Feb 21, 2026)
+//          Prevents autosave debounce from re-writing draft after clearDraftFromStorage()
+//          fires during slow/intermittent network submissions.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MapPin,
   Star,
@@ -355,7 +358,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     title: '',
     body: '',
     category: '',
-    overall_rating: 7,
+    overall_rating: 5,
     dishes: [],
     aspects: null,
     context: null,
@@ -378,6 +381,23 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   const [recoveredDraft, setRecoveredDraft] = useState<SerializableDraft | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX (Feb 21, 2026): Ref-based autosave timer for deterministic cancellation.
+  //
+  // Problem: the previous implementation stored the debounce timer ID in a local
+  // useEffect variable. On slow/intermittent connections (common in Brazil),
+  // handleSubmit's async work can take 5–10+ seconds. During that window the
+  // 2-second autosave timer fires and re-writes the draft to localStorage —
+  // *after* clearDraftFromStorage() has already cleaned it up — causing the
+  // "draft found" recovery modal to appear on the next session even though
+  // the recommendation was successfully submitted.
+  //
+  // Fix: store the timer ID in a useRef so handleSubmit can cancel it
+  // imperatively and synchronously before any async work begins, regardless
+  // of how long the network request takes.
+  // ─────────────────────────────────────────────────────────────────────────
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // NOTE: Individual dish state removed (Feb 14, 2026)
   // Dishes are now built from photo annotations at submit time
@@ -582,16 +602,36 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
     }
   }, [editMode, editData]);
 
-  // Autosave draft when content changes (debounced)
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX (Feb 21, 2026): Autosave effect now stores the timer ID in
+  // draftSaveTimerRef rather than a local variable. This allows handleSubmit
+  // to cancel the timer synchronously before starting its async work,
+  // preventing the race condition where a slow API response (common on
+  // patchy connections) lets the debounce timer fire and re-write the draft
+  // after clearDraftFromStorage() has already cleaned it up.
+  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!hasUnsavedChanges) return;
-    
+
     setIsSaving(true);
-    const timeoutId = setTimeout(() => {
+
+    // Cancel any previously scheduled save before scheduling a new one
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+    }
+
+    draftSaveTimerRef.current = setTimeout(() => {
       saveDraftToStorage(draft);
+      draftSaveTimerRef.current = null;
     }, DRAFT_SAVE_DELAY);
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      // Cleanup: cancel the timer if the effect re-runs or the component unmounts
+      if (draftSaveTimerRef.current) {
+        clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = null;
+      }
+    };
   }, [draft, hasUnsavedChanges]);
 
   useEffect(() => {
@@ -679,9 +719,9 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
   // ============================================
 
   const aspects: RestaurantAspects = draft.aspects || {
-    ambiance: 7,
-    service: 7,
-    value_for_money: 7,
+    ambiance: 5,
+    service: 5,
+    value_for_money: 5,
     noise_level: undefined,
     wait_time_minutes: undefined,
   };
@@ -804,6 +844,20 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       return;
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // FIX (Feb 21, 2026): Cancel any pending autosave timer immediately and
+    // synchronously before beginning async work. This is the critical guard
+    // against the race condition on slow/intermittent connections: without
+    // this, the 2-second debounce timer can fire during a long API call and
+    // re-write the draft to localStorage after clearDraftFromStorage() has
+    // already removed it, causing a false "draft found" recovery prompt on
+    // the user's next session.
+    // ─────────────────────────────────────────────────────────────────────
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+
     setIsSubmitting?.(true);
     setIsLoading(true);
 
@@ -886,6 +940,26 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         }
 
         const result = await response.json();
+
+        // FIX (Feb 21, 2026): Clear draft and reset form state BEFORE calling
+        // onSuccess to ensure the component is clean before any navigation
+        // triggered by the parent. This prevents a final autosave effect run
+        // (with hasUnsavedChanges still true) from re-scheduling a save after
+        // clearDraftFromStorage() has already cleaned up.
+        clearDraftFromStorage();
+        setDraft({
+          restaurant: null,
+          title: '',
+          body: '',
+          category: '',
+          overall_rating: 5,
+          dishes: [],
+          aspects: null,
+          context: null,
+          photos: [],
+          context_tags: [],
+          cuisine_type: '',
+        });
 
         toast.success(
           result.within_grace_period
@@ -1051,7 +1125,26 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         tokenBalanceService.forceRefreshBalance(user.id).catch(() => {});
       }
 
-      // Clear draft on successful publish
+      // FIX (Feb 21, 2026): Reset form state BEFORE clearDraftFromStorage() and
+      // BEFORE onSuccess to ensure:
+      //   1. hasUnsavedChanges becomes false, preventing any residual autosave
+      //      effect re-run from scheduling a new timer after the clear.
+      //   2. The component is fully clean before parent navigation occurs.
+      setDraft({
+        restaurant: null,
+        title: '',
+        body: '',
+        category: '',
+        overall_rating: 5,
+        dishes: [],
+        aspects: null,
+        context: null,
+        photos: [],
+        context_tags: [],
+        cuisine_type: '',
+      });
+
+      // Clear draft AFTER state reset so hasUnsavedChanges is already false
       clearDraftFromStorage();
 
       toast.success(t('success.published', { tokens: Number(tokensEarned).toFixed(2) }), {
@@ -1060,20 +1153,6 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
       });
 
       onSuccess?.(recommendationId);
-
-      setDraft({
-        restaurant: null,
-        title: '',
-        body: '',
-        category: '',
-        overall_rating: 7,
-        dishes: [],
-        aspects: null,
-        context: null,
-        photos: [],
-        context_tags: [],
-        cuisine_type: '',
-      });
 
       // NOTE: setCurrentDish / setEditingDishId removed with Individual Dishes section
     } catch (error: any) {
@@ -1679,6 +1758,7 @@ const RecommendationCreationFlow: React.FC<RecommendationCreationFlowProps> = ({
         disabled={!canPublish}
         disabledReason={t('singleScreen.publishHint') || 'Select a restaurant and rating to publish'}
         onPublish={handleSubmit}
+        onCancel={handleCancelClick}
         isPublishing={isLoading || isSubmitting}
         estimatedReward={editMode ? undefined : calculateExpectedRewards()}
         publishLabel={editMode ? (t('edit.saveChanges') || 'Save Changes') : undefined}

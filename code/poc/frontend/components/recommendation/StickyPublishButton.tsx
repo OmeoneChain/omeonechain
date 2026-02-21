@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Loader2, ArrowRight, Coins } from 'lucide-react';
+import { Loader2, ArrowRight, Coins, X } from 'lucide-react';
 
 // Brand colors from BocaBoca guidelines
 const BRAND = {
@@ -41,6 +41,14 @@ interface StickyPublishButtonProps {
   disabledReason?: string;
 
   /**
+   * Optional cancel handler. When provided, the footer renders a two-button
+   * layout (Cancel | Publish) at a 40/60 width split. When omitted, the
+   * original full-width single-button layout is preserved — so any callers
+   * that don't pass onCancel are completely unaffected.
+   */
+  onCancel?: () => void;
+
+  /**
    * Translation function (e.g., from next-intl useTranslations).
    * Optional: component will fall back to basic English strings if omitted.
    */
@@ -62,6 +70,7 @@ export function StickyPublishButton({
   disabled,
   isPublishing,
   disabledReason,
+  onCancel,
   t,
   baseReward = 5.0,
   publishLabel,
@@ -80,6 +89,8 @@ export function StickyPublishButton({
               return 'Tip: some bonuses are unlocked with validation and community engagement';
             case 'singleScreen.publish.bonusEarned':
               return 'Bonus available after validation.';
+            case 'actions.cancel':
+              return 'Cancel';
             default:
               return key;
           }
@@ -101,35 +112,70 @@ export function StickyPublishButton({
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#2D2C3A]/95 backdrop-blur-md border-t border-gray-200 dark:border-[#3D3C4A] pb-[env(safe-area-inset-bottom,16px)]">
       <div className="px-4 py-3 max-w-lg mx-auto">
 
-        {/* Main publish button */}
-        <button
-          type="button"
-          onClick={onPublish}
-          disabled={disabled || isPublishing}
-          className={`w-full flex items-center justify-center gap-3 rounded-xl font-semibold text-white transition-all duration-200 h-14 ${
-            disabled 
-              ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' 
-              : 'bg-[#FF644A] hover:bg-[#E65441] hover:scale-[1.01] cursor-pointer'
-          } ${isPublishing ? 'opacity-80' : ''}`}
-        >
-          {isPublishing ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>{publishLabel ? (tt('singleScreen.publish.saving') || 'Saving...') : tt('singleScreen.publish.publishing')}</span>
-            </>
-          ) : publishLabel ? (
-            <>
-              <span>{publishLabel}</span>
-              <ArrowRight className="w-5 h-5" />
-            </>
-          ) : (
-            <>
-              <Coins className="w-5 h-5" />
-              <span>{tt('singleScreen.publish.button', { tokens: formattedReward })}</span>
-              <ArrowRight className="w-5 h-5" />
-            </>
+        {/* Button row: two-button layout when onCancel provided, full-width otherwise */}
+        <div className={`flex gap-3 ${onCancel ? '' : ''}`}>
+
+          {/* Cancel button — only rendered when onCancel is provided */}
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              // Cancel is always enabled regardless of form completeness —
+              // the user must always be able to leave the flow.
+              disabled={isPublishing}
+              className={`
+                flex items-center justify-center gap-2
+                rounded-xl font-semibold transition-all duration-200 h-14
+                w-[40%] flex-shrink-0
+                border border-gray-300 dark:border-[#3D3C4A]
+                bg-white dark:bg-[#353444]
+                text-[#1F1E2A] dark:text-white
+                hover:bg-gray-50 dark:hover:bg-[#3D3C4A]
+                ${isPublishing ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+              `}
+            >
+              <X className="w-4 h-4" />
+              <span>{tt('actions.cancel')}</span>
+            </button>
           )}
-        </button>
+
+          {/* Publish button — full width when no cancel, 60% when cancel present */}
+          <button
+            type="button"
+            onClick={onPublish}
+            disabled={disabled || isPublishing}
+            className={`
+              flex items-center justify-center gap-3
+              rounded-xl font-semibold text-white transition-all duration-200 h-14
+              ${onCancel ? 'flex-1' : 'w-full'}
+              ${
+                disabled
+                  ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                  : 'bg-[#FF644A] hover:bg-[#E65441] hover:scale-[1.01] cursor-pointer'
+              }
+              ${isPublishing ? 'opacity-80' : ''}
+            `}
+          >
+            {isPublishing ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>{publishLabel ? (tt('singleScreen.publish.saving') || 'Saving...') : tt('singleScreen.publish.publishing')}</span>
+              </>
+            ) : publishLabel ? (
+              <>
+                <span>{publishLabel}</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            ) : (
+              <>
+                <Coins className="w-5 h-5" />
+                <span>{tt('singleScreen.publish.button', { tokens: formattedReward })}</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
+          </button>
+
+        </div>
 
         {/* Bonus hint (only if estimate exceeds baseReward) */}
         {showBonusHint && (
@@ -137,6 +183,7 @@ export function StickyPublishButton({
             🎉 {tt('singleScreen.publish.bonusEarned') || 'Bonus available after validation.'}
           </p>
         )}
+
       </div>
     </div>
   );
