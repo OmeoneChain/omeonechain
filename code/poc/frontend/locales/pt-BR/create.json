@@ -31,15 +31,15 @@
       "overallLabel": "Como você avaliaria no geral?"
     },
     "ratingLabels": {
-      "low": "Não recomendado",
-      "medium": "É ok",
+      "low": "Não vale a pena",
+      "medium": "Na média",
       "high": "Muito bom",
       "excellent": "Excepcional!"
     },
     "review": {
       "label": "Conte sobre sua experiência",
-      "placeholder": "O que tornou este lugar especial? Algum prato que você recomendaria?",
-      "hint": "Dica: Mencione pratos ou experiências específicas para ajudar outros"
+      "placeholder": "Como foi sua experiência? Algum prato que vale mencionar?",
+      "hint": "Dica: Mencione pratos ou momentos específicos para ajudar sua rede a tomar melhores decisões"
     },
     "context": {
       "label": "Ideal para"

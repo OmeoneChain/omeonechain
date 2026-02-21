@@ -31,15 +31,15 @@
       "overallLabel": "How would you rate it overall?"
     },
     "ratingLabels": {
-      "low": "Not recommended",
-      "medium": "It's okay",
+      "low": "Not worth it",
+      "medium": "Average",
       "high": "Really good",
       "excellent": "Exceptional!"
     },
     "review": {
       "label": "Tell us about your experience",
-      "placeholder": "What made this place special? Any dishes you'd recommend?",
-      "hint": "Tip: Mention specific dishes or experiences to help others"
+      "placeholder": "How was your experience? Any dishes worth mentioning?",
+      "hint": "Tip: Mention specific dishes or moments to help your network make better decisions"
     },
     "context": {
       "label": "Best for"
